@@ -1,0 +1,24 @@
+dist: xenial
+language: python
+python:
+  - 3.6
+
+install:
+  - pip install tox-travis
+
+script:
+  - tox
+
+after_success:
+  - tox -e coverage,codecov,package
+
+deploy:
+  - provider: pypi
+    user: zsimic
+    password:
+      secure:
+    distributions: "sdist bdist_wheel --universal"
+    on:
+      python: 3.6
+      repo: zsimic/runez
+      tags: true
