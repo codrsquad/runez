@@ -25,6 +25,11 @@ Overview
 
 It comes in handy for programs that need to run other programs, or copy/move files etc.
 
+The name was initially meant as "run ez" ("run easy"),
+the fact that it sounds like "runes" gives it a bit of a mystery/magic side that's also relatively appropriate
+(it does indeed concentrate a bit of invocation magic, as you can save quite a few lines of repetitive code by using it)
+
+
 Features
 ========
 
