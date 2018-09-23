@@ -1,3 +1,5 @@
+import os
+
 import runez
 
 
@@ -28,4 +30,17 @@ def test_which():
 
 def test_pids():
     assert runez.check_pid(0)
+    assert runez.check_pid(os.getpid())
     assert not runez.check_pid(1)
+
+
+def test_run(temp_base):
+    with runez.CaptureOutput(dryrun=True) as logged:
+        assert "Would run:" in runez.run_program("ls")
+        assert "Would run:" in logged
+
+    with runez.CaptureOutput() as logged:
+        assert runez.touch("foo") == 1
+        assert runez.run_program("ls") == "foo"
+        assert "Running:" in logged
+    print()
