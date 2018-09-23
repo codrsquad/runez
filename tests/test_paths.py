@@ -25,53 +25,57 @@ def test_paths(temp_base):
     # Don't crash for no-ops
     assert runez.ensure_folder(None) == 0
     assert runez.ensure_folder("") == 0
-    assert runez.copy_file(None, None) == 0
-    assert runez.copy_file("foo", "foo") == 0
-    assert runez.move_file(None, None) == 0
-    assert runez.move_file("foo", "foo") == 0
+    assert runez.copy(None, None) == 0
+    assert runez.copy("foo", "foo") == 0
 
     assert runez.ensure_folder("foo") == 0  # 'foo' would be in temp_base, which already exists
 
     with runez.CaptureOutput(dryrun=True) as logged:
         assert runez.ensure_folder("foo", folder=True, fatal=False) == 1
-        assert "Would create" in logged
+        assert "Would create" in logged.pop()
 
-        assert runez.touch("foo") == 1
-        assert "Would touch foo" in logged
+        assert runez.touch("foo", quiet=False) == 1
+        assert "Would touch foo" in logged.pop()
 
-        assert runez.copy_file("foo", "bar") == 1
-        assert "Would copy" in logged
+        assert runez.copy("foo", "bar") == 1
+        assert "Would copy" in logged.pop()
 
-        assert runez.delete_file(temp_base) == 1
-        assert "Would delete" in logged
+        assert runez.delete(temp_base) == 1
+        assert "Would delete" in logged.pop()
 
-    assert runez.touch("foo") == 1
-    assert "Can't create folder" in runez.verify_abort(runez.ensure_folder, "foo", folder=True)
+        assert runez.copy("foo/bar/baz", "foo", fatal=False) == -1
+        assert "source contained in destination" in logged.pop()
+
+    assert runez.touch("sample") == 1
+    assert "Can't create folder" in runez.verify_abort(runez.ensure_folder, "sample", folder=True)
     assert runez.verify_abort(runez.ensure_folder, None) is None
 
-    assert runez.delete_file("foo") == 1
-    assert runez.ensure_folder("foo", folder=True) == 1
+    assert runez.delete("sample") == 1
+    assert runez.ensure_folder("sample", folder=True) == 1
     assert os.getcwd() == temp_base
-    with runez.CurrentFolder("foo"):
-        assert os.getcwd() == os.path.join(temp_base, "foo")
+    with runez.CurrentFolder("sample"):
+        assert os.getcwd() == os.path.join(temp_base, "sample")
     assert os.getcwd() == temp_base
 
-    assert runez.delete_file("foo") == 1
+    assert runez.delete("sample") == 1
 
     with runez.CaptureOutput() as logged:
-        assert runez.write_contents("foo", "bar\nbaz\n\n", verbose=True)
-        assert runez.get_lines("foo") == ["bar\n", "baz\n", "\n"]
-        assert "Writing 9 bytes" in logged
+        assert runez.write_contents("sample", "bar\nbaz\n\n", quiet=False)
+        assert runez.get_lines("sample") == ["bar\n", "baz\n", "\n"]
+        assert "Writing 9 bytes" in logged.pop()
 
-        assert runez.first_line("foo") == "bar"
-        assert runez.file_younger("foo", age=10)
-        assert not runez.file_younger("foo", age=-1)
+        assert runez.first_line("sample") == "bar"
+        assert runez.file_younger("sample", age=10)
+        assert not runez.file_younger("sample", age=-1)
 
-        assert runez.copy_file("bar", "baz", fatal=False) == -1
-        assert "does not exist" in logged
+        assert runez.copy("bar", "baz", fatal=False) == -1
+        assert "does not exist" in logged.pop()
 
-    assert runez.copy_file("foo", "bar") == 1
-    assert runez.move_file("foo", "baz") == 1
+        assert runez.copy("sample", "x/y/sample") == 1
+        assert runez.move("sample", "x/y/sample2") == 1
+
+        assert runez.copy("x/y", "x/z") == 1
+        assert os.path.exists("x/z/sample2")
 
     assert runez.touch(None) == 0
     assert not runez.file_younger(None, 1)
@@ -91,11 +95,14 @@ def test_paths(temp_base):
 def test_failed_read(*_):
     with runez.CaptureOutput() as logged:
         assert runez.get_lines("bar", fatal=False) is None
-        assert "Can't read" in logged
+        assert "Can't read" in logged.pop()
 
         assert runez.write_contents("bar", "foo", fatal=False)
-        assert "Can't write" in logged
+        assert "Can't write" in logged.pop()
 
-        assert runez.copy_file("foo", "bar", fatal=False) == -1
+        assert runez.copy("foo", "bar", fatal=False) == -1
         assert "Can't delete" in logged
-        assert "Can't copy" in logged
+        assert "Can't copy" in logged.pop()
+
+        assert runez.make_executable("foo", fatal=False) == -1
+        assert "Can't chmod" in logged.pop()

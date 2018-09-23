@@ -1,3 +1,5 @@
+import sys
+
 import runez
 
 
@@ -28,5 +30,19 @@ def test_logging():
     with runez.CaptureOutput() as logged:
         runez.warning("foo")
         assert "WARNING: foo" in logged
+
+    with runez.CaptureOutput() as logged:
+        print("on stdout")
+        sys.stderr.write("on stderr")
+
+        assert "stdout" in logged
+        assert "stderr" in logged
+
+    with runez.CaptureOutput(stderr=False) as logged:
+        print("on stdout")
+        sys.stderr.write("on stderr")
+
+        assert "stdout" in logged
+        assert "stderr" not in logged
 
     runez.State.logging = False

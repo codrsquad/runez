@@ -61,19 +61,34 @@ class CaptureOutput:
         """
         :param bool stdout: Capture stdout
         :param bool stderr: Capture stderr
-        :param bool|None dryrun: Override dryrun (when provided)
+        :param bool|None dryrun: Override dryrun (when explicitly specified, ie not None)
         """
         self.dryrun = dryrun
         self.old_out = sys.stdout
         self.old_err = sys.stderr
         self.old_handlers = logging.root.handlers
 
-        self.out_buffer = StringIO() if stdout else self.old_out
-        self.err_buffer = StringIO() if stderr else self.old_err
+        self.out_buffer = StringIO() if stdout else None
 
-        self.handler = logging.StreamHandler(stream=self.err_buffer)
-        self.handler.setLevel(logging.DEBUG)
-        self.handler.setFormatter(logging.Formatter("%(levelname)s - %(message)s"))
+        if stderr:
+            self.err_buffer = StringIO()
+            self.handler = logging.StreamHandler(stream=self.err_buffer)
+            self.handler.setLevel(logging.DEBUG)
+            self.handler.setFormatter(logging.Formatter("%(levelname)s - %(message)s"))
+        else:
+            self.err_buffer = None
+            self.handler = None
+
+    def pop(self):
+        """Current contents popped, useful for testing"""
+        r = self.__repr__()
+        if self.out_buffer:
+            self.out_buffer.seek(0)
+            self.out_buffer.truncate(0)
+        if self.err_buffer:
+            self.err_buffer.seek(0)
+            self.err_buffer.truncate(0)
+        return r
 
     def __repr__(self):
         result = ""
@@ -84,9 +99,12 @@ class CaptureOutput:
         return result
 
     def __enter__(self):
-        sys.stdout = self.out_buffer
-        sys.stderr = self.err_buffer
-        logging.root.handlers = [self.handler]
+        if self.out_buffer:
+            sys.stdout = self.out_buffer
+        if self.err_buffer:
+            sys.stderr = self.err_buffer
+        if self.handler:
+            logging.root.handlers = [self.handler]
 
         if self.dryrun is not None:
             global DRYRUN
@@ -135,10 +153,11 @@ def resolved_path(path, base=None):
 
 def short(path, anchors=None):
     """
-    Example: short("deleted /Users/joe/foo") -> "deleted ~/foo"
+    Example:
+        short("examined /Users/joe/foo") -> "examined ~/foo"
 
     :param path: Path to represent in its short form
-    :param list|None anchors: Extra folders to relativise paths to
+    :param list|str|None anchors: Extra folders to relativise paths to
     :return str: Short form, using '~' if applicable
     """
     if not path:
@@ -214,7 +233,7 @@ def quoted(text):
 def represented_args(args, anchors=None, separator=" "):
     """
     :param list|tuple args: Arguments to represent
-    :param list|None anchors: Extra folders to relativise paths to
+    :param list|str|None anchors: Extra folders to relativise paths to
     :param str separator: Separator to use
     :return str: Quoted as needed textual representation
     """
@@ -386,19 +405,21 @@ def check_pid(pid):
         return False
 
 
-def touch(path):
+def touch(path, fatal=True, quiet=True):
     """
     :param str path: Path to file to touch
+    :param bool fatal: Abort execution on failure if True
+    :param bool quiet: Don't log if True (dryrun being always logged)
     """
-    return write_contents(path, "")
+    return write_contents(path, "", fatal=fatal, quiet=quiet)
 
 
-def write_contents(path, contents, verbose=False, fatal=True):
+def write_contents(path, contents, fatal=True, quiet=False):
     """
     :param str path: Path to file
     :param str contents: Contents to write
-    :param bool verbose: Don't log if False (dryrun being always logged)
     :param bool fatal: Abort execution on failure if True
+    :param bool quiet: Don't log if True (dryrun being always logged)
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
     if not path:
@@ -410,7 +431,7 @@ def write_contents(path, contents, verbose=False, fatal=True):
         return 1
 
     ensure_folder(path, fatal=fatal)
-    if verbose and contents:
+    if not quiet and contents:
         debug("Writing %s bytes to %s", len(contents), short(path))
 
     try:
@@ -425,41 +446,41 @@ def write_contents(path, contents, verbose=False, fatal=True):
         return abort("Can't write to %s: %s", short(path), e, fatal=fatal)
 
 
-def copy_file(source, destination, fatal=True, adapter=None):
+def copy(source, destination, adapter=None, fatal=True):
     """
     Copy source -> destination
 
     :param str source: Source file or folder
     :param str destination: Destination file or folder
-    :param bool fatal: Abort execution on failure if True
     :param callable adapter: Optional function to call on 'source' before copy
+    :param bool fatal: Abort execution on failure if True
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
-    return _file_op(source, destination, _copy, fatal, adapter)
+    return _file_op(source, destination, _copy, adapter, fatal)
 
 
-def move_file(source, destination, fatal=True, adapter=None):
+def move(source, destination, adapter=None, fatal=True):
     """
     Move source -> destination
 
     :param str source: Source file or folder
     :param str destination: Destination file or folder
-    :param bool fatal: Abort execution on failure if True
     :param callable adapter: Optional function to call on 'source' before copy
+    :param bool fatal: Abort execution on failure if True
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
-    return _file_op(source, destination, _move, fatal, adapter)
+    return _file_op(source, destination, _move, adapter, fatal)
 
 
-def _file_op(source, destination, func, fatal, adapter):
+def _file_op(source, destination, func, adapter, fatal):
     """
     Call func(source, destination)
 
     :param str source: Source file or folder
     :param str destination: Destination file or folder
     :param callable func: Implementation function
-    :param bool fatal: Abort execution on failure if True
     :param callable adapter: Optional function to call on 'source' before copy
+    :param bool fatal: Abort execution on failure if True
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
     if not source or not destination or source == destination:
@@ -482,7 +503,7 @@ def _file_op(source, destination, func, fatal, adapter):
     debug("%s %s -> %s%s", action.title(), short(source), short(destination), note)
 
     ensure_folder(destination, fatal=fatal)
-    delete_file(destination, fatal=fatal, quiet=True)
+    delete(destination, fatal=fatal, quiet=True)
     try:
         func(source, destination)
         return 1
@@ -506,7 +527,7 @@ def _move(source, destination):
     shutil.move(source, destination)
 
 
-def delete_file(path, fatal=True, quiet=False):
+def delete(path, fatal=True, quiet=False):
     """
     :param str|None path: Path to file or folder to delete
     :param bool fatal: Abort execution on failure if True
@@ -610,7 +631,10 @@ def run_program(program, *args, **kwargs):
     stderr = kwargs.pop("stderr", subprocess.PIPE)
     args = [full_path] + args
     try:
-        p = subprocess.Popen(args, stdout=stdout, stderr=stderr, env=added_env_paths(kwargs.pop("path_env", None)))  # nosec
+        path_env = kwargs.pop("path_env", None)
+        if path_env:
+            kwargs["env"] = added_env_paths(path_env, env=kwargs.get("env"))
+        p = subprocess.Popen(args, stdout=stdout, stderr=stderr, **kwargs)  # nosec
         output, err = p.communicate()
         output = decode(output)
         err = decode(err)
