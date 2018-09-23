@@ -20,8 +20,12 @@ def test_capture(temp_base):
         chatter = runez.resolved_path("chatter")
         runez.write_contents(chatter, CHATTER.strip())
         runez.make_executable(chatter)
+
         assert runez.run_program(chatter, fatal=False) == "chatter"
-        assert runez.run_program(chatter, include_error=True, fatal=False) == "chatter\nls: foo: No such file or directory"
+
+        r = runez.run_program(chatter, include_error=True, fatal=False)
+        assert r.startswith("chatter")
+        assert "No such file" in r
 
 
 def test_executable(temp_base):
