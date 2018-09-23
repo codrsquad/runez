@@ -60,9 +60,15 @@ Run a program::
     import runez
 
     # Aborts if "foo" doesn't exist
+    output = runez.run_program("ls", "foo")
+
+    # Output can also be ignored
     runez.run_program("ls", "foo")
 
-    # Doesn't abort, returns None instead (returns output when successful)
+    # Don't capture output, just run the command and let output "pass through"
+    runez.run_program("ls", "foo", stdout=None, stderr=None)
+
+    # Don't abort, return None on failure (or actual output when successful)
     output = runez.run_program("ls", "foo", fatal=False)
 
 
