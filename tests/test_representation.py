@@ -1,3 +1,5 @@
+from mock import patch
+
 import runez
 
 
@@ -33,3 +35,14 @@ def test_conversion():
 
     # valid
     assert runez.to_int("5", default=1) == 5
+
+
+def test_version():
+    v1 = runez.get_version(runez)
+    v2 = runez.get_version(runez.__name__)
+    assert v1 == v2
+
+    with runez.CaptureOutput() as logged:
+        with patch("pkg_resources.get_distribution", side_effect=Exception("testing")):
+            assert runez.get_version(runez, fatal=False) == "0.0.0"
+        assert "Can't determine version for runez" in logged

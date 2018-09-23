@@ -137,6 +137,26 @@ def decode(value):
     return value
 
 
+def get_version(mod, default="0.0.0", fatal=True, quiet=False):
+    """
+    :param module|str mod: Module, or module name to find version for (pass either calling module, or its .__name__)
+    :param str default: Value to return if version determination fails
+    :param bool fatal: Abort execution on failure if True
+    :param bool quiet: Don't log if True
+    :return str: Determined version
+    """
+    name = mod
+    if hasattr(mod, "__name__"):
+        name = mod.__name__
+
+    try:
+        import pkg_resources
+        return pkg_resources.get_distribution(name).version
+
+    except Exception as e:
+        return abort("Can't determine version for %s: %s", name, e, exc_info=e, fatal=fatal, quiet=quiet, return_value=default)
+
+
 def resolved_path(path, base=None):
     """
     :param str path: Path to resolve
