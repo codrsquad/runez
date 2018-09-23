@@ -17,6 +17,14 @@ def test_abort():
         assert runez.abort("aborted", fatal=False, quiet=True, return_value="foo") == "foo"
         assert not logged
 
+
+def test_logging():
+    runez.State.logging = True
+
+    with runez.CaptureOutput() as logged:
+        runez.debug("foo")
+        assert "foo" in logged
+
     with runez.CaptureOutput() as logged:
         runez.warning("foo")
         assert "WARNING: foo" in logged

@@ -19,7 +19,6 @@ def test_executable(temp_base):
         assert "does not exist, can't make it executable" in logged
 
 
-
 def test_which():
     assert runez.which(None) is None
     assert runez.which("/dev/null") is None
