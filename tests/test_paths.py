@@ -47,12 +47,9 @@ def test_paths(temp_base):
 
     assert runez.touch("foo") == 1
     assert "Can't create folder" in runez.verify_abort(runez.ensure_folder, "foo", folder=True)
-    assert runez.make_executable("foo") == 1
-    assert runez.is_executable("foo")
+    assert runez.verify_abort(runez.ensure_folder, None) is None
 
     assert runez.delete_file("foo") == 1
-    assert not runez.is_executable("foo")
-
     assert runez.ensure_folder("foo", folder=True) == 1
     assert os.getcwd() == temp_base
     with runez.CurrentFolder("foo"):
@@ -102,8 +99,3 @@ def test_failed_read(*_):
         assert runez.copy_file("foo", "bar", fatal=False) == -1
         assert "Can't delete" in logged
         assert "Can't copy" in logged
-
-
-def test_pids():
-    assert runez.check_pid(0)
-    assert not runez.check_pid(1)
