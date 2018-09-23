@@ -1,4 +1,4 @@
-Automate installation of standalone python CLIs
+Convenience methods for file/process operations
 ===============================================
 
 .. image:: https://img.shields.io/pypi/v/runez.svg

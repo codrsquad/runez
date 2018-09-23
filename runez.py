@@ -10,6 +10,13 @@ import subprocess  # nosec
 import sys
 import time
 
+try:
+    import StringIO
+    StringIO = StringIO.StringIO
+
+except ImportError:
+    StringIO = io.StringIO
+
 
 LOG = logging.getLogger(__name__)
 HOME = os.path.expanduser("~")
@@ -61,8 +68,8 @@ class CaptureOutput:
         self.old_err = sys.stderr
         self.old_handlers = logging.root.handlers
 
-        self.out_buffer = io.StringIO() if stdout else self.old_out
-        self.err_buffer = io.StringIO() if stderr else self.old_err
+        self.out_buffer = StringIO() if stdout else self.old_out
+        self.err_buffer = StringIO() if stderr else self.old_err
 
         self.handler = logging.StreamHandler(stream=self.err_buffer)
         self.handler.setLevel(logging.DEBUG)
@@ -100,6 +107,9 @@ class CaptureOutput:
 
     def __contains__(self, item):
         return item is not None and item in str(self)
+
+    def __len__(self):
+        return len(str(self))
 
 
 def decode(value):
@@ -232,7 +242,7 @@ def debug(message, *args, **kwargs):
     if State.logging:
         LOG.debug(message, *args, **kwargs)
     if State.testing:
-        print(str(message) % args)
+        print(message % args)
 
 
 def info(message, *args, **kwargs):
@@ -248,7 +258,7 @@ def info(message, *args, **kwargs):
     if State.logging:
         LOG.info(message, *args, **kwargs)
     if output or State.testing:
-        print(str(message) % args)
+        print(message % args)
 
 
 def warning(message, *args, **kwargs):
@@ -256,7 +266,7 @@ def warning(message, *args, **kwargs):
     if State.logging:
         LOG.warning(message, *args, **kwargs)
     if State.output or State.testing:
-        print("WARNING: %s" % (str(message) % args))
+        print("WARNING: %s" % (message % args))
 
 
 def error(message, *args, **kwargs):
@@ -264,7 +274,7 @@ def error(message, *args, **kwargs):
     if State.logging:
         LOG.error(message, *args, **kwargs)
     if State.output or State.testing:
-        print("ERROR: %s" % (str(message) % args))
+        print("ERROR: %s" % (message % args))
 
 
 def abort(*args, **kwargs):
