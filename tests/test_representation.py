@@ -4,13 +4,29 @@ import runez
 
 
 def test_flattening():
+    assert runez.flattened(None) == []
+    assert runez.flattened("") == []
+
     assert runez.flattened(["-r", None, "foo"]) == ["-r", "foo"]
     assert runez.flattened(["-r", None, "foo"], unique=False) == ["foo"]
 
     assert runez.flattened(["foo", "--something", (None, "bar")], unique=False) == ["foo", "bar"]
 
-    assert runez.flattened("foo bar") == ["foo bar"]
-    assert runez.flattened("foo bar", separator=" ") == ["foo", "bar"]
+    assert runez.flattened("a b") == ["a b"]
+    assert runez.flattened("a b", separator=" ") == ["a", "b"]
+
+    assert runez.flattened(["a b"]) == ["a b"]
+    assert runez.flattened([["a b"]]) == ["a b"]
+
+    assert runez.flattened(["a", ["a", "b"]]) == ["a", "b"]
+    assert runez.flattened(["a", ["a", "b"]], unique=False) == ["a", "a", "b"]
+
+    assert runez.flattened(["a b", ["a b c"]]) == ["a b", "a b c"]
+    assert runez.flattened(["a b", ["a b c"]], separator=" ") == ["a", "b", "c"]
+    assert runez.flattened(["a b", ["a b c"], "a"], separator=" ", unique=False) == ["a", "b", "a", "b", "c", "a"]
+
+    assert runez.flattened(["a b", [None, "-i", None]]) == ["a b", "-i"]
+    assert runez.flattened(["a b", [None, "-i", None]], unique=False) == ["a b"]
 
     assert runez.represented_args(None) == ""
     assert runez.represented_args([]) == ""
@@ -21,7 +37,9 @@ def test_quoting():
     assert runez.quoted(None) is None
     assert runez.quoted("") == ""
     assert runez.quoted(" ") == '" "'
-    assert runez.quoted("foo bar") == '"foo bar"'
+    assert runez.quoted('"') == '"'
+
+    assert runez.quoted("a b") == '"a b"'
     assert runez.quoted('a="b"') == 'a="b"'
     assert runez.quoted('foo a="b"') == """'foo a="b"'"""
 
@@ -34,7 +52,8 @@ def test_conversion():
     assert runez.to_int("6.1", default=2) == 2
 
     # valid
-    assert runez.to_int("5", default=1) == 5
+    assert runez.to_int(5, default=3) == 5
+    assert runez.to_int("5", default=3) == 5
 
 
 def test_version():

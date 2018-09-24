@@ -20,7 +20,7 @@ def test_paths(temp_base):
     assert runez.parent_folder(None) is None
     assert runez.parent_folder(temp_base + "/foo") == temp_base
 
-    assert runez.represented_args(["ls", temp_base + "/foo", "-a"], anchors=temp_base) == "ls foo -a"
+    assert runez.represented_args(["ls", temp_base + "/foo bar", "-a"], anchors=temp_base) == 'ls "foo bar" -a'
 
     # Don't crash for no-ops
     assert runez.ensure_folder(None) == 0
