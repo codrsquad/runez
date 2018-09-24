@@ -524,6 +524,7 @@ def save_json(data, path, fatal=False, quiet=True, sort_keys=True, indent=2):
 
         with open(path, "wt") as fh:
             json.dump(data, fh, sort_keys=sort_keys, indent=indent)
+            fh.write("\n")
 
         if not quiet:
             debug("Saved %s", short(path))
@@ -731,7 +732,7 @@ def run_program(program, *args, **kwargs):
         if err is not None:
             err = err.strip()
 
-        if p.returncode:
+        if p.returncode and (fatal or not output):
             note = ": %s\n%s" % (err, output) if output or err else ""
             message = "%s exited with code %s%s" % (short(program, anchors=anchors), p.returncode, note.strip())
             return abort(message, fatal=fatal, quiet=quiet, return_value=None)
