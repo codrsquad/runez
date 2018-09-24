@@ -732,7 +732,7 @@ def run_program(program, *args, **kwargs):
         if err is not None:
             err = err.strip()
 
-        if p.returncode and (fatal or not output):
+        if p.returncode and fatal is not None:
             note = ": %s\n%s" % (err, output) if output or err else ""
             message = "%s exited with code %s%s" % (short(program, anchors=anchors), p.returncode, note.strip())
             return abort(message, fatal=fatal, quiet=quiet, return_value=None)
