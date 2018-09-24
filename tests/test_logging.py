@@ -25,24 +25,22 @@ def test_logging():
 
     with runez.CaptureOutput() as logged:
         runez.debug("foo")
-        assert "foo" in logged
+        assert "foo\n" == logged.pop()
 
-    with runez.CaptureOutput() as logged:
+        runez.info("foo")
+        assert "foo\n" == logged.pop()
+
         runez.warning("foo")
-        assert "WARNING: foo" in logged
+        assert "WARNING: foo" in logged.pop()
 
-    with runez.CaptureOutput() as logged:
         print("on stdout")
         sys.stderr.write("on stderr")
-
-        assert "stdout" in logged
-        assert "stderr" in logged
+        assert "on stdout\non stderr" in logged.pop()
 
     with runez.CaptureOutput(stderr=False) as logged:
         print("on stdout")
         sys.stderr.write("on stderr")
 
-        assert "stdout" in logged
-        assert "stderr" not in logged
+        assert "on stdout\n" in logged.pop()
 
     runez.State.logging = False

@@ -3,6 +3,7 @@ Convenience methods for file/process operations
 """
 
 import io
+import json
 import logging
 import os
 import shutil
@@ -142,7 +143,7 @@ def get_version(mod, default="0.0.0", fatal=True, quiet=False):
     :param module|str mod: Module, or module name to find version for (pass either calling module, or its .__name__)
     :param str default: Value to return if version determination fails
     :param bool fatal: Abort execution on failure if True
-    :param bool quiet: Don't log if True
+    :param bool quiet: Don't log errors if True
     :return str: Determined version
     """
     name = mod
@@ -329,12 +330,13 @@ def abort(*args, **kwargs):
     :return: kwargs["return_value"] (default: -1) to signify failure to non-fatal callers
     """
     code = kwargs.pop("code", 1)
+    logger = kwargs.pop("logger", warning)
     fatal = kwargs.pop("fatal", True)
     quiet = kwargs.pop("quiet", False)
     return_value = kwargs.pop("return_value", -1)
     if not quiet and args:
         if code == 0:
-            info(*args, **kwargs)
+            logger(*args, **kwargs)
         else:
             error(*args, **kwargs)
     if fatal:
@@ -342,11 +344,12 @@ def abort(*args, **kwargs):
     return return_value
 
 
-def ensure_folder(path, folder=False, fatal=True):
+def ensure_folder(path, folder=False, fatal=True, quiet=False):
     """
     :param str path: Path to file or folder
     :param bool folder: If True, 'path' refers to a folder (file otherwise)
     :param bool fatal: Abort execution on failure if True
+    :param bool quiet: Don't log debug if True
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
     if not path:
@@ -365,6 +368,8 @@ def ensure_folder(path, folder=False, fatal=True):
 
     try:
         os.makedirs(folder)
+        if not quiet:
+            debug("Created folder %s", short(folder))
         return 1
 
     except Exception as e:
@@ -388,7 +393,7 @@ def get_lines(path, max_size=8192, fatal=True, quiet=False):
     :param str path: Path of text file to return lines from
     :param int max_size: Return contents only for files smaller than 'max_size' bytes
     :param bool fatal: Abort execution on failure if True
-    :param bool quiet: Don't log if True
+    :param bool quiet: Don't log errors if True
     :return list|None: Lines from file contents
     """
     if not path or not os.path.isfile(path) or os.path.getsize(path) > max_size:
@@ -434,12 +439,12 @@ def touch(path, fatal=True, quiet=True):
     return write_contents(path, "", fatal=fatal, quiet=quiet)
 
 
-def write_contents(path, contents, fatal=True, quiet=False):
+def write_contents(path, contents, fatal=True, quiet=True):
     """
     :param str path: Path to file
     :param str contents: Contents to write
     :param bool fatal: Abort execution on failure if True
-    :param bool quiet: Don't log if True (dryrun being always logged)
+    :param bool quiet: Don't log debug if True
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
     if not path:
@@ -450,7 +455,7 @@ def write_contents(path, contents, fatal=True, quiet=False):
         debug("Would %s %s", action, short(path))
         return 1
 
-    ensure_folder(path, fatal=fatal)
+    ensure_folder(path, fatal=fatal, quiet=quiet)
     if not quiet and contents:
         debug("Writing %s bytes to %s", len(contents), short(path))
 
@@ -464,6 +469,67 @@ def write_contents(path, contents, fatal=True, quiet=False):
 
     except Exception as e:
         return abort("Can't write to %s: %s", short(path), e, fatal=fatal)
+
+
+def read_json(path, default=None, fatal=False, quiet=True):
+    """
+    :param str path: Path to file to deserialize
+    :param dict|list default: Default if file is not present, or if it's not json
+    :param bool fatal: Abort execution on failure if True
+    :param bool quiet: Don't log debug if True
+    :return dict|list: Deserialized data from file
+    """
+    path = resolved_path(path)
+    if not path or not os.path.exists(path):
+        return default
+
+    try:
+        with io.open(path, "rt") as fh:
+            data = json.load(fh)
+            if default is not None and type(data) != type(default):
+                return abort(
+                    "Wrong type %s for %s, expecting %s", type(data), short(path), type(default), fatal=fatal, return_value=default
+                )
+            if not quiet:
+                debug("Read %s", short(path))
+            return data
+
+    except Exception as e:
+        return abort("Couldn't read %s: %s", short(path), e, fatal=fatal, return_value=default)
+
+
+def save_json(data, path, fatal=False, quiet=True, sort_keys=True, indent=2):
+    """
+    :param dict|list|None data: Data to serialize and save
+    :param bool fatal: Abort execution on failure if True
+    :param bool quiet: Don't log debug if True
+    :param bool sort_keys: Save json with sorted keys
+    :param int indent: Indentation to use
+    :param str path: Path to file where to save
+    """
+    if data is None or not path:
+        return 0
+
+    try:
+        path = resolved_path(path)
+        ensure_folder(path, fatal=fatal, quiet=quiet)
+        if DRYRUN:
+            debug("Would save %s", short(path))
+            return 1
+
+        if hasattr(data, "to_dict"):
+            data = data.to_dict()
+
+        with open(path, "wt") as fh:
+            json.dump(data, fh, sort_keys=sort_keys, indent=indent)
+
+        if not quiet:
+            debug("Saved %s", short(path))
+
+        return 1
+
+    except Exception as e:
+        return abort("Couldn't save %s: %s", short(path), e, fatal=fatal)
 
 
 def copy(source, destination, adapter=None, fatal=True):
