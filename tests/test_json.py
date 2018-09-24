@@ -14,6 +14,12 @@ def test_json(temp_base):
         assert "Would save" in logged.pop()
 
     with runez.CaptureOutput() as logged:
+        assert runez.read_json("sample.json", fatal=False) is None
+        assert "No file" in logged.pop()
+
+        assert runez.read_json("sample.json", default={}, fatal=False) == {}
+        assert not logged
+
         with patch("runez.open", side_effect=Exception):
             assert runez.save_json(data, "sample.json") == -1
             assert "Couldn't save" in logged.pop()
