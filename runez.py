@@ -22,6 +22,7 @@ except ImportError:
 
 LOG = logging.getLogger(__name__)
 HOME = os.path.expanduser("~")
+SYMBOLIC_TMP = "<tmp>"
 DRYRUN = False
 
 
@@ -50,15 +51,12 @@ class CurrentFolder:
 class TempFolder:
     """Context manager for obtaining a temp folder"""
 
-    def __init__(self, symbolic_name="<tmp>"):
-        """
-        :param str symbolic_name: Temp folder name to use in dryrun mode
-        """
-        self.symbolic_name = symbolic_name
+    def __init__(self):
         self.dryrun = DRYRUN
+        self.tmp_folder = None
 
     def __enter__(self):
-        self.tmp_folder = self.symbolic_name if self.dryrun else tempfile.mkdtemp()
+        self.tmp_folder = SYMBOLIC_TMP if self.dryrun else tempfile.mkdtemp()
         return self.tmp_folder
 
     def __exit__(self, *_):
@@ -186,7 +184,7 @@ def resolved_path(path, base=None):
     :param str|None base: Base path to use to resolve relative paths (default: current working dir)
     :return str: Absolute path
     """
-    if not path:
+    if not path or path.startswith(SYMBOLIC_TMP):
         return path
     path = os.path.expanduser(path)
     if base and not os.path.isabs(path):
