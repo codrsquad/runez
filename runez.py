@@ -9,6 +9,7 @@ import os
 import shutil
 import subprocess  # nosec
 import sys
+import tempfile
 import time
 
 try:
@@ -44,6 +45,27 @@ class CurrentFolder:
 
     def __exit__(self, *_):
         os.chdir(self.current_folder)
+
+
+class TempFolder:
+    """Context manager for obtaining a temp folder"""
+
+    def __init__(self, symbolic_name="<tmp>"):
+        """
+        :param str symbolic_name: Temp folder name to use in dryrun mode
+        """
+        self.symbolic_name = symbolic_name
+        self.dryrun = DRYRUN
+
+    def __enter__(self):
+        self.tmp_folder = self.symbolic_name if self.dryrun else tempfile.mkdtemp()
+        return self.tmp_folder
+
+    def __exit__(self, *_):
+        if self.dryrun:
+            debug("Would delete %s", self.tmp_folder)
+        else:
+            delete(self.tmp_folder)
 
 
 class CaptureOutput:

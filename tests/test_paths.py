@@ -106,3 +106,15 @@ def test_failed_read(*_):
 
         assert runez.make_executable("foo", fatal=False) == -1
         assert "Can't chmod" in logged.pop()
+
+
+def test_temp():
+    with runez.CaptureOutput() as logged:
+        with runez.TempFolder() as tmp:
+            assert tmp
+        assert "Deleting " in logged
+
+    with runez.CaptureOutput(dryrun=True) as logged:
+        with runez.TempFolder() as tmp:
+            assert tmp == "<tmp>"
+        assert "Would delete" in logged
