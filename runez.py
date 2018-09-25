@@ -699,7 +699,7 @@ def run_program(program, *args, **kwargs):
     full_path = which(program)
 
     fatal = kwargs.pop("fatal", True)
-    dryrun = kwargs.pop("dryrun", fatal and DRYRUN)
+    dryrun = kwargs.pop("dryrun", DRYRUN)
     include_error = kwargs.pop("include_error", False)
     quiet = kwargs.pop("quiet", False)
     anchors = kwargs.pop("anchors", None)

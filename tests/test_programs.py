@@ -63,13 +63,16 @@ def test_run(temp_base):
     assert runez.added_env_paths(None) is None
 
     with runez.CaptureOutput(dryrun=True) as logged:
-        assert runez.run_program("/dev/null", fatal=False) is None
-        assert "ERROR: /dev/null is not installed" in logged.pop()
+        assert "Would run: /dev/null" in runez.run_program("/dev/null", fatal=False)
+        assert "Would run: /dev/null" in logged.pop()
 
         assert "Would run:" in runez.run_program("ls")
         assert "Would run:" in logged.pop()
 
     with runez.CaptureOutput() as logged:
+        assert runez.run_program("/dev/null", fatal=False) is None
+        assert "ERROR: /dev/null is not installed" in logged.pop()
+
         assert runez.touch("sample") == 1
         assert runez.run_program("ls", ".", path_env={"PATH": ":."}) == "sample"
         assert "Running:" in logged.pop()
@@ -82,6 +85,6 @@ def test_run(temp_base):
 
 @patch("subprocess.Popen", side_effect=Exception("testing"))
 def test_failed_run(_):
-    with runez.CaptureOutput(dryrun=True) as logged:
+    with runez.CaptureOutput() as logged:
         assert runez.run_program("ls", fatal=False) is None
         assert "ERROR: ls failed: testing" in logged
