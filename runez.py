@@ -555,7 +555,7 @@ def save_json(data, path, fatal=False, quiet=True, sort_keys=True, indent=2):
         return abort("Couldn't save %s: %s", short(path), e, fatal=fatal)
 
 
-def copy(source, destination, adapter=None, fatal=True):
+def copy(source, destination, adapter=None, fatal=True, quiet=False):
     """
     Copy source -> destination
 
@@ -563,12 +563,13 @@ def copy(source, destination, adapter=None, fatal=True):
     :param str destination: Destination file or folder
     :param callable adapter: Optional function to call on 'source' before copy
     :param bool fatal: Abort execution on failure if True
+    :param bool quiet: Don't log if True
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
-    return _file_op(source, destination, _copy, adapter, fatal)
+    return _file_op(source, destination, _copy, adapter, fatal, quiet)
 
 
-def move(source, destination, adapter=None, fatal=True):
+def move(source, destination, adapter=None, fatal=True, quiet=False):
     """
     Move source -> destination
 
@@ -576,12 +577,13 @@ def move(source, destination, adapter=None, fatal=True):
     :param str destination: Destination file or folder
     :param callable adapter: Optional function to call on 'source' before copy
     :param bool fatal: Abort execution on failure if True
+    :param bool quiet: Don't log if True
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
-    return _file_op(source, destination, _move, adapter, fatal)
+    return _file_op(source, destination, _move, adapter, fatal, quiet)
 
 
-def _file_op(source, destination, func, adapter, fatal):
+def _file_op(source, destination, func, adapter, fatal, quiet):
     """
     Call func(source, destination)
 
@@ -590,6 +592,7 @@ def _file_op(source, destination, func, adapter, fatal):
     :param callable func: Implementation function
     :param callable adapter: Optional function to call on 'source' before copy
     :param bool fatal: Abort execution on failure if True
+    :param bool quiet: Don't log if True
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
     if not source or not destination or source == destination:
@@ -608,10 +611,11 @@ def _file_op(source, destination, func, adapter, fatal):
     if not os.path.exists(source):
         return abort("%s does not exist, can't %s to %s", short(source), action.title(), short(destination), fatal=fatal)
 
-    note = adapter(source, destination, fatal=fatal) if adapter else ""
-    debug("%s %s -> %s%s", action.title(), short(source), short(destination), note)
+    if not quiet:
+        note = adapter(source, destination, fatal=fatal) if adapter else ""
+        debug("%s %s -> %s%s", action.title(), short(source), short(destination), note)
 
-    ensure_folder(destination, fatal=fatal)
+    ensure_folder(destination, fatal=fatal, quiet=quiet)
     delete(destination, fatal=fatal, quiet=True)
     try:
         func(source, destination)
