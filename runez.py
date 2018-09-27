@@ -431,7 +431,7 @@ def get_lines(path, max_size=8192, fatal=True, quiet=False):
 def file_younger(path, age):
     """
     :param str path: Path to file
-    :param int age: How many seconds to consider the file too old
+    :param int|float age: How many seconds to consider the file too old
     :return bool: True if file exists and is younger than 'age' seconds
     """
     try:
