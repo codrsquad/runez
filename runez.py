@@ -611,13 +611,15 @@ def _file_op(source, destination, func, adapter, fatal, quiet):
     if not os.path.exists(source):
         return abort("%s does not exist, can't %s to %s", short(source), action.title(), short(destination), fatal=fatal)
 
-    if not quiet:
-        note = adapter(source, destination, fatal=fatal, quiet=quiet) if adapter else ""
-        debug("%s %s -> %s%s", action.title(), short(source), short(destination), note)
-
-    ensure_folder(destination, fatal=fatal, quiet=quiet)
-    delete(destination, fatal=fatal, quiet=True)
     try:
+        # Delete destination, but ensure that its parent folder exists
+        delete(destination, fatal=fatal, quiet=True)
+        ensure_folder(destination, fatal=fatal, quiet=quiet)
+
+        if not quiet:
+            note = adapter(source, destination, fatal=fatal, quiet=quiet) if adapter else ""
+            debug("%s %s -> %s%s", action.title(), short(source), short(destination), note)
+
         func(source, destination)
         return 1
 
