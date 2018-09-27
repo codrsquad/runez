@@ -612,7 +612,7 @@ def _file_op(source, destination, func, adapter, fatal, quiet):
         return abort("%s does not exist, can't %s to %s", short(source), action.title(), short(destination), fatal=fatal)
 
     if not quiet:
-        note = adapter(source, destination, fatal=fatal) if adapter else ""
+        note = adapter(source, destination, fatal=fatal, quiet=quiet) if adapter else ""
         debug("%s %s -> %s%s", action.title(), short(source), short(destination), note)
 
     ensure_folder(destination, fatal=fatal, quiet=quiet)
