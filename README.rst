@@ -87,8 +87,11 @@ File operations::
 
     runez.ensure_folder("foo/bar")
     parent = runez.parent_folder("foo/bar")
+
     full_path = runez.resolved_path("foo/bar")
-    assert runez.short(full_path, anchors=parent) == "bar"
+    runes.add_anchors(parent)
+    assert runez.short(full_path) == "bar"
+    runes.pop_anchors(parent)
 
 
 Installation

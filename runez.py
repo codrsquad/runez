@@ -29,6 +29,8 @@ DRYRUN = False
 class State:
     """Helps track state without using globals"""
 
+    anchors = []  # Folder paths that can be used to shorten paths, via short()
+
     output = True  # print() warning/error messages (can be turned off when/if we have a logger to console for example)
     testing = False  # print all messages instead of logging (useful when running tests)
     logging = False  # Set to True if logging was setup
@@ -37,29 +39,39 @@ class State:
 class CurrentFolder:
     """Context manager for changing the current working directory"""
 
-    def __init__(self, destination):
+    def __init__(self, destination, anchor=False):
+        self.anchor = anchor
         self.destination = resolved_path(destination)
 
     def __enter__(self):
         self.current_folder = os.getcwd()
         os.chdir(self.destination)
+        if self.anchor:
+            add_anchors(self.destination)
 
     def __exit__(self, *_):
         os.chdir(self.current_folder)
+        if self.anchor:
+            pop_anchors(self.destination)
 
 
 class TempFolder:
     """Context manager for obtaining a temp folder"""
 
-    def __init__(self):
+    def __init__(self, anchor=True):
+        self.anchor = anchor
         self.dryrun = DRYRUN
         self.tmp_folder = None
 
     def __enter__(self):
         self.tmp_folder = SYMBOLIC_TMP if self.dryrun else tempfile.mkdtemp()
+        if self.anchor:
+            add_anchors(self.tmp_folder)
         return self.tmp_folder
 
     def __exit__(self, *_):
+        if self.anchor:
+            pop_anchors(self.tmp_folder)
         if self.dryrun:
             debug("Would delete %s", self.tmp_folder)
         else:
@@ -78,12 +90,14 @@ class CaptureOutput:
         # output is available in 'output'
     """
 
-    def __init__(self, stdout=True, stderr=True, dryrun=None):
+    def __init__(self, stdout=True, stderr=True, anchors=None, dryrun=None):
         """
         :param bool stdout: Capture stdout
         :param bool stderr: Capture stderr
+        :param str|list anchors: Optional paths to use as anchors for short()
         :param bool|None dryrun: Override dryrun (when explicitly specified, ie not None)
         """
+        self.anchors = anchors
         self.dryrun = dryrun
         self.old_out = sys.stdout
         self.old_err = sys.stderr
@@ -127,6 +141,9 @@ class CaptureOutput:
         if self.handler:
             logging.root.handlers = [self.handler]
 
+        if self.anchors:
+            add_anchors(self.anchors)
+
         if self.dryrun is not None:
             global DRYRUN
             (DRYRUN, self.dryrun) = (bool(self.dryrun), bool(DRYRUN))
@@ -139,6 +156,9 @@ class CaptureOutput:
         self.out_buffer = None
         self.err_buffer = None
         logging.root.handlers = self.old_handlers
+
+        if self.anchors:
+            pop_anchors(self.anchors)
 
         if self.dryrun is not None:
             global DRYRUN
@@ -192,25 +212,45 @@ def resolved_path(path, base=None):
     return os.path.abspath(path)
 
 
-def short(path, anchors=None):
+def set_anchors(anchors):
+    """
+    :param str|list anchors: Optional paths to use as anchors for short()
+    """
+    State.anchors = sorted(flattened(anchors, unique=True), reverse=True)
+
+
+def add_anchors(anchors):
+    """
+    :param str|list anchors: Optional paths to use as anchors for short()
+    """
+    set_anchors(State.anchors + [anchors])
+
+
+def pop_anchors(anchors):
+    """
+    :param str|list anchors: Optional paths to use as anchors for short()
+    """
+    for anchor in flattened(anchors):
+        if anchor in State.anchors:
+            State.anchors.remove(anchor)
+
+
+def short(path):
     """
     Example:
         short("examined /Users/joe/foo") -> "examined ~/foo"
 
     :param path: Path to represent in its short form
-    :param list|str|None anchors: Extra folders to relativise paths to
     :return str: Short form, using '~' if applicable
     """
     if not path:
         return path
 
     path = str(path)
-    if isinstance(anchors, list):
-        for p in sorted(anchors, reverse=True):
+    if State.anchors:
+        for p in State.anchors:
             if p:
                 path = path.replace(p + "/", "")
-    elif anchors:
-        path = path.replace(anchors + "/", "")
 
     path = path.replace(HOME, "~")
     return path
@@ -271,17 +311,16 @@ def quoted(text):
     return text
 
 
-def represented_args(args, anchors=None, separator=" "):
+def represented_args(args, separator=" "):
     """
     :param list|tuple args: Arguments to represent
-    :param list|str|None anchors: Extra folders to relativise paths to
     :param str separator: Separator to use
     :return str: Quoted as needed textual representation
     """
     result = []
     if args:
         for text in args:
-            result.append(quoted(short(text, anchors=anchors)))
+            result.append(quoted(short(text)))
     return separator.join(result)
 
 
@@ -728,10 +767,9 @@ def run_program(program, *args, **kwargs):
     dryrun = kwargs.pop("dryrun", DRYRUN)
     include_error = kwargs.pop("include_error", False)
     quiet = kwargs.pop("quiet", False)
-    anchors = kwargs.pop("anchors", None)
 
     message = "Would run" if dryrun else "Running"
-    message = "%s: %s %s" % (message, short(full_path or program, anchors=anchors), represented_args(args, anchors=anchors))
+    message = "%s: %s %s" % (message, short(full_path or program), represented_args(args))
     if not quiet:
         logger = kwargs.pop("logger", debug)
         logger(message)
@@ -740,7 +778,7 @@ def run_program(program, *args, **kwargs):
         return message
 
     if not full_path:
-        return abort("%s is not installed", short(program, anchors=anchors), fatal=fatal, quiet=quiet, return_value=None)
+        return abort("%s is not installed", short(program), fatal=fatal, quiet=quiet, return_value=None)
 
     stdout = kwargs.pop("stdout", subprocess.PIPE)
     stderr = kwargs.pop("stderr", subprocess.PIPE)
@@ -760,7 +798,7 @@ def run_program(program, *args, **kwargs):
 
         if p.returncode and fatal is not None:
             note = ": %s\n%s" % (err, output) if output or err else ""
-            message = "%s exited with code %s%s" % (short(program, anchors=anchors), p.returncode, note.strip())
+            message = "%s exited with code %s%s" % (short(program), p.returncode, note.strip())
             return abort(message, fatal=fatal, quiet=quiet, return_value=None)
 
         if include_error and err:
@@ -768,7 +806,7 @@ def run_program(program, *args, **kwargs):
         return output and output.strip()
 
     except Exception as e:
-        return abort("%s failed: %s", short(program, anchors=anchors), e, exc_info=e, fatal=fatal, quiet=quiet, return_value=None)
+        return abort("%s failed: %s", short(program), e, exc_info=e, fatal=fatal, quiet=quiet, return_value=None)
 
 
 def added_env_paths(env_vars, env=None):

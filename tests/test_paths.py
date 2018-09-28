@@ -14,13 +14,13 @@ def test_paths(temp_base):
     assert runez.short("") == ""
     assert runez.short(temp_base) == temp_base
 
-    assert runez.short(temp_base + "/foo", anchors=temp_base) == "foo"
-    assert runez.short(temp_base + "/foo", anchors=[temp_base]) == "foo"
+    assert runez.short(temp_base + "/foo") == "foo"
+    assert runez.short(temp_base + "/foo") == "foo"
 
     assert runez.parent_folder(None) is None
     assert runez.parent_folder(temp_base + "/foo") == temp_base
 
-    assert runez.represented_args(["ls", temp_base + "/foo bar", "-a"], anchors=temp_base) == 'ls "foo bar" -a'
+    assert runez.represented_args(["ls", temp_base + "/foo bar", "-a"]) == 'ls "foo bar" -a'
 
     # Don't crash for no-ops
     assert runez.ensure_folder(None) == 0
@@ -53,8 +53,16 @@ def test_paths(temp_base):
     assert runez.delete("sample") == 1
     assert runez.ensure_folder("sample", folder=True) == 1
     assert os.getcwd() == temp_base
-    with runez.CurrentFolder("sample"):
-        assert os.getcwd() == os.path.join(temp_base, "sample")
+    with runez.CurrentFolder("sample", anchor=False):
+        cwd = os.getcwd()
+        sample = os.path.join(temp_base, "sample")
+        assert cwd == sample
+        assert runez.short(os.path.join(cwd, "foo")) == "sample/foo"
+    with runez.CurrentFolder("sample", anchor=True):
+        cwd = os.getcwd()
+        sample = os.path.join(temp_base, "sample")
+        assert cwd == sample
+        assert runez.short(os.path.join(cwd, "foo")) == "foo"
     assert os.getcwd() == temp_base
 
     assert runez.delete("sample") == 1
@@ -109,12 +117,21 @@ def test_failed_read(*_):
 
 
 def test_temp():
-    with runez.CaptureOutput() as logged:
+    with runez.CaptureOutput(anchors=["/tmp", "/etc"]) as logged:
         with runez.TempFolder() as tmp:
             assert tmp
         assert "Deleting " in logged
 
+        assert runez.short("/tmp/foo") == "foo"
+        assert runez.short("/etc/foo") == "foo"
+
     with runez.CaptureOutput(dryrun=True) as logged:
         with runez.TempFolder() as tmp:
             assert tmp == "<tmp>"
-        assert "Would delete" in logged
+            assert runez.short("<tmp>/foo") == "foo"
+        assert "Would delete" in logged.pop()
+
+        with runez.TempFolder(anchor=False) as tmp:
+            assert tmp == "<tmp>"
+            assert runez.short("<tmp>/foo") == "<tmp>/foo"
+        assert "Would delete" in logged.pop()
