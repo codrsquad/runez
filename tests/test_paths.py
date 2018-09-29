@@ -26,7 +26,11 @@ def test_paths(temp_base):
     assert runez.ensure_folder(None) == 0
     assert runez.ensure_folder("") == 0
     assert runez.copy(None, None) == 0
+    assert runez.move(None, None) == 0
+    assert runez.symlink(None, None) == 0
     assert runez.copy("foo", "foo") == 0
+    assert runez.move("foo", "foo") == 0
+    assert runez.symlink("foo", "foo") == 0
 
     assert runez.ensure_folder("foo") == 0  # 'foo' would be in temp_base, which already exists
 
@@ -38,12 +42,24 @@ def test_paths(temp_base):
         assert "Would touch foo" in logged.pop()
 
         assert runez.copy("foo", "bar") == 1
-        assert "Would copy" in logged.pop()
+        assert "Would copy foo -> bar" in logged.pop()
+
+        assert runez.move("foo", "bar") == 1
+        assert "Would move foo -> bar" in logged.pop()
+
+        assert runez.symlink("foo", "bar") == 1
+        assert "Would symlink foo -> bar" in logged.pop()
 
         assert runez.delete(temp_base) == 1
         assert "Would delete" in logged.pop()
 
         assert runez.copy("foo/bar/baz", "foo", fatal=False) == -1
+        assert "source contained in destination" in logged.pop()
+
+        assert runez.move("foo/bar/baz", "foo", fatal=False) == -1
+        assert "source contained in destination" in logged.pop()
+
+        assert runez.symlink("foo/bar/baz", "foo", fatal=False) == -1
         assert "source contained in destination" in logged.pop()
 
     assert runez.touch("sample") == 1
@@ -80,10 +96,17 @@ def test_paths(temp_base):
         assert "does not exist" in logged.pop()
 
         assert runez.copy("sample", "x/y/sample") == 1
+        assert runez.symlink("sample", "x/y/sample3", fatal=False) == 1
+
+        assert os.path.exists("sample")
         assert runez.move("sample", "x/y/sample2") == 1
+        assert not os.path.exists("sample")
 
         assert runez.copy("x/y", "x/z") == 1
+        assert os.path.exists("x/z/sample")
         assert os.path.exists("x/z/sample2")
+        assert os.path.exists("x/z/sample3")
+        assert os.path.islink("x/z/sample3")
 
     assert runez.touch(None) == 0
     assert not runez.file_younger(None, 1)

@@ -622,6 +622,40 @@ def move(source, destination, adapter=None, fatal=True, quiet=False):
     return _file_op(source, destination, _move, adapter, fatal, quiet)
 
 
+def symlink(source, destination, adapter=None, fatal=True, quiet=False):
+    """
+    Symlink source -> destination
+
+    :param str source: Source file or folder
+    :param str destination: Destination file or folder
+    :param callable adapter: Optional function to call on 'source' before copy
+    :param bool fatal: Abort execution on failure if True
+    :param bool quiet: Don't log if True
+    :return int: 1 if effectively done, 0 if no-op, -1 on failure
+    """
+    return _file_op(source, destination, _symlink, adapter, fatal, quiet)
+
+
+def _copy(source, destination):
+    """Effective copy"""
+    if os.path.isdir(source):
+        shutil.copytree(source, destination, symlinks=True)
+    else:
+        shutil.copy(source, destination)
+
+    shutil.copystat(source, destination)  # Make sure last modification time is preserved
+
+
+def _move(source, destination):
+    """Effective move"""
+    shutil.move(source, destination)
+
+
+def _symlink(source, destination):
+    """Effective symlink"""
+    os.symlink(source, destination)
+
+
 def _file_op(source, destination, func, adapter, fatal, quiet):
     """
     Call func(source, destination)
@@ -664,21 +698,6 @@ def _file_op(source, destination, func, adapter, fatal, quiet):
 
     except Exception as e:
         return abort("Can't %s %s -> %s: %s", action, short(source), short(destination), e, fatal=fatal)
-
-
-def _copy(source, destination):
-    """Effective copy"""
-    if os.path.isdir(source):
-        shutil.copytree(source, destination, symlinks=True)
-    else:
-        shutil.copy(source, destination)
-
-    shutil.copystat(source, destination)  # Make sure last modification time is preserved
-
-
-def _move(source, destination):
-    """Effective move"""
-    shutil.move(source, destination)
 
 
 def delete(path, fatal=True, quiet=False):
