@@ -24,6 +24,7 @@ LOG = logging.getLogger(__name__)
 HOME = os.path.expanduser("~")
 SYMBOLIC_TMP = "<tmp>"
 DRYRUN = False
+TEXT_THRESHOLD_SIZE = 16384  # Max size in bytes to consider a file a "text file"
 
 
 class State:
@@ -465,14 +466,14 @@ def first_line(path):
         return None
 
 
-def get_lines(path, max_size=8192, fatal=True):
+def get_lines(path, max_size=TEXT_THRESHOLD_SIZE, fatal=True):
     """
     :param str path: Path of text file to return lines from
-    :param int max_size: Return contents only for files smaller than 'max_size' bytes
+    :param int|None max_size: Return contents only for files smaller than 'max_size' bytes
     :param bool fatal: Abort execution on failure if True
     :return list|None: Lines from file contents
     """
-    if not path or not os.path.isfile(path) or os.path.getsize(path) > max_size:
+    if not path or not os.path.isfile(path) or (max_size and os.path.getsize(path) > max_size):
         # Intended for small text files, pretend no contents for binaries
         return None
 
@@ -482,6 +483,50 @@ def get_lines(path, max_size=8192, fatal=True):
 
     except Exception as e:
         return abort("Can't read %s: %s", short(path), e, fatal=(fatal, None))
+
+
+def get_conf(path, fatal=True, keep_empty=False):
+    """
+    :param str|list path: Path to file, or lines to parse
+    :param bool fatal: Abort execution on failure if True
+    :param bool keep_empty: If True, keep definitions with empty values
+    :return dict: Dict of section -> key -> value
+    """
+    if not path:
+        return None
+
+    lines = path if isinstance(path, list) else get_lines(path, fatal=fatal)
+
+    result = None
+    if lines is not None:
+        result = {}
+        section_key = None
+        section = None
+        for line in lines:
+            line = decode(line).strip()
+            if '#' in line:
+                i = line.index("#")
+                line = line[:i].strip()
+            if not line:
+                continue
+            if line.startswith("[") and line.endswith("]"):
+                section_key = line.strip("[]").strip()
+                section = result.get(section_key)
+                continue
+            if "=" not in line:
+                continue
+            if section is None:
+                section = result[section_key] = {}
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip()
+            if keep_empty or (key and value):
+                section[key] = value
+
+        if not keep_empty:
+            result = dict((k, v) for k, v in result.items() if k and v)
+
+    return result
 
 
 def file_younger(path, age):

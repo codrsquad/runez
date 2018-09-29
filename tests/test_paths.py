@@ -5,6 +5,29 @@ from mock import patch
 import runez
 
 
+SAMPLE_CONF = """
+# Sample .conf (or .ini file)
+root = foo # Definition without section
+
+[malformed section      # Missing closing square bracket
+malformed definition    # This line has no '=' sign (outside of this comment...), ignored
+
+[] # Empty section name
+ek = ev
+
+[s1] # Some section
+k1 = v1
+
+[empty] # Empty section
+
+[s2]
+k2 =
+
+[s3]
+#k3 = v3                # This one is commented out, shouldn't show up
+"""
+
+
 def test_paths(temp_base):
     assert runez.resolved_path(None) is None
     assert runez.resolved_path("foo") == os.path.join(temp_base, "foo")
@@ -168,3 +191,15 @@ def test_temp():
             assert tmp == "<tmp>"
             assert runez.short("<tmp>/foo") == "<tmp>/foo"
         assert "Would delete" in logged.pop()
+
+
+def test_conf():
+    assert runez.get_conf(None) is None
+
+    expected = {None: {"root": "foo"}, "": {"ek": "ev"}, "s1": {"k1": "v1"}, "s2": {"k2": ""}}
+    assert runez.get_conf(SAMPLE_CONF.splitlines(), keep_empty=True) == expected
+
+    del expected[None]
+    del expected[""]
+    del expected["s2"]
+    assert runez.get_conf(SAMPLE_CONF.splitlines(), keep_empty=False) == expected
