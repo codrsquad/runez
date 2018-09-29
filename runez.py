@@ -466,38 +466,40 @@ def first_line(path):
         return None
 
 
-def get_lines(path, max_size=TEXT_THRESHOLD_SIZE, fatal=True):
+def get_lines(path, max_size=TEXT_THRESHOLD_SIZE, fatal=True, default=None):
     """
     :param str path: Path of text file to return lines from
     :param int|None max_size: Return contents only for files smaller than 'max_size' bytes
     :param bool fatal: Abort execution on failure if True
+    :param default: Object to return if lines couldn't be read
     :return list|None: Lines from file contents
     """
     if not path or not os.path.isfile(path) or (max_size and os.path.getsize(path) > max_size):
         # Intended for small text files, pretend no contents for binaries
-        return None
+        return default
 
     try:
         with io.open(path, "rt", errors="ignore") as fh:
             return fh.readlines()
 
     except Exception as e:
-        return abort("Can't read %s: %s", short(path), e, fatal=(fatal, None))
+        return abort("Can't read %s: %s", short(path), e, fatal=(fatal, default))
 
 
-def get_conf(path, fatal=True, keep_empty=False):
+def get_conf(path, fatal=True, keep_empty=False, default=None):
     """
     :param str|list path: Path to file, or lines to parse
     :param bool fatal: Abort execution on failure if True
     :param bool keep_empty: If True, keep definitions with empty values
+    :param default: Object to return if conf couldn't be read
     :return dict: Dict of section -> key -> value
     """
     if not path:
-        return None
+        return default
 
-    lines = path if isinstance(path, list) else get_lines(path, fatal=fatal)
+    lines = path if isinstance(path, list) else get_lines(path, fatal=fatal, default=default)
 
-    result = None
+    result = default
     if lines is not None:
         result = {}
         section_key = None
