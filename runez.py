@@ -622,18 +622,19 @@ def move(source, destination, adapter=None, fatal=True, quiet=False):
     return _file_op(source, destination, _move, adapter, fatal, quiet)
 
 
-def symlink(source, destination, adapter=None, fatal=True, quiet=False):
+def symlink(source, destination, adapter=None, must_exist=True, fatal=True, quiet=False):
     """
     Symlink source -> destination
 
     :param str source: Source file or folder
     :param str destination: Destination file or folder
     :param callable adapter: Optional function to call on 'source' before copy
+    :param bool must_exist: If True, verify that source does indeed exist
     :param bool fatal: Abort execution on failure if True
     :param bool quiet: Don't log if True
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
-    return _file_op(source, destination, _symlink, adapter, fatal, quiet)
+    return _file_op(source, destination, _symlink, adapter,  fatal, quiet, must_exist=must_exist)
 
 
 def _copy(source, destination):
@@ -656,7 +657,7 @@ def _symlink(source, destination):
     os.symlink(source, destination)
 
 
-def _file_op(source, destination, func, adapter, fatal, quiet):
+def _file_op(source, destination, func, adapter, fatal, quiet, must_exist=True):
     """
     Call func(source, destination)
 
@@ -666,6 +667,7 @@ def _file_op(source, destination, func, adapter, fatal, quiet):
     :param callable adapter: Optional function to call on 'source' before copy
     :param bool fatal: Abort execution on failure if True
     :param bool quiet: Don't log if True
+    :param bool must_exist: If True, verify that source does indeed exist
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
     if not source or not destination or source == destination:
@@ -681,7 +683,7 @@ def _file_op(source, destination, func, adapter, fatal, quiet):
         debug("Would %s %s -> %s", action, short(source), short(destination))
         return 1
 
-    if not os.path.exists(source):
+    if must_exist and not os.path.exists(source):
         return abort("%s does not exist, can't %s to %s", short(source), action.title(), short(destination), fatal=fatal)
 
     try:

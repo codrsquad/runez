@@ -94,6 +94,16 @@ def test_paths(temp_base):
 
         assert runez.copy("bar", "baz", fatal=False) == -1
         assert "does not exist" in logged.pop()
+        assert runez.move("bar", "baz", fatal=False) == -1
+        assert "does not exist" in logged.pop()
+        assert runez.symlink("bar", "baz", fatal=False) == -1
+        assert "does not exist" in logged.pop()
+
+        # Creating dangling symlinks is possible
+        assert runez.symlink("bar", "baz", fatal=False, must_exist=False) == 1
+        assert "Symlink bar -> baz" in logged.pop()
+        assert os.path.islink("baz")
+        assert not os.path.exists("baz")
 
         assert runez.copy("sample", "x/y/sample") == 1
         assert runez.symlink("sample", "x/y/sample3", fatal=False) == 1
