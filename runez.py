@@ -251,7 +251,7 @@ def pop_anchors(anchors):
 def short(path):
     """
     Example:
-        short("examined /Users/joe/foo") -> "examined ~/foo"
+        short("examined /Users/joe/foo") => "examined ~/foo"
 
     :param path: Path to represent in its short form
     :return str: Short form, using '~' if applicable
@@ -362,9 +362,9 @@ def info(message, *args, **kwargs):
     Often, an info() message should be logged, but also shown to user (in the even where logging is not done to console)
 
     Example:
-        info("...") -> Will log if we're logging, but also print() if State.output is currently set
-        info("...", output=False) -> Will only log, never print
-        info("...", output=True) -> Will log if we're logging, and print
+        info("...") => Will log if we're logging, but also print() if State.output is currently set
+        info("...", output=False) => Will only log, never print
+        info("...", output=True) => Will log if we're logging, and print
     """
     output = kwargs.pop("output", State.output)
     if State.logging:
@@ -392,18 +392,18 @@ def error(message, *args, **kwargs):
 def abort(*args, **kwargs):
     """
     Usage:
-        return abort("...") -> will sys.exit() by default
-        return abort("...", fatal=True) -> Will sys.exit()
+        return abort("...") => will sys.exit() by default
+        return abort("...", fatal=True) => Will sys.exit()
 
         # Not fatal, but will log/print message:
-        return abort("...", fatal=False) -> Will return False
-        return abort("...", fatal=(False, None)) -> Will return None
-        return abort("...", fatal=(False, -1)) -> Will return -1
+        return abort("...", fatal=False) => Will return False
+        return abort("...", fatal=(False, None)) => Will return None
+        return abort("...", fatal=(False, -1)) => Will return -1
 
         # Not fatal, will not log/print any message:
-        return abort("...", fatal=None) -> Will return None
-        return abort("...", fatal=(None, None)) -> Will return None
-        return abort("...", fatal=(None, -1)) -> Will return -1
+        return abort("...", fatal=None) => Will return None
+        return abort("...", fatal=(None, None)) => Will return None
+        return abort("...", fatal=(None, -1)) => Will return -1
 
     :param args: Args passed through for error reporting
     :param kwargs: Args passed through for error reporting
@@ -686,7 +686,7 @@ def move(source, destination, adapter=None, fatal=True, logger=debug):
 
 def symlink(source, destination, adapter=None, must_exist=True, fatal=True, logger=debug):
     """
-    Symlink source -> destination
+    Symlink source <- destination
 
     :param str source: Source file or folder
     :param str destination: Destination file or folder
@@ -736,13 +736,16 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True)
         return 0
 
     action = func.__name__[1:]
+    indicator = "<-" if action == "symlink" else "->"
     psource = parent_folder(source)
     pdest = resolved_path(destination)
     if psource != pdest and psource.startswith(pdest):
-        return abort("Can't %s %s -> %s: source contained in destination", action, short(source), short(destination), fatal=(fatal, -1))
+        return abort(
+            "Can't %s %s %s %s: source contained in destination", action, short(source), indicator, short(destination), fatal=(fatal, -1)
+        )
 
     if DRYRUN:
-        debug("Would %s %s -> %s", action, short(source), short(destination))
+        debug("Would %s %s %s %s", action, short(source), indicator, short(destination))
         return 1
 
     if must_exist and not os.path.exists(source):
@@ -756,13 +759,13 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True)
         if logger:
             note = adapter(source, destination, fatal=fatal, logger=logger) if adapter else ""
             if logger:
-                logger("%s %s -> %s%s", action.title(), short(source), short(destination), note)
+                logger("%s %s %s %s%s", action.title(), short(source), indicator, short(destination), note)
 
         func(source, destination)
         return 1
 
     except Exception as e:
-        return abort("Can't %s %s -> %s: %s", action, short(source), short(destination), e, fatal=(fatal, -1))
+        return abort("Can't %s %s %s %s: %s", action, short(source), indicator, short(destination), e, fatal=(fatal, -1))
 
 
 def delete(path, fatal=True, logger=debug):

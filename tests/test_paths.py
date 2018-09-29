@@ -71,7 +71,7 @@ def test_paths(temp_base):
         assert "Would move foo -> bar" in logged.pop()
 
         assert runez.symlink("foo", "bar") == 1
-        assert "Would symlink foo -> bar" in logged.pop()
+        assert "Would symlink foo <- bar" in logged.pop()
 
         assert runez.delete(temp_base) == 1
         assert "Would delete" in logged.pop()
@@ -124,7 +124,7 @@ def test_paths(temp_base):
 
         # Creating dangling symlinks is possible
         assert runez.symlink("bar", "baz", fatal=False, must_exist=False) == 1
-        assert "Symlink bar -> baz" in logged.pop()
+        assert "Symlink bar <- baz" in logged.pop()
         assert os.path.islink("baz")
         assert not os.path.exists("baz")
 
