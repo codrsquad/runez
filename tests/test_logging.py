@@ -7,16 +7,14 @@ def test_abort():
     runez.State.logging = True
 
     with runez.CaptureOutput() as logged:
-        assert runez.abort("aborted", fatal=False, return_value="foo") == "foo"
-        assert "ERROR: aborted" in logged
+        assert runez.abort("aborted", fatal=(False, "foo")) == "foo"
+        assert "ERROR: aborted" in logged.pop()
 
-    with runez.CaptureOutput() as logged:
-        assert runez.abort("aborted", fatal=False, code=0, return_value="foo") == "foo"
+        assert runez.abort("aborted", fatal=(False, "foo"), code=0) == "foo"
         assert "aborted" in logged
-        assert "ERROR:" not in logged
+        assert "ERROR:" not in logged.pop()
 
-    with runez.CaptureOutput() as logged:
-        assert runez.abort("aborted", fatal=False, quiet=True, return_value="foo") == "foo"
+        assert runez.abort("aborted", fatal=(None, "foo")) == "foo"
         assert not logged
 
 

@@ -24,14 +24,14 @@ def test_json(temp_base):
             assert runez.save_json(data, "sample.json") == -1
             assert "Couldn't save" in logged.pop()
 
-        assert runez.save_json(data, "sample.json", quiet=False) == 1
+        assert runez.save_json(data, "sample.json", logger=runez.debug) == 1
         assert "Saved " in logged.pop()
 
         with patch("io.open", side_effect=Exception):
             assert runez.read_json("sample.json", fatal=False) is None
             assert "Couldn't read" in logged.pop()
 
-        assert runez.read_json("sample.json", quiet=False) == data
+        assert runez.read_json("sample.json", logger=runez.debug) == data
         assert "Read " in logged.pop()
 
         assert runez.read_json("sample.json", default=[]) == []
@@ -42,8 +42,8 @@ def test_json(temp_base):
         obj = runez.State()
         obj.to_dict = lambda *_: data
 
-        assert runez.save_json(obj, "sample2.json", quiet=False) == 1
+        assert runez.save_json(obj, "sample2.json", logger=runez.debug) == 1
         assert "Saved " in logged.pop()
 
-        assert runez.read_json("sample2.json", quiet=False) == data
+        assert runez.read_json("sample2.json", logger=runez.debug) == data
         assert "Read " in logged.pop()

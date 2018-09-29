@@ -55,6 +55,19 @@ class CurrentFolder:
             pop_anchors(self.destination)
 
 
+class Anchored:
+    """Context manager for changing the current working directory"""
+
+    def __init__(self, folder):
+        self.folder = resolved_path(folder)
+
+    def __enter__(self):
+        add_anchors(self.folder)
+
+    def __exit__(self, *_):
+        pop_anchors(self.folder)
+
+
 class TempFolder:
     """Context manager for obtaining a temp folder"""
 
@@ -178,12 +191,11 @@ def decode(value):
     return value
 
 
-def get_version(mod, default="0.0.0", fatal=True, quiet=False):
+def get_version(mod, default="0.0.0", fatal=True):
     """
     :param module|str mod: Module, or module name to find version for (pass either calling module, or its .__name__)
     :param str default: Value to return if version determination fails
     :param bool fatal: Abort execution on failure if True
-    :param bool quiet: Don't log errors if True
     :return str: Determined version
     """
     name = mod
@@ -195,7 +207,7 @@ def get_version(mod, default="0.0.0", fatal=True, quiet=False):
         return pkg_resources.get_distribution(name).version
 
     except Exception as e:
-        return abort("Can't determine version for %s: %s", name, e, exc_info=e, fatal=fatal, quiet=quiet, return_value=default)
+        return abort("Can't determine version for %s: %s", name, e, exc_info=e, fatal=(fatal, default))
 
 
 def resolved_path(path, base=None):
@@ -380,35 +392,41 @@ def abort(*args, **kwargs):
     """
     Usage:
         return abort("...") -> will sys.exit() by default
-        return abort("...", quiet=True) -> will not log/print the message
-        return abort("...", fatal=False) -> will return '-1' by default
-        return abort("...", fatal=False, return_value=None) -> will return None
+        return abort("...", fatal=True) -> Will sys.exit()
+
+        # Not fatal, but will log/print message:
+        return abort("...", fatal=False) -> Will return False
+        return abort("...", fatal=(False, None)) -> Will return None
+        return abort("...", fatal=(False, -1)) -> Will return -1
+
+        # Not fatal, will not log/print any message:
+        return abort("...", fatal=None) -> Will return None
+        return abort("...", fatal=(None, None)) -> Will return None
+        return abort("...", fatal=(None, -1)) -> Will return -1
 
     :param args: Args passed through for error reporting
     :param kwargs: Args passed through for error reporting
     :return: kwargs["return_value"] (default: -1) to signify failure to non-fatal callers
     """
     code = kwargs.pop("code", 1)
-    logger = kwargs.pop("logger", warning)
+    logger = kwargs.pop("logger", error if code else info)
     fatal = kwargs.pop("fatal", True)
-    quiet = kwargs.pop("quiet", False)
-    return_value = kwargs.pop("return_value", -1)
-    if not quiet and args:
-        if code == 0:
-            logger(*args, **kwargs)
-        else:
-            error(*args, **kwargs)
+    return_value = fatal
+    if isinstance(fatal, tuple) and len(fatal) == 2:
+        fatal, return_value = fatal
+    if logger and fatal is not None and args:
+        logger(*args, **kwargs)
     if fatal:
         sys.exit(code)
     return return_value
 
 
-def ensure_folder(path, folder=False, fatal=True, quiet=False):
+def ensure_folder(path, folder=False, fatal=True, logger=debug):
     """
     :param str path: Path to file or folder
     :param bool folder: If True, 'path' refers to a folder (file otherwise)
     :param bool fatal: Abort execution on failure if True
-    :param bool quiet: Don't log debug if True
+    :param callable|None logger: Logger to use
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
     if not path:
@@ -427,12 +445,12 @@ def ensure_folder(path, folder=False, fatal=True, quiet=False):
 
     try:
         os.makedirs(folder)
-        if not quiet:
-            debug("Created folder %s", short(folder))
+        if logger:
+            logger("Created folder %s", short(folder))
         return 1
 
     except Exception as e:
-        return abort("Can't create folder %s: %s", short(folder), e, fatal=fatal)
+        return abort("Can't create folder %s: %s", short(folder), e, fatal=(fatal, -1))
 
 
 def first_line(path):
@@ -447,12 +465,11 @@ def first_line(path):
         return None
 
 
-def get_lines(path, max_size=8192, fatal=True, quiet=False):
+def get_lines(path, max_size=8192, fatal=True):
     """
     :param str path: Path of text file to return lines from
     :param int max_size: Return contents only for files smaller than 'max_size' bytes
     :param bool fatal: Abort execution on failure if True
-    :param bool quiet: Don't log errors if True
     :return list|None: Lines from file contents
     """
     if not path or not os.path.isfile(path) or os.path.getsize(path) > max_size:
@@ -464,7 +481,7 @@ def get_lines(path, max_size=8192, fatal=True, quiet=False):
             return fh.readlines()
 
     except Exception as e:
-        return abort("Can't read %s: %s", short(path), e, fatal=fatal, quiet=quiet, return_value=None)
+        return abort("Can't read %s: %s", short(path), e, fatal=(fatal, None))
 
 
 def file_younger(path, age):
@@ -489,21 +506,21 @@ def check_pid(pid):
         return False
 
 
-def touch(path, fatal=True, quiet=True):
+def touch(path, fatal=True, logger=None):
     """
     :param str path: Path to file to touch
     :param bool fatal: Abort execution on failure if True
-    :param bool quiet: Don't log if True (dryrun being always logged)
+    :param callable|None logger: Logger to use
     """
-    return write_contents(path, "", fatal=fatal, quiet=quiet)
+    return write_contents(path, "", fatal=fatal, logger=logger)
 
 
-def write_contents(path, contents, fatal=True, quiet=True):
+def write_contents(path, contents, fatal=True, logger=None):
     """
     :param str path: Path to file
     :param str contents: Contents to write
     :param bool fatal: Abort execution on failure if True
-    :param bool quiet: Don't log debug if True
+    :param callable|None logger: Logger to use
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
     if not path:
@@ -514,9 +531,9 @@ def write_contents(path, contents, fatal=True, quiet=True):
         debug("Would %s %s", action, short(path))
         return 1
 
-    ensure_folder(path, fatal=fatal, quiet=quiet)
-    if not quiet and contents:
-        debug("Writing %s bytes to %s", len(contents), short(path))
+    ensure_folder(path, fatal=fatal, logger=logger)
+    if logger and contents:
+        logger("Writing %s bytes to %s", len(contents), short(path))
 
     try:
         with open(path, "wt") as fh:
@@ -527,43 +544,41 @@ def write_contents(path, contents, fatal=True, quiet=True):
         return 1
 
     except Exception as e:
-        return abort("Can't write to %s: %s", short(path), e, fatal=fatal)
+        return abort("Can't write to %s: %s", short(path), e, fatal=(fatal, -1))
 
 
-def read_json(path, default=None, fatal=False, quiet=True):
+def read_json(path, default=None, fatal=False, logger=None):
     """
     :param str path: Path to file to deserialize
     :param dict|list default: Default if file is not present, or if it's not json
     :param bool fatal: Abort execution on failure if True
-    :param bool quiet: Don't log debug if True
+    :param callable|None logger: Logger to use
     :return dict|list: Deserialized data from file
     """
     path = resolved_path(path)
     if not path or not os.path.exists(path):
         if default is None:
-            return abort("No file %s", short(path), fatal=fatal, return_value=None)
+            return abort("No file %s", short(path), fatal=(fatal, default))
         return default
 
     try:
         with io.open(path, "rt") as fh:
             data = json.load(fh)
             if default is not None and type(data) != type(default):
-                return abort(
-                    "Wrong type %s for %s, expecting %s", type(data), short(path), type(default), fatal=fatal, return_value=default
-                )
-            if not quiet:
-                debug("Read %s", short(path))
+                return abort("Wrong type %s for %s, expecting %s", type(data), short(path), type(default), fatal=(fatal, default))
+            if logger:
+                logger("Read %s", short(path))
             return data
 
     except Exception as e:
-        return abort("Couldn't read %s: %s", short(path), e, fatal=fatal, return_value=default)
+        return abort("Couldn't read %s: %s", short(path), e, fatal=(fatal, default))
 
 
-def save_json(data, path, fatal=False, quiet=True, sort_keys=True, indent=2):
+def save_json(data, path, fatal=False, logger=None, sort_keys=True, indent=2):
     """
     :param dict|list|None data: Data to serialize and save
     :param bool fatal: Abort execution on failure if True
-    :param bool quiet: Don't log debug if True
+    :param callable|None logger: Logger to use
     :param bool sort_keys: Save json with sorted keys
     :param int indent: Indentation to use
     :param str path: Path to file where to save
@@ -573,7 +588,7 @@ def save_json(data, path, fatal=False, quiet=True, sort_keys=True, indent=2):
 
     try:
         path = resolved_path(path)
-        ensure_folder(path, fatal=fatal, quiet=quiet)
+        ensure_folder(path, fatal=fatal, logger=logger)
         if DRYRUN:
             debug("Would save %s", short(path))
             return 1
@@ -585,16 +600,16 @@ def save_json(data, path, fatal=False, quiet=True, sort_keys=True, indent=2):
             json.dump(data, fh, sort_keys=sort_keys, indent=indent)
             fh.write("\n")
 
-        if not quiet:
-            debug("Saved %s", short(path))
+        if logger:
+            logger("Saved %s", short(path))
 
         return 1
 
     except Exception as e:
-        return abort("Couldn't save %s: %s", short(path), e, fatal=fatal)
+        return abort("Couldn't save %s: %s", short(path), e, fatal=(fatal, -1))
 
 
-def copy(source, destination, adapter=None, fatal=True, quiet=False):
+def copy(source, destination, adapter=None, fatal=True, logger=debug):
     """
     Copy source -> destination
 
@@ -602,13 +617,13 @@ def copy(source, destination, adapter=None, fatal=True, quiet=False):
     :param str destination: Destination file or folder
     :param callable adapter: Optional function to call on 'source' before copy
     :param bool fatal: Abort execution on failure if True
-    :param bool quiet: Don't log if True
+    :param callable|None logger: Logger to use
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
-    return _file_op(source, destination, _copy, adapter, fatal, quiet)
+    return _file_op(source, destination, _copy, adapter, fatal, logger)
 
 
-def move(source, destination, adapter=None, fatal=True, quiet=False):
+def move(source, destination, adapter=None, fatal=True, logger=debug):
     """
     Move source -> destination
 
@@ -616,13 +631,13 @@ def move(source, destination, adapter=None, fatal=True, quiet=False):
     :param str destination: Destination file or folder
     :param callable adapter: Optional function to call on 'source' before copy
     :param bool fatal: Abort execution on failure if True
-    :param bool quiet: Don't log if True
+    :param callable|None logger: Logger to use
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
-    return _file_op(source, destination, _move, adapter, fatal, quiet)
+    return _file_op(source, destination, _move, adapter, fatal, logger)
 
 
-def symlink(source, destination, adapter=None, must_exist=True, fatal=True, quiet=False):
+def symlink(source, destination, adapter=None, must_exist=True, fatal=True, logger=debug):
     """
     Symlink source -> destination
 
@@ -631,10 +646,10 @@ def symlink(source, destination, adapter=None, must_exist=True, fatal=True, quie
     :param callable adapter: Optional function to call on 'source' before copy
     :param bool must_exist: If True, verify that source does indeed exist
     :param bool fatal: Abort execution on failure if True
-    :param bool quiet: Don't log if True
+    :param callable|None logger: Logger to use
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
-    return _file_op(source, destination, _symlink, adapter,  fatal, quiet, must_exist=must_exist)
+    return _file_op(source, destination, _symlink, adapter,  fatal, logger, must_exist=must_exist)
 
 
 def _copy(source, destination):
@@ -657,7 +672,7 @@ def _symlink(source, destination):
     os.symlink(source, destination)
 
 
-def _file_op(source, destination, func, adapter, fatal, quiet, must_exist=True):
+def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True):
     """
     Call func(source, destination)
 
@@ -666,7 +681,7 @@ def _file_op(source, destination, func, adapter, fatal, quiet, must_exist=True):
     :param callable func: Implementation function
     :param callable adapter: Optional function to call on 'source' before copy
     :param bool fatal: Abort execution on failure if True
-    :param bool quiet: Don't log if True
+    :param callable|None logger: Logger to use
     :param bool must_exist: If True, verify that source does indeed exist
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
@@ -677,36 +692,37 @@ def _file_op(source, destination, func, adapter, fatal, quiet, must_exist=True):
     psource = parent_folder(source)
     pdest = resolved_path(destination)
     if psource != pdest and psource.startswith(pdest):
-        return abort("Can't %s %s -> %s: source contained in destination", action, short(source), short(destination), fatal=fatal)
+        return abort("Can't %s %s -> %s: source contained in destination", action, short(source), short(destination), fatal=(fatal, -1))
 
     if DRYRUN:
         debug("Would %s %s -> %s", action, short(source), short(destination))
         return 1
 
     if must_exist and not os.path.exists(source):
-        return abort("%s does not exist, can't %s to %s", short(source), action.title(), short(destination), fatal=fatal)
+        return abort("%s does not exist, can't %s to %s", short(source), action.title(), short(destination), fatal=(fatal, -1))
 
     try:
         # Delete destination, but ensure that its parent folder exists
-        delete(destination, fatal=fatal, quiet=True)
-        ensure_folder(destination, fatal=fatal, quiet=quiet)
+        delete(destination, fatal=fatal, logger=None)
+        ensure_folder(destination, fatal=fatal, logger=None)
 
-        if not quiet:
-            note = adapter(source, destination, fatal=fatal, quiet=quiet) if adapter else ""
-            debug("%s %s -> %s%s", action.title(), short(source), short(destination), note)
+        if logger:
+            note = adapter(source, destination, fatal=fatal, logger=logger) if adapter else ""
+            if logger:
+                logger("%s %s -> %s%s", action.title(), short(source), short(destination), note)
 
         func(source, destination)
         return 1
 
     except Exception as e:
-        return abort("Can't %s %s -> %s: %s", action, short(source), short(destination), e, fatal=fatal)
+        return abort("Can't %s %s -> %s: %s", action, short(source), short(destination), e, fatal=(fatal, -1))
 
 
-def delete(path, fatal=True, quiet=False):
+def delete(path, fatal=True, logger=debug):
     """
     :param str|None path: Path to file or folder to delete
     :param bool fatal: Abort execution on failure if True
-    :param bool quiet: Don't log if True
+    :param callable|None logger: Logger to use
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
     islink = path and os.path.islink(path)
@@ -717,8 +733,8 @@ def delete(path, fatal=True, quiet=False):
         debug("Would delete %s", short(path))
         return 1
 
-    if not quiet:
-        debug("Deleting %s", short(path))
+    if logger:
+        logger("Deleting %s", short(path))
     try:
         if islink or os.path.isfile(path):
             os.unlink(path)
@@ -727,7 +743,7 @@ def delete(path, fatal=True, quiet=False):
         return 1
 
     except Exception as e:
-        return abort("Can't delete %s: %s", short(path), e, fatal=fatal)
+        return abort("Can't delete %s: %s", short(path), e, fatal=(fatal, -1))
 
 
 def make_executable(path, fatal=True):
@@ -744,14 +760,14 @@ def make_executable(path, fatal=True):
         return 1
 
     if not os.path.exists(path):
-        return abort("%s does not exist, can't make it executable", short(path), fatal=fatal)
+        return abort("%s does not exist, can't make it executable", short(path), fatal=(fatal, -1))
 
     try:
         os.chmod(path, 0o755)  # nosec
         return 1
 
     except Exception as e:
-        return abort("Can't chmod %s: %s", short(path), e, fatal=fatal)
+        return abort("Can't chmod %s: %s", short(path), e, fatal=(fatal, -1))
 
 
 def is_executable(path):
@@ -784,22 +800,21 @@ def run_program(program, *args, **kwargs):
     args = flattened(args, unique=False)
     full_path = which(program)
 
+    logger = kwargs.pop("logger", debug)
     fatal = kwargs.pop("fatal", True)
     dryrun = kwargs.pop("dryrun", DRYRUN)
     include_error = kwargs.pop("include_error", False)
-    quiet = kwargs.pop("quiet", False)
 
     message = "Would run" if dryrun else "Running"
     message = "%s: %s %s" % (message, short(full_path or program), represented_args(args))
-    if not quiet:
-        logger = kwargs.pop("logger", debug)
+    if logger:
         logger(message)
 
     if dryrun:
         return message
 
     if not full_path:
-        return abort("%s is not installed", short(program), fatal=fatal, quiet=quiet, return_value=None)
+        return abort("%s is not installed", short(program), fatal=fatal)
 
     stdout = kwargs.pop("stdout", subprocess.PIPE)
     stderr = kwargs.pop("stderr", subprocess.PIPE)
@@ -820,14 +835,14 @@ def run_program(program, *args, **kwargs):
         if p.returncode and fatal is not None:
             note = ": %s\n%s" % (err, output) if output or err else ""
             message = "%s exited with code %s%s" % (short(program), p.returncode, note.strip())
-            return abort(message, fatal=fatal, quiet=quiet, return_value=None)
+            return abort(message, fatal=fatal)
 
         if include_error and err:
             output = "%s\n%s" % (output, err)
         return output and output.strip()
 
     except Exception as e:
-        return abort("%s failed: %s", short(program), e, exc_info=e, fatal=fatal, quiet=quiet, return_value=None)
+        return abort("%s failed: %s", short(program), e, exc_info=e, fatal=fatal)
 
 
 def added_env_paths(env_vars, env=None):

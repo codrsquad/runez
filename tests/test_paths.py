@@ -38,7 +38,7 @@ def test_paths(temp_base):
         assert runez.ensure_folder("foo", folder=True, fatal=False) == 1
         assert "Would create" in logged.pop()
 
-        assert runez.touch("foo", quiet=False) == 1
+        assert runez.touch("foo", logger=runez.debug) == 1
         assert "Would touch foo" in logged.pop()
 
         assert runez.copy("foo", "bar") == 1
@@ -84,7 +84,7 @@ def test_paths(temp_base):
     assert runez.delete("sample") == 1
 
     with runez.CaptureOutput() as logged:
-        assert runez.write_contents("sample", "bar\nbaz\n\n", quiet=False)
+        assert runez.write_contents("sample", "bar\nbaz\n\n", logger=runez.debug)
         assert runez.get_lines("sample") == ["bar\n", "baz\n", "\n"]
         assert "Writing 9 bytes" in logged.pop()
 

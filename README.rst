@@ -68,7 +68,7 @@ Run a program::
     # Don't capture output, just run the command and let output "pass through"
     runez.run_program("ls", "foo", stdout=None, stderr=None)
 
-    # Don't abort, return None on failure (or actual output when successful)
+    # Don't abort, return False on failure (or actual output when successful)
     output = runez.run_program("ls", "foo", fatal=False)
 
 
@@ -85,13 +85,11 @@ File operations::
     first = runez.first_line("foo")
     lines = runez.get_lines("foo")
 
-    runez.ensure_folder("foo/bar")
-    parent = runez.parent_folder("foo/bar")
-
     full_path = runez.resolved_path("foo/bar")
-    runes.add_anchors(parent)
-    assert runez.short(full_path) == "bar"
-    runes.pop_anchors(parent)
+    parent = runez.parent_folder(full_path)
+    runez.ensure_folder(parent)
+    with runez.Anchored(parent):
+        assert runez.short(full_path) == "bar"
 
 
 Installation

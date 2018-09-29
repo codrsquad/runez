@@ -17,15 +17,14 @@ runez.State.testing = True
 @pytest.fixture
 def temp_base():
     old_cwd = os.getcwd()
+    # Yielding realpath() to properly resolve for example symlinks on OSX temp paths
     path = os.path.realpath(mkdtemp())
 
     try:
-        runez.add_anchors(path)
         os.chdir(path)
-        # Yielding abspath(".") to properly resolve for example symlinks on OSX temp paths
-        yield os.path.abspath(".")
+        with runez.Anchored(path):
+            yield path
 
     finally:
-        runez.pop_anchors(path)
         os.chdir(old_cwd)
         shutil.rmtree(path)

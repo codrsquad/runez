@@ -70,14 +70,14 @@ def test_run(temp_base):
         assert "Would run:" in logged.pop()
 
     with runez.CaptureOutput() as logged:
-        assert runez.run_program("/dev/null", fatal=False) is None
+        assert runez.run_program("/dev/null", fatal=False) is False
         assert "ERROR: /dev/null is not installed" in logged.pop()
 
         assert runez.touch("sample") == 1
         assert runez.run_program("ls", ".", path_env={"PATH": ":."}) == "sample"
         assert "Running:" in logged.pop()
 
-        assert runez.run_program("ls", "foo", fatal=False) is None
+        assert runez.run_program("ls", "foo", fatal=False) is False
         assert "Running: " in logged
         assert "exited with code" in logged
         assert "No such file" in logged.pop()
@@ -86,5 +86,5 @@ def test_run(temp_base):
 @patch("subprocess.Popen", side_effect=Exception("testing"))
 def test_failed_run(_):
     with runez.CaptureOutput() as logged:
-        assert runez.run_program("ls", fatal=False) is None
+        assert runez.run_program("ls", fatal=False) is False
         assert "ERROR: ls failed: testing" in logged
