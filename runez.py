@@ -621,7 +621,7 @@ def read_json(path, default=None, fatal=False, logger=None):
         return abort("Couldn't read %s: %s", short(path), e, fatal=(fatal, default))
 
 
-def save_json(data, path, fatal=False, logger=None, sort_keys=True, indent=2):
+def save_json(data, path, fatal=True, logger=None, sort_keys=True, indent=2):
     """
     :param dict|list|None data: Data to serialize and save
     :param bool fatal: Abort execution on failure if True
@@ -635,7 +635,7 @@ def save_json(data, path, fatal=False, logger=None, sort_keys=True, indent=2):
 
     try:
         path = resolved_path(path)
-        ensure_folder(path, fatal=fatal, logger=logger)
+        ensure_folder(path, fatal=fatal, logger=None)
         if DRYRUN:
             debug("Would save %s", short(path))
             return 1

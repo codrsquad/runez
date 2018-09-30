@@ -21,7 +21,7 @@ def test_json(temp_base):
         assert not logged
 
         with patch("runez.open", side_effect=Exception):
-            assert runez.save_json(data, "sample.json") == -1
+            assert runez.save_json(data, "sample.json", fatal=False) == -1
             assert "Couldn't save" in logged.pop()
 
         assert runez.save_json(data, "sample.json", logger=runez.debug) == 1
