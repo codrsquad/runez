@@ -19,6 +19,12 @@ try:
 except ImportError:
     StringIO = io.StringIO
 
+try:
+    string_type = basestring  # noqa
+
+except NameError:
+    string_type = str
+
 
 LOG = logging.getLogger(__name__)
 HOME = os.path.expanduser("~")
@@ -183,6 +189,110 @@ class CaptureOutput:
 
     def __len__(self):
         return len(str(self))
+
+
+class JsonSerializable:
+    """
+    Json serializable object
+    """
+
+    _path = None  # type: str # Path where this file should be stored, if any
+    _source = None  # type: str # Where data came from
+
+    def __repr__(self):
+        return self._source or "no source"
+
+    @classmethod
+    def from_json(cls, path):
+        """
+        :param str path: Path to json file
+        :return cls: Deserialized object
+        """
+        result = cls()
+        result.load(path)
+        return result
+
+    def set_from_dict(self, data, source=None):
+        """
+        :param dict data: Set this object from deserialized 'dict'
+        :param source: Source where 'data' came from
+        """
+        if source:
+            self._source = source
+        if not data:
+            return
+        for key, value in data.items():
+            key = key.replace("-", "_")
+            if not hasattr(self, key):
+                debug("%s is not an attribute of %s", key, self.__class__.__name__)
+                continue
+            attr = getattr(self, key)
+            if attr is not None and not same_type(value, attr):
+                debug(
+                    "Wrong type '%s' for %s.%s in %s, expecting '%s'", type_name(value), type_name(self), key, self._source, type_name(attr)
+                )
+                continue
+            setattr(self, key, value)
+
+    def reset(self):
+        """
+        Reset all fields of this object to class defaults
+        """
+        for name in self.__dict__:
+            if name.startswith("_"):
+                continue
+            attr = getattr(self, name)
+            setattr(self, name, attr and attr.__class__())
+
+    def to_dict(self):
+        """
+        :return dict: This object serialized to a dict
+        """
+        result = {}
+        for name in self.__dict__:
+            if name.startswith("_"):
+                continue
+            attr = getattr(self, name)
+            result[name.replace("_", "-")] = attr.to_dict() if hasattr(attr, "to_dict") else attr
+        return result
+
+    def load(self, path=None):
+        """
+        :param str|None path: Load this object from file with 'path' (default: self._path)
+        """
+        self.reset()
+        if path:
+            self._path = path
+            self._source = short(path)
+        if self._path:
+            self.set_from_dict(read_json(self._path, default={}))
+
+    def save(self, path=None):
+        """
+        :param str|None path: Save this serializable to file with 'path' (default: self._path)
+        """
+        save_json(self, path or self._path, fatal=False)
+
+
+def type_name(value):
+    """
+    :param value: Some object, or None
+    :return str: Class name implementing 'value'
+    """
+    if value is None:
+        return "None"
+    if isinstance(value, string_type):
+        return "str"
+    return value.__class__.__name__
+
+
+def same_type(t1, t2):
+    """
+    :return bool: True if 't1' and 't2' are of equivalent types
+    """
+    if isinstance(t1, string_type) and isinstance(t2, string_type):
+        return True
+    return type(t1) == type(t2)
 
 
 def decode(value):

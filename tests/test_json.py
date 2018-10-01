@@ -47,3 +47,48 @@ def test_json(temp_base):
 
         assert runez.read_json("sample2.json", logger=runez.debug) == data
         assert "Read " in logged.pop()
+
+
+def test_types():
+    assert runez.type_name(None) == "None"
+    assert runez.type_name("foo") == "str"
+    assert runez.type_name({}) == "dict"
+    assert runez.type_name([]) == "list"
+    assert runez.type_name(1) == "int"
+
+    assert runez.same_type(None, None)
+    assert not runez.same_type(None, "")
+    assert runez.same_type("foo", "bar")
+    assert runez.same_type("foo", u"bar")
+    assert runez.same_type(["foo"], [u"bar"])
+    assert runez.same_type(1, 2)
+
+
+def test_serialization():
+    with runez.CaptureOutput() as logged:
+        j = runez.JsonSerializable()
+        assert str(j) == "no source"
+        j.save()  # no-op
+        j.set_from_dict({}, source="test")
+        j.some_list = []
+        j.some_string = ""
+
+        j.set_from_dict({"foo": "bar", "some-list": "some_value", "some-string": "some_value"}, source="test")
+        assert "foo is not an attribute" in logged
+        assert "Wrong type 'str' for JsonSerializable.some_list in test, expecting 'list'" in logged.pop()
+
+        assert not j.some_list
+        assert not hasattr(j, "foo")
+        assert j.some_string == "some_value"
+        assert j.to_dict() == {"some-list": [], "some-string": "some_value"}
+
+        j.reset()
+        assert not j.some_string
+
+        j = runez.JsonSerializable.from_json("")
+        assert str(j) == "no source"
+
+        j = runez.JsonSerializable.from_json("/dev/null/foo")
+        assert str(j) == "/dev/null/foo"
+        j.save()
+        assert "ERROR: Couldn't save" in logged.pop()
