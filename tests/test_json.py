@@ -77,6 +77,7 @@ def test_serialization():
         assert "foo is not an attribute" in logged
         assert "Wrong type 'str' for JsonSerializable.some_list in test, expecting 'list'" in logged.pop()
 
+        assert str(j) == "test"
         assert not j.some_list
         assert not hasattr(j, "foo")
         assert j.some_string == "some_value"
@@ -88,7 +89,7 @@ def test_serialization():
         j = runez.JsonSerializable.from_json("")
         assert str(j) == "no source"
 
-        j = runez.JsonSerializable.from_json("/dev/null/foo")
+        j = runez.JsonSerializable.from_json("/dev/null/foo", fatal=False)
         assert str(j) == "/dev/null/foo"
-        j.save()
+        j.save(fatal=False)
         assert "ERROR: Couldn't save" in logged.pop()
