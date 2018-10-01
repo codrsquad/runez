@@ -203,16 +203,15 @@ class JsonSerializable:
         return self._source or "no source"
 
     @classmethod
-    def from_json(cls, path, default=None, fatal=True, logger=None):
+    def from_json(cls, path, fatal=True, logger=None):
         """
         :param str path: Path to json file
-        :param dict|list default: Default if file is not present, or if it's not json
         :param bool fatal: Abort execution on failure if True
         :param callable|None logger: Logger to use
         :return cls: Deserialized object
         """
         result = cls()
-        result.load(path, default=default, fatal=fatal, logger=logger)
+        result.load(path, fatal=fatal, logger=logger)
         return result
 
     def set_from_dict(self, data, source=None):
@@ -259,10 +258,9 @@ class JsonSerializable:
             result[name.replace("_", "-")] = attr.to_dict() if hasattr(attr, "to_dict") else attr
         return result
 
-    def load(self, path=None, default=None, fatal=True, logger=None):
+    def load(self, path=None, fatal=True, logger=None):
         """
         :param str|None path: Load this object from file with 'path' (default: self._path)
-        :param dict|list default: Default if file is not present, or if it's not json
         :param bool fatal: Abort execution on failure if True
         :param callable|None logger: Logger to use
         """
@@ -271,7 +269,7 @@ class JsonSerializable:
             self._path = path
             self._source = short(path)
         if self._path:
-            self.set_from_dict(read_json(self._path, default=default, fatal=fatal, logger=logger))
+            self.set_from_dict(read_json(self._path, default={}, fatal=fatal, logger=logger))
 
     def save(self, path=None, fatal=True, logger=None, sort_keys=True, indent=2):
         """
