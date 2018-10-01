@@ -34,7 +34,7 @@ def test_json(temp_base):
         assert runez.read_json("sample.json", logger=runez.debug) == data
         assert "Read " in logged.pop()
 
-        assert runez.read_json("sample.json", default=[]) == []
+        assert runez.read_json("sample.json", default=[], fatal=False) == []
         assert "Wrong type" in logged.pop()
 
     with runez.CaptureOutput() as logged:

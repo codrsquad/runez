@@ -714,7 +714,7 @@ def write_contents(path, contents, fatal=True, logger=None):
         return abort("Can't write to %s: %s", short(path), e, fatal=(fatal, -1))
 
 
-def read_json(path, default=None, fatal=False, logger=None):
+def read_json(path, default=None, fatal=True, logger=None):
     """
     :param str path: Path to file to deserialize
     :param dict|list default: Default if file is not present, or if it's not json
@@ -722,6 +722,9 @@ def read_json(path, default=None, fatal=False, logger=None):
     :param callable|None logger: Logger to use
     :return dict|list: Deserialized data from file
     """
+    if not path:
+        return default
+
     path = resolved_path(path)
     if not path or not os.path.exists(path):
         if default is None:
