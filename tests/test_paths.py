@@ -107,11 +107,14 @@ def test_paths(temp_base):
     assert runez.delete("sample") == 1
 
     with runez.CaptureOutput() as logged:
-        assert runez.write_contents("sample", "bar\nbaz\n\n", logger=runez.debug)
-        assert runez.get_lines("sample") == ["bar\n", "baz\n", "\n"]
-        assert "Writing 9 bytes" in logged.pop()
+        sample = os.path.join(os.path.dirname(__file__), "sample.txt")
+        content = runez.get_lines(sample)
 
-        assert runez.first_line("sample") == "bar"
+        assert runez.write_contents("sample", "".join(content), fatal=False, logger=runez.debug) == 1
+        assert runez.get_lines("sample") == content
+        assert "Writing 13 bytes" in logged.pop()
+
+        assert runez.first_line("sample") == "Fred"
         assert runez.file_younger("sample", age=10)
         assert not runez.file_younger("sample", age=-1)
 

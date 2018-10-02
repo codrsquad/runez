@@ -24,6 +24,7 @@ try:
 
 except NameError:
     string_type = str
+    unicode = str
 
 
 LOG = logging.getLogger(__name__)
@@ -206,7 +207,7 @@ class JsonSerializable:
     def from_json(cls, path, fatal=True, logger=None):
         """
         :param str path: Path to json file
-        :param bool fatal: Abort execution on failure if True
+        :param bool|None fatal: Abort execution on failure if True
         :param callable|None logger: Logger to use
         :return cls: Deserialized object
         """
@@ -261,7 +262,7 @@ class JsonSerializable:
     def load(self, path=None, fatal=True, logger=None):
         """
         :param str|None path: Load this object from file with 'path' (default: self._path)
-        :param bool fatal: Abort execution on failure if True
+        :param bool|None fatal: Abort execution on failure if True
         :param callable|None logger: Logger to use
         """
         self.reset()
@@ -274,12 +275,13 @@ class JsonSerializable:
     def save(self, path=None, fatal=True, logger=None, sort_keys=True, indent=2):
         """
         :param str|None path: Save this serializable to file with 'path' (default: self._path)
-        :param bool fatal: Abort execution on failure if True
+        :param bool|None fatal: Abort execution on failure if True
         :param callable|None logger: Logger to use
         :param int indent: Indentation to use
-        :param str path: Path to file where to save
         """
-        return save_json(self, path or self._path, fatal=fatal, logger=logger, sort_keys=sort_keys, indent=indent)
+        data = self.to_dict()
+        path = path or self._path
+        return save_json(data, path, fatal=fatal, logger=logger, sort_keys=sort_keys, indent=indent)
 
 
 def type_name(value):
@@ -307,14 +309,14 @@ def decode(value):
     """Python 2/3 friendly decoding of output"""
     if isinstance(value, bytes) and not isinstance(value, str):
         return value.decode("utf-8")
-    return value
+    return unicode(value)
 
 
 def get_version(mod, default="0.0.0", fatal=True):
     """
     :param module|str mod: Module, or module name to find version for (pass either calling module, or its .__name__)
     :param str default: Value to return if version determination fails
-    :param bool fatal: Abort execution on failure if True
+    :param bool|None fatal: Abort execution on failure if True
     :return str: Determined version
     """
     name = mod
@@ -331,7 +333,7 @@ def get_version(mod, default="0.0.0", fatal=True):
 
 def resolved_path(path, base=None):
     """
-    :param str path: Path to resolve
+    :param str|None path: Path to resolve
     :param str|None base: Base path to use to resolve relative paths (default: current working dir)
     :return str: Absolute path
     """
@@ -389,7 +391,7 @@ def short(path):
 
 def parent_folder(path, base=None):
     """
-    :param str path: Path to file or folder
+    :param str|None path: Path to file or folder
     :param str|None base: Base folder to use for relative paths (default: current working dir)
     :return str: Absolute path of parent folder of 'path'
     """
@@ -542,9 +544,9 @@ def abort(*args, **kwargs):
 
 def ensure_folder(path, folder=False, fatal=True, logger=debug):
     """
-    :param str path: Path to file or folder
+    :param str|None path: Path to file or folder
     :param bool folder: If True, 'path' refers to a folder (file otherwise)
-    :param bool fatal: Abort execution on failure if True
+    :param bool|None fatal: Abort execution on failure if True
     :param callable|None logger: Logger to use
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
@@ -574,7 +576,7 @@ def ensure_folder(path, folder=False, fatal=True, logger=debug):
 
 def first_line(path):
     """
-    :param str path: Path to file
+    :param str|None path: Path to file
     :return str|None: First line of file, if any
     """
     try:
@@ -586,10 +588,10 @@ def first_line(path):
 
 def get_lines(path, max_size=TEXT_THRESHOLD_SIZE, fatal=True, default=None):
     """
-    :param str path: Path of text file to return lines from
+    :param str|None path: Path of text file to return lines from
     :param int|None max_size: Return contents only for files smaller than 'max_size' bytes
-    :param bool fatal: Abort execution on failure if True
-    :param default: Object to return if lines couldn't be read
+    :param bool|None fatal: Abort execution on failure if True
+    :param list|None default: Object to return if lines couldn't be read
     :return list|None: Lines from file contents
     """
     if not path or not os.path.isfile(path) or (max_size and os.path.getsize(path) > max_size):
@@ -606,10 +608,10 @@ def get_lines(path, max_size=TEXT_THRESHOLD_SIZE, fatal=True, default=None):
 
 def get_conf(path, fatal=True, keep_empty=False, default=None):
     """
-    :param str|list path: Path to file, or lines to parse
-    :param bool fatal: Abort execution on failure if True
+    :param str|list|None path: Path to file, or lines to parse
+    :param bool|None fatal: Abort execution on failure if True
     :param bool keep_empty: If True, keep definitions with empty values
-    :param default: Object to return if conf couldn't be read
+    :param dict|list|None default: Object to return if conf couldn't be read
     :return dict: Dict of section -> key -> value
     """
     if not path:
@@ -651,7 +653,7 @@ def get_conf(path, fatal=True, keep_empty=False, default=None):
 
 def file_younger(path, age):
     """
-    :param str path: Path to file
+    :param str|None path: Path to file
     :param int|float age: How many seconds to consider the file too old
     :return bool: True if file exists and is younger than 'age' seconds
     """
@@ -673,8 +675,8 @@ def check_pid(pid):
 
 def touch(path, fatal=True, logger=None):
     """
-    :param str path: Path to file to touch
-    :param bool fatal: Abort execution on failure if True
+    :param str|None path: Path to file to touch
+    :param bool|None fatal: Abort execution on failure if True
     :param callable|None logger: Logger to use
     """
     return write_contents(path, "", fatal=fatal, logger=logger)
@@ -682,9 +684,9 @@ def touch(path, fatal=True, logger=None):
 
 def write_contents(path, contents, fatal=True, logger=None):
     """
-    :param str path: Path to file
-    :param str contents: Contents to write
-    :param bool fatal: Abort execution on failure if True
+    :param str|None path: Path to file
+    :param str|None contents: Contents to write
+    :param bool|None fatal: Abort execution on failure if True
     :param callable|None logger: Logger to use
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
@@ -701,7 +703,7 @@ def write_contents(path, contents, fatal=True, logger=None):
         logger("Writing %s bytes to %s", len(contents), short(path))
 
     try:
-        with open(path, "wt") as fh:
+        with io.open(path, "wt") as fh:
             if contents:
                 fh.write(decode(contents))
             else:
@@ -714,9 +716,9 @@ def write_contents(path, contents, fatal=True, logger=None):
 
 def read_json(path, default=None, fatal=True, logger=None):
     """
-    :param str path: Path to file to deserialize
-    :param dict|list default: Default if file is not present, or if it's not json
-    :param bool fatal: Abort execution on failure if True
+    :param str|None path: Path to file to deserialize
+    :param dict|list|None default: Default if file is not present, or if it's not json
+    :param bool|None fatal: Abort execution on failure if True
     :param callable|None logger: Logger to use
     :return dict|list: Deserialized data from file
     """
@@ -745,11 +747,11 @@ def read_json(path, default=None, fatal=True, logger=None):
 def save_json(data, path, fatal=True, logger=None, sort_keys=True, indent=2):
     """
     :param dict|list|None data: Data to serialize and save
-    :param bool fatal: Abort execution on failure if True
+    :param str|None path: Path to file where to save
+    :param bool|None fatal: Abort execution on failure if True
     :param callable|None logger: Logger to use
     :param bool sort_keys: Save json with sorted keys
     :param int indent: Indentation to use
-    :param str path: Path to file where to save
     """
     if data is None or not path:
         return 0
@@ -781,10 +783,10 @@ def copy(source, destination, adapter=None, fatal=True, logger=debug):
     """
     Copy source -> destination
 
-    :param str source: Source file or folder
-    :param str destination: Destination file or folder
+    :param str|None source: Source file or folder
+    :param str|None destination: Destination file or folder
     :param callable adapter: Optional function to call on 'source' before copy
-    :param bool fatal: Abort execution on failure if True
+    :param bool|None fatal: Abort execution on failure if True
     :param callable|None logger: Logger to use
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
@@ -795,10 +797,10 @@ def move(source, destination, adapter=None, fatal=True, logger=debug):
     """
     Move source -> destination
 
-    :param str source: Source file or folder
-    :param str destination: Destination file or folder
+    :param str|None source: Source file or folder
+    :param str|None destination: Destination file or folder
     :param callable adapter: Optional function to call on 'source' before copy
-    :param bool fatal: Abort execution on failure if True
+    :param bool|None fatal: Abort execution on failure if True
     :param callable|None logger: Logger to use
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
@@ -809,11 +811,11 @@ def symlink(source, destination, adapter=None, must_exist=True, fatal=True, logg
     """
     Symlink source <- destination
 
-    :param str source: Source file or folder
-    :param str destination: Destination file or folder
+    :param str|None source: Source file or folder
+    :param str|None destination: Destination file or folder
     :param callable adapter: Optional function to call on 'source' before copy
     :param bool must_exist: If True, verify that source does indeed exist
-    :param bool fatal: Abort execution on failure if True
+    :param bool|None fatal: Abort execution on failure if True
     :param callable|None logger: Logger to use
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
@@ -844,11 +846,11 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True)
     """
     Call func(source, destination)
 
-    :param str source: Source file or folder
-    :param str destination: Destination file or folder
+    :param str|None source: Source file or folder
+    :param str|None destination: Destination file or folder
     :param callable func: Implementation function
     :param callable adapter: Optional function to call on 'source' before copy
-    :param bool fatal: Abort execution on failure if True
+    :param bool|None fatal: Abort execution on failure if True
     :param callable|None logger: Logger to use
     :param bool must_exist: If True, verify that source does indeed exist
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
@@ -892,7 +894,7 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True)
 def delete(path, fatal=True, logger=debug):
     """
     :param str|None path: Path to file or folder to delete
-    :param bool fatal: Abort execution on failure if True
+    :param bool|None fatal: Abort execution on failure if True
     :param callable|None logger: Logger to use
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
@@ -919,8 +921,8 @@ def delete(path, fatal=True, logger=debug):
 
 def make_executable(path, fatal=True):
     """
-    :param str path: chmod file with 'path' as executable
-    :param bool fatal: Abort execution on failure if True
+    :param str|None path: chmod file with 'path' as executable
+    :param bool|None fatal: Abort execution on failure if True
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
     if is_executable(path):
@@ -943,7 +945,7 @@ def make_executable(path, fatal=True):
 
 def is_executable(path):
     """
-    :param str path: Path to file
+    :param str|None path: Path to file
     :return bool: True if file exists and is executable
     """
     return path and os.path.isfile(path) and os.access(path, os.X_OK)

@@ -18,8 +18,8 @@ echo
 def test_capture(temp_base):
     with runez.CaptureOutput():
         chatter = runez.resolved_path("chatter")
-        runez.write_contents(chatter, CHATTER.strip())
-        runez.make_executable(chatter)
+        assert runez.write_contents(chatter, CHATTER.strip(), fatal=False) == 1
+        assert runez.make_executable(chatter, fatal=False) == 1
 
         assert runez.run_program(chatter, fatal=False) == "chatter"
 
