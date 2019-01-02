@@ -63,5 +63,5 @@ def test_version():
 
     with runez.CaptureOutput() as logged:
         with patch("pkg_resources.get_distribution", side_effect=Exception("testing")):
-            assert runez.get_version(runez, fatal=False) == "0.0.0"
+            assert runez.get_version(runez) == "0.0.0"
         assert "Can't determine version for runez" in logged

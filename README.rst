@@ -60,16 +60,16 @@ Run a program::
     import runez
 
     # Aborts if "foo" doesn't exist
-    output = runez.run_program("ls", "foo")
+    output = runez.run("ls", "foo")
 
     # Output can also be ignored
-    runez.run_program("ls", "foo")
+    runez.run("ls", "foo")
 
     # Don't capture output, just run the command and let output "pass through"
-    runez.run_program("ls", "foo", stdout=None, stderr=None)
+    runez.run("ls", "foo", stdout=None, stderr=None)
 
     # Don't abort, return False on failure (or actual output when successful)
-    output = runez.run_program("ls", "foo", fatal=False)
+    output = runez.run("ls", "foo", fatal=False)
 
 
 File operations::
@@ -81,12 +81,12 @@ File operations::
     runez.move("foo", "baz")
     runez.delete("foo")
 
-    runez.write_contents("foo", "bar\nbaz\n")
+    runez.write("foo", "bar\nbaz\n")
     first = runez.first_line("foo")
     lines = runez.get_lines("foo")
 
-    full_path = runez.resolved_path("foo/bar")
-    parent = runez.parent_folder(full_path)
+    full_path = runez.resolved("foo/bar")
+    parent = runez.parent(full_path)
     runez.ensure_folder(parent)
     with runez.Anchored(parent):
         assert runez.short(full_path) == "bar"

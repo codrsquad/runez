@@ -1,11 +1,12 @@
 from mock import patch
 
 import runez
+import runez.marshall
 
 
 def test_json(temp_base):
-    assert runez.read_json(None) is None
-    assert runez.save_json(None, None) == 0
+    assert runez.read_json(None, fatal=False) is None
+    assert runez.save_json(None, None, fatal=False) == 0
 
     data = {"a": "b"}
 
@@ -20,7 +21,7 @@ def test_json(temp_base):
         assert runez.read_json("sample.json", default={}, fatal=False) == {}
         assert not logged
 
-        with patch("runez.open", side_effect=Exception):
+        with patch("runez.marshall.open", side_effect=Exception):
             assert runez.save_json(data, "sample.json", fatal=False) == -1
             assert "Couldn't save" in logged.pop()
 
@@ -50,23 +51,23 @@ def test_json(temp_base):
 
 
 def test_types():
-    assert runez.type_name(None) == "None"
-    assert runez.type_name("foo") == "str"
-    assert runez.type_name({}) == "dict"
-    assert runez.type_name([]) == "list"
-    assert runez.type_name(1) == "int"
+    assert runez.marshall.type_name(None) == "None"
+    assert runez.marshall.type_name("foo") == "str"
+    assert runez.marshall.type_name({}) == "dict"
+    assert runez.marshall.type_name([]) == "list"
+    assert runez.marshall.type_name(1) == "int"
 
-    assert runez.same_type(None, None)
-    assert not runez.same_type(None, "")
-    assert runez.same_type("foo", "bar")
-    assert runez.same_type("foo", u"bar")
-    assert runez.same_type(["foo"], [u"bar"])
-    assert runez.same_type(1, 2)
+    assert runez.marshall.same_type(None, None)
+    assert not runez.marshall.same_type(None, "")
+    assert runez.marshall.same_type("foo", "bar")
+    assert runez.marshall.same_type("foo", u"bar")
+    assert runez.marshall.same_type(["foo"], [u"bar"])
+    assert runez.marshall.same_type(1, 2)
 
 
 def test_serialization():
     with runez.CaptureOutput() as logged:
-        j = runez.JsonSerializable()
+        j = runez.Serializable()
         assert str(j) == "no source"
         j.save()  # no-op
         j.set_from_dict({}, source="test")
@@ -75,7 +76,7 @@ def test_serialization():
 
         j.set_from_dict({"foo": "bar", "some-list": "some_value", "some-string": "some_value"}, source="test")
         assert "foo is not an attribute" in logged
-        assert "Wrong type 'str' for JsonSerializable.some_list in test, expecting 'list'" in logged.pop()
+        assert "Wrong type 'str' for Serializable.some_list in test, expecting 'list'" in logged.pop()
 
         assert str(j) == "test"
         assert not j.some_list
@@ -86,10 +87,10 @@ def test_serialization():
         j.reset()
         assert not j.some_string
 
-        j = runez.JsonSerializable.from_json("")
+        j = runez.Serializable.from_json("")
         assert str(j) == "no source"
 
-        j = runez.JsonSerializable.from_json("/dev/null/foo", fatal=False)
+        j = runez.Serializable.from_json("/dev/null/foo", fatal=False)
         assert str(j) == "/dev/null/foo"
         j.save(fatal=False)
         assert "ERROR: Couldn't save" in logged.pop()

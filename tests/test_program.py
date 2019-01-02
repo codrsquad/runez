@@ -3,6 +3,7 @@ import os
 from mock import patch
 
 import runez
+import runez.program
 
 
 CHATTER = """
@@ -17,13 +18,13 @@ echo
 
 def test_capture(temp_base):
     with runez.CaptureOutput():
-        chatter = runez.resolved_path("chatter")
-        assert runez.write_contents(chatter, CHATTER.strip(), fatal=False) == 1
+        chatter = runez.resolved("chatter")
+        assert runez.write(chatter, CHATTER.strip(), fatal=False) == 1
         assert runez.make_executable(chatter, fatal=False) == 1
 
-        assert runez.run_program(chatter, fatal=False) == "chatter"
+        assert runez.run(chatter, fatal=False) == "chatter"
 
-        r = runez.run_program(chatter, include_error=True, fatal=False)
+        r = runez.run(chatter, include_error=True, fatal=False)
         assert r.startswith("chatter")
         assert "No such file" in r
 
@@ -60,24 +61,24 @@ def test_pids():
 
 
 def test_run(temp_base):
-    assert runez.added_env_paths(None) is None
+    assert runez.program.added_env_paths(None) is None
 
     with runez.CaptureOutput(dryrun=True) as logged:
-        assert "Would run: /dev/null" in runez.run_program("/dev/null", fatal=False)
+        assert "Would run: /dev/null" in runez.run("/dev/null", fatal=False)
         assert "Would run: /dev/null" in logged.pop()
 
-        assert "Would run:" in runez.run_program("ls")
+        assert "Would run:" in runez.run("ls")
         assert "Would run:" in logged.pop()
 
     with runez.CaptureOutput() as logged:
-        assert runez.run_program("/dev/null", fatal=False) is False
+        assert runez.run("/dev/null", fatal=False) is False
         assert "ERROR: /dev/null is not installed" in logged.pop()
 
         assert runez.touch("sample") == 1
-        assert runez.run_program("ls", ".", path_env={"PATH": ":."}) == "sample"
+        assert runez.run("ls", ".", path_env={"PATH": ":."}) == "sample"
         assert "Running:" in logged.pop()
 
-        assert runez.run_program("ls", "foo", fatal=False) is False
+        assert runez.run("ls", "foo", fatal=False) is False
         assert "Running: " in logged
         assert "exited with code" in logged
         assert "No such file" in logged.pop()
@@ -86,5 +87,5 @@ def test_run(temp_base):
 @patch("subprocess.Popen", side_effect=Exception("testing"))
 def test_failed_run(_):
     with runez.CaptureOutput() as logged:
-        assert runez.run_program("ls", fatal=False) is False
+        assert runez.run("ls", fatal=False) is False
         assert "ERROR: ls failed: testing" in logged

@@ -29,9 +29,9 @@ k2 =
 
 
 def test_paths(temp_base):
-    assert runez.resolved_path(None) is None
-    assert runez.resolved_path("foo") == os.path.join(temp_base, "foo")
-    assert runez.resolved_path("foo", base="bar") == os.path.join(temp_base, "bar", "foo")
+    assert runez.resolved(None) is None
+    assert runez.resolved("foo") == os.path.join(temp_base, "foo")
+    assert runez.resolved("foo", base="bar") == os.path.join(temp_base, "bar", "foo")
 
     assert runez.short(None) is None
     assert runez.short("") == ""
@@ -40,8 +40,8 @@ def test_paths(temp_base):
     assert runez.short(temp_base + "/foo") == "foo"
     assert runez.short(temp_base + "/foo") == "foo"
 
-    assert runez.parent_folder(None) is None
-    assert runez.parent_folder(temp_base + "/foo") == temp_base
+    assert runez.parent(None) is None
+    assert runez.parent(temp_base + "/foo") == temp_base
 
     assert runez.represented_args(["ls", temp_base + "/foo bar", "-a"]) == 'ls "foo bar" -a'
 
@@ -110,13 +110,13 @@ def test_paths(temp_base):
         sample = os.path.join(os.path.dirname(__file__), "sample.txt")
         content = runez.get_lines(sample)
 
-        assert runez.write_contents("sample", "".join(content), fatal=False, logger=runez.debug) == 1
+        assert runez.write("sample", "".join(content), fatal=False, logger=runez.debug) == 1
         assert runez.get_lines("sample") == content
         assert "Writing 13 bytes" in logged.pop()
 
         assert runez.first_line("sample") == "Fred"
-        assert runez.file_younger("sample", age=10)
-        assert not runez.file_younger("sample", age=-1)
+        assert runez.is_younger("sample", age=10)
+        assert not runez.is_younger("sample", age=-1)
 
         assert runez.copy("bar", "baz", fatal=False) == -1
         assert "does not exist" in logged.pop()
@@ -145,8 +145,8 @@ def test_paths(temp_base):
         assert os.path.islink("x/z/sample3")
 
     assert runez.touch(None) == 0
-    assert not runez.file_younger(None, 1)
-    assert not runez.file_younger("/dev/null/foo", 1)
+    assert not runez.is_younger(None, 1)
+    assert not runez.is_younger("/dev/null/foo", 1)
     assert runez.first_line("/dev/null/foo") is None
 
     assert runez.get_lines(None) is None
@@ -164,7 +164,7 @@ def test_failed_read(*_):
         assert runez.get_lines("bar", fatal=False) is None
         assert "Can't read" in logged.pop()
 
-        assert runez.write_contents("bar", "foo", fatal=False)
+        assert runez.write("bar", "foo", fatal=False)
         assert "Can't write" in logged.pop()
 
         assert runez.copy("foo", "bar", fatal=False) == -1
@@ -178,22 +178,25 @@ def test_failed_read(*_):
 def test_temp():
     with runez.CaptureOutput(anchors=["/tmp", "/etc"]) as logged:
         with runez.TempFolder() as tmp:
-            assert tmp
-        assert "Deleting " in logged
+            assert os.path.isdir(tmp)
+            assert tmp != "<tmp>"
+        assert not os.path.isdir(tmp)
 
         assert runez.short("/tmp/foo") == "foo"
         assert runez.short("/etc/foo") == "foo"
+
+        assert not logged
 
     with runez.CaptureOutput(dryrun=True) as logged:
         with runez.TempFolder() as tmp:
             assert tmp == "<tmp>"
             assert runez.short("<tmp>/foo") == "foo"
-        assert "Would delete" in logged.pop()
 
         with runez.TempFolder(anchor=False) as tmp:
             assert tmp == "<tmp>"
             assert runez.short("<tmp>/foo") == "<tmp>/foo"
-        assert "Would delete" in logged.pop()
+
+        assert not logged
 
 
 def test_conf():
