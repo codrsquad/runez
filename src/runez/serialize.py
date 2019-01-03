@@ -8,7 +8,7 @@ import os
 
 from runez.base import short, State, string_type
 from runez.log import abort, debug
-from runez.path import ensure_folder, resolved
+from runez.path import ensure_folder, resolved_path
 
 
 def type_name(value):
@@ -145,7 +145,7 @@ def read_json(path, default=None, fatal=True, logger=None):
     :param callable|None logger: Logger to use
     :return dict|list: Deserialized data from file
     """
-    path = resolved(path)
+    path = resolved_path(path)
     if not path or not os.path.exists(path):
         if default is None:
             return abort("No file %s", short(path), fatal=(fatal, default))
@@ -179,7 +179,7 @@ def save_json(data, path, fatal=True, logger=None, sort_keys=True, indent=2):
         return abort("No file %s", short(path), fatal=fatal)
 
     try:
-        path = resolved(path)
+        path = resolved_path(path)
         ensure_folder(path, fatal=fatal, logger=None)
         if State.dryrun:
             debug("Would save %s", short(path))

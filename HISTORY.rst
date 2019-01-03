@@ -2,7 +2,7 @@
 History
 =======
 
-1.3.0 (2019-01-02)
+1.3.1 (2019-01-03)
 ------------------
 
 * Refactored code to allow for better
@@ -10,8 +10,6 @@ History
 * Simplified names::
 
     JsonSerializable -> Serializable
-    parent_folder()  -> parent()
-    resolved_path()  -> resolved()
     run_program()    -> run()
     write_contents() -> write()
 

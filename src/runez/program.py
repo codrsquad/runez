@@ -5,6 +5,7 @@ Convenience methods for executing programs
 import os
 import subprocess  # nosec
 import sys
+import time
 
 from runez.base import decode, flattened, represented_args, short, State
 from runez.log import abort, debug
@@ -29,6 +30,19 @@ def is_executable(path):
     :return bool: True if file exists and is executable
     """
     return path and os.path.isfile(path) and os.access(path, os.X_OK)
+
+
+def is_younger(path, age):
+    """
+    :param str|None path: Path to file
+    :param int|float age: How many seconds to consider the file too old
+    :return bool: True if file exists and is younger than 'age' seconds
+    """
+    try:
+        return time.time() - os.path.getmtime(path) < age
+
+    except (OSError, TypeError):
+        return False
 
 
 def make_executable(path, fatal=True):

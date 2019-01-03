@@ -1,18 +1,15 @@
 """
-Convenience methods for file operations
+Convenience methods for file/folder operations
 """
 
-import io
 import os
 import shutil
-import time
 
-from runez.base import decode, short, State
+from runez.base import short, State
 from runez.log import abort, debug
 
 
 SYMBOLIC_TMP = "<tmp>"
-TEXT_THRESHOLD_SIZE = 16384  # Max size in bytes to consider a file a "text file"
 
 
 def copy(source, destination, adapter=None, fatal=True, logger=debug):
@@ -70,9 +67,11 @@ def ensure_folder(path, folder=False, fatal=True, logger=debug):
         return 0
 
     if folder:
-        folder = resolved(path)
+        folder = resolved_path(path)
+
     else:
-        folder = parent(path)
+        folder = parent_folder(path)
+
     if os.path.isdir(folder):
         return 0
 
@@ -84,100 +83,11 @@ def ensure_folder(path, folder=False, fatal=True, logger=debug):
         os.makedirs(folder)
         if logger:
             logger("Created folder %s", short(folder))
+
         return 1
 
     except Exception as e:
         return abort("Can't create folder %s: %s", short(folder), e, fatal=(fatal, -1))
-
-
-def first_line(path):
-    """
-    :param str|None path: Path to file
-    :return str|None: First line of file, if any
-    """
-    try:
-        with io.open(path, "rt", errors="ignore") as fh:
-            return fh.readline().strip()
-    except (IOError, TypeError):
-        return None
-
-
-def get_conf(path, fatal=True, keep_empty=False, default=None):
-    """
-    :param str|list|None path: Path to file, or lines to parse
-    :param bool|None fatal: Abort execution on failure if True
-    :param bool keep_empty: If True, keep definitions with empty values
-    :param dict|list|None default: Object to return if conf couldn't be read
-    :return dict: Dict of section -> key -> value
-    """
-    if not path:
-        return default
-
-    lines = path if isinstance(path, list) else get_lines(path, fatal=fatal, default=default)
-
-    result = default
-    if lines is not None:
-        result = {}
-        section_key = None
-        section = None
-        for line in lines:
-            line = decode(line).strip()
-            if '#' in line:
-                i = line.index("#")
-                line = line[:i].strip()
-            if not line:
-                continue
-            if line.startswith("[") and line.endswith("]"):
-                section_key = line.strip("[]").strip()
-                section = result.get(section_key)
-                continue
-            if "=" not in line:
-                continue
-            if section is None:
-                section = result[section_key] = {}
-            key, _, value = line.partition("=")
-            key = key.strip()
-            value = value.strip()
-            if keep_empty or (key and value):
-                section[key] = value
-
-        if not keep_empty:
-            result = dict((k, v) for k, v in result.items() if k and v)
-
-    return result
-
-
-def get_lines(path, max_size=TEXT_THRESHOLD_SIZE, fatal=True, default=None):
-    """
-    :param str|None path: Path of text file to return lines from
-    :param int|None max_size: Return contents only for files smaller than 'max_size' bytes
-    :param bool|None fatal: Abort execution on failure if True
-    :param list|None default: Object to return if lines couldn't be read
-    :return list|None: Lines from file contents
-    """
-    if not path or not os.path.isfile(path) or (max_size and os.path.getsize(path) > max_size):
-        # Intended for small text files, pretend no contents for binaries
-        return default
-
-    try:
-        with io.open(path, "rt", errors="ignore") as fh:
-            return fh.readlines()
-
-    except Exception as e:
-        return abort("Can't read %s: %s", short(path), e, fatal=(fatal, default))
-
-
-def is_younger(path, age):
-    """
-    :param str|None path: Path to file
-    :param int|float age: How many seconds to consider the file too old
-    :return bool: True if file exists and is younger than 'age' seconds
-    """
-    try:
-        return time.time() - os.path.getmtime(path) < age
-
-    except (OSError, TypeError):
-        return False
 
 
 def move(source, destination, adapter=None, fatal=True, logger=debug):
@@ -194,16 +104,16 @@ def move(source, destination, adapter=None, fatal=True, logger=debug):
     return _file_op(source, destination, _move, adapter, fatal, logger)
 
 
-def parent(path, base=None):
+def parent_folder(path, base=None):
     """
     :param str|None path: Path to file or folder
     :param str|None base: Base folder to use for relative paths (default: current working dir)
     :return str: Absolute path of parent folder of 'path'
     """
-    return path and os.path.dirname(resolved(path, base=base))
+    return path and os.path.dirname(resolved_path(path, base=base))
 
 
-def resolved(path, base=None):
+def resolved_path(path, base=None):
     """
     :param str|None path: Path to resolve
     :param str|None base: Base path to use to resolve relative paths (default: current working dir)
@@ -211,9 +121,11 @@ def resolved(path, base=None):
     """
     if not path or path.startswith(SYMBOLIC_TMP):
         return path
+
     path = os.path.expanduser(path)
     if base and not os.path.isabs(path):
-        return os.path.join(resolved(base), path)
+        return os.path.join(resolved_path(base), path)
+
     return os.path.abspath(path)
 
 
@@ -230,47 +142,6 @@ def symlink(source, destination, adapter=None, must_exist=True, fatal=True, logg
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
     return _file_op(source, destination, _symlink, adapter,  fatal, logger, must_exist=must_exist)
-
-
-def touch(path, fatal=True, logger=None):
-    """
-    :param str|None path: Path to file to touch
-    :param bool|None fatal: Abort execution on failure if True
-    :param callable|None logger: Logger to use
-    """
-    return write(path, "", fatal=fatal, logger=logger)
-
-
-def write(path, contents, fatal=True, logger=None):
-    """
-    :param str|None path: Path to file
-    :param str|None contents: Contents to write
-    :param bool|None fatal: Abort execution on failure if True
-    :param callable|None logger: Logger to use
-    :return int: 1 if effectively done, 0 if no-op, -1 on failure
-    """
-    if not path:
-        return 0
-
-    if State.dryrun:
-        action = "write %s bytes to" % len(contents) if contents else "touch"
-        debug("Would %s %s", action, short(path))
-        return 1
-
-    ensure_folder(path, fatal=fatal, logger=logger)
-    if logger and contents:
-        logger("Writing %s bytes to %s", len(contents), short(path))
-
-    try:
-        with io.open(path, "wt") as fh:
-            if contents:
-                fh.write(decode(contents))
-            else:
-                os.utime(path, None)
-        return 1
-
-    except Exception as e:
-        return abort("Can't write to %s: %s", short(path), e, fatal=(fatal, -1))
 
 
 def _copy(source, destination):
@@ -311,8 +182,8 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True)
 
     action = func.__name__[1:]
     indicator = "<-" if action == "symlink" else "->"
-    psource = parent(source)
-    pdest = resolved(destination)
+    psource = parent_folder(source)
+    pdest = resolved_path(destination)
     if psource != pdest and psource.startswith(pdest):
         return abort(
             "Can't %s %s %s %s: source contained in destination", action, short(source), indicator, short(destination), fatal=(fatal, -1)

@@ -1,7 +1,7 @@
 from mock import patch
 
 import runez
-import runez.marshall
+from runez.serialize import same_type, type_name
 
 
 def test_json(temp_base):
@@ -21,7 +21,7 @@ def test_json(temp_base):
         assert runez.read_json("sample.json", default={}, fatal=False) == {}
         assert not logged
 
-        with patch("runez.marshall.open", side_effect=Exception):
+        with patch("runez.serialize.open", side_effect=Exception):
             assert runez.save_json(data, "sample.json", fatal=False) == -1
             assert "Couldn't save" in logged.pop()
 
@@ -51,18 +51,18 @@ def test_json(temp_base):
 
 
 def test_types():
-    assert runez.marshall.type_name(None) == "None"
-    assert runez.marshall.type_name("foo") == "str"
-    assert runez.marshall.type_name({}) == "dict"
-    assert runez.marshall.type_name([]) == "list"
-    assert runez.marshall.type_name(1) == "int"
+    assert type_name(None) == "None"
+    assert type_name("foo") == "str"
+    assert type_name({}) == "dict"
+    assert type_name([]) == "list"
+    assert type_name(1) == "int"
 
-    assert runez.marshall.same_type(None, None)
-    assert not runez.marshall.same_type(None, "")
-    assert runez.marshall.same_type("foo", "bar")
-    assert runez.marshall.same_type("foo", u"bar")
-    assert runez.marshall.same_type(["foo"], [u"bar"])
-    assert runez.marshall.same_type(1, 2)
+    assert same_type(None, None)
+    assert not same_type(None, "")
+    assert same_type("foo", "bar")
+    assert same_type("foo", u"bar")
+    assert same_type(["foo"], [u"bar"])
+    assert same_type(1, 2)
 
 
 def test_serialization():

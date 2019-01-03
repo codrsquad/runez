@@ -85,10 +85,10 @@ File operations::
     first = runez.first_line("foo")
     lines = runez.get_lines("foo")
 
-    full_path = runez.resolved("foo/bar")
-    parent = runez.parent(full_path)
-    runez.ensure_folder(parent)
-    with runez.Anchored(parent):
+    full_path = runez.resolved_path("foo/bar")
+    folder = runez.parent_folder(full_path)
+    runez.ensure_folder(folder)
+    with runez.Anchored(folder):
         assert runez.short(full_path) == "bar"
 
 

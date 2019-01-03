@@ -29,9 +29,9 @@ k2 =
 
 
 def test_paths(temp_base):
-    assert runez.resolved(None) is None
-    assert runez.resolved("foo") == os.path.join(temp_base, "foo")
-    assert runez.resolved("foo", base="bar") == os.path.join(temp_base, "bar", "foo")
+    assert runez.resolved_path(None) is None
+    assert runez.resolved_path("foo") == os.path.join(temp_base, "foo")
+    assert runez.resolved_path("foo", base="bar") == os.path.join(temp_base, "bar", "foo")
 
     assert runez.short(None) is None
     assert runez.short("") == ""
@@ -40,8 +40,8 @@ def test_paths(temp_base):
     assert runez.short(temp_base + "/foo") == "foo"
     assert runez.short(temp_base + "/foo") == "foo"
 
-    assert runez.parent(None) is None
-    assert runez.parent(temp_base + "/foo") == temp_base
+    assert runez.parent_folder(None) is None
+    assert runez.parent_folder(temp_base + "/foo") == temp_base
 
     assert runez.represented_args(["ls", temp_base + "/foo bar", "-a"]) == 'ls "foo bar" -a'
 

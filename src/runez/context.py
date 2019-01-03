@@ -16,7 +16,7 @@ except ImportError:
     from io import StringIO
 
 from runez.base import decode, flattened, State
-from runez.path import resolved, SYMBOLIC_TMP
+from runez.path import resolved_path, SYMBOLIC_TMP
 
 
 class Anchored:
@@ -26,7 +26,7 @@ class Anchored:
     """
 
     def __init__(self, folder):
-        self.folder = resolved(folder)
+        self.folder = resolved_path(folder)
 
     def __enter__(self):
         Anchored.add(self.folder)
@@ -156,7 +156,7 @@ class CurrentFolder:
 
     def __init__(self, destination, anchor=False):
         self.anchor = anchor
-        self.destination = resolved(destination)
+        self.destination = resolved_path(destination)
 
     def __enter__(self):
         self.current_folder = os.getcwd()
