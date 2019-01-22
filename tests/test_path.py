@@ -28,6 +28,18 @@ k2 =
 """
 
 
+def test_anchor():
+    user_path = runez.resolved_path("~/foo/bar")
+    current_path = runez.resolved_path("./foo/bar")
+
+    assert user_path != "~/foo/bar"
+    assert runez.short(user_path) == "~/foo/bar"
+    assert runez.short(current_path) != "foo/bar"
+
+    with runez.Anchored(os.getcwd()):
+        assert runez.short(current_path) == "foo/bar"
+
+
 def test_paths(temp_base):
     assert runez.resolved_path(None) is None
     assert runez.resolved_path("foo") == os.path.join(temp_base, "foo")

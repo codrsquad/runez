@@ -1,7 +1,3 @@
-import os
-import shutil
-from tempfile import mkdtemp
-
 import pytest
 
 import runez
@@ -16,15 +12,5 @@ runez.State.testing = True
 
 @pytest.fixture
 def temp_base():
-    old_cwd = os.getcwd()
-    # Yielding realpath() to properly resolve for example symlinks on OSX temp paths
-    path = os.path.realpath(mkdtemp())
-
-    try:
-        os.chdir(path)
-        with runez.Anchored(path):
-            yield path
-
-    finally:
-        os.chdir(old_cwd)
-        shutil.rmtree(path)
+    with runez.TempFolder() as path:
+        yield path

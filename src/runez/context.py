@@ -175,13 +175,25 @@ class TempFolder:
     Context manager for obtaining a temp folder
     """
 
-    def __init__(self, anchor=True):
+    def __init__(self, anchor=True, dryrun=None, follow=True):
+        """
+        :param anchor: If True, short-ify paths relative to used temp folder
+        :param dryrun: Override dryrun (if provided)
+        :param follow: If True, change working dir to temp folder (and restore)
+        """
         self.anchor = anchor
-        self.dryrun = State.dryrun
+        self.dryrun = dryrun if dryrun is not None else State.dryrun
+        self.old_cwd = os.getcwd() if follow else None
         self.tmp_folder = None
 
     def __enter__(self):
-        self.tmp_folder = SYMBOLIC_TMP if self.dryrun else tempfile.mkdtemp()
+        if self.dryrun:
+            self.tmp_folder = SYMBOLIC_TMP
+        else:
+            # Use realpath() to properly resolve for example symlinks on OSX temp paths
+            self.tmp_folder = os.path.realpath(tempfile.mkdtemp())
+            if self.old_cwd:
+                os.chdir(self.tmp_folder)
         if self.anchor:
             Anchored.add(self.tmp_folder)
         return self.tmp_folder
@@ -189,8 +201,11 @@ class TempFolder:
     def __exit__(self, *_):
         if self.anchor:
             Anchored.pop(self.tmp_folder)
-        if not self.dryrun and self.tmp_folder:
-            shutil.rmtree(self.tmp_folder)
+        if not self.dryrun:
+            if self.old_cwd:
+                os.chdir(self.old_cwd)
+            if self.tmp_folder:
+                shutil.rmtree(self.tmp_folder)
 
 
 def verify_abort(func, *args, **kwargs):
