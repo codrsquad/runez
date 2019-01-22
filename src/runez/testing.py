@@ -12,23 +12,24 @@ def test_help():
 import runez
 
 
+class ClickResult:
+    def __init__(self, output, exit_code=0):
+        self.output = output
+        self.exit_code = exit_code
+
+
 try:
     from click.testing import CliRunner
 
 except ImportError:
-    # Mock click-like behavior
-    class Result:
-        def __init__(self, output, exit_code=0):
-            self.output = output
-            self.exit_code = exit_code
-
     class CliRunner:
+        # Mock click-like behavior
         def invoke(self, main, args):
             try:
-                return Result(main(args))
+                return ClickResult(main(args))
 
             except Exception as e:
-                return Result(str(e), exit_code=1)
+                return ClickResult(str(e), exit_code=1)
 
 
 def click_run(main, args, **kwargs):
@@ -37,6 +38,7 @@ def click_run(main, args, **kwargs):
     :param str|list args: Command line args
     :return click.testing.Result:
     """
+    old_dryrun = runez.State.dryrun
     runner = CliRunner()
     if not isinstance(args, list):
         # Convenience: accept strings
@@ -46,11 +48,11 @@ def click_run(main, args, **kwargs):
         for i, arg in enumerate(args):
             args[i] = arg.format(**kwargs)
 
-    result = runner.invoke(main, args=args)
-    if args and args[0] == "--dryrun":
-        # Restore default non-dryrun state after a --dryrun test
-        runez.State.dryrun = False
+    with runez.CaptureOutput() as logged:
+        result = runner.invoke(main, args=args)
+        result = ClickResult("%s\n%s" % (result.output, logged), exit_code=result.exit_code)
 
+    runez.State.dryrun = old_dryrun
     return result
 
 
@@ -63,7 +65,9 @@ def expect_messages(output, *expected):
         if message[0] == '!':
             assert message[1:] not in output
         else:
-            assert message in output
+            if output and len(output) > 256:
+                output = "%s..." %  output[:256]
+            assert message in output, "'%s' not seen in '%s'" % (message, output)
 
 
 def expect_success(main, args, *expected, **kwargs):
