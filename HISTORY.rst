@@ -2,8 +2,10 @@
 History
 =======
 
-1.3.1 (2019-01-03)
+1.3.3 (2019-01-22)
 ------------------
+
+* Added ``Heartbeat``
 
 * Refactored code to allow for better
 
