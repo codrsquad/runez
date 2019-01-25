@@ -4,7 +4,7 @@ All functions/classes are imported here so that clients can simply import from '
 """
 
 # flake8: noqa: F401
-from runez.base import decode, flattened, get_version, quoted, represented_args, short, State, to_int
+from runez.base import decode, flattened, get_version, quoted, represented_args, short, shortened, State, to_int
 from runez.context import Anchored, CaptureOutput, CurrentFolder, TempFolder, verify_abort
 from runez.file import first_line, get_conf, get_lines, touch, write
 from runez.heartbeat import Heartbeat

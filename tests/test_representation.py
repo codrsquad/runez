@@ -3,6 +3,13 @@ from mock import patch
 import runez
 
 
+def test_shortening():
+    assert runez.shortened("") == ""
+    assert runez.shortened(" some text ") == "some text"
+    assert runez.shortened("some long text", size=9) == "some l..."
+    assert runez.shortened("some long text", size=8) == "some..."
+
+
 def test_flattening():
     assert runez.flattened(None) == []
     assert runez.flattened("") == []

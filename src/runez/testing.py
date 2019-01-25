@@ -64,9 +64,9 @@ def expect_messages(output, *expected):
     for message in expected:
         if message[0] == '!':
             assert message[1:] not in output
+
         else:
-            if output and len(output) > 256:
-                output = "%s..." %  output[:256]
+            output = runez.shortened(output, 256)
             assert message in output, "'%s' not seen in '%s'" % (message, output)
 
 

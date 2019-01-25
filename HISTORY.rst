@@ -2,10 +2,10 @@
 History
 =======
 
-1.3.5 (2019-01-22)
+1.3.6 (2019-01-24)
 ------------------
 
-* Added ``Heartbeat``
+* Added ``Heartbeat``, ``shortened``, ``testing``
 
 * Refactored code to allow for better
 
@@ -15,7 +15,6 @@ History
     run_program()    -> run()
     write_contents() -> write()
 
-* Added ``runez.testing``
 
 1.2.8 (2018-10-01)
 ------------------

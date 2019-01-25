@@ -91,6 +91,19 @@ def represented_args(args, separator=" "):
     return separator.join(result)
 
 
+def shortened(text, size=120):
+    """
+    :param str text: Text to shorten
+    :param int size: Max chars
+    :return str: Leading part of 'text' with at most 'size' chars
+    """
+    if text:
+        text = text.strip()
+        if len(text) > size:
+            return "%s..." % text[:size - 3].strip()
+    return text
+
+
 def short(path):
     """
     Example:
