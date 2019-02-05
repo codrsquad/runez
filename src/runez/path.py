@@ -4,8 +4,7 @@ Convenience methods for file/folder operations
 
 import os
 
-from runez.base import short, State
-from runez.log import abort, debug
+from runez.base import abort, debug, short, State
 
 
 SYMBOLIC_TMP = "<tmp>"

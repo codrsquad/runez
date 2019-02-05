@@ -2,8 +2,7 @@ import io
 import os
 import shutil
 
-from runez.base import decode, short, State
-from runez.log import abort, debug
+from runez.base import abort, debug, decode, short, State
 from runez.path import ensure_folder, parent_folder, resolved_path
 
 

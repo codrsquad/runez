@@ -6,8 +6,7 @@ import io
 import json
 import os
 
-from runez.base import short, State, string_type
-from runez.log import abort, debug
+from runez.base import abort, debug, short, State, string_type
 from runez.path import ensure_folder, resolved_path
 
 

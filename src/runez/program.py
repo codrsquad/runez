@@ -7,8 +7,7 @@ import subprocess  # nosec
 import sys
 import time
 
-from runez.base import decode, flattened, represented_args, short, State
-from runez.log import abort, debug
+from runez.base import abort, debug, decode, flattened, represented_args, short, State
 
 
 def check_pid(pid):
