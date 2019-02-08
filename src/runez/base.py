@@ -173,6 +173,8 @@ class prop(object):
             func(*args, **kwargs)
 
     def __get__(self, instance, cls=None):
+        if not instance:
+            instance = cls
         cached = getattr(instance, self.field_name, None)
         if cached is None:
             cached = self.function(instance)

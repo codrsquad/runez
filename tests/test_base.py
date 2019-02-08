@@ -49,6 +49,11 @@ class Foo(object):
 
 
 def test_prop():
+    global COUNTER
+    global TRACKED
+    COUNTER = 0
+    TRACKED = collections.defaultdict(int)
+
     foo = Foo()
 
     # Verify tracking and operations
@@ -104,3 +109,24 @@ def test_prop():
     # Setting any non-None value does not trigger re-computationr
     foo.counter = 15
     assert foo.counter == 15
+
+
+def test_class_prop():
+    """
+    Verify that using props on class directly also works (but won't work for setting those props...)
+    """
+    global COUNTER
+    global TRACKED
+    COUNTER = 0
+    TRACKED = collections.defaultdict(int)
+
+    assert Foo.nothing is None
+    assert Foo.hello == "hello"
+    assert Foo.counter == 1
+
+    assert Foo.nothing is None
+    assert Foo.hello == "hello"
+    assert Foo.counter == 1
+
+    assert TRACKED["get.nothing"] == 2
+    assert TRACKED["get.hello"] == 1
