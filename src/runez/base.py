@@ -107,6 +107,84 @@ def abort(*args, **kwargs):
     return return_value
 
 
+try:
+    from inspect import signature
+
+    def _function_arguments(func):
+        return signature(func).parameters
+
+except ImportError:
+    from inspect import getargspec
+
+    def _function_arguments(func):
+        return getargspec(func).args
+
+
+class prop(object):
+    """
+    Decorator for settable cached properties.
+    This comes in handy for properties you'd like to avoid computing multiple times,
+    yet be able to arbitrarily change them as well, and be able to know when they get changed.
+
+    This is a good fit for convenience setting classes, for example: runez.log.Settings
+    It's not a good fit if what you're looking for is speed.
+    """
+
+    def __init__(self, func=None, tget=None, tset=None):
+        """
+        :param callable|None: Wrapped function, provided when decorator is used without arguments
+        :param callable|None tget: Optional 'get' tracker, called when 'get' is performed
+        :param callable|None tset: Optional 'set' tracker, called when 'set' is performed
+        """
+        self.function = None
+        self.name = None
+        self.tget = tget
+        self.tset = tset
+        if func:
+            self._set_function(func)
+
+    def __repr__(self):
+        return self.name
+
+    def __call__(self, func):
+        self._set_function(func)
+        return self
+
+    def _set_function(self, func):
+        self.function = func
+        self.name = func.__name__
+        self.field_name = "__%s" % self.name
+        self.__doc__ = func.__doc__
+
+    def _notify(self, instance, operation):
+        if operation:
+            func = operation.__func__ if isinstance(operation, classmethod) else operation
+            sig = _function_arguments(func)
+            args = []
+            kwargs = {}
+            if "instance" in sig:
+                kwargs["instance"] = instance
+            if "prop" in sig:
+                kwargs["prop"] = self
+            if "self" in sig:
+                args.append(instance)
+            elif "cls" in sig:
+                args.append(instance.__class__)
+            func(*args, **kwargs)
+
+    def __get__(self, instance, cls=None):
+        cached = getattr(instance, self.field_name, None)
+        if cached is None:
+            cached = self.function(instance)
+            setattr(instance, self.field_name, cached)
+            self._notify(instance, self.tget)
+        return cached
+
+    def __set__(self, instance, value):
+        setattr(instance, self.field_name, value)
+        self._notify(instance, self.tset)
+
+
 def decode(value):
     """Python 2/3 friendly decoding of output"""
     if isinstance(value, bytes) and not isinstance(value, str):

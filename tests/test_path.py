@@ -40,6 +40,15 @@ def test_anchor():
         assert runez.short(current_path) == "foo/bar"
 
 
+def test_basename():
+    assert runez.basename(None) == ""
+    assert runez.basename("/foo/bar") == "bar"
+    assert runez.basename("foo/bar.py") == "bar"
+    assert runez.basename("foo/bar.baz.pyc") == "bar.baz"
+
+    assert runez.basename("foo/bar.py", extension_marker=None) == "bar.py"
+
+
 def test_paths(temp_base):
     assert runez.resolved_path(None) is None
     assert runez.resolved_path("foo") == os.path.join(temp_base, "foo")

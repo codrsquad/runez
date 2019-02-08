@@ -10,6 +10,20 @@ from runez.base import abort, debug, short, State
 SYMBOLIC_TMP = "<tmp>"
 
 
+def basename(path, extension_marker="."):
+    """
+    :param str|None path: Path to consider
+    :param str|None extension_marker: Trim file extension based on specified character
+    :return str: Basename part of path, without extension (if 'extension_marker' provided)
+    """
+    result = os.path.basename(path or "")
+    if extension_marker:
+        pre, _, post = result.rpartition(extension_marker)
+        return pre or post
+
+    return result
+
+
 def ensure_folder(path, folder=False, fatal=True, logger=debug):
     """
     :param str|None path: Path to file or folder
