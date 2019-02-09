@@ -1,4 +1,4 @@
-from runez.testing import expect_failure, expect_success
+import runez
 
 
 def stringify(args):
@@ -10,5 +10,5 @@ def crash(args):
 
 
 def test_success():
-    expect_success(stringify, "--dryrun {msg}", "hello", msg="hello")
-    expect_failure(crash, "{msg}", "hello", "!foo", msg="hello")
+    runez.testing.expect_success(stringify, "--dryrun {msg}", "hello", msg="hello")
+    runez.testing.expect_failure(crash, "{msg}", "hello", "!foo", msg="hello")

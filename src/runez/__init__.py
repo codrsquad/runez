@@ -4,7 +4,8 @@ All functions/classes are imported here so that clients can simply import from '
 """
 
 # flake8: noqa: F401
-from runez import log
+from runez import heartbeat, log, program, serialize, testing
+
 from runez.base import abort, decode, flattened, get_version, prop, quoted, represented_args, short, shortened, State, to_int
 from runez.base import debug, error, info, warning
 from runez.context import Anchored, CaptureOutput, CurrentFolder, TempFolder, verify_abort

@@ -3,7 +3,6 @@ import os
 from mock import patch
 
 import runez
-import runez.program
 
 
 CHATTER = """

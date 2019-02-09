@@ -4,6 +4,7 @@ Base functionality used by other parts of runez
 We track here whether we're running in dryrun mode, convenience logging etc
 """
 
+import inspect
 import logging
 import os
 import sys
@@ -18,6 +19,7 @@ except NameError:
 
 LOG = logging.getLogger(__name__)
 HOME = os.path.expanduser("~")
+_func_args = None
 
 
 class State:
@@ -107,86 +109,6 @@ def abort(*args, **kwargs):
     return return_value
 
 
-try:
-    from inspect import signature
-
-    def _function_arguments(func):
-        return signature(func).parameters
-
-except ImportError:
-    from inspect import getargspec
-
-    def _function_arguments(func):
-        return getargspec(func).args
-
-
-class prop(object):
-    """
-    Decorator for settable cached properties.
-    This comes in handy for properties you'd like to avoid computing multiple times,
-    yet be able to arbitrarily change them as well, and be able to know when they get changed.
-
-    This is a good fit for convenience setting classes, for example: runez.log.Settings
-    It's not a good fit if what you're looking for is speed.
-    """
-
-    def __init__(self, func=None, tget=None, tset=None):
-        """
-        :param callable|None: Wrapped function, provided when decorator is used without arguments
-        :param callable|None tget: Optional 'get' tracker, called when 'get' is performed
-        :param callable|None tset: Optional 'set' tracker, called when 'set' is performed
-        """
-        self.function = None
-        self.name = None
-        self.tget = tget
-        self.tset = tset
-        if func:
-            self._set_function(func)
-
-    def __repr__(self):
-        return self.name
-
-    def __call__(self, func):
-        self._set_function(func)
-        return self
-
-    def _set_function(self, func):
-        self.function = func
-        self.name = func.__name__
-        self.field_name = "__%s" % self.name
-        self.__doc__ = func.__doc__
-
-    def _notify(self, instance, operation):
-        if operation:
-            func = operation.__func__ if isinstance(operation, classmethod) else operation
-            sig = _function_arguments(func)
-            args = []
-            kwargs = {}
-            if "instance" in sig:
-                kwargs["instance"] = instance
-            if "prop" in sig:
-                kwargs["prop"] = self
-            if "self" in sig:
-                args.append(instance)
-            elif "cls" in sig:
-                args.append(instance.__class__)
-            func(*args, **kwargs)
-
-    def __get__(self, instance, cls=None):
-        if not instance:
-            instance = cls
-        cached = getattr(instance, self.field_name, None)
-        if cached is None:
-            cached = self.function(instance)
-            setattr(instance, self.field_name, cached)
-            self._notify(instance, self.tget)
-        return cached
-
-    def __set__(self, instance, value):
-        setattr(instance, self.field_name, value)
-        self._notify(instance, self.tset)
-
-
 def decode(value):
     """Python 2/3 friendly decoding of output"""
     if isinstance(value, bytes) and not isinstance(value, str):
@@ -224,6 +146,47 @@ def get_version(mod, default="0.0.0"):
         import logging
         logging.warning("Can't determine version for %s: %s", name, e, exc_info=e)
         return default
+
+
+class prop(object):
+    """
+    Decorator for settable cached properties.
+    This comes in handy for properties you'd like to avoid computing multiple times,
+    yet be able to arbitrarily change them as well, and be able to know when they get changed.
+
+    This is a good fit for convenience setting classes, for example: runez.log.Settings
+    It's not a good fit if what you're looking for is speed.
+    """
+
+    def __init__(self, func):
+        """
+        :param callable: Wrapped function
+        """
+        self.function = func
+        self.name = func.__name__
+        self.field_name = "__%s" % self.name
+        self.on_prop, self.prop_arg = _find_on_prop(inspect.currentframe().f_back)
+        self.__doc__ = func.__doc__
+
+    def __repr__(self):
+        return self.name
+
+    def __get__(self, instance, cls=None):
+        if not instance:
+            instance = cls
+        cached = getattr(instance, self.field_name, None)
+        if cached is None:
+            cached = self.function(instance)
+            setattr(instance, self.field_name, cached)
+        return cached
+
+    def __set__(self, instance, value):
+        setattr(instance, self.field_name, value)
+        if self.on_prop:
+            if self.prop_arg:
+                self.on_prop(instance, prop=self)
+            else:
+                self.on_prop(instance)
 
 
 def quoted(text):
@@ -321,3 +284,42 @@ def _flatten(result, value, separator=None, unique=True):
 
     if not unique or value not in result:
         result.append(value)
+
+
+def _has_arg(func, arg_name):
+    """
+    :param function func: Function to examine
+    :param str arg_name: Argument name
+    :return bool: True if 'func' has an argument called 'prop'
+    """
+    global _func_args
+    if _func_args is None:
+        try:
+            # python 3
+            from inspect import signature
+
+            def _func_args(x):
+                return signature(x).parameters
+
+        except ImportError:
+            # python 2
+            from inspect import getargspec
+
+            def _func_args(x):
+                return getargspec(x).args
+
+    sig = _func_args(func)
+    return arg_name in sig
+
+
+def _find_on_prop(frame):
+    """
+    :param frame frame: Frame to examine
+    :return function|None, bool: __on_prop function if any, boolean indicates whether that function takes 'prop' as argument
+    """
+    for name, func in frame.f_locals.items():
+        if name.endswith("__on_prop"):
+            if isinstance(func, classmethod):
+                func = func.__func__
+            return func, _has_arg(func, "prop")
+    return None, False

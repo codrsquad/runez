@@ -1,5 +1,7 @@
 import collections
 
+import pytest
+
 import runez
 
 
@@ -12,121 +14,160 @@ def track(operation, prop):
     TRACKED[key] += 1
 
 
-def global_track_get(prop, instance=None):
-    """Tracker with 'instance' as optional keyword arg"""
-    assert isinstance(instance, Foo) or issubclass(instance, Foo)
-    track("get", prop)
+class SimpleCallback(object):
+    """__on_prop callback as instance method, receiving 'prop' as argument"""
 
-
-class Foo(object):
-
-    def track_get(self, prop):
-        """Use normal instance method as tracker"""
-        track("get", prop)
-
-    @classmethod
-    def track_set(cls, prop, instance):
-        """Use classmethod as tracker, receive 'instance' as well as positional arg"""
-        assert isinstance(instance, Foo)
+    def __on_prop(self, prop):
         track("set", prop)
 
-    @runez.prop(tget=track_get, tset=track_set)
+    @runez.prop
     def nothing(self):
         """Simulates a decorated function returning None, which is interpreted as "nothing cached" by prop"""
+        track("get", "nothing")
         return None
 
-    @runez.prop(tget=global_track_get, tset=track_set)
+
+class ClassmethodCallback(object):
+    """__on_prop callback as class method, receiving 'prop' as argument"""
+
+    @classmethod
+    def __on_prop(self, prop):
+        track("set", prop)
+
+    @runez.prop
     def hello(self):
         """All operations tracked"""
+        track("get", "hello")
         return "hello"
+
+
+class GenericCallback(object):
+    """__on_prop callback as instance method, no arguments"""
+
+    def __on_prop(self):
+        track("set", "counter")
 
     @runez.prop
     def counter(self):
         """Changes not tracked via notifications"""
         global COUNTER
         COUNTER += 1
+        track("get", "counter")
         return COUNTER
 
 
-def test_prop():
+class NoCallback(object):
+    """No __on_prop callback"""
+
+    @runez.prop
+    def welcome(self):
+        return "welcome"
+
+
+@pytest.fixture
+def tracked():
     global COUNTER
     global TRACKED
     COUNTER = 0
     TRACKED = collections.defaultdict(int)
+    yield TRACKED
 
-    foo = Foo()
 
-    # Verify tracking and operations
-    assert TRACKED["get.hello"] == 0
-    assert foo.hello == "hello"
-    assert TRACKED["get.hello"] == 1
-    assert foo.hello == "hello"
-    assert foo.hello == "hello"
-    assert TRACKED["get.hello"] == 1
-
-    # Same with setting to None
-    foo.hello = None
-    assert foo.hello == "hello"
-    assert TRACKED["get.hello"] == 2
-    assert TRACKED["set.hello"] == 1
-
-    # Setting is tracked properly (even if value identical)
-    foo.hello = "hello"
-    assert foo.hello == "hello"
-    assert TRACKED["get.hello"] == 2
-    assert TRACKED["set.hello"] == 2
-
-    # Setting to a different value
-    foo.hello = "bar"
-    assert foo.hello == "bar"
-    assert TRACKED["get.hello"] == 2
-    assert TRACKED["set.hello"] == 3
+def test_simple(tracked):
+    sample = SimpleCallback()
 
     # Test that because we return None, nothing keeps getting called until we actually set it
-    assert TRACKED["get.nothing"] == 0
-    assert foo.nothing is None
-    assert TRACKED["get.nothing"] == 1
-    assert foo.nothing is None
-    assert TRACKED["get.nothing"] == 2
-    assert TRACKED["set.nothing"] == 0
+    assert tracked["get.nothing"] == 0
+    assert sample.nothing is None
+    assert tracked["get.nothing"] == 1
+    assert sample.nothing is None
+    assert tracked["get.nothing"] == 2
+    assert tracked["set.nothing"] == 0
 
     # Setting it now seeds its cache
-    foo.nothing = "bar"
-    assert foo.nothing == "bar"
-    assert foo.nothing == "bar"
-    assert TRACKED["get.nothing"] == 2
-    assert TRACKED["set.nothing"] == 1
+    sample.nothing = "bar"
+    assert sample.nothing == "bar"
+    assert sample.nothing == "bar"
+    assert tracked["get.nothing"] == 2
+    assert tracked["set.nothing"] == 1
+
+
+def test_classmethod(tracked):
+    sample = ClassmethodCallback()
+
+    # Verify tracking and operations
+    assert tracked["get.hello"] == 0
+    assert sample.hello == "hello"
+    assert tracked["get.hello"] == 1
+    assert sample.hello == "hello"
+    assert sample.hello == "hello"
+    assert tracked["get.hello"] == 1
+
+    # Same with setting to None
+    sample.hello = None
+    assert sample.hello == "hello"
+    assert tracked["get.hello"] == 2
+    assert tracked["set.hello"] == 1
+
+    # Setting is tracked properly (even if value identical)
+    sample.hello = "hello"
+    assert sample.hello == "hello"
+    assert tracked["get.hello"] == 2
+    assert tracked["set.hello"] == 2
+
+    # Setting to a different value
+    sample.hello = "bar"
+    assert sample.hello == "bar"
+    assert tracked["get.hello"] == 2
+    assert tracked["set.hello"] == 3
+
+
+def test_generic(tracked):
+    sample = GenericCallback()
 
     # Verify that we call implementation only once when it does return a non-None value
-    assert foo.counter == 1
-    assert foo.counter == 1
+    assert sample.counter == 1
+    assert sample.counter == 1
+    assert tracked["get.counter"] == 1
 
     # Verify that resetting via None works
-    foo.counter = None
-    assert foo.counter == 2
-    assert foo.counter == 2
+    sample.counter = None
+    assert sample.counter == 2
+    assert sample.counter == 2
+    assert tracked["get.counter"] == 2
+    assert tracked["set.counter"] == 1
 
     # Setting any non-None value does not trigger re-computationr
-    foo.counter = 15
-    assert foo.counter == 15
+    sample.counter = 15
+    assert sample.counter == 15
+    assert tracked["get.counter"] == 2
+    assert tracked["set.counter"] == 2
 
 
-def test_class_prop():
+def test_no_callback():
+    sample = NoCallback()
+
+    assert sample.welcome == "welcome"
+    sample.welcome = "hi"
+    assert sample.welcome == "hi"
+    sample.welcome = None
+    assert sample.welcome == "welcome"
+
+
+def test_class_prop(tracked):
     """
     Verify that using props on class directly also works (but won't work for setting those props...)
     """
-    global COUNTER
-    global TRACKED
-    COUNTER = 0
-    TRACKED = collections.defaultdict(int)
+    assert SimpleCallback.nothing is None
+    assert ClassmethodCallback.hello == "hello"
+    assert GenericCallback.counter == 1
 
-    assert Foo.nothing is None
-    assert Foo.hello == "hello"
-    assert Foo.counter == 1
+    assert SimpleCallback.nothing is None
+    assert ClassmethodCallback.hello == "hello"
+    assert GenericCallback.counter == 1
 
-    assert Foo.nothing is None
-    assert Foo.hello == "hello"
-    assert Foo.counter == 1
+    assert NoCallback.welcome == "welcome"
 
-    assert TRACKED["get.nothing"] == 2
-    assert TRACKED["get.hello"] == 1
+    assert tracked["get.nothing"] == 2
+    assert tracked["get.hello"] == 1
+    assert tracked["get.counter"] == 1
