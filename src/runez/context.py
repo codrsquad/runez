@@ -15,7 +15,7 @@ try:
 except ImportError:
     from io import StringIO
 
-from runez.base import decode, flattened, State
+from runez.base import decode, flattened, listify, State
 from runez.path import resolved_path, SYMBOLIC_TMP
 
 
@@ -58,6 +58,40 @@ class Anchored:
                 State.anchors.remove(anchor)
 
 
+class CapturedStream:
+    """Capture output to a stream by hijacking temporarily its write() function"""
+
+    def __init__(self, old):
+        self.old = old
+        self.buffer = StringIO()
+        self.original_write = old.write
+        self.old.write = self.buffer.write
+
+    @classmethod
+    def from_handler(cls, handler):
+        if handler:
+            for h in logging.root.handlers:
+                if h and (h is handler or h.__class__.__name__ == handler):
+                    return cls(h.stream)
+
+    def __repr__(self):
+        return decode(self.buffer.getvalue()) if self.buffer else ""
+
+    def __contains__(self, item):
+        return item is not None and item in str(self)
+
+    def __len__(self):
+        return len(str(self))
+
+    def restore(self):
+        self.old.write = self.original_write
+
+    def clear(self):
+        if self.buffer:
+            self.buffer.seek(0)
+            self.buffer.truncate(0)
+
+
 class CaptureOutput:
     """
     Context manager allowing to temporarily grab stdout/stderr output.
@@ -70,84 +104,66 @@ class CaptureOutput:
         # output is available in 'output'
     """
 
-    def __init__(self, stdout=True, stderr=True, anchors=None, dryrun=None):
+    def __init__(self, streams=(sys.stdout, sys.stderr), handlers="LogCaptureHandler", anchors=None, dryrun=None):
         """
-        :param bool stdout: Capture stdout
-        :param bool stderr: Capture stderr
+        :param tuple|list|io.TextIOWrapper|None streams: Streams to capture
+        :param tuple|list|str|logging.Handler|None handlers: Logging handlers to capture
         :param str|list anchors: Optional paths to use as anchors for short()
         :param bool|None dryrun: Override dryrun (when explicitly specified, ie not None)
         """
+        self.streams = listify(streams)
+        self.handlers = listify(handlers)
         self.anchors = anchors
         self.dryrun = dryrun
-        self.old_out, self.out_buffer = self.get_pair(stdout, sys.stdout)
-        self.old_err, self.err_buffer = self.get_pair(stderr, sys.stderr)
-        self.old_handlers = None
-        self.handler = None
+        self.captured = None
 
-    def get_pair(self, activated, old):
-        if activated:
-            return old, StringIO()
-        return None, None
+    def __repr__(self):
+        return "".join(str(c) for c in self.captured) if self.captured else ""
 
     def pop(self):
         """Current contents popped, useful for testing"""
         r = self.__repr__()
-        if self.out_buffer:
-            self.out_buffer.seek(0)
-            self.out_buffer.truncate(0)
-        if self.err_buffer:
-            self.err_buffer.seek(0)
-            self.err_buffer.truncate(0)
+        self.clear()
         return r
 
-    def __repr__(self):
-        result = ""
-        if self.out_buffer:
-            result += decode(self.out_buffer.getvalue())
-        if self.err_buffer:
-            result += decode(self.err_buffer.getvalue())
-        return result
+    def clear(self):
+        for c in self.captured:
+            c.clear()
 
     def __enter__(self):
-        if self.out_buffer:
-            sys.stdout = self.out_buffer
-        if self.err_buffer:
-            sys.stderr = self.err_buffer
-            self.old_handlers = logging.root.handlers
-            self.handler = logging.StreamHandler(stream=self.err_buffer)
-            self.handler.setLevel(logging.DEBUG)
-            self.handler.setFormatter(logging.Formatter("%(levelname)s - %(message)s"))
-            logging.root.handlers = [self.handler]
-
+        self.captured = []
+        if self.streams:
+            for stream in self.streams:
+                self.captured.append(CapturedStream(stream))
+        if self.handlers:
+            for handler in self.handlers:
+                handler = CapturedStream.from_handler(handler)
+                if handler is not None:
+                    self.captured.append(handler)
         if self.anchors:
             Anchored.add(self.anchors)
-
         if self.dryrun is not None:
             (State.dryrun, self.dryrun) = (bool(self.dryrun), bool(State.dryrun))
 
         return self
 
     def __exit__(self, *args):
-        if self.old_out:
-            sys.stdout = self.old_out
-        if self.old_err:
-            sys.stderr = self.old_err
-        self.out_buffer = None
-        self.err_buffer = None
-        if self.old_handlers:
-            logging.root.handlers = self.old_handlers
-
+        for c in self.captured:
+            c.restore()
+        self.captured = None
         if self.anchors:
             Anchored.pop(self.anchors)
-
         if self.dryrun is not None:
             State.dryrun = self.dryrun
 
     def __contains__(self, item):
-        return item is not None and item in str(self)
+        for c in self.captured:
+            if item in c:
+                return True
+        return False
 
     def __len__(self):
-        return len(str(self))
+        return sum(len(c) for c in self.captured)
 
 
 class CurrentFolder:

@@ -171,3 +171,13 @@ def test_class_prop(tracked):
     assert tracked["get.nothing"] == 2
     assert tracked["get.hello"] == 1
     assert tracked["get.counter"] == 1
+
+
+def test_listify():
+    assert runez.listify(None) is None
+    assert runez.listify("") == [""]
+    assert runez.listify("foo,bar") == ["foo,bar"]
+    assert runez.listify("foo,bar", separator=",") == ["foo", "bar"]
+
+    assert runez.listify(1) == [1]
+    assert runez.listify((1, 2, 3)) == [1, 2, 3]

@@ -35,10 +35,11 @@ def test_logging():
         sys.stderr.write("on stderr")
         assert "on stdout\non stderr" in logged.pop()
 
-    with runez.CaptureOutput(stderr=False) as logged:
+    with runez.CaptureOutput(streams=[sys.stdout]) as logged:
         print("on stdout")
         sys.stderr.write("on stderr")
 
-        assert "on stdout\n" in logged.pop()
+        assert "on stdout\n" in logged
+        assert "on stderr" not in logged
 
     runez.State.logging = False
