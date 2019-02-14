@@ -79,20 +79,15 @@ class CaptureOutput:
         """
         self.anchors = anchors
         self.dryrun = dryrun
-        self.old_out = sys.stdout
-        self.old_err = sys.stderr
-        self.old_handlers = logging.root.handlers
+        self.old_out, self.out_buffer = self.get_pair(stdout, sys.stdout)
+        self.old_err, self.err_buffer = self.get_pair(stderr, sys.stderr)
+        self.old_handlers = None
+        self.handler = None
 
-        self.out_buffer = StringIO() if stdout else None
-
-        if stderr:
-            self.err_buffer = StringIO()
-            self.handler = logging.StreamHandler(stream=self.err_buffer)
-            self.handler.setLevel(logging.DEBUG)
-            self.handler.setFormatter(logging.Formatter("%(levelname)s - %(message)s"))
-        else:
-            self.err_buffer = None
-            self.handler = None
+    def get_pair(self, activated, old):
+        if activated:
+            return old, StringIO()
+        return None, None
 
     def pop(self):
         """Current contents popped, useful for testing"""
@@ -118,7 +113,10 @@ class CaptureOutput:
             sys.stdout = self.out_buffer
         if self.err_buffer:
             sys.stderr = self.err_buffer
-        if self.handler:
+            self.old_handlers = logging.root.handlers
+            self.handler = logging.StreamHandler(stream=self.err_buffer)
+            self.handler.setLevel(logging.DEBUG)
+            self.handler.setFormatter(logging.Formatter("%(levelname)s - %(message)s"))
             logging.root.handlers = [self.handler]
 
         if self.anchors:
@@ -130,11 +128,14 @@ class CaptureOutput:
         return self
 
     def __exit__(self, *args):
-        sys.stdout = self.old_out
-        sys.stderr = self.old_err
+        if self.old_out:
+            sys.stdout = self.old_out
+        if self.old_err:
+            sys.stderr = self.old_err
         self.out_buffer = None
         self.err_buffer = None
-        logging.root.handlers = self.old_handlers
+        if self.old_handlers:
+            logging.root.handlers = self.old_handlers
 
         if self.anchors:
             Anchored.pop(self.anchors)
