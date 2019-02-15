@@ -5,7 +5,6 @@ import runez
 
 
 def test_logging():
-    assert logging.root.level == logging.DEBUG
     with runez.CaptureOutput() as logged:
         logging.debug("foo")
         assert "DEBUG    foo" in logged.pop()
@@ -26,5 +25,3 @@ def test_logging():
 
         assert "on stdout\n" in logged
         assert "on stderr" not in logged
-
-    runez.State.logging = False

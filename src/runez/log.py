@@ -20,42 +20,6 @@ from runez.path import basename as get_basename
 from runez.program import get_program_path
 
 
-class OriginalLogging:
-    """Original logging state, before we made any changes"""
-
-    __snapshot = None
-    level = logging.root.level
-    _srcfile = logging._srcfile
-    critical = logging.critical
-    fatal = logging.fatal
-    error = logging.error
-    exception = logging.exception
-    warning = logging.warning
-    info = logging.info
-    debug = logging.debug
-
-    def __init__(self):
-        self.__snapshot = None
-
-    def __enter__(self):
-        self.__snapshot = {}
-        for name, value in Settings.__dict__.items():
-            if name.startswith("__") and name.endswith("__"):
-                continue
-            if not isinstance(value, classmethod):
-                self.__snapshot[name] = value
-
-    def __exit__(self, *_):
-        SETUP.reset()
-        if self.__snapshot:
-            for name, value in self.__snapshot.items():
-                setattr(Settings, name, value)
-            for name in list(Settings.__dict__.keys()):
-                if name.startswith("__") and not name.endswith("__"):
-                    if name not in self.__snapshot:
-                        delattr(Settings, name)
-
-
 def add_global_context(**values):
     """Add 'values' to global logging context"""
     SETUP.context.add_global(**values)
@@ -201,6 +165,58 @@ class Settings:
         return any(marker in fmt for marker in markers)
 
 
+class OriginalLogging:
+    """
+    Allows to isolate changes to logging setup.
+    This should only be useful for testing (as in general, logging setup is a global thing)
+    """
+
+    level = logging.root.level
+    _srcfile = logging._srcfile
+    critical = logging.critical
+    fatal = logging.fatal
+    error = logging.error
+    exception = logging.exception
+    warning = logging.warning
+    info = logging.info
+    debug = logging.debug
+
+    @classmethod
+    def set_level(cls, level):
+        if level is not None:
+            old_level = OriginalLogging.level
+            if level != OriginalLogging.level:
+                OriginalLogging.level = level
+                logging.root.setLevel(level)
+            return old_level
+
+    def __init__(self):
+        self.__snapshot = None
+        self.__level = self.level
+
+    def __enter__(self):
+        self.__snapshot = {}
+        for name, value in Settings.__dict__.items():
+            if name.startswith("__") and name.endswith("__"):
+                continue
+            if not isinstance(value, classmethod):
+                self.__snapshot[name] = value
+        OriginalLogging.set_level(logging.DEBUG)
+        if Settings.basename == "_jb_pytest_runner":
+            Settings.basename = "pytest"
+
+    def __exit__(self, *_):
+        if self.__snapshot:
+            SETUP._reset()
+            OriginalLogging.set_level(self.__level)
+            for name, value in self.__snapshot.items():
+                setattr(Settings, name, value)
+            for name in list(Settings.__dict__.keys()):
+                if name.startswith("__") and not name.endswith("__"):
+                    if name not in self.__snapshot:
+                        delattr(Settings, name)
+
+
 class _LogSetup:
     """
     Tracks current setup
@@ -233,7 +249,7 @@ class _LogSetup:
                 self.context.enable()
             self.optimize()
 
-    def reset(self):
+    def _reset(self):
         """Reset logging as it was before setup(), no need to call this outside of testing, or some very special cases"""
         if self.context is not None:
             self.context = None

@@ -1,3 +1,11 @@
+"""
+Import this only from your test cases
+
+Example:
+
+    from runez.conftest import cli, isolated_log_setup, temp_folder
+"""
+
 import logging
 
 import pytest
@@ -5,23 +13,7 @@ import pytest
 import runez
 
 
-runez.log.Settings.level = logging.DEBUG
-runez.log.OriginalLogging.level = logging.DEBUG
-logging.root.setLevel(logging.DEBUG)
-runez.log.Settings.basename = "pytest"
-
-
-@pytest.fixture
-def temp_folder():
-    with runez.TempFolder() as path:
-        yield path
-
-
-@pytest.fixture
-def isolated_log_setup():
-    """Provide a pristine default log setup, and restore to pristine"""
-    with runez.log.OriginalLogging():
-        yield
+runez.log.OriginalLogging.set_level(logging.DEBUG)
 
 
 @pytest.fixture
@@ -34,7 +26,8 @@ def cli():
         from runez.conftest import click_run
 
         def test_help(cli):
-            cli.run(my_main, "--help")
+            cli.command = my_click_command
+            cli.run("--help")
 
             assert cli.exit_code == 0
             assert "Usage:" in cli.output
@@ -42,6 +35,19 @@ def cli():
             cli.output_has("Usage:")
     """
     yield ClickRunner()
+
+
+@pytest.fixture
+def isolated_log_setup():
+    """Log settings restored"""
+    with runez.log.OriginalLogging():
+        yield runez.log.SETUP
+
+
+@pytest.fixture
+def temp_folder():
+    with runez.TempFolder() as path:
+        yield path
 
 
 class ClickWrapper:
@@ -77,23 +83,27 @@ class ClickWrapper:
 class ClickRunner:
 
     def __init__(self):
+        self.command = None
         self.output = None
         self.logged = None
         self.exit_code = None
 
-    def run(self, main, args):
+    def run(self, *args, **kwargs):
         """
-        :param main: click entry point
         :param str|list args: Command line args
-        :return click.testing.Result:
         """
-        if not isinstance(args, list):
-            # Convenience: accept strings
-            args = args.split()
+        if len(args) == 1:
+            # Convenience: allow to provide full command as one string argument
+            if isinstance(args[0], list):
+                args = args[0]
+            else:
+                args = args[0].split()
+        cmd = kwargs.pop("command", self.command)
+        assert cmd, "No command provided"
         with runez.CaptureOutput(dryrun=runez.State.dryrun) as logged:
             runner = ClickWrapper.runner
             runner = runner()
-            result = runner.invoke(main, args=args)
+            result = runner.invoke(cmd, args=args)
             self.output = result.output
             self.logged = str(logged)
             self.exit_code = result.exit_code

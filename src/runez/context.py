@@ -15,6 +15,7 @@ try:
 except ImportError:
     from io import StringIO
 
+import runez.log
 from runez.base import decode, flattened, listify, State
 from runez.path import resolved_path, SYMBOLIC_TMP
 
@@ -93,11 +94,14 @@ class CapturedStream:
     def __len__(self):
         return len(self.buffer.getvalue()) if self.buffer else 0
 
+    def write(self, text):
+        self.buffer.write(text)
+
     def capture(self):
         if self.old:
             self.buffer = StringIO()
             self.original_write = self.old.write
-            self.old.write = self.buffer.write
+            self.old.write = self.write
 
     def restore(self):
         """Restore hijacked write() function"""
@@ -123,13 +127,16 @@ class CaptureOutput:
         # output has been captured in 'logged'
     """
 
-    def __init__(self, streams=(sys.stdout, sys.stderr), handlers="LogCaptureHandler", anchors=None, dryrun=None):
+    def __init__(self, level=None, streams=(sys.stdout, sys.stderr), handlers="LogCaptureHandler", anchors=None, dryrun=None):
         """
+        :param int|None level: Change logging level, if specified
         :param tuple|list|io.TextIOWrapper|None streams: Streams to capture
         :param tuple|list|str|logging.Handler|None handlers: Logging handlers to capture
         :param str|list anchors: Optional paths to use as anchors for short()
         :param bool|None dryrun: Override dryrun (when explicitly specified, ie not None)
         """
+        self.level = level
+        self.old_level = None
         self.streams = listify(streams)
         self.handlers = listify(handlers)
         self.anchors = anchors
@@ -145,6 +152,7 @@ class CaptureOutput:
         return str(self).strip() == str(other).strip()
 
     def __enter__(self):
+        self.old_level = runez.log.OriginalLogging.set_level(self.level)
         self.captured = []
         if self.streams:
             for stream in self.streams:
@@ -164,6 +172,7 @@ class CaptureOutput:
         return self
 
     def __exit__(self, *args):
+        runez.log.OriginalLogging.set_level(self.old_level)
         for c in self.captured:
             c.restore()
         self.captured = None

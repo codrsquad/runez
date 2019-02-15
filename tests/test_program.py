@@ -76,7 +76,7 @@ def test_run(temp_folder):
 
     with runez.CaptureOutput() as logged:
         assert runez.run("/dev/null", fatal=False) is False
-        assert "ERROR: /dev/null is not installed" in logged.pop()
+        assert "/dev/null is not installed" in logged.pop()
 
         assert runez.touch("sample") == 1
         assert runez.run("ls", ".", path_env={"PATH": ":."}) == "sample"
@@ -92,4 +92,4 @@ def test_run(temp_folder):
 def test_failed_run(_):
     with runez.CaptureOutput() as logged:
         assert runez.run("ls", fatal=False) is False
-        assert "ERROR: ls failed: testing" in logged
+        assert "ls failed: testing" in logged

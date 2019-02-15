@@ -95,4 +95,4 @@ def test_serialization():
         j = runez.Serializable.from_json("/dev/null/foo", fatal=False)
         assert str(j) == "/dev/null/foo"
         j.save(fatal=False)
-        assert "ERROR: Couldn't save" in logged.pop()
+        assert "Couldn't save" in logged.pop()

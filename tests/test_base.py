@@ -8,15 +8,13 @@ import runez
 
 
 def test_abort():
-    runez.State.logging = True
-
     with runez.CaptureOutput() as logged:
         assert runez.abort("aborted", fatal=(False, "foo")) == "foo"
-        assert "ERROR: aborted" in logged.pop()
+        assert "aborted" in logged.pop()
 
         assert runez.abort("aborted", fatal=(False, "foo"), code=0) == "foo"
         assert "aborted" in logged
-        assert "ERROR:" not in logged.pop()
+        assert "ERROR" not in logged.pop()
 
         assert runez.abort("aborted", fatal=(None, "foo")) == "foo"
         assert not logged

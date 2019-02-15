@@ -29,34 +29,6 @@ class State:
     dryrun = False
     anchors = []  # Folder paths that can be used to shorten paths, via short()
 
-    output = True  # print() warning/error messages (can be turned off when/if we have a logger to console for example)
-    testing = False  # print all messages instead of logging (useful when running tests)
-    logging = False  # Set to True if logging was setup
-
-
-def info(message, *args, **kwargs):
-    """
-    Often, an info() message should be logged, but also shown to user (in the even where logging is not done to console)
-
-    Example:
-        info("...") => Will log if we're logging, but also print() if State.output is currently set
-        info("...", output=False) => Will only log, never print
-        info("...", output=True) => Will log if we're logging, and print
-    """
-    output = kwargs.pop("output", State.output)
-    if State.logging:
-        LOG.info(message, *args, **kwargs)
-    if output or State.testing:
-        print(message % args)
-
-
-def error(message, *args, **kwargs):
-    """Same as logging.error(), but more convenient when testing, similar to info()"""
-    if State.logging:
-        LOG.error(message, *args, **kwargs)
-    if State.output or State.testing:
-        print("ERROR: %s" % (message % args))
-
 
 def abort(*args, **kwargs):
     """
@@ -79,7 +51,7 @@ def abort(*args, **kwargs):
     :return: kwargs["return_value"] (default: -1) to signify failure to non-fatal callers
     """
     code = kwargs.pop("code", 1)
-    logger = kwargs.pop("logger", error if code else info)
+    logger = kwargs.pop("logger", LOG.error if code else LOG.info)
     fatal = kwargs.pop("fatal", True)
     return_value = fatal
     if isinstance(fatal, tuple) and len(fatal) == 2:

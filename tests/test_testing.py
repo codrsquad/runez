@@ -10,19 +10,26 @@ def crash(args):
 
 
 def test_success(cli):
-    cli.run(stringify, "--dryrun hello")
+    cli.command = stringify
+    cli.run("--dryrun hello")
     cli.assert_output_has("hello")
     assert "foo" not in cli.output
 
-    cli.run(stringify, "hello")
+    cli.run("hello")
     cli.assert_output_has("hello")
 
 
 def test_crash(cli):
     with pytest.raises(AssertionError):
+        # Nothing ran yet, no output
         cli.assert_output_has("foo")
 
-    cli.run(crash, "hello")
+    with pytest.raises(AssertionError):
+        # No command provided
+        cli.run("hello")
+
+    cli.command = crash
+    cli.run(["hello"])
     assert cli.exit_code != 0
     assert "crashed" in cli.output
     cli.assert_output_has("hello")
