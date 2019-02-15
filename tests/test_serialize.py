@@ -67,32 +67,31 @@ def test_types():
     assert same_type(1, 2)
 
 
-def test_serialization():
-    with runez.CaptureOutput() as logged:
-        j = runez.Serializable()
-        assert str(j) == "no source"
-        j.save()  # no-op
-        j.set_from_dict({}, source="test")
-        j.some_list = []
-        j.some_string = ""
+def test_serialization(logged):
+    j = runez.Serializable()
+    assert str(j) == "no source"
+    j.save()  # no-op
+    j.set_from_dict({}, source="test")
+    j.some_list = []
+    j.some_string = ""
 
-        j.set_from_dict({"foo": "bar", "some-list": "some_value", "some-string": "some_value"}, source="test")
-        assert "foo is not an attribute" in logged
-        assert "Wrong type 'str' for Serializable.some_list in test, expecting 'list'" in logged.pop()
+    j.set_from_dict({"foo": "bar", "some-list": "some_value", "some-string": "some_value"}, source="test")
+    assert "foo is not an attribute" in logged
+    assert "Wrong type 'str' for Serializable.some_list in test, expecting 'list'" in logged.pop()
 
-        assert str(j) == "test"
-        assert not j.some_list
-        assert not hasattr(j, "foo")
-        assert j.some_string == "some_value"
-        assert j.to_dict() == {"some-list": [], "some-string": "some_value"}
+    assert str(j) == "test"
+    assert not j.some_list
+    assert not hasattr(j, "foo")
+    assert j.some_string == "some_value"
+    assert j.to_dict() == {"some-list": [], "some-string": "some_value"}
 
-        j.reset()
-        assert not j.some_string
+    j.reset()
+    assert not j.some_string
 
-        j = runez.Serializable.from_json("")
-        assert str(j) == "no source"
+    j = runez.Serializable.from_json("")
+    assert str(j) == "no source"
 
-        j = runez.Serializable.from_json("/dev/null/foo", fatal=False)
-        assert str(j) == "/dev/null/foo"
-        j.save(fatal=False)
-        assert "Couldn't save" in logged.pop()
+    j = runez.Serializable.from_json("/dev/null/foo", fatal=False)
+    assert str(j) == "/dev/null/foo"
+    j.save(fatal=False)
+    assert "Couldn't save" in logged.pop()

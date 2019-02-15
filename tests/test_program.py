@@ -15,17 +15,18 @@ echo
 """
 
 
-def test_capture(temp_folder):
-    with runez.CaptureOutput():
-        chatter = runez.resolved_path("chatter")
-        assert runez.write(chatter, CHATTER.strip(), fatal=False) == 1
-        assert runez.make_executable(chatter, fatal=False) == 1
+def test_capture(temp_folder, logged):
+    chatter = runez.resolved_path("chatter")
+    assert runez.write(chatter, CHATTER.strip(), fatal=False) == 1
+    assert runez.make_executable(chatter, fatal=False) == 1
 
-        assert runez.run(chatter, fatal=False) == "chatter"
+    assert runez.run(chatter, fatal=False) == "chatter"
 
-        r = runez.run(chatter, include_error=True, fatal=False)
-        assert r.startswith("chatter")
-        assert "No such file" in r
+    r = runez.run(chatter, include_error=True, fatal=False)
+    assert r.startswith("chatter")
+    assert "No such file" in r
+
+    assert "Running: chatter" in logged
 
 
 def test_executable(temp_folder):
@@ -88,8 +89,7 @@ def test_run(temp_folder):
         assert "No such file" in logged.pop()
 
 
-@patch("subprocess.Popen", side_effect=Exception("testing"))
-def test_failed_run(_):
-    with runez.CaptureOutput() as logged:
+def test_failed_run(logged):
+    with patch("subprocess.Popen", side_effect=Exception("testing")):
         assert runez.run("ls", fatal=False) is False
         assert "ls failed: testing" in logged
