@@ -1,3 +1,4 @@
+import logging
 import os
 
 from mock import patch
@@ -49,22 +50,22 @@ def test_basename():
     assert runez.basename("foo/bar.py", extension_marker=None) == "bar.py"
 
 
-def test_paths(temp_base):
+def test_paths(temp_folder):
     assert runez.resolved_path(None) is None
-    assert runez.resolved_path("foo") == os.path.join(temp_base, "foo")
-    assert runez.resolved_path("foo", base="bar") == os.path.join(temp_base, "bar", "foo")
+    assert runez.resolved_path("foo") == os.path.join(temp_folder, "foo")
+    assert runez.resolved_path("foo", base="bar") == os.path.join(temp_folder, "bar", "foo")
 
     assert runez.short(None) is None
     assert runez.short("") == ""
-    assert runez.short(temp_base) == temp_base
+    assert runez.short(temp_folder) == temp_folder
 
-    assert runez.short(temp_base + "/foo") == "foo"
-    assert runez.short(temp_base + "/foo") == "foo"
+    assert runez.short(temp_folder + "/foo") == "foo"
+    assert runez.short(temp_folder + "/foo") == "foo"
 
     assert runez.parent_folder(None) is None
-    assert runez.parent_folder(temp_base + "/foo") == temp_base
+    assert runez.parent_folder(temp_folder + "/foo") == temp_folder
 
-    assert runez.represented_args(["ls", temp_base + "/foo bar", "-a"]) == 'ls "foo bar" -a'
+    assert runez.represented_args(["ls", temp_folder + "/foo bar", "-a"]) == 'ls "foo bar" -a'
 
     # Don't crash for no-ops
     assert runez.ensure_folder(None) == 0
@@ -76,13 +77,13 @@ def test_paths(temp_base):
     assert runez.move("foo", "foo") == 0
     assert runez.symlink("foo", "foo") == 0
 
-    assert runez.ensure_folder("foo") == 0  # 'foo' would be in temp_base, which already exists
+    assert runez.ensure_folder("foo") == 0  # 'foo' would be in temp_folder, which already exists
 
     with runez.CaptureOutput(dryrun=True) as logged:
         assert runez.ensure_folder("foo", folder=True, fatal=False) == 1
         assert "Would create" in logged.pop()
 
-        assert runez.touch("foo", logger=runez.debug) == 1
+        assert runez.touch("foo", logger=logging.debug) == 1
         assert "Would touch foo" in logged.pop()
 
         assert runez.copy("foo", "bar") == 1
@@ -94,7 +95,7 @@ def test_paths(temp_base):
         assert runez.symlink("foo", "bar") == 1
         assert "Would symlink foo <- bar" in logged.pop()
 
-        assert runez.delete(temp_base) == 1
+        assert runez.delete(temp_folder) == 1
         assert "Would delete" in logged.pop()
 
         assert runez.copy("foo/bar/baz", "foo", fatal=False) == -1
@@ -112,18 +113,18 @@ def test_paths(temp_base):
 
     assert runez.delete("sample") == 1
     assert runez.ensure_folder("sample", folder=True) == 1
-    assert os.getcwd() == temp_base
+    assert os.getcwd() == temp_folder
     with runez.CurrentFolder("sample", anchor=False):
         cwd = os.getcwd()
-        sample = os.path.join(temp_base, "sample")
+        sample = os.path.join(temp_folder, "sample")
         assert cwd == sample
         assert runez.short(os.path.join(cwd, "foo")) == "sample/foo"
     with runez.CurrentFolder("sample", anchor=True):
         cwd = os.getcwd()
-        sample = os.path.join(temp_base, "sample")
+        sample = os.path.join(temp_folder, "sample")
         assert cwd == sample
         assert runez.short(os.path.join(cwd, "foo")) == "foo"
-    assert os.getcwd() == temp_base
+    assert os.getcwd() == temp_folder
 
     assert runez.delete("sample") == 1
 
@@ -131,7 +132,7 @@ def test_paths(temp_base):
         sample = os.path.join(os.path.dirname(__file__), "sample.txt")
         content = runez.get_lines(sample)
 
-        assert runez.write("sample", "".join(content), fatal=False, logger=runez.debug) == 1
+        assert runez.write("sample", "".join(content), fatal=False, logger=logging.debug) == 1
         assert runez.get_lines("sample") == content
         assert "Writing 13 bytes" in logged.pop()
 

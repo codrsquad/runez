@@ -15,7 +15,7 @@ echo
 """
 
 
-def test_capture(temp_base):
+def test_capture(temp_folder):
     with runez.CaptureOutput():
         chatter = runez.resolved_path("chatter")
         assert runez.write(chatter, CHATTER.strip(), fatal=False) == 1
@@ -28,7 +28,7 @@ def test_capture(temp_base):
         assert "No such file" in r
 
 
-def test_executable(temp_base):
+def test_executable(temp_folder):
     with runez.CaptureOutput(dryrun=True) as logged:
         assert runez.make_executable("foo") == 1
         assert "Would make foo executable" in logged
@@ -46,6 +46,11 @@ def test_executable(temp_base):
         assert "does not exist, can't make it executable" in logged
 
 
+def test_program():
+    program_path = runez.get_program_path()
+    assert runez.basename(program_path) == "pytest"
+
+
 def test_which():
     assert runez.which(None) is None
     assert runez.which("/dev/null") is None
@@ -59,7 +64,7 @@ def test_pids():
     assert not runez.check_pid(1)
 
 
-def test_run(temp_base):
+def test_run(temp_folder):
     assert runez.program.added_env_paths(None) is None
 
     with runez.CaptureOutput(dryrun=True) as logged:

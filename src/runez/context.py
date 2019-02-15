@@ -61,32 +61,51 @@ class Anchored:
 class CapturedStream:
     """Capture output to a stream by hijacking temporarily its write() function"""
 
-    def __init__(self, old):
+    def __init__(self, old, name=None):
+        if name is None:
+            if old is sys.stdout:
+                name = "stdout"
+            elif old is sys.stderr:
+                name = "stderr"
+            elif old:
+                name = getattr(old, "name", str(old))
+        self.name = name
         self.old = old
-        self.buffer = StringIO()
-        self.original_write = old.write
-        self.old.write = self.buffer.write
+        self.buffer = None
 
     @classmethod
     def from_handler(cls, handler):
+        """
+        :param str|logging.Handler|None handler: Logging handler to find
+        :return logging.Handler|None: Corresponding handler from logging.root.handlers, if any
+        """
         if handler:
             for h in logging.root.handlers:
                 if h and (h is handler or h.__class__.__name__ == handler):
-                    return cls(h.stream)
+                    return cls(h.stream, name=h.__class__.__name__)
 
     def __repr__(self):
-        return decode(self.buffer.getvalue()) if self.buffer else ""
+        return "%s: %s" % (self.name, decode(self.buffer.getvalue()) if self.buffer else "")
 
     def __contains__(self, item):
         return item is not None and item in str(self)
 
     def __len__(self):
-        return len(str(self))
+        return len(self.buffer.getvalue()) if self.buffer else 0
+
+    def capture(self):
+        if self.old:
+            self.buffer = StringIO()
+            self.original_write = self.old.write
+            self.old.write = self.buffer.write
 
     def restore(self):
-        self.old.write = self.original_write
+        """Restore hijacked write() function"""
+        if self.old:
+            self.old.write = self.original_write
 
     def clear(self):
+        """Clear captured content"""
         if self.buffer:
             self.buffer.seek(0)
             self.buffer.truncate(0)
@@ -99,9 +118,9 @@ class CaptureOutput:
 
     Sample usage:
 
-    with CaptureOutput() as output:
+    with CaptureOutput() as logged:
         # do something that generates output
-        # output is available in 'output'
+        # output has been captured in 'logged'
     """
 
     def __init__(self, streams=(sys.stdout, sys.stderr), handlers="LogCaptureHandler", anchors=None, dryrun=None):
@@ -120,31 +139,28 @@ class CaptureOutput:
     def __repr__(self):
         return "".join(str(c) for c in self.captured) if self.captured else ""
 
-    def pop(self):
-        """Current contents popped, useful for testing"""
-        r = self.__repr__()
-        self.clear()
-        return r
-
-    def clear(self):
-        for c in self.captured:
-            c.clear()
+    def __eq__(self, other):
+        if isinstance(other, CaptureOutput):
+            return self.captured == other.captured
+        return str(self).strip() == str(other).strip()
 
     def __enter__(self):
         self.captured = []
         if self.streams:
             for stream in self.streams:
-                self.captured.append(CapturedStream(stream))
+                c = CapturedStream(stream)
+                c.capture()
+                self.captured.append(c)
         if self.handlers:
             for handler in self.handlers:
-                handler = CapturedStream.from_handler(handler)
-                if handler is not None:
-                    self.captured.append(handler)
+                c = CapturedStream.from_handler(handler)
+                if c is not None:
+                    c.capture()
+                    self.captured.append(c)
         if self.anchors:
             Anchored.add(self.anchors)
         if self.dryrun is not None:
             (State.dryrun, self.dryrun) = (bool(self.dryrun), bool(State.dryrun))
-
         return self
 
     def __exit__(self, *args):
@@ -164,6 +180,17 @@ class CaptureOutput:
 
     def __len__(self):
         return sum(len(c) for c in self.captured)
+
+    def pop(self):
+        """Current content popped, useful for testing"""
+        r = self.__repr__()
+        self.clear()
+        return r
+
+    def clear(self):
+        """Clear captured content"""
+        for c in self.captured:
+            c.clear()
 
 
 class CurrentFolder:

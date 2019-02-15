@@ -2,11 +2,13 @@
 Convenience methods for file/folder operations
 """
 
+import logging
 import os
 
-from runez.base import abort, debug, short, State
+from runez.base import abort, short, State
 
 
+LOG = logging.getLogger(__name__)
 SYMBOLIC_TMP = "<tmp>"
 
 
@@ -24,7 +26,7 @@ def basename(path, extension_marker="."):
     return result
 
 
-def ensure_folder(path, folder=False, fatal=True, logger=debug):
+def ensure_folder(path, folder=False, fatal=True, logger=LOG.debug):
     """
     :param str|None path: Path to file or folder
     :param bool folder: If True, 'path' refers to a folder (file otherwise)
@@ -45,7 +47,7 @@ def ensure_folder(path, folder=False, fatal=True, logger=debug):
         return 0
 
     if State.dryrun:
-        debug("Would create %s", short(folder))
+        LOG.debug("Would create %s", short(folder))
         return 1
 
     try:

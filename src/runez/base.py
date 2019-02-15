@@ -8,6 +8,7 @@ import inspect
 import logging
 import os
 import sys
+import time
 
 try:
     string_type = basestring  # noqa
@@ -33,17 +34,6 @@ class State:
     logging = False  # Set to True if logging was setup
 
 
-def debug(message, *args, **kwargs):
-    """
-    Same as logging.debug(), but more convenient when testing (prints as well, on top of logging)
-    """
-    if State.logging:
-        LOG.debug(message, *args, **kwargs)
-
-    if State.testing:
-        print(message % args)
-
-
 def info(message, *args, **kwargs):
     """
     Often, an info() message should be logged, but also shown to user (in the even where logging is not done to console)
@@ -58,14 +48,6 @@ def info(message, *args, **kwargs):
         LOG.info(message, *args, **kwargs)
     if output or State.testing:
         print(message % args)
-
-
-def warning(message, *args, **kwargs):
-    """Same as logging.warning(), but more convenient when testing, similar to info()"""
-    if State.logging:
-        LOG.warning(message, *args, **kwargs)
-    if State.output or State.testing:
-        print("WARNING: %s" % (message % args))
 
 
 def error(message, *args, **kwargs):
@@ -128,6 +110,13 @@ def flattened(value, separator=None, unique=True):
     return result
 
 
+def get_timezone():
+    try:
+        return time.tzname[0]
+    except (IndexError, TypeError):
+        return ""
+
+
 def get_version(mod, default="0.0.0"):
     """
     :param module|str mod: Module, or module name to find version for (pass either calling module, or its .__name__)
@@ -143,8 +132,7 @@ def get_version(mod, default="0.0.0"):
         return pkg_resources.get_distribution(name).version
 
     except Exception as e:
-        import logging
-        logging.warning("Can't determine version for %s: %s", name, e, exc_info=e)
+        LOG.warning("Can't determine version for %s: %s", name, e, exc_info=e)
         return default
 
 

@@ -1,10 +1,12 @@
+import logging
+
 from mock import patch
 
 import runez
 from runez.serialize import same_type, type_name
 
 
-def test_json(temp_base):
+def test_json(temp_folder):
     assert runez.read_json(None, fatal=False) is None
     assert runez.save_json(None, None, fatal=False) == 0
 
@@ -25,14 +27,14 @@ def test_json(temp_base):
             assert runez.save_json(data, "sample.json", fatal=False) == -1
             assert "Couldn't save" in logged.pop()
 
-        assert runez.save_json(data, "sample.json", logger=runez.debug) == 1
+        assert runez.save_json(data, "sample.json", logger=logging.debug) == 1
         assert "Saved " in logged.pop()
 
         with patch("io.open", side_effect=Exception):
             assert runez.read_json("sample.json", fatal=False) is None
             assert "Couldn't read" in logged.pop()
 
-        assert runez.read_json("sample.json", logger=runez.debug) == data
+        assert runez.read_json("sample.json", logger=logging.debug) == data
         assert "Read " in logged.pop()
 
         assert runez.read_json("sample.json", default=[], fatal=False) == []
@@ -43,10 +45,10 @@ def test_json(temp_base):
         obj = runez.State()
         obj.to_dict = lambda *_: data
 
-        assert runez.save_json(obj, "sample2.json", logger=runez.debug) == 1
+        assert runez.save_json(obj, "sample2.json", logger=logging.debug) == 1
         assert "Saved " in logged.pop()
 
-        assert runez.read_json("sample2.json", logger=runez.debug) == data
+        assert runez.read_json("sample2.json", logger=logging.debug) == data
         assert "Read " in logged.pop()
 
 

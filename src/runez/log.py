@@ -7,7 +7,6 @@ import os
 import signal
 import sys
 import threading
-import time
 
 try:
     # faulthandler is only available in python 3.3+
@@ -16,13 +15,15 @@ try:
 except ImportError:
     faulthandler = None
 
-from runez.base import prop
-from runez.path import basename
+from runez.base import get_timezone, prop
+from runez.path import basename as get_basename
+from runez.program import get_program_path
 
 
 class OriginalLogging:
     """Original logging state, before we made any changes"""
 
+    __snapshot = None
     level = logging.root.level
     _srcfile = logging._srcfile
     critical = logging.critical
@@ -32,6 +33,27 @@ class OriginalLogging:
     warning = logging.warning
     info = logging.info
     debug = logging.debug
+
+    def __init__(self):
+        self.__snapshot = None
+
+    def __enter__(self):
+        self.__snapshot = {}
+        for name, value in Settings.__dict__.items():
+            if name.startswith("__") and name.endswith("__"):
+                continue
+            if not isinstance(value, classmethod):
+                self.__snapshot[name] = value
+
+    def __exit__(self, *_):
+        SETUP.reset()
+        if self.__snapshot:
+            for name, value in self.__snapshot.items():
+                setattr(Settings, name, value)
+            for name in list(Settings.__dict__.keys()):
+                if name.startswith("__") and not name.endswith("__"):
+                    if name not in self.__snapshot:
+                        delattr(Settings, name)
 
 
 def add_global_context(**values):
@@ -49,12 +71,13 @@ def add_thread_context(**values):
     SETUP.context.add(**values)
 
 
-def setup(debug=None, custom_location=None):
+def setup(debug=None, dryrun=None, custom_location=None):
     """
     :param bool|None debug: Enable debug level logging
+    :param bool|None dryrun: Enable dryrun
     :param str|None custom_location: Optional custom location to use
     """
-    SETUP.setup(debug, custom_location)
+    SETUP.setup(debug, dryrun, custom_location)
 
 
 def enable_faulthandler(self, signum=signal.SIGUSR1):
@@ -76,7 +99,7 @@ class Settings:
         runez.log.Settings.console_stream = sys.stdout
     """
 
-    program_path = os.path.abspath(sys.argv[0])
+    basename = get_basename(get_program_path())
     filename = "{basename}.log"
 
     level = logging.INFO
@@ -87,17 +110,7 @@ class Settings:
     console_format = "%(asctime)s %(levelname)s %(message)s"
     file_format = "%(asctime)s %(timezone)s [%(threadName)s] %(context)s%(levelname)s - %(message)s"
     context_format = "[[%s]] "
-
-    @prop
-    def basename(cls):
-        return basename(cls.program_path)
-
-    @prop
-    def timezone(cls):
-        try:
-            return time.tzname[0]
-        except (IndexError, TypeError):
-            return ""
+    timezone = get_timezone()
 
     @prop
     def dev(cls):
@@ -106,20 +119,11 @@ class Settings:
         """
         return cls.find_dev(sys.prefix)
 
-    @prop
-    def uuid(cls):
-        """
-        :return str: UUID, generated once
-        """
-        import uuid
-
-        return uuid.uuid4().hex
-
     @classmethod
     def formatted(cls, text):
         """
         :param str text: Text to format
-        :return str: Attributes from this class are expanded if mentioned (allows to avoid computing unused ones, like 'uuid')
+        :return str: Attributes from this class are expanded if mentioned
         """
         if not text:
             return text
@@ -196,31 +200,6 @@ class Settings:
         fmt = "%s %s" % (cls.console_format, cls.file_format)
         return any(marker in fmt for marker in markers)
 
-    @classmethod
-    def snapshot(cls):
-        """
-        :return dict: Snapshot of current fields and props
-        """
-        snap = {}
-        for name, value in cls.__dict__.items():
-            if name.startswith("__") and name.endswith("__"):
-                continue
-            if not isinstance(value, classmethod):
-                snap[name] = value
-        return snap
-
-    @classmethod
-    def restore(cls, snap):
-        """
-        :param dict snap: Earlier snapshot of this class
-        """
-        for name, value in snap.items():
-            setattr(cls, name, value)
-        for name in list(cls.__dict__.keys()):
-            if name.startswith("__") and not name.endswith("__"):
-                if name not in snap:
-                    delattr(cls, name)
-
 
 class _LogSetup:
     """
@@ -235,9 +214,10 @@ class _LogSetup:
     def __init__(self):
         self.lock = threading.RLock()
 
-    def setup(self, debug, custom_location=None):
+    def setup(self, debug, dryrun, custom_location):
         """
-        :param bool|None debug: Enable debug level logging
+        :param bool debug: Enable debug level logging
+        :param bool dryrun: Enable debug level logging
         :param str|None custom_location: Optional custom location to use
         """
         with self.lock:
@@ -253,8 +233,8 @@ class _LogSetup:
                 self.context.enable()
             self.optimize()
 
-    def restore(self, snap=None):
-        """Restore logging as it was before setup(), no need to call this outside of testing, or some very special cases"""
+    def reset(self):
+        """Reset logging as it was before setup(), no need to call this outside of testing, or some very special cases"""
         if self.context is not None:
             self.context = None
             self.level = None
@@ -268,8 +248,6 @@ class _LogSetup:
             for name, value in OriginalLogging.__dict__.items():
                 if not name.startswith("__") and hasattr(logging, name):
                     setattr(logging, name, value)
-        if snap:
-            Settings.restore(snap)
 
     def get_handler(self, base, format, target):
         """

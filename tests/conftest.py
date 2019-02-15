@@ -3,35 +3,7 @@ import os
 import pytest
 
 import runez
-
-
-TESTS = runez.parent_folder(__file__)
-PROJECT = runez.parent_folder(TESTS)
-INEXISTING_FILE = "/dev/null/foo/bar"
-
-runez.State.testing = True
-
-
-class SnapshotSettings:
-    """
-    Context manager for changing the current working directory
-    """
-
-    def __init__(self, folder=None):
-        self.folder = folder
-        self.snap = None
-
-    def __enter__(self):
-        self.snap = runez.log.Settings.snapshot()
-        if self.folder:
-            runez.log.Settings.program_path = "/some/test.py"
-            runez.log.Settings.folders = [os.path.join(self.folder, "{basename}")]
-            runez.log.Settings.dev = self.folder
-            runez.log.Settings.rotate = None
-            runez.log.Settings.timezone = "UTC"
-
-    def __exit__(self, *_):
-        runez.log.SETUP.restore(self.snap)
+from runez.conftest import cli, isolated_log_setup, temp_folder  # noqa
 
 
 class TempLog:
@@ -61,20 +33,12 @@ class TempLog:
 
 
 @pytest.fixture
-def temp_base():
-    with runez.TempFolder() as path:
-        yield path
-
-
-@pytest.fixture
-def temp_settings():
-    with SnapshotSettings() as snap:
-        yield snap
-
-
-@pytest.fixture
 def temp_log():
-    with runez.CaptureOutput() as logged:
-        with runez.TempFolder(follow=True) as tmp:
-            with SnapshotSettings(folder=tmp):
+    with runez.log.OriginalLogging():
+        with runez.CaptureOutput() as logged:
+            with runez.TempFolder(follow=True) as tmp:
+                runez.log.Settings.folders = [os.path.join(tmp, "{basename}")]
+                runez.log.Settings.dev = tmp
+                runez.log.Settings.rotate = None
+                runez.log.Settings.timezone = "UTC"
                 yield TempLog(tmp, logged)

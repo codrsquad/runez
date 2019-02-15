@@ -2,12 +2,16 @@
 Convenience methods for executing programs
 """
 
+import logging
 import os
 import subprocess  # nosec
 import sys
 import time
 
-from runez.base import abort, debug, decode, flattened, represented_args, short, State
+from runez.base import abort, decode, flattened, represented_args, short, State
+
+
+LOG = logging.getLogger(__name__)
 
 
 def check_pid(pid):
@@ -21,6 +25,13 @@ def check_pid(pid):
 
     except (OSError, TypeError):
         return False
+
+
+def get_program_path(path=sys.argv[0]):
+    """
+    :return str: Path of currently running program
+    """
+    return which(path) or path
 
 
 def is_executable(path):
@@ -54,7 +65,7 @@ def make_executable(path, fatal=True):
         return 0
 
     if State.dryrun:
-        debug("Would make %s executable", short(path))
+        LOG.debug("Would make %s executable", short(path))
         return 1
 
     if not os.path.exists(path):
@@ -73,7 +84,7 @@ def run(program, *args, **kwargs):
     args = flattened(args, unique=False)
     full_path = which(program)
 
-    logger = kwargs.pop("logger", debug)
+    logger = kwargs.pop("logger", LOG.debug)
     fatal = kwargs.pop("fatal", True)
     dryrun = kwargs.pop("dryrun", State.dryrun)
     include_error = kwargs.pop("include_error", False)
