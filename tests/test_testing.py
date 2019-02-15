@@ -36,3 +36,6 @@ def test_crash(cli):
 
     with pytest.raises(AssertionError):
         cli.assert_log_has("hello")
+
+    with pytest.raises(AssertionError):
+        cli.assert_output_has("foo")

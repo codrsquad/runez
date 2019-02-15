@@ -12,11 +12,11 @@ def test_captured_stream():
     bogus = runez.context.CapturedStream(None)
     foo = runez.context.CapturedStream(None, name="foo")
 
-    assert str(stdout) == "stdout: "
-    assert str(stderr) == "stderr: "
-    assert "StringIO" in str(buffer)
-    assert str(bogus) == "None: "
-    assert str(foo) == "foo: "
+    assert stdout.name == "stdout"
+    assert stderr.name == "stderr"
+    assert "StringIO" in buffer.name
+    assert bogus.name is None
+    assert foo.name == "foo"
 
 
 def test_capture():

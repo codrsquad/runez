@@ -99,7 +99,7 @@ class ClickRunner:
             else:
                 args = args[0].split()
         cmd = kwargs.pop("command", self.command)
-        assert cmd, "No command provided"
+        assert bool(cmd), "No command provided"
         with runez.CaptureOutput(dryrun=runez.State.dryrun) as logged:
             runner = ClickWrapper.runner
             runner = runner()

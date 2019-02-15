@@ -86,7 +86,7 @@ class CapturedStream:
                     return cls(h.stream, name=h.__class__.__name__)
 
     def __repr__(self):
-        return "%s: %s" % (self.name, decode(self.buffer.getvalue()) if self.buffer else "")
+        return decode(self.buffer.getvalue()) if self.buffer else ""
 
     def __contains__(self, item):
         return item is not None and item in str(self)

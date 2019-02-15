@@ -22,7 +22,7 @@ def test_double_setup(isolated_log_setup):
 
 
 def test_console(temp_log):
-    assert temp_log.logged == "stdout: stderr: LogCaptureHandler:"
+    assert not temp_log.logged
 
     runez.log.Settings.console_format = "%(message)s"
     runez.log.setup()

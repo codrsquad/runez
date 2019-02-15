@@ -183,6 +183,7 @@ class OriginalLogging:
 
     @classmethod
     def set_level(cls, level):
+        """This function is useful for testing, to set logging level to debug basically"""
         if level is not None:
             old_level = OriginalLogging.level
             if level != OriginalLogging.level:
@@ -195,6 +196,7 @@ class OriginalLogging:
         self.__level = self.level
 
     def __enter__(self):
+        """Context manager to save and restore log setup, useful for testing"""
         self.__snapshot = {}
         for name, value in Settings.__dict__.items():
             if name.startswith("__") and name.endswith("__"):
