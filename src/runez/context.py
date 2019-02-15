@@ -2,7 +2,6 @@
 Convenience context managers
 """
 
-import logging
 import os
 import shutil
 import sys
@@ -16,7 +15,7 @@ except ImportError:
     from io import StringIO
 
 import runez.log
-from runez.base import decode, flattened, listify, State
+from runez.base import flattened, listify, State
 from runez.path import resolved_path, SYMBOLIC_TMP
 
 
@@ -62,57 +61,56 @@ class Anchored:
 class CapturedStream:
     """Capture output to a stream by hijacking temporarily its write() function"""
 
-    def __init__(self, old, name=None):
-        if name is None:
-            if old is sys.stdout:
-                name = "stdout"
-            elif old is sys.stderr:
-                name = "stderr"
-            elif old:
-                name = getattr(old, "name", str(old))
-        self.name = name
-        self.old = old
-        self.buffer = None
+    _shared = None
 
-    @classmethod
-    def from_handler(cls, handler):
-        """
-        :param str|logging.Handler|None handler: Logging handler to find
-        :return logging.Handler|None: Corresponding handler from logging.root.handlers, if any
-        """
-        if handler:
-            for h in logging.root.handlers:
-                if h and (h is handler or h.__class__.__name__ == handler):
-                    return cls(h.stream, name=h.__class__.__name__)
+    def __init__(self, target):
+        self.target = target
+        if target is None:
+            self.buffer = CapturedStream._shared._buffer
+        else:
+            self.buffer = StringIO()
 
     def __repr__(self):
-        return decode(self.buffer.getvalue()) if self.buffer else ""
+        return "%s: %s" % (self.name, self.contents())
 
     def __contains__(self, item):
-        return item is not None and item in str(self)
+        return item is not None and item in self.contents()
 
     def __len__(self):
-        return len(self.buffer.getvalue()) if self.buffer else 0
+        return len(self.contents())
 
-    def write(self, text):
-        self.buffer.write(text)
+    @property
+    def name(self):
+        if self.target is None:
+            return "log"
+        if self.target is sys.stdout:
+            return "stdout"
+        if self.target is sys.stderr:
+            return "stderr"
+        return str(self.target)
+
+    def contents(self):
+        return self.buffer.getvalue()
 
     def capture(self):
-        if self.old:
-            self.buffer = StringIO()
-            self.original_write = self.old.write
-            self.old.write = self.write
+        if self.target:
+            self.original = self.target.write
+            self.target.write = self.buffer.write
+        else:
+            self._shared._is_capturing = True
 
     def restore(self):
         """Restore hijacked write() function"""
-        if self.old:
-            self.old.write = self.original_write
+        if self.target:
+            self.target.write = self.original
+        else:
+            self._shared._is_capturing = False
+        self.clear()
 
     def clear(self):
         """Clear captured content"""
-        if self.buffer:
-            self.buffer.seek(0)
-            self.buffer.truncate(0)
+        self.buffer.seek(0)
+        self.buffer.truncate(0)
 
 
 class CaptureOutput:
@@ -127,24 +125,30 @@ class CaptureOutput:
         # output has been captured in 'logged'
     """
 
-    def __init__(self, level=None, streams=(sys.stdout, sys.stderr), handlers="LogCaptureHandler", anchors=None, dryrun=None):
+    def __init__(self, level=None, streams=None, anchors=None, dryrun=None):
         """
         :param int|None level: Change logging level, if specified
-        :param tuple|list|io.TextIOWrapper|None streams: Streams to capture
-        :param tuple|list|str|logging.Handler|None handlers: Logging handlers to capture
+        :param tuple|list|None streams: Streams to capture (default: stderr and stdout)
         :param str|list anchors: Optional paths to use as anchors for short()
         :param bool|None dryrun: Override dryrun (when explicitly specified, ie not None)
         """
         self.level = level
         self.old_level = None
+        if streams is None:
+            if CapturedStream._shared:
+                streams = (sys.stdout, sys.stderr, None)
+            else:
+                streams = (sys.stdout, sys.stderr)
         self.streams = listify(streams)
-        self.handlers = listify(handlers)
         self.anchors = anchors
         self.dryrun = dryrun
         self.captured = None
 
     def __repr__(self):
         return "".join(str(c) for c in self.captured) if self.captured else ""
+
+    def contents(self):
+        return "".join(c.contents() for c in self.captured) if self.captured else ""
 
     def __eq__(self, other):
         if isinstance(other, CaptureOutput):
@@ -159,12 +163,6 @@ class CaptureOutput:
                 c = CapturedStream(stream)
                 c.capture()
                 self.captured.append(c)
-        if self.handlers:
-            for handler in self.handlers:
-                c = CapturedStream.from_handler(handler)
-                if c is not None:
-                    c.capture()
-                    self.captured.append(c)
         if self.anchors:
             Anchored.add(self.anchors)
         if self.dryrun is not None:
@@ -192,7 +190,7 @@ class CaptureOutput:
 
     def pop(self):
         """Current content popped, useful for testing"""
-        r = self.__repr__()
+        r = self.contents()
         self.clear()
         return r
 

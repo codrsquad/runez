@@ -7,17 +7,16 @@ from mock import patch
 import runez
 
 
-def test_abort():
-    with runez.CaptureOutput() as logged:
-        assert runez.abort("aborted", fatal=(False, "foo")) == "foo"
-        assert "aborted" in logged.pop()
+def test_abort(logged):
+    assert runez.abort("aborted", fatal=(False, "foo")) == "foo"
+    assert "aborted" in logged.pop()
 
-        assert runez.abort("aborted", fatal=(False, "foo"), code=0) == "foo"
-        assert "aborted" in logged
-        assert "ERROR" not in logged.pop()
+    assert runez.abort("aborted", fatal=(False, "foo"), code=0) == "foo"
+    assert "aborted" in logged
+    assert "ERROR" not in logged.pop()
 
-        assert runez.abort("aborted", fatal=(None, "foo")) == "foo"
-        assert not logged
+    assert runez.abort("aborted", fatal=(None, "foo")) == "foo"
+    assert not logged
 
 
 def test_timezone():

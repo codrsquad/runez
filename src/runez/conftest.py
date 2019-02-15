@@ -8,6 +8,7 @@ Example:
 
 import logging
 
+import _pytest.logging
 import pytest
 
 import runez
@@ -23,10 +24,11 @@ def cli():
 
     Example usage:
 
-        from runez.conftest import click_run
+        from runez.conftest import cli
+        from my_cli import main
 
         def test_help(cli):
-            cli.command = my_click_command
+            cli.main = main
             cli.run("--help")
 
             assert cli.exit_code == 0
@@ -45,12 +47,40 @@ def isolated_log_setup():
 
 
 @pytest.fixture
+def logged():
+    with runez.CaptureOutput() as logged:
+        yield logged
+
+
+@pytest.fixture
 def temp_folder():
     with runez.TempFolder() as path:
         yield path
 
 
+class WrappedHandler(_pytest.logging.LogCaptureHandler):
+    """pytest aggressively imposes its own capture, this allows to capture it in our context managers"""
+
+    _is_capturing = False
+    _buffer = runez.context.StringIO()
+
+    def __init__(self):
+        super(WrappedHandler, self).__init__()
+
+    def emit(self, record):
+        if self._is_capturing:
+            msg = self.format(record)
+            WrappedHandler._buffer.write(msg)
+        else:
+            super(WrappedHandler, self).emit(record)
+
+
+runez.context.CapturedStream._shared = WrappedHandler
+_pytest.logging.LogCaptureHandler = WrappedHandler
+
+
 class ClickWrapper:
+    """Wrap click invoke, when click is available, otherwise just call provided function"""
 
     __runner = None
 
@@ -81,9 +111,10 @@ class ClickWrapper:
 
 
 class ClickRunner:
+    """Allows to provide a test-friendly fixture around testing click entry-points"""
 
     def __init__(self):
-        self.command = None
+        self.main = None
         self.output = None
         self.logged = None
         self.exit_code = None
@@ -98,8 +129,8 @@ class ClickRunner:
                 args = args[0]
             else:
                 args = args[0].split()
-        cmd = kwargs.pop("command", self.command)
-        assert bool(cmd), "No command provided"
+        cmd = kwargs.pop("main", self.main)
+        assert bool(cmd), "No main provided"
         with runez.CaptureOutput(dryrun=runez.State.dryrun) as logged:
             runner = ClickWrapper.runner
             runner = runner()

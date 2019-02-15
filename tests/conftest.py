@@ -3,13 +3,13 @@ import os
 import pytest
 
 import runez
-from runez.conftest import cli, isolated_log_setup, temp_folder  # noqa
+from runez.conftest import cli, isolated_log_setup, logged, temp_folder  # noqa
 
 
 class TempLog:
-    def __init__(self, folder, logged):
+    def __init__(self, folder, cap):
         self.folder = folder
-        self.logged = logged
+        self.logged = cap
 
     @property
     def files(self):
@@ -35,10 +35,10 @@ class TempLog:
 @pytest.fixture
 def temp_log():
     with runez.log.OriginalLogging():
-        with runez.CaptureOutput() as logged:
+        with runez.CaptureOutput() as cap:
             with runez.TempFolder(follow=True) as tmp:
                 runez.log.Settings.folders = [os.path.join(tmp, "{basename}")]
                 runez.log.Settings.dev = tmp
                 runez.log.Settings.rotate = None
                 runez.log.Settings.timezone = "UTC"
-                yield TempLog(tmp, logged)
+                yield TempLog(tmp, cap)
