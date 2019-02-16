@@ -8,8 +8,10 @@ from __future__ import absolute_import
 
 import inspect
 import logging
-import os
 import time
+
+from runez.state import short
+
 
 try:
     string_type = basestring  # noqa
@@ -20,18 +22,20 @@ except NameError:
 
 
 LOG = logging.getLogger(__name__)
-HOME = os.path.expanduser("~")
-_func_args = None
 
 
 class State:
     """Helps track state without importing/dealing with globals"""
 
     dryrun = False
-    anchors = []  # Folder paths that can be used to shorten paths, via short()
 
 
 class AbortException(Exception):
+    """
+    You can replace this with your preferred exception, for example:
+
+        runez.base.AbortException = SystemExit
+    """
     def __init__(self, code):
         self.code = code
 
@@ -79,18 +83,6 @@ def decode(value):
     if isinstance(value, bytes) and not isinstance(value, str):
         return value.decode("utf-8")
     return unicode(value)
-
-
-def flattened(value, separator=None, unique=True):
-    """
-    :param value: Possibly nested arguments (sequence of lists, nested lists)
-    :param str|None separator: Split values with 'separator' if specified
-    :param bool unique: If True, return unique values only
-    :return list: 'value' flattened out (leaves from all involved lists/tuples)
-    """
-    result = []
-    _flatten(result, value, separator=separator, unique=unique)
-    return result
 
 
 def get_timezone():
@@ -194,27 +186,6 @@ def shortened(text, size=120):
     return text
 
 
-def short(path):
-    """
-    Example:
-        short("examined /Users/joe/foo") => "examined ~/foo"
-
-    :param path: Path to represent in its short form
-    :return str: Short form, using '~' if applicable
-    """
-    if not path:
-        return path
-
-    path = str(path)
-    if State.anchors:
-        for p in State.anchors:
-            if p:
-                path = path.replace(p + "/", "")
-
-    path = path.replace(HOME, "~")
-    return path
-
-
 def to_int(text, default=None):
     """
     :param text: Value to convert
@@ -228,30 +199,7 @@ def to_int(text, default=None):
         return default
 
 
-def _flatten(result, value, separator=None, unique=True):
-    """
-    :param list result: Will hold all flattened values
-    :param value: Possibly nested arguments (sequence of lists, nested lists)
-    :param str|None separator: Split values with 'separator' if specified
-    :param bool unique: If True, return unique values only
-    """
-    if not value:
-        # Convenience: allow to filter out --foo None easily
-        if value is None and not unique and result and result[-1].startswith("-"):
-            result.pop(-1)
-        return
-
-    if isinstance(value, (list, tuple, set)):
-        for item in value:
-            _flatten(result, item, separator=separator, unique=unique)
-        return
-
-    if separator is not None and hasattr(value, "split") and separator in value:
-        _flatten(result, value.split(separator), separator=separator, unique=unique)
-        return
-
-    if not unique or value not in result:
-        result.append(value)
+_get_function_signature = None
 
 
 def _has_arg(func, arg_name):
@@ -260,23 +208,23 @@ def _has_arg(func, arg_name):
     :param str arg_name: Argument name
     :return bool: True if 'func' has an argument called 'prop'
     """
-    global _func_args
-    if _func_args is None:
+    global _get_function_signature
+    if _get_function_signature is None:
         try:
             # python 3
             from inspect import signature
 
-            def _func_args(x):
+            def _get_function_signature(x):
                 return signature(x).parameters
 
         except ImportError:
             # python 2
             from inspect import getargspec
 
-            def _func_args(x):
+            def _get_function_signature(x):
                 return getargspec(x).args
 
-    sig = _func_args(func)
+    sig = _get_function_signature(func)
     return arg_name in sig
 
 

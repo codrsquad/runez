@@ -18,9 +18,10 @@ try:
 except ImportError:
     faulthandler = None
 
-from runez.base import flattened, get_timezone, prop, State
+from runez.base import get_timezone, prop, State
 from runez.path import basename as get_basename, parent_folder
 from runez.program import get_program_path
+from runez.state import flattened
 
 
 RE_FORMAT_MARKERS = re.compile(r"{([^}]*?)}")

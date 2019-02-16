@@ -7,7 +7,8 @@ from __future__ import absolute_import
 import logging
 import os
 
-from runez.base import abort, short, State
+from runez.base import abort, State
+from runez.state import short
 
 
 LOG = logging.getLogger(__name__)

@@ -15,7 +15,8 @@ except ImportError:
     from io import StringIO
 
 import runez.logging
-from runez.base import flattened, State
+import runez.state
+from runez.base import State
 from runez.path import resolved_path, SYMBOLIC_TMP
 
 
@@ -29,33 +30,10 @@ class Anchored:
         self.folder = resolved_path(folder)
 
     def __enter__(self):
-        Anchored.add(self.folder)
+        runez.state.Anchored.add(self.folder)
 
     def __exit__(self, *_):
-        Anchored.pop(self.folder)
-
-    @classmethod
-    def set(cls, anchors):
-        """
-        :param str|list anchors: Optional paths to use as anchors for short()
-        """
-        State.anchors = sorted(flattened(anchors, unique=True), reverse=True)
-
-    @classmethod
-    def add(cls, anchors):
-        """
-        :param str|list anchors: Optional paths to use as anchors for short()
-        """
-        cls.set(State.anchors + [anchors])
-
-    @classmethod
-    def pop(cls, anchors):
-        """
-        :param str|list anchors: Optional paths to use as anchors for short()
-        """
-        for anchor in flattened(anchors):
-            if anchor in State.anchors:
-                State.anchors.remove(anchor)
+        runez.state.Anchored.pop(self.folder)
 
 
 class CapturedStream:
@@ -157,7 +135,7 @@ class CaptureOutput:
         for s in self.captured:
             s.capture()
         if self.anchors:
-            Anchored.add(self.anchors)
+            runez.state.Anchored.add(self.anchors)
         if self.dryrun is not None:
             (State.dryrun, self.dryrun) = (bool(self.dryrun), bool(State.dryrun))
         return self
@@ -167,7 +145,7 @@ class CaptureOutput:
         for s in self.captured:
             s.restore()
         if self.anchors:
-            Anchored.pop(self.anchors)
+            runez.state.Anchored.pop(self.anchors)
         if self.dryrun is not None:
             State.dryrun = self.dryrun
 
@@ -213,12 +191,12 @@ class CurrentFolder:
         self.current_folder = os.getcwd()
         os.chdir(self.destination)
         if self.anchor:
-            Anchored.add(self.destination)
+            runez.state.Anchored.add(self.destination)
 
     def __exit__(self, *_):
         os.chdir(self.current_folder)
         if self.anchor:
-            Anchored.pop(self.destination)
+            runez.state.Anchored.pop(self.destination)
 
 
 class TempFolder:
@@ -249,12 +227,12 @@ class TempFolder:
                 os.chdir(self.tmp_folder)
         tmp = self.tmp_folder or SYMBOLIC_TMP
         if self.anchor:
-            Anchored.add(tmp)
+            runez.state.Anchored.add(tmp)
         return tmp
 
     def __exit__(self, *_):
         if self.anchor:
-            Anchored.pop(self.tmp_folder or SYMBOLIC_TMP)
+            runez.state.Anchored.pop(self.tmp_folder or SYMBOLIC_TMP)
         if self.old_cwd:
             os.chdir(self.old_cwd)
         if self.tmp_folder:

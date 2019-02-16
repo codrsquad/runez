@@ -9,8 +9,9 @@ import json
 import logging
 import os
 
-from runez.base import abort, short, State, string_type
+from runez.base import abort, State, string_type
 from runez.path import ensure_folder, resolved_path
+from runez.state import short
 
 
 LOG = logging.getLogger(__name__)

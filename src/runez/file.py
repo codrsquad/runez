@@ -5,8 +5,9 @@ import logging
 import os
 import shutil
 
-from runez.base import abort, decode, short, State
+from runez.base import abort, decode, State
 from runez.path import ensure_folder, parent_folder, resolved_path
+from runez.state import short
 
 
 LOG = logging.getLogger(__name__)

@@ -10,7 +10,8 @@ import subprocess  # nosec
 import sys
 import time
 
-from runez.base import abort, decode, flattened, represented_args, short, State
+from runez.base import abort, decode, represented_args, State
+from runez.state import flattened, short
 
 
 LOG = logging.getLogger(__name__)
