@@ -42,8 +42,8 @@ def cli():
 @pytest.fixture
 def isolated_log_setup():
     """Log settings restored"""
-    with runez.log.OriginalLogging():
-        yield runez.log.SETUP
+    with runez.log.OriginalLogging() as c:
+        yield c
 
 
 @pytest.fixture

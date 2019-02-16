@@ -1,29 +1,45 @@
-import os
+import logging
 
 import pytest
 
 import runez
-from runez.conftest import cli, isolated_log_setup, logged, temp_folder  # noqa
+from runez.conftest import cli, isolated_log_setup, logged, temp_folder
+
+
+# This is here only to satisfy flake8, mentioning the imported fixtures so they're not declared "unused"
+assert all(s for s in [cli, isolated_log_setup, logged, temp_folder])
 
 
 class TempLog:
-    def __init__(self, folder, cap):
+    def __init__(self, folder, capture):
+        """
+        :param str folder: Temp folder
+        :param runez.CaptureOutput capture: Log capture context manager
+        """
         self.folder = folder
-        self.logged = cap
+        self.logged = capture
+        self.stdout = capture.stdout
+        self.stderr = capture.stderr
 
-    @property
-    def files(self):
-        return os.listdir(self.folder)
+    @runez.prop
+    def logfile(self):
+        if runez.log.Context.hfile:
+            return runez.short(runez.log.Context.hfile.baseFilename)
 
-    def absent(self, filename, *expected):
+    def expect_logged(self, *expected):
+        assert self.logfile, "Logging to a file was not setup"
         remaining = set(expected)
-        with open(filename, "rt") as fh:
+        with open(self.logfile, "rt") as fh:
             for line in fh:
-                remaining.difference_update([msg for msg in remaining if msg in line])
-        return remaining
+                found = [msg for msg in remaining if msg in line]
+                remaining.difference_update(found)
+        if remaining:
+            logging.info("File contents:")
+            logging.info("\n".join(runez.get_lines(self.logfile)))
+        assert not remaining
 
     def __repr__(self):
-        return "TempLog: '%s'" % self.logged
+        return str(self.logged)
 
     def __str__(self):
         return self.folder
@@ -31,14 +47,18 @@ class TempLog:
     def __contains__(self, item):
         return item in self.logged
 
+    def __len__(self):
+        return len(self.logged)
+
 
 @pytest.fixture
 def temp_log():
     with runez.log.OriginalLogging():
-        with runez.CaptureOutput() as cap:
-            with runez.TempFolder(follow=True) as tmp:
-                runez.log.Settings.folders = [os.path.join(tmp, "{basename}")]
+        with runez.TempFolder(follow=True) as tmp:
+            with runez.CaptureOutput(log=False, anchors=tmp) as capture:
+                assert not capture.log
                 runez.log.Settings.dev = tmp
                 runez.log.Settings.rotate = None
                 runez.log.Settings.timezone = "UTC"
-                yield TempLog(tmp, cap)
+                runez.log.Settings.console_format = "%(levelname)s %(message)s"
+                yield TempLog(tmp, capture)

@@ -5,30 +5,64 @@ import pytest
 import runez
 
 
-def test_default_settings(isolated_log_setup):
+def test_settings(isolated_log_setup):
     assert runez.log.Settings.basename == "pytest"
 
     assert runez.log.Settings.formatted("") == ""
+    assert runez.log.Settings.formatted("{foo}") is None
+    assert runez.log.Settings.formatted("{filename}") == "pytest.log"
+
     assert runez.log.Settings.find_dev("") is None
     assert runez.log.Settings.find_dev("foo/.venv/bar/baz") == "foo/.venv"
-    assert runez.log.Settings.is_using_format("") is False
-    assert runez.log.Settings.usable_folder("") is None
 
+    fmt = "%(asctime)s %(context)s%(levelname)s - %(message)s"
+    assert runez.log.is_using_format("", fmt) is False
+    assert runez.log.is_using_format("%(lineno)d", fmt) is False
+    assert runez.log.is_using_format("%(context)s", fmt) is True
+    assert runez.log.is_using_format("%(context)s %(lineno)d", fmt) is True
+    assert runez.log.is_using_format("%(context)s", "") is False
 
-def test_double_setup(isolated_log_setup):
-    runez.log.SETUP.context = ""
+    with runez.TempFolder():
+        runez.touch("some-file")
+        assert runez.log.Settings.usable_location("") is None
+        assert runez.log.Settings.usable_location("./foo.log") == "./foo.log"
+        assert runez.log.Settings.usable_location("./foo/bar.log") == "./foo/bar.log"
+        assert runez.log.Settings.usable_location("./too/many/subfolders.log") is None
+        assert runez.log.Settings.usable_location("./some-file/bar.log") is None
+        assert runez.log.Settings.usable_location("./some-file/foo/bar.log") is None
+
+        assert runez.log.Settings.usable_location("foo.log") == "foo.log"
+        assert runez.log.Settings.usable_location("foo/bar.log") == "foo/bar.log"
+
     with pytest.raises(Exception):
+        runez.log.setup()
         runez.log.setup()
 
 
 def test_console(temp_log):
-    assert not temp_log.logged
+    runez.log.setup(location="")
+    assert temp_log.logfile is None
+    logging.info("hello")
+    assert "INFO hello" in temp_log.stderr
 
-    runez.log.Settings.console_format = "%(message)s"
+
+def test_default(temp_log):
+    runez.log.set_global_context(version="1.0")
+    runez.log.add_global_context(worker="mark")
+    runez.log.add_thread_context(worker="joe", foo="bar")
+    runez.log.set_thread_context(worker="joe")
     runez.log.setup()
+
+    assert temp_log.logfile == "pytest.log"
     logging.info("hello")
 
-    assert temp_log.files == ["pytest.log"]
-    assert not temp_log.absent("pytest.log", "UTC [MainThread] INFO - hello")
+    temp_log.expect_logged("UTC [MainThread] [[version=1.0,worker=joe]] INFO - hello")
+    assert "INFO hello" in temp_log.stderr
 
-    assert "hello" in temp_log
+
+def test_no_context(temp_log):
+    runez.log.set_global_context(version="1.0")
+    runez.log.Settings.file_format = "%(asctime)s %(timezone)s [%(threadName)s] %(levelname)s - %(message)s"
+    runez.log.setup()
+    logging.info("hello")
+    temp_log.expect_logged("UTC [MainThread] INFO - hello")

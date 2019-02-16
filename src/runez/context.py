@@ -15,7 +15,7 @@ except ImportError:
     from io import StringIO
 
 import runez.log
-from runez.base import flattened, listify, State
+from runez.base import flattened, State
 from runez.path import resolved_path, SYMBOLIC_TMP
 
 
@@ -63,31 +63,32 @@ class CapturedStream:
 
     _shared = None
 
-    def __init__(self, target):
+    def __init__(self, name, target):
+        self.name = name
         self.target = target
         if target is None:
             self.buffer = CapturedStream._shared._buffer
         else:
             self.buffer = StringIO()
 
+    @classmethod
+    def log_intercept(cls):
+        if cls._shared:
+            return cls("log", None)
+
     def __repr__(self):
         return "%s: %s" % (self.name, self.contents())
+
+    def __eq__(self, other):
+        if isinstance(other, CapturedStream):
+            return self.name == other.name
+        return str(self).strip() == str(other).strip()
 
     def __contains__(self, item):
         return item is not None and item in self.contents()
 
     def __len__(self):
         return len(self.contents())
-
-    @property
-    def name(self):
-        if self.target is None:
-            return "log"
-        if self.target is sys.stdout:
-            return "stdout"
-        if self.target is sys.stderr:
-            return "stderr"
-        return str(self.target)
 
     def contents(self):
         return self.buffer.getvalue()
@@ -125,44 +126,30 @@ class CaptureOutput:
         # output has been captured in 'logged'
     """
 
-    def __init__(self, level=None, streams=None, anchors=None, dryrun=None):
+    def __init__(self, level=None, stdout=True, stderr=True, log=None, anchors=None, dryrun=None):
         """
         :param int|None level: Change logging level, if specified
-        :param tuple|list|None streams: Streams to capture (default: stderr and stdout)
+        :param bool stdout: Capture stdout
+        :param bool stderr: Capture stderr
+        :param bool|None log: Capture pytest logging (if running in pytest), leave at None for auto-detect
         :param str|list anchors: Optional paths to use as anchors for short()
         :param bool|None dryrun: Override dryrun (when explicitly specified, ie not None)
         """
         self.level = level
-        self.old_level = None
-        if streams is None:
-            if CapturedStream._shared:
-                streams = (sys.stdout, sys.stderr, None)
-            else:
-                streams = (sys.stdout, sys.stderr)
-        self.streams = listify(streams)
+        self.stdout = CapturedStream("stdout", sys.stdout) if stdout else None
+        self.stderr = CapturedStream("stderr", sys.stderr) if stderr else None
+        if log is None:
+            log = bool(CapturedStream._shared)
+        self.log = CapturedStream.log_intercept() if log else None
+        self.captured = [c for c in (self.stdout, self.stderr, self.log) if c is not None]
         self.anchors = anchors
         self.dryrun = dryrun
-        self.captured = None
-
-    def __repr__(self):
-        return "".join(str(c) for c in self.captured) if self.captured else ""
-
-    def contents(self):
-        return "".join(c.contents() for c in self.captured) if self.captured else ""
-
-    def __eq__(self, other):
-        if isinstance(other, CaptureOutput):
-            return self.captured == other.captured
-        return str(self).strip() == str(other).strip()
+        self._old_level = None
 
     def __enter__(self):
-        self.old_level = runez.log.OriginalLogging.set_level(self.level)
-        self.captured = []
-        if self.streams:
-            for stream in self.streams:
-                c = CapturedStream(stream)
-                c.capture()
-                self.captured.append(c)
+        self._old_level = runez.log.OriginalLogging.set_level(self.level)
+        for s in self.captured:
+            s.capture()
         if self.anchors:
             Anchored.add(self.anchors)
         if self.dryrun is not None:
@@ -170,23 +157,30 @@ class CaptureOutput:
         return self
 
     def __exit__(self, *args):
-        runez.log.OriginalLogging.set_level(self.old_level)
-        for c in self.captured:
-            c.restore()
-        self.captured = None
+        runez.log.OriginalLogging.set_level(self._old_level)
+        for s in self.captured:
+            s.restore()
         if self.anchors:
             Anchored.pop(self.anchors)
         if self.dryrun is not None:
             State.dryrun = self.dryrun
 
+    def __repr__(self):
+        return "".join(str(s) for s in self.captured)
+
+    def __eq__(self, other):
+        if isinstance(other, CaptureOutput):
+            return self.stdout == other.stdout and self.stderr == other.stderr and self.log == other.log
+        return str(self).strip() == str(other).strip()
+
     def __contains__(self, item):
-        for c in self.captured:
-            if item in c:
-                return True
-        return False
+        return any(item in s for s in self.captured)
 
     def __len__(self):
-        return sum(len(c) for c in self.captured)
+        return sum(len(s) for s in self.captured)
+
+    def contents(self):
+        return "".join(s.contents() for s in self.captured)
 
     def pop(self):
         """Current content popped, useful for testing"""
@@ -196,8 +190,8 @@ class CaptureOutput:
 
     def clear(self):
         """Clear captured content"""
-        for c in self.captured:
-            c.clear()
+        for s in self.captured:
+            s.clear()
 
 
 class CurrentFolder:

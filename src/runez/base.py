@@ -108,23 +108,6 @@ def get_version(mod, default="0.0.0"):
         return default
 
 
-def listify(obj, separator=None):
-    """
-    :param obj: Object to listify
-    :param str|None separator: Character separator to split strings on
-    :return list: 'obj' listified
-    """
-    if obj is None:
-        return None
-    if isinstance(obj, list):
-        return obj
-    if isinstance(obj, tuple):
-        return list(obj)
-    if separator and isinstance(obj, string_type):
-        return obj.split(separator)
-    return [obj]
-
-
 class prop(object):
     """
     Decorator for settable cached properties.

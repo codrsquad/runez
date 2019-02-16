@@ -4,6 +4,7 @@ Convenience logging setup
 
 import logging
 import os
+import re
 import signal
 import sys
 import threading
@@ -15,33 +16,41 @@ try:
 except ImportError:
     faulthandler = None
 
-from runez.base import get_timezone, prop
-from runez.path import basename as get_basename
+from runez.base import flattened, get_timezone, prop, State
+from runez.path import basename as get_basename, parent_folder
 from runez.program import get_program_path
+
+
+RE_FORMAT_MARKERS = re.compile(r"{([^}]*?)}")
 
 
 def add_global_context(**values):
     """Add 'values' to global logging context"""
-    SETUP.context.add_global(**values)
+    Context.add_global_context(**values)
 
 
 def set_global_context(**values):
     """Set global logging context to 'values'"""
-    SETUP.context.set_global(**values)
+    Context.set_global_context(**values)
 
 
 def add_thread_context(**values):
     """Add 'values' to current thread's logging context"""
-    SETUP.context.add(**values)
+    Context.add_thread_context(**values)
 
 
-def setup(debug=None, dryrun=None, custom_location=None):
+def set_thread_context(**values):
+    """Set thread logging context to 'values'"""
+    Context.set_thread_context(**values)
+
+
+def setup(debug=None, dryrun=None, location=None):
     """
     :param bool|None debug: Enable debug level logging
     :param bool|None dryrun: Enable dryrun
-    :param str|None custom_location: Optional custom location to use
+    :param str|None location: Optional custom location to use
     """
-    SETUP.setup(debug, dryrun, custom_location)
+    Context.setup(debug, dryrun, location)
 
 
 def enable_faulthandler(self, signum=signal.SIGUSR1):
@@ -53,7 +62,7 @@ def enable_faulthandler(self, signum=signal.SIGUSR1):
 
     :param int signum: Signal number to register for full thread stack dump
     """
-    SETUP.enable_faulthandler(signum)
+    Context.enable_faulthandler(signum)
 
 
 class Settings:
@@ -68,7 +77,7 @@ class Settings:
 
     level = logging.INFO
     console_stream = sys.stderr
-    folders = ["/logs/{basename}"]
+    locations = ["{dev}/{filename}", "/logs/{basename}/{filename}", "/var/logs/{filename}"]
     rotate = None
 
     console_format = "%(asctime)s %(levelname)s %(message)s"
@@ -92,11 +101,19 @@ class Settings:
         if not text:
             return text
         values = {}
-        for k in list(cls.__dict__.keys()):
-            if k.startswith("_"):
+        markers = RE_FORMAT_MARKERS.findall(text)
+        while markers:
+            key = markers.pop()
+            if key in values:
                 continue
-            if "{%s}" % k in text:
-                values[k] = getattr(cls, k)
+            val = getattr(cls, key, None)
+            if val is None:
+                return None
+            markers.extend(m for m in RE_FORMAT_MARKERS.findall(val) if m not in values)
+            values[key] = val
+        for key, val in values.items():
+            if '{' in val:
+                values[key] = values[key].format(**values)
         return text.format(**values)
 
     @classmethod
@@ -113,56 +130,54 @@ class Settings:
         return cls.find_dev(dirpath)
 
     @classmethod
-    def resolved_location(cls, custom_location=None):
-        if custom_location:
+    def resolved_location(cls, location=None):
+        if location is not None:
             # Custom location typically provided via --config CLI flag
-            custom_location = cls.formatted(custom_location)
-            if os.path.isdir(custom_location):
-                return os.path.join(custom_location, cls.formatted(cls.filename))
-            return custom_location
-        if cls.dev:
-            # We're running from a dev environment
-            return os.path.join(cls.dev, cls.formatted(cls.filename))
-        if not cls.folders:
-            # No folders configured
-            return None
-        for folder in cls.folders:
-            location = cls.usable_folder(folder)
-            if location:
+            location = cls.formatted(location)
+            if os.path.isdir(location):
                 return os.path.join(location, cls.formatted(cls.filename))
+            return location
+        if not cls.locations:
+            # No locations configured
+            return None
+        for location in cls.locations:
+            location = cls.usable_location(location)
+            if location:
+                return location
 
     @classmethod
-    def usable_folder(cls, folder):
+    def usable_location(cls, location):
         """
-        :param str folder: Folder to examine
-        :return str|None: 'folder', if it usable for logging
+        :param str location: Location to consider
+        :return str|None: Full path if location is usable, None otherwise
         """
-        if not folder:
+        location = cls.formatted(location)
+        if not location:
             return None
-        folder = cls.formatted(folder)
-        if os.path.isdir(folder):
-            return folder if os.access(folder, os.W_OK) else None
+        folder = parent_folder(location)
+        if os.path.exists(folder):
+            if os.path.isdir(folder):
+                return location if os.access(folder, os.W_OK) else None
+            return None
         parent = os.path.dirname(folder)
         if not os.path.isdir(parent):
             return None
         try:
-            if not os.path.isdir(folder):
-                os.mkdir(folder)
-            return folder
+            os.mkdir(folder)
+            return location
         except (IOError, OSError):
             return None
 
-    @classmethod
-    def is_using_format(cls, markers):
-        """
-        :param str markers: Space separated list of markers to look for
-        :return bool:
-        """
-        if not markers:
-            return False
-        markers = markers.split()
-        fmt = "%s %s" % (cls.console_format, cls.file_format)
-        return any(marker in fmt for marker in markers)
+
+def is_using_format(markers, used_formats):
+    """
+    :param str markers: Space separated list of markers to look for
+    :param str used_formats: Formats to inspect
+    :return bool: True if any one of the 'markers' is seen in 'used_formats'
+    """
+    if not markers or not used_formats:
+        return False
+    return any(marker in used_formats for marker in flattened(markers, separator=" ", unique=True))
 
 
 class OriginalLogging:
@@ -188,6 +203,7 @@ class OriginalLogging:
             old_level = OriginalLogging.level
             if level != OriginalLogging.level:
                 OriginalLogging.level = level
+            if level != logging.root.level:
                 logging.root.setLevel(level)
             return old_level
 
@@ -206,11 +222,17 @@ class OriginalLogging:
         OriginalLogging.set_level(logging.DEBUG)
         if Settings.basename == "_jb_pytest_runner":
             Settings.basename = "pytest"
+        return Context
 
     def __exit__(self, *_):
         if self.__snapshot:
-            SETUP._reset()
+            Context._reset()
+            # Restore changes made to logging module
             OriginalLogging.set_level(self.__level)
+            for name, value in OriginalLogging.__dict__.items():
+                if not name.startswith("__") and hasattr(logging, name):
+                    setattr(logging, name, value)
+            # Restore changes made to Settings
             for name, value in self.__snapshot.items():
                 setattr(Settings, name, value)
             for name in list(Settings.__dict__.keys()):
@@ -219,55 +241,74 @@ class OriginalLogging:
                         delattr(Settings, name)
 
 
-class _LogSetup:
+class Context:
     """
-    Tracks current setup
+    Global logging context managed by runez.
+    There's only one, as multiple contexts would not be useful (logging setup is a global thing)
     """
 
+    lock = threading.RLock()
     level = None  # Current severity level
-    hconsole = None  # type: logging.StreamHandler
-    hfile = None  # type: logging.StreamHandler # File we're currently logging to (if any)
-    context = None  # type: _LogContext
+    hfile = None  # type: logging.FileHandler # File we're currently logging to (if any)
+    handlers = None  # type: list[logging.StreamHandler]
+    used_formats = None  # type: str
+    faulthandler_signum = None  # type: int
 
-    def __init__(self):
-        self.lock = threading.RLock()
+    context_filter = None  # type: ContextFilter
+    tpayload = None
+    gpayload = None
 
-    def setup(self, debug, dryrun, custom_location):
+    @classmethod
+    def setup(cls, debug, dryrun, location):
         """
         :param bool debug: Enable debug level logging
         :param bool dryrun: Enable debug level logging
-        :param str|None custom_location: Optional custom location to use
+        :param str|None location: Optional custom location to use
         """
-        with self.lock:
-            if self.context is not None:
+        with cls.lock:
+            if cls.level is not None:
                 raise Exception("Please call runez.log.setup() only once")
-            self.context = _LogContext(self)
-            self.level = logging.DEBUG if debug else Settings.level or OriginalLogging.level
-            logging.root.setLevel(self.level)
-            self.hconsole = self.get_handler(logging.StreamHandler, Settings.console_format, Settings.console_stream)
-            location = Settings.resolved_location(custom_location)
-            self.hfile = self.get_handler(logging.FileHandler, Settings.file_format, location)
-            if Settings.is_using_format("%(context)s"):
-                self.context.enable()
-            self.optimize()
+            if dryrun is not None:
+                if dryrun and debug is None:
+                    debug = True
+                State.dryrun = dryrun
+            cls.level = logging.DEBUG if debug else Settings.level or OriginalLogging.level
+            logging.root.setLevel(cls.level)
+            hconsole = cls.get_handler(logging.StreamHandler, Settings.console_format, Settings.console_stream)
+            location = Settings.resolved_location(location)
+            cls.hfile = cls.get_handler(logging.FileHandler, Settings.file_format, location)
+            cls.handlers = [h for h in (hconsole, cls.hfile) if h is not None]
+            cls.used_formats = " ".join(h.formatter._fmt for h in cls.handlers)
 
-    def _reset(self):
+            if cls.is_using_format("%(context)s"):
+                cls.enable_context_filtering()
+            cls.optimize()
+            if cls.context_filter:
+                for handler in cls.handlers:
+                    handler.addFilter(cls.context_filter)
+
+    @classmethod
+    def _reset(cls):
         """Reset logging as it was before setup(), no need to call this outside of testing, or some very special cases"""
-        if self.context is not None:
-            self.context = None
-            self.level = None
-            if self.hconsole:
-                logging.root.removeHandler(self.hconsole)
-                self.hconsole = None
-            if self.hfile:
-                logging.root.removeHandler(self.hfile)
-                self.hfile = None
-            logging.root.setLevel(OriginalLogging.level)
-            for name, value in OriginalLogging.__dict__.items():
-                if not name.startswith("__") and hasattr(logging, name):
-                    setattr(logging, name, value)
+        cls._disable_faulthandler()
+        if cls.handlers is not None:
+            for handler in cls.handlers:
+                logging.root.removeHandler(handler)
+        cls.level = None
+        cls.hfile = None
+        cls.handlers = None
+        cls.used_formats = None
+        cls.context_filter = None
+        cls.tpayload = None
+        cls.gpayload = None
 
-    def get_handler(self, base, format, target):
+    @classmethod
+    def is_using_format(cls, markers):
+        """Is current setup using any of the 'markers'?"""
+        return is_using_format(markers, cls.used_formats)
+
+    @classmethod
+    def get_handler(cls, base, format, target):
         """
         :param type(logging.Handler) base: Handler implementation to use
         :param str|None format: Format to use
@@ -276,23 +317,36 @@ class _LogSetup:
         """
         if format and target:
             handler = base(target)
-            handler.setFormatter(self.get_formatter(format))
-            handler.setLevel(self.level)
+            handler.setFormatter(cls.get_formatter(format))
+            handler.setLevel(cls.level)
             logging.root.addHandler(handler)
             return handler
 
-    def enable_faulthandler(self, signum):
+    @classmethod
+    def enable_faulthandler(cls, signum):
         """
-        :param int signum: Signal number to register for full thread stack dump
+        :param int|None signum: Signal number to register for full thread stack dump (use None to disable)
         """
-        with self.lock:
-            if not self.hfile or faulthandler is None:
+        with cls.lock:
+            if not signum:
+                cls._disable_faulthandler()
                 return
-            dump_file = self.hfile.stream
+            if not cls.hfile or faulthandler is None:
+                return
+            cls.faulthandler_signum = signum
+            dump_file = cls.hfile.stream
             faulthandler.enable(file=dump_file, all_threads=True)
             faulthandler.register(signum, file=dump_file, all_threads=True, chain=False)
 
-    def replace_and_pad(self, format, marker, replacement):
+    @classmethod
+    def _disable_faulthandler(cls):
+        if faulthandler and cls.faulthandler_signum:
+            faulthandler.unregister(cls.faulthandler_signum)
+            faulthandler.disable()
+            cls.faulthandler_signum = None
+
+    @classmethod
+    def replace_and_pad(cls, format, marker, replacement):
         """
         :param str format: Format to tweak
         :param str marker: Marker to replace
@@ -306,15 +360,17 @@ class _LogSetup:
         format = format.replace("%s " % marker, marker)
         return format.replace(marker, "")
 
-    def get_formatter(self, format):
+    @classmethod
+    def get_formatter(cls, format):
         """
         :param str format: Format specification
         :return logging.Formatter: Associated logging formatter
         """
-        format = self.replace_and_pad(format, "%(timezone)s", Settings.timezone)
+        format = cls.replace_and_pad(format, "%(timezone)s", Settings.timezone)
         return logging.Formatter(format)
 
-    def optimize(self):
+    @classmethod
+    def optimize(cls):
         """
         Fix standard logging shortcuts to correctly report logging module.
 
@@ -334,14 +390,14 @@ class _LogSetup:
         import inspect
         from functools import partial
 
-        if not Settings.is_using_format("%(name)d"):
+        if not cls.is_using_format("%(name)d"):
             return
-        if Settings.is_using_format("%(pathname)s %(filename)s %(funcName)s %(module)s"):
+        if cls.is_using_format("%(pathname)s %(filename)s %(funcName)s %(module)s"):
             logging._srcfile = OriginalLogging._srcfile
         else:
             logging._srcfile = None
-        logging.logProcesses = Settings.is_using_format("%(process)d")
-        logging.logThreads = Settings.is_using_format("%(thread)d %(threadName)s")
+        logging.logProcesses = cls.is_using_format("%(process)d")
+        logging.logThreads = cls.is_using_format("%(thread)d %(threadName)s")
 
         def log(level, msg, *args, **kwargs):
             """Wrapper to make logging.info() etc report the right module %(name)"""
@@ -366,6 +422,92 @@ class _LogSetup:
         logging.info = wrap(logging.INFO)
         logging.debug = wrap(logging.DEBUG)
 
+    @classmethod
+    def enable_context_filtering(cls):
+        """Enable contextual logging"""
+        if cls.context_filter is None:
+            cls.context_filter = ContextFilter()
+
+    @classmethod
+    def context_dict(cls):
+        """
+        :return dict: Combined global and thread-specific logging context
+        """
+        result = {}
+        if cls.gpayload:
+            result.update(cls.gpayload)
+        if cls.tpayload:
+            result.update(getattr(cls.tpayload, "context", {}))
+        return result
+
+    @classmethod
+    def set_thread_context(cls, **values):
+        """Set current thread's logging context to 'values'"""
+        if cls.tpayload is None:
+            cls.tpayload = threading.local()
+        cls.tpayload.context = values
+        cls.enable_context_filtering()
+
+    @classmethod
+    def set_global_context(cls, **values):
+        """Set global logging context to 'values'"""
+        cls.gpayload = values
+        cls.enable_context_filtering()
+
+    @classmethod
+    def add_thread_context(cls, **values):
+        """Add 'values' to current thread's logging context"""
+        if cls.tpayload is None:
+            cls.tpayload = threading.local()
+        if getattr(cls.tpayload, "context", None) is None:
+            cls.tpayload.context = {}
+        cls.tpayload.context.update(**values)
+        cls.enable_context_filtering()
+
+    @classmethod
+    def add_global_context(cls, **values):
+        """Add 'values' to global logging context"""
+        if cls.gpayload is None:
+            cls.gpayload = {}
+        cls.gpayload.update(**values)
+        cls.enable_context_filtering()
+
+    @classmethod
+    def remove_thread_context(cls, name):
+        """Remove entry with 'name' from current thread's context"""
+        if cls.tpayload is not None:
+            c = getattr(cls.tpayload, "context", None)
+            if c and name in c:
+                del c[name]
+
+    @classmethod
+    def remove_global_context(cls, name):
+        """Remove entry with 'name' from global context"""
+        if cls.gpayload and name in cls.gpayload:
+            del cls.gpayload[name]
+
+    @classmethod
+    def clear_thread_context(cls):
+        """Clear current thread's context"""
+        if cls.tpayload is not None:
+            cls.tpayload.context = {}
+
+    @classmethod
+    def clear_global_context(cls):
+        """Clear global context"""
+        if cls.gpayload is not None:
+            cls.gpayload = None
+
+
+def rendered_context(data):
+    """
+    :param dict data:
+    :return str:
+    """
+    if data and Settings.context_format:
+        return Settings.context_format % ",".join("%s=%s" % (key, val) for key, val in sorted(data.items()) if key and val)
+    return ""
+
 
 class ContextFilter(logging.Filter):
     """
@@ -373,108 +515,10 @@ class ContextFilter(logging.Filter):
 
     In order to activate this:
     - Mention %(context)s in your log format
-    - Add key/value pairs via stdlog.add_global_context(), stdlog.add_thread_context(), or configure(global_context={...})
-
-    This filter renders %(context)s using the form.
-    Modify ContextFilter.render if you'd like to customize it.
+    - Add key/value pairs via runez.log.add_global_context(), runez.log.add_thread_context()
     """
 
     def filter(self, record):
         """Determines if the record should be logged and injects context info into the record. Always returns True"""
-        record.context = self.render(SETUP.context.to_dict())
+        record.context = rendered_context(Context.context_dict())
         return True
-
-    def render(self, context):
-        """Formats the context dictionary to string
-
-        :param dict context: Current merged global + thread context
-        :return str: Represented context
-        """
-        if context:
-            return Settings.context_format % ",".join("%s=%s" % (key, val) for key, val in context.items() if key and val)
-        return ""
-
-
-class _LogContext:
-    filter = None
-    _thread = None
-    _global = None
-
-    def __init__(self, parent):
-        """
-        :param _LogSetup parent: Parent log setup object
-        """
-        self.parent = parent
-
-    def to_dict(self):
-        """
-        :return dict: Combined global and thread-specific logging context
-        """
-        result = {}
-        if self._global:
-            result.update(self._global)
-        if self._thread:
-            result.update(getattr(self._thread, "context", {}))
-        return result
-
-    def enable(self):
-        """Enable contextual logging"""
-        if self.filter is None:
-            self.filter = ContextFilter()
-        if self.parent.hconsole:
-            self.parent.hconsole.addFilter(self.filter)
-        if self.parent.hfile:
-            self.parent.hfile.addFilter(self.filter)
-
-    def set(self, **values):
-        """Set current thread's logging context to 'values'"""
-        if self._thread is None:
-            self._thread = threading.local()
-        self._thread.context = values
-        self.enable()
-
-    def set_global(self, **values):
-        """Set global logging context to 'values'"""
-        self._global = values
-        self.enable()
-
-    def add(self, **values):
-        """Add 'values' to current thread's logging context"""
-        if self._thread is None:
-            self._thread = threading.local()
-        if getattr(self._thread, "context", None) is None:
-            self._thread.context = {}
-        self._thread.context.update(**values)
-        self.enable()
-
-    def add_global(self, **values):
-        """Add 'values' to global logging context"""
-        if self._global is None:
-            self._global = {}
-        self._global.update(**values)
-        self.enable()
-
-    def remove(self, name):
-        """Remove entry with 'name' from current thread's context"""
-        if self._thread is not None:
-            c = getattr(self._thread, "context", None)
-            if c and name in c:
-                del c[name]
-
-    def remove_global(self, name):
-        """Remove entry with 'name' from global context"""
-        if self._global and name in self._global:
-            del self._global[name]
-
-    def clear(self):
-        """Clear current thread's context"""
-        if self._thread is not None:
-            self._thread.context = {}
-
-    def clear_global(self):
-        """Clear global context"""
-        if self._global is not None:
-            self._global = None
-
-
-SETUP = _LogSetup()
