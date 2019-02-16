@@ -2,6 +2,8 @@
 Convenience methods for (de)serializing objects
 """
 
+from __future__ import absolute_import
+
 import io
 import json
 import logging

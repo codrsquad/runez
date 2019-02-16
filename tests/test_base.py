@@ -8,14 +8,14 @@ import runez
 
 
 def test_abort(logged):
-    assert runez.abort("aborted", fatal=(False, "foo")) == "foo"
+    assert runez.abort("aborted", fatal=(False, "some-return")) == "some-return"
     assert "aborted" in logged.pop()
 
-    assert runez.abort("aborted", fatal=(False, "foo"), code=0) == "foo"
+    assert runez.abort("aborted", fatal=(False, "some-return"), code=0) == "some-return"
     assert "aborted" in logged
     assert "ERROR" not in logged.pop()
 
-    assert runez.abort("aborted", fatal=(None, "foo")) == "foo"
+    assert runez.abort("aborted", fatal=(None, "some-return")) == "some-return"
     assert not logged
 
 

@@ -37,14 +37,14 @@ def test_scope():
 
     with runez.CaptureOutput() as logged:
         # Verify all channels are captured
-        logging.debug("foo")
-        assert "DEBUG    foo" in logged.pop()
+        logging.debug("hello")
+        assert "DEBUG    hello" in logged.pop()
 
-        logging.info("foo")
-        assert "INFO     foo" in logged.pop()
+        logging.info("hello")
+        assert "INFO     hello" in logged.pop()
 
-        logging.warning("foo")
-        assert "WARNING  foo" in logged.pop()
+        logging.warning("hello")
+        assert "WARNING  hello" in logged.pop()
 
         print("on stdout")
         sys.stderr.write("on stderr")

@@ -14,7 +14,7 @@ try:
 except ImportError:
     from io import StringIO
 
-import runez.log
+import runez.logging
 from runez.base import flattened, State
 from runez.path import resolved_path, SYMBOLIC_TMP
 
@@ -108,6 +108,12 @@ class CapturedStream:
             self._shared._is_capturing = False
         self.clear()
 
+    def pop(self):
+        """Current content popped, useful for testing"""
+        r = self.contents()
+        self.clear()
+        return r
+
     def clear(self):
         """Clear captured content"""
         self.buffer.seek(0)
@@ -147,7 +153,7 @@ class CaptureOutput:
         self._old_level = None
 
     def __enter__(self):
-        self._old_level = runez.log.OriginalLogging.set_level(self.level)
+        self._old_level = runez.logging.OriginalLogging.set_level(self.level)
         for s in self.captured:
             s.capture()
         if self.anchors:
@@ -157,7 +163,7 @@ class CaptureOutput:
         return self
 
     def __exit__(self, *args):
-        runez.log.OriginalLogging.set_level(self._old_level)
+        runez.logging.OriginalLogging.set_level(self._old_level)
         for s in self.captured:
             s.restore()
         if self.anchors:
@@ -227,30 +233,34 @@ class TempFolder:
         :param follow: If True, change working dir to temp folder (and restore)
         """
         self.anchor = anchor
-        self.dryrun = dryrun if dryrun is not None else State.dryrun
-        self.old_cwd = os.getcwd() if follow else None
+        self.dryrun = dryrun
+        self.follow = follow
+        self.old_cwd = None
         self.tmp_folder = None
 
     def __enter__(self):
-        if self.dryrun:
-            self.tmp_folder = SYMBOLIC_TMP
-        else:
+        if self.dryrun is not None:
+            (State.dryrun, self.dryrun) = (bool(self.dryrun), bool(State.dryrun))
+        if not State.dryrun:
             # Use realpath() to properly resolve for example symlinks on OSX temp paths
             self.tmp_folder = os.path.realpath(tempfile.mkdtemp())
-            if self.old_cwd:
+            if self.follow:
+                self.old_cwd = os.getcwd()
                 os.chdir(self.tmp_folder)
+        tmp = self.tmp_folder or SYMBOLIC_TMP
         if self.anchor:
-            Anchored.add(self.tmp_folder)
-        return self.tmp_folder
+            Anchored.add(tmp)
+        return tmp
 
     def __exit__(self, *_):
         if self.anchor:
-            Anchored.pop(self.tmp_folder)
-        if not self.dryrun:
-            if self.old_cwd:
-                os.chdir(self.old_cwd)
-            if self.tmp_folder:
-                shutil.rmtree(self.tmp_folder)
+            Anchored.pop(self.tmp_folder or SYMBOLIC_TMP)
+        if self.old_cwd:
+            os.chdir(self.old_cwd)
+        if self.tmp_folder:
+            shutil.rmtree(self.tmp_folder)
+        if self.dryrun is not None:
+            State.dryrun = self.dryrun
 
 
 def verify_abort(func, *args, **kwargs):
@@ -258,7 +268,7 @@ def verify_abort(func, *args, **kwargs):
     Convenient wrapper around functions that should exit or raise an exception
 
     Example:
-        assert "Can't create folder" in verify_abort(ensure_folder, "/dev/null/foo")
+        assert "Can't create folder" in verify_abort(ensure_folder, "/dev/null/not-there")
 
     :param callable func: Function to execute
     :param args: Args to pass to 'func'
@@ -266,7 +276,7 @@ def verify_abort(func, *args, **kwargs):
     :param kwargs: Named args to pass to 'func'
     :return str: Chatter from call to 'func', if it did indeed raise
     """
-    expected_exception = kwargs.pop("expected_exception", SystemExit)
+    expected_exception = kwargs.pop("expected_exception", runez.base.AbortException)
     with CaptureOutput() as logged:
         try:
             func(*args, **kwargs)

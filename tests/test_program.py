@@ -9,7 +9,7 @@ CHATTER = """
 #!/bin/bash
 
 ls
-ls foo
+ls some-file
 echo
 echo
 """
@@ -31,25 +31,25 @@ def test_capture(temp_folder, logged):
 
 def test_executable(temp_folder):
     with runez.CaptureOutput(dryrun=True) as logged:
-        assert runez.make_executable("foo") == 1
-        assert "Would make foo executable" in logged
+        assert runez.make_executable("some-file") == 1
+        assert "Would make some-file executable" in logged
 
-    assert runez.touch("foo") == 1
-    assert runez.make_executable("foo") == 1
-    assert runez.is_executable("foo")
-    assert runez.make_executable("foo") == 0
+    assert runez.touch("some-file") == 1
+    assert runez.make_executable("some-file") == 1
+    assert runez.is_executable("some-file")
+    assert runez.make_executable("some-file") == 0
 
-    assert runez.delete("foo") == 1
-    assert not runez.is_executable("foo")
+    assert runez.delete("some-file") == 1
+    assert not runez.is_executable("some-file")
 
     with runez.CaptureOutput() as logged:
-        assert runez.make_executable("/dev/null/foo", fatal=False) == -1
+        assert runez.make_executable("/dev/null/some-file", fatal=False) == -1
         assert "does not exist, can't make it executable" in logged
 
 
 def test_program():
-    program_path = runez.get_program_path()
-    assert runez.basename(program_path) == "pytest"
+    program_path = runez.get_program_path(path="/some/program")
+    assert runez.basename(program_path) == "program"
 
 
 def test_which():
@@ -83,7 +83,7 @@ def test_run(temp_folder):
         assert runez.run("ls", ".", path_env={"PATH": ":."}) == "sample"
         assert "Running:" in logged.pop()
 
-        assert runez.run("ls", "foo", fatal=False) is False
+        assert runez.run("ls", "some-file", fatal=False) is False
         assert "Running: " in logged
         assert "exited with code" in logged
         assert "No such file" in logged.pop()

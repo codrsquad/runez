@@ -6,6 +6,8 @@ Example:
     from runez.conftest import cli, isolated_log_setup, temp_folder
 """
 
+from __future__ import absolute_import
+
 import logging
 
 import _pytest.logging
@@ -14,7 +16,7 @@ import pytest
 import runez
 
 
-runez.log.OriginalLogging.set_level(logging.DEBUG)
+runez.logging.OriginalLogging.set_level(logging.DEBUG)
 
 
 @pytest.fixture
@@ -42,8 +44,9 @@ def cli():
 @pytest.fixture
 def isolated_log_setup():
     """Log settings restored"""
-    with runez.log.OriginalLogging() as c:
-        yield c
+    with runez.logging.OriginalLogging():
+        runez.LogSettings.basename = "pytest"
+        yield runez.LogSettings
 
 
 @pytest.fixture
@@ -104,7 +107,7 @@ class ClickWrapper:
         """
         try:
             from click.testing import CliRunner
-            return CliRunner  # pragma: no cover
+            return CliRunner  # pragma: no cover, click used only if installed
 
         except ImportError:
             return cls

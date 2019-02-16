@@ -2,6 +2,8 @@
 Convenience logging setup
 """
 
+from __future__ import absolute_import
+
 import logging
 import os
 import re
@@ -22,54 +24,14 @@ from runez.program import get_program_path
 
 
 RE_FORMAT_MARKERS = re.compile(r"{([^}]*?)}")
-
-
-def add_global_context(**values):
-    """Add 'values' to global logging context"""
-    Context.add_global_context(**values)
-
-
-def set_global_context(**values):
-    """Set global logging context to 'values'"""
-    Context.set_global_context(**values)
-
-
-def add_thread_context(**values):
-    """Add 'values' to current thread's logging context"""
-    Context.add_thread_context(**values)
-
-
-def set_thread_context(**values):
-    """Set thread logging context to 'values'"""
-    Context.set_thread_context(**values)
-
-
-def setup(debug=None, dryrun=None, location=None):
-    """
-    :param bool|None debug: Enable debug level logging
-    :param bool|None dryrun: Enable dryrun
-    :param str|None location: Optional custom location to use
-    """
-    Context.setup(debug, dryrun, location)
-
-
-def enable_faulthandler(self, signum=signal.SIGUSR1):
-    """
-    Enable dumping thread stack traces when specified signals are received, similar to java's handling of SIGQUIT
-
-    Note: this must be called from the surviving process in case of daemonization.
-    Note that SIGQUIT does not work in all environments with a python process.
-
-    :param int signum: Signal number to register for full thread stack dump
-    """
-    Context.enable_faulthandler(signum)
+ORIGINAL_CF = logging.currentframe
 
 
 class Settings:
     """
     Settings to use, you can safely customize these, for example:
 
-        runez.log.Settings.console_stream = sys.stdout
+        runez.LogSettings.console_stream = sys.stdout
     """
 
     basename = get_basename(get_program_path())
@@ -220,8 +182,6 @@ class OriginalLogging:
             if not isinstance(value, classmethod):
                 self.__snapshot[name] = value
         OriginalLogging.set_level(logging.DEBUG)
-        if Settings.basename == "_jb_pytest_runner":
-            Settings.basename = "pytest"
         return Context
 
     def __exit__(self, *_):
@@ -247,45 +207,145 @@ class Context:
     There's only one, as multiple contexts would not be useful (logging setup is a global thing)
     """
 
-    lock = threading.RLock()
     level = None  # Current severity level
-    hfile = None  # type: logging.FileHandler # File we're currently logging to (if any)
+    file_handler = None  # type: logging.FileHandler # File we're currently logging to (if any)
     handlers = None  # type: list[logging.StreamHandler]
     used_formats = None  # type: str
     faulthandler_signum = None  # type: int
-
     context_filter = None  # type: ContextFilter
-    tpayload = None
-    gpayload = None
+
+    _lock = threading.RLock()
+    _tpayload = None
+    _gpayload = None
 
     @classmethod
-    def setup(cls, debug, dryrun, location):
+    def setup(cls, debug=None, dryrun=None, location=None):
         """
-        :param bool debug: Enable debug level logging
-        :param bool dryrun: Enable debug level logging
+        :param bool|None debug: Enable debug level logging
+        :param bool|None dryrun: Enable dryrun
         :param str|None location: Optional custom location to use
         """
-        with cls.lock:
+        with cls._lock:
             if cls.level is not None:
-                raise Exception("Please call runez.log.setup() only once")
+                raise Exception("Please call runez.LogContext.setup() only once")
             if dryrun is not None:
                 if dryrun and debug is None:
                     debug = True
                 State.dryrun = dryrun
             cls.level = logging.DEBUG if debug else Settings.level or OriginalLogging.level
             logging.root.setLevel(cls.level)
-            hconsole = cls.get_handler(logging.StreamHandler, Settings.console_format, Settings.console_stream)
+            hconsole = get_handler(cls.level, logging.StreamHandler, Settings.console_format, Settings.console_stream)
             location = Settings.resolved_location(location)
-            cls.hfile = cls.get_handler(logging.FileHandler, Settings.file_format, location)
-            cls.handlers = [h for h in (hconsole, cls.hfile) if h is not None]
+            cls.file_handler = get_handler(cls.level, logging.FileHandler, Settings.file_format, location)
+            cls.handlers = [h for h in (hconsole, cls.file_handler) if h is not None]
             cls.used_formats = " ".join(h.formatter._fmt for h in cls.handlers)
 
             if cls.is_using_format("%(context)s"):
-                cls.enable_context_filtering()
-            cls.optimize()
+                cls._enable_context_filtering()
+            if cls.is_using_format("%(name)s"):
+                cls._fix_logging_shortcuts()
             if cls.context_filter:
                 for handler in cls.handlers:
                     handler.addFilter(cls.context_filter)
+
+    @classmethod
+    def is_using_format(cls, markers):
+        """Is current setup using any of the 'markers'?"""
+        return is_using_format(markers, cls.used_formats)
+
+    @classmethod
+    def enable_faulthandler(cls, signum=signal.SIGUSR1):
+        """
+        Enable dumping thread stack traces when specified signals are received, similar to java's handling of SIGQUIT
+
+        Note: this must be called from the surviving process in case of daemonization.
+        Note that SIGQUIT does not work in all environments with a python process.
+
+        :param int|None signum: Signal number to register for full thread stack dump (use None to disable)
+        """
+        with cls._lock:
+            if not signum:
+                cls._disable_faulthandler()
+                return
+            if not cls.file_handler or faulthandler is None:
+                return
+            cls.faulthandler_signum = signum
+            dump_file = cls.file_handler.stream
+            faulthandler.enable(file=dump_file, all_threads=True)
+            faulthandler.register(signum, file=dump_file, all_threads=True, chain=False)
+
+    @classmethod
+    def set_thread_context(cls, **values):
+        """Set current thread's logging context to 'values'"""
+        with cls._lock:
+            cls._ensure_thread_context()
+            cls._tpayload.context = values
+
+    @classmethod
+    def add_thread_context(cls, **values):
+        """Add 'values' to current thread's logging context"""
+        with cls._lock:
+            cls._ensure_thread_context()
+            cls._tpayload.context.update(**values)
+
+    @classmethod
+    def remove_thread_context(cls, name):
+        """Remove entry with 'name' from current thread's context"""
+        with cls._lock:
+            if cls._tpayload is not None:
+                if name in cls._tpayload.context:
+                    del cls._tpayload.context[name]
+                if not cls._tpayload.context:
+                    cls._tpayload = None
+
+    @classmethod
+    def clear_thread_context(cls):
+        """Clear current thread's context"""
+        with cls._lock:
+            cls._tpayload = None
+
+    @classmethod
+    def set_global_context(cls, **values):
+        """Set global logging context to 'values'"""
+        with cls._lock:
+            cls._ensure_global_context(values)
+
+    @classmethod
+    def add_global_context(cls, **values):
+        """Add 'values' to global logging context"""
+        with cls._lock:
+            cls._ensure_global_context()
+            cls._gpayload.update(**values)
+
+    @classmethod
+    def remove_global_context(cls, name):
+        """Remove entry with 'name' from global context"""
+        with cls._lock:
+            if cls._gpayload is not None:
+                if name in cls._gpayload:
+                    del cls._gpayload[name]
+                if not cls._gpayload:
+                    cls._gpayload = None
+
+    @classmethod
+    def clear_global_context(cls):
+        """Clear global context"""
+        with cls._lock:
+            if cls._gpayload is not None:
+                cls._gpayload = None
+
+    @classmethod
+    def context_dict(cls):
+        """
+        :return dict: Combined global and thread-specific logging context
+        """
+        with cls._lock:
+            result = {}
+            if cls._gpayload:
+                result.update(cls._gpayload)
+            if cls._tpayload:
+                result.update(getattr(cls._tpayload, "context", {}))
+            return result
 
     @classmethod
     def _reset(cls):
@@ -295,48 +355,12 @@ class Context:
             for handler in cls.handlers:
                 logging.root.removeHandler(handler)
         cls.level = None
-        cls.hfile = None
+        cls.file_handler = None
         cls.handlers = None
         cls.used_formats = None
         cls.context_filter = None
-        cls.tpayload = None
-        cls.gpayload = None
-
-    @classmethod
-    def is_using_format(cls, markers):
-        """Is current setup using any of the 'markers'?"""
-        return is_using_format(markers, cls.used_formats)
-
-    @classmethod
-    def get_handler(cls, base, format, target):
-        """
-        :param type(logging.Handler) base: Handler implementation to use
-        :param str|None format: Format to use
-        :param str|None target: Target for handler
-        :return logging.Handler|None:
-        """
-        if format and target:
-            handler = base(target)
-            handler.setFormatter(cls.get_formatter(format))
-            handler.setLevel(cls.level)
-            logging.root.addHandler(handler)
-            return handler
-
-    @classmethod
-    def enable_faulthandler(cls, signum):
-        """
-        :param int|None signum: Signal number to register for full thread stack dump (use None to disable)
-        """
-        with cls.lock:
-            if not signum:
-                cls._disable_faulthandler()
-                return
-            if not cls.hfile or faulthandler is None:
-                return
-            cls.faulthandler_signum = signum
-            dump_file = cls.hfile.stream
-            faulthandler.enable(file=dump_file, all_threads=True)
-            faulthandler.register(signum, file=dump_file, all_threads=True, chain=False)
+        cls._tpayload = None
+        cls._gpayload = None
 
     @classmethod
     def _disable_faulthandler(cls):
@@ -346,31 +370,7 @@ class Context:
             cls.faulthandler_signum = None
 
     @classmethod
-    def replace_and_pad(cls, format, marker, replacement):
-        """
-        :param str format: Format to tweak
-        :param str marker: Marker to replace
-        :param str replacement: What to replace marker with
-        :return str: Resulting format, with marker replaced
-        """
-        if marker not in format:
-            return format
-        if replacement:
-            return format.replace(marker, replacement)
-        format = format.replace("%s " % marker, marker)
-        return format.replace(marker, "")
-
-    @classmethod
-    def get_formatter(cls, format):
-        """
-        :param str format: Format specification
-        :return logging.Formatter: Associated logging formatter
-        """
-        format = cls.replace_and_pad(format, "%(timezone)s", Settings.timezone)
-        return logging.Formatter(format)
-
-    @classmethod
-    def optimize(cls):
+    def _fix_logging_shortcuts(cls):
         """
         Fix standard logging shortcuts to correctly report logging module.
 
@@ -390,28 +390,34 @@ class Context:
         import inspect
         from functools import partial
 
-        if not cls.is_using_format("%(name)d"):
-            return
         if cls.is_using_format("%(pathname)s %(filename)s %(funcName)s %(module)s"):
             logging._srcfile = OriginalLogging._srcfile
         else:
             logging._srcfile = None
+
         logging.logProcesses = cls.is_using_format("%(process)d")
         logging.logThreads = cls.is_using_format("%(thread)d %(threadName)s")
 
+        def getframe():
+            return sys._getframe(4)
+
         def log(level, msg, *args, **kwargs):
             """Wrapper to make logging.info() etc report the right module %(name)"""
-            logging.getLogger(inspect.currentframe().f_back.f_globals["__name__"]).log(level, msg, *args, **kwargs)
+            frame = inspect.currentframe()
+            prev = frame.f_back
+            name = prev.f_globals["__name__"]
+            logger = logging.getLogger(name)
+            try:
+                logging.currentframe = getframe
+                logger.log(level, msg, *args, **kwargs)
+            finally:
+                logging.currentframe = ORIGINAL_CF
 
         def wrap(level, **kwargs):
             """Wrap corresponding logging shortcut function"""
-            if isinstance(level, int):
-                original = getattr(logging, logging.getLevelName(level).lower())
-                f = partial(log, level, **kwargs)
-                f.__doc__ = original.__doc__
-                return f
-            f = partial(level, **kwargs)
-            f.__doc__ = level.__doc__
+            original = getattr(logging, logging.getLevelName(level).lower())
+            f = partial(log, level, **kwargs)
+            f.__doc__ = original.__doc__
             return f
 
         logging.critical = wrap(logging.CRITICAL)
@@ -423,80 +429,38 @@ class Context:
         logging.debug = wrap(logging.DEBUG)
 
     @classmethod
-    def enable_context_filtering(cls):
+    def _enable_context_filtering(cls):
         """Enable contextual logging"""
         if cls.context_filter is None:
             cls.context_filter = ContextFilter()
 
     @classmethod
-    def context_dict(cls):
-        """
-        :return dict: Combined global and thread-specific logging context
-        """
-        result = {}
-        if cls.gpayload:
-            result.update(cls.gpayload)
-        if cls.tpayload:
-            result.update(getattr(cls.tpayload, "context", {}))
-        return result
+    def _ensure_thread_context(cls):
+        if cls._tpayload is None:
+            cls._tpayload = threading.local()
+            cls._tpayload.context = {}
+        cls._enable_context_filtering()
 
     @classmethod
-    def set_thread_context(cls, **values):
-        """Set current thread's logging context to 'values'"""
-        if cls.tpayload is None:
-            cls.tpayload = threading.local()
-        cls.tpayload.context = values
-        cls.enable_context_filtering()
+    def _ensure_global_context(cls, values=None):
+        if cls._gpayload is None:
+            cls._gpayload = values or {}
+        cls._enable_context_filtering()
 
-    @classmethod
-    def set_global_context(cls, **values):
-        """Set global logging context to 'values'"""
-        cls.gpayload = values
-        cls.enable_context_filtering()
 
-    @classmethod
-    def add_thread_context(cls, **values):
-        """Add 'values' to current thread's logging context"""
-        if cls.tpayload is None:
-            cls.tpayload = threading.local()
-        if getattr(cls.tpayload, "context", None) is None:
-            cls.tpayload.context = {}
-        cls.tpayload.context.update(**values)
-        cls.enable_context_filtering()
+class ContextFilter(logging.Filter):
+    """
+    Optional logging filter allowing to inject key/value pairs to every log record.
 
-    @classmethod
-    def add_global_context(cls, **values):
-        """Add 'values' to global logging context"""
-        if cls.gpayload is None:
-            cls.gpayload = {}
-        cls.gpayload.update(**values)
-        cls.enable_context_filtering()
+    In order to activate this:
+    - Mention %(context)s in your log format
+    - Add key/value pairs via runez.LogContext.add_global_context(), runez.LogContext.add_thread_context()
+    """
 
-    @classmethod
-    def remove_thread_context(cls, name):
-        """Remove entry with 'name' from current thread's context"""
-        if cls.tpayload is not None:
-            c = getattr(cls.tpayload, "context", None)
-            if c and name in c:
-                del c[name]
-
-    @classmethod
-    def remove_global_context(cls, name):
-        """Remove entry with 'name' from global context"""
-        if cls.gpayload and name in cls.gpayload:
-            del cls.gpayload[name]
-
-    @classmethod
-    def clear_thread_context(cls):
-        """Clear current thread's context"""
-        if cls.tpayload is not None:
-            cls.tpayload.context = {}
-
-    @classmethod
-    def clear_global_context(cls):
-        """Clear global context"""
-        if cls.gpayload is not None:
-            cls.gpayload = None
+    def filter(self, record):
+        """Determines if the record should be logged and injects context info into the record. Always returns True"""
+        record.context = rendered_context(Context.context_dict())
+        return True
 
 
 def rendered_context(data):
@@ -509,16 +473,41 @@ def rendered_context(data):
     return ""
 
 
-class ContextFilter(logging.Filter):
+def replace_and_pad(format, marker, replacement):
     """
-    Optional logging filter allowing to inject key/value pairs to every log record.
-
-    In order to activate this:
-    - Mention %(context)s in your log format
-    - Add key/value pairs via runez.log.add_global_context(), runez.log.add_thread_context()
+    :param str format: Format to tweak
+    :param str marker: Marker to replace
+    :param str replacement: What to replace marker with
+    :return str: Resulting format, with marker replaced
     """
+    if marker not in format:
+        return format
+    if replacement:
+        return format.replace(marker, replacement)
+    # Remove mention of 'marker' in 'format', including leading space (if present)
+    format = format.replace("%s " % marker, marker)
+    return format.replace(marker, "")
 
-    def filter(self, record):
-        """Determines if the record should be logged and injects context info into the record. Always returns True"""
-        record.context = rendered_context(Context.context_dict())
-        return True
+
+def get_handler(level, base, format, target):
+    """
+    :param type(logging.Handler) base: Handler implementation to use
+    :param str|None format: Format to use
+    :param str|None target: Target for handler
+    :return logging.Handler|None:
+    """
+    if format and target:
+        handler = base(target)
+        handler.setFormatter(get_formatter(format))
+        handler.setLevel(level)
+        logging.root.addHandler(handler)
+        return handler
+
+
+def get_formatter(format):
+    """
+    :param str format: Format specification
+    :return logging.Formatter: Associated logging formatter
+    """
+    format = replace_and_pad(format, "%(timezone)s", Settings.timezone)
+    return logging.Formatter(format)

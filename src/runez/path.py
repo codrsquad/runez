@@ -2,6 +2,8 @@
 Convenience methods for file/folder operations
 """
 
+from __future__ import absolute_import
+
 import logging
 import os
 

@@ -4,10 +4,11 @@ Base functionality used by other parts of runez
 We track here whether we're running in dryrun mode, convenience logging etc
 """
 
+from __future__ import absolute_import
+
 import inspect
 import logging
 import os
-import sys
 import time
 
 try:
@@ -28,6 +29,11 @@ class State:
 
     dryrun = False
     anchors = []  # Folder paths that can be used to shorten paths, via short()
+
+
+class AbortException(Exception):
+    def __init__(self, code):
+        self.code = code
 
 
 def abort(*args, **kwargs):
@@ -59,7 +65,12 @@ def abort(*args, **kwargs):
     if logger and fatal is not None and args:
         logger(*args, **kwargs)
     if fatal:
-        sys.exit(code)
+        if isinstance(fatal, type) and issubclass(fatal, BaseException):
+            raise fatal(code)
+        if AbortException is not None:
+            if isinstance(AbortException, type) and issubclass(AbortException, BaseException):
+                raise AbortException(code)
+            return AbortException(code)
     return return_value
 
 
@@ -113,9 +124,6 @@ class prop(object):
     Decorator for settable cached properties.
     This comes in handy for properties you'd like to avoid computing multiple times,
     yet be able to arbitrarily change them as well, and be able to know when they get changed.
-
-    This is a good fit for convenience setting classes, for example: runez.log.Settings
-    It's not a good fit if what you're looking for is speed.
     """
 
     def __init__(self, func):
@@ -132,7 +140,7 @@ class prop(object):
         return self.name
 
     def __get__(self, instance, cls=None):
-        if not instance:
+        if instance is None:
             instance = cls
         cached = getattr(instance, self.field_name, None)
         if cached is None:

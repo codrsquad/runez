@@ -23,8 +23,8 @@ class TempLog:
 
     @runez.prop
     def logfile(self):
-        if runez.log.Context.hfile:
-            return runez.short(runez.log.Context.hfile.baseFilename)
+        if runez.LogContext.file_handler:
+            return runez.short(runez.LogContext.file_handler.baseFilename)
 
     def expect_logged(self, *expected):
         assert self.logfile, "Logging to a file was not setup"
@@ -53,12 +53,13 @@ class TempLog:
 
 @pytest.fixture
 def temp_log():
-    with runez.log.OriginalLogging():
+    with runez.logging.OriginalLogging():
         with runez.TempFolder(follow=True) as tmp:
             with runez.CaptureOutput(log=False, anchors=tmp) as capture:
                 assert not capture.log
-                runez.log.Settings.dev = tmp
-                runez.log.Settings.rotate = None
-                runez.log.Settings.timezone = "UTC"
-                runez.log.Settings.console_format = "%(levelname)s %(message)s"
+                runez.LogSettings.basename = "pytest"
+                runez.LogSettings.dev = tmp
+                runez.LogSettings.rotate = None
+                runez.LogSettings.timezone = "UTC"
+                runez.LogSettings.console_format = "%(levelname)s %(message)s"
                 yield TempLog(tmp, capture)
