@@ -28,11 +28,11 @@ RE_FORMAT_MARKERS = re.compile(r"{([^}]*?)}")
 ORIGINAL_CF = logging.currentframe
 
 
-class Settings:
+class LogSpec:
     """
-    Settings to use, you can safely customize these, for example:
+    Spec to use, you can safely customize these, for example:
 
-        runez.LogSettings.console_stream = sys.stdout
+        runez.LogSpec.console_stream = sys.stdout
     """
 
     basename = get_basename(get_program_path())
@@ -177,32 +177,32 @@ class OriginalLogging:
     def __enter__(self):
         """Context manager to save and restore log setup, useful for testing"""
         self.__snapshot = {}
-        for name, value in Settings.__dict__.items():
+        for name, value in LogSpec.__dict__.items():
             if name.startswith("__") and name.endswith("__"):
                 continue
             if not isinstance(value, classmethod):
                 self.__snapshot[name] = value
         OriginalLogging.set_level(logging.DEBUG)
-        return Context
+        return LogContext
 
     def __exit__(self, *_):
         if self.__snapshot:
-            Context._reset()
+            LogContext._reset()
             # Restore changes made to logging module
             OriginalLogging.set_level(self.__level)
             for name, value in OriginalLogging.__dict__.items():
                 if not name.startswith("__") and hasattr(logging, name):
                     setattr(logging, name, value)
-            # Restore changes made to Settings
+            # Restore changes made to LogSpec
             for name, value in self.__snapshot.items():
-                setattr(Settings, name, value)
-            for name in list(Settings.__dict__.keys()):
+                setattr(LogSpec, name, value)
+            for name in list(LogSpec.__dict__.keys()):
                 if name.startswith("__") and not name.endswith("__"):
                     if name not in self.__snapshot:
-                        delattr(Settings, name)
+                        delattr(LogSpec, name)
 
 
-class Context:
+class LogContext:
     """
     Global logging context managed by runez.
     There's only one, as multiple contexts would not be useful (logging setup is a global thing)
@@ -228,16 +228,16 @@ class Context:
         """
         with cls._lock:
             if cls.level is not None:
-                raise Exception("Please call runez.LogContext.setup() only once")
+                raise Exception("Please call runez.log.setup() only once")
             if dryrun is not None:
                 if dryrun and debug is None:
                     debug = True
                 State.dryrun = dryrun
-            cls.level = logging.DEBUG if debug else Settings.level or OriginalLogging.level
+            cls.level = logging.DEBUG if debug else LogSpec.level or OriginalLogging.level
             logging.root.setLevel(cls.level)
-            hconsole = get_handler(cls.level, logging.StreamHandler, Settings.console_format, Settings.console_stream)
-            location = Settings.resolved_location(location)
-            cls.file_handler = get_handler(cls.level, logging.FileHandler, Settings.file_format, location)
+            hconsole = get_handler(cls.level, logging.StreamHandler, LogSpec.console_format, LogSpec.console_stream)
+            location = LogSpec.resolved_location(location)
+            cls.file_handler = get_handler(cls.level, logging.FileHandler, LogSpec.file_format, location)
             cls.handlers = [h for h in (hconsole, cls.file_handler) if h is not None]
             cls.used_formats = " ".join(h.formatter._fmt for h in cls.handlers)
 
@@ -455,12 +455,12 @@ class ContextFilter(logging.Filter):
 
     In order to activate this:
     - Mention %(context)s in your log format
-    - Add key/value pairs via runez.LogContext.add_global_context(), runez.LogContext.add_thread_context()
+    - Add key/value pairs via runez.log.add_global_context(), runez.log.add_thread_context()
     """
 
     def filter(self, record):
         """Determines if the record should be logged and injects context info into the record. Always returns True"""
-        record.context = rendered_context(Context.context_dict())
+        record.context = rendered_context(LogContext.context_dict())
         return True
 
 
@@ -469,8 +469,8 @@ def rendered_context(data):
     :param dict data:
     :return str:
     """
-    if data and Settings.context_format:
-        return Settings.context_format % ",".join("%s=%s" % (key, val) for key, val in sorted(data.items()) if key and val)
+    if data and LogSpec.context_format:
+        return LogSpec.context_format % ",".join("%s=%s" % (key, val) for key, val in sorted(data.items()) if key and val)
     return ""
 
 
@@ -510,5 +510,5 @@ def get_formatter(format):
     :param str format: Format specification
     :return logging.Formatter: Associated logging formatter
     """
-    format = replace_and_pad(format, "%(timezone)s", Settings.timezone)
+    format = replace_and_pad(format, "%(timezone)s", LogSpec.timezone)
     return logging.Formatter(format)

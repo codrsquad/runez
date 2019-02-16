@@ -8,7 +8,7 @@ from runez.base import abort, decode, get_timezone, get_version, prop, quoted, r
 from runez.context import Anchored, CaptureOutput, CurrentFolder, TempFolder, verify_abort
 from runez.file import copy, delete, first_line, get_conf, get_lines, move, symlink, touch, write
 from runez.heartbeat import Heartbeat
-from runez.logging import Context as LogContext, Settings as LogSettings
+from runez.logging import LogContext as log, LogSpec
 from runez.path import basename, ensure_folder, parent_folder, resolved_path
 from runez.program import check_pid, get_program_path, is_executable, is_younger, make_executable, run, which
 from runez.serialize import read_json, save_json, Serializable
@@ -22,7 +22,7 @@ __all__ = [
     "Anchored", "CaptureOutput", "CurrentFolder", "TempFolder", "verify_abort",
     "copy", "delete", "first_line", "get_conf", "get_lines", "move", "symlink", "touch", "write",
     "Heartbeat",
-    "LogContext", "LogSettings",
+    "log", "LogSpec",
     "basename", "ensure_folder", "parent_folder", "resolved_path",
     "check_pid", "get_program_path", "is_executable", "is_younger", "make_executable", "run", "which",
     "read_json", "save_json", "Serializable",

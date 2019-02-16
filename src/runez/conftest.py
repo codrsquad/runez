@@ -45,8 +45,8 @@ def cli():
 def isolated_log_setup():
     """Log settings restored"""
     with runez.logging.OriginalLogging():
-        runez.LogSettings.basename = "pytest"
-        yield runez.LogSettings
+        runez.LogSpec.basename = "pytest"
+        yield runez.LogSpec
 
 
 @pytest.fixture
