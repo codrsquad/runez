@@ -3,7 +3,7 @@ import logging
 import pytest
 
 import runez
-from runez.conftest import cli, isolated_log_setup, logged, temp_folder
+from runez.conftest import cli, isolated_log_setup, IsolatedLogs, logged, temp_folder
 
 
 # This is here only to satisfy flake8, mentioning the imported fixtures so they're not declared "unused"
@@ -53,13 +53,10 @@ class TempLog:
 
 @pytest.fixture
 def temp_log():
-    with runez.logging.OriginalLogging():
-        with runez.TempFolder(follow=True) as tmp:
+    with runez.TempFolder(follow=True) as tmp:
+        with IsolatedLogs() as isolated:
             with runez.CaptureOutput(log=False, anchors=tmp) as capture:
                 assert not capture.log
-                runez.LogSpec.basename = "pytest"
-                runez.LogSpec.dev = tmp
-                runez.LogSpec.rotate = None
-                runez.LogSpec.timezone = "UTC"
-                runez.LogSpec.console_format = "%(levelname)s %(message)s"
+                isolated.spec.tmp = tmp
+                isolated.spec.console_format = "%(levelname)s %(message)s"
                 yield TempLog(tmp, capture)

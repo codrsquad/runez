@@ -48,6 +48,11 @@ def test_executable(temp_folder):
 
 
 def test_program():
+    assert runez.get_dev_folder("") is None
+    assert runez.get_dev_folder("some-path/.venv/bar/baz") == "some-path/.venv"
+    assert runez.get_dev_folder("some-path/.tox/bar/baz") == "some-path/.tox"
+    assert runez.get_dev_folder("some-path/build/bar/baz") == "some-path/build"
+
     program_path = runez.get_program_path(path="/some/program")
     assert runez.basename(program_path) == "program"
 

@@ -47,7 +47,7 @@ Features
 
 - Functions can be called without checking for return code etc (abort by default, with nice error)
 
-- They can also be called with ``fatal=False`` for inspection
+- They can also be called with ``fatal=False``, in which case the return value will indicate whether call succeeded or not
 
 - 100% test coverage
 

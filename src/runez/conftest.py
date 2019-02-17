@@ -6,9 +6,8 @@ Example:
     from runez.conftest import cli, isolated_log_setup, temp_folder
 """
 
-from __future__ import absolute_import
-
 import logging
+import os
 
 import _pytest.logging
 import pytest
@@ -16,7 +15,22 @@ import pytest
 import runez
 
 
-runez.logging.OriginalLogging.set_level(logging.DEBUG)
+runez.log.override_root_level(logging.DEBUG)
+runez.log.override_spec(appname="pytest", timezone="UTC", locations=["{tmp}/{basename}"], tmp=os.path.join("/", "tmp"))
+
+
+class IsolatedLogs:
+    """
+    Allows to isolate changes to logging setup.
+    This should only be useful for testing (as in general, logging setup is a global thing)
+    """
+
+    def __enter__(self):
+        """Context manager to save and restore log setup, useful for testing"""
+        return runez.log
+
+    def __exit__(self, *_):
+        runez.log._reset()
 
 
 @pytest.fixture
@@ -44,9 +58,10 @@ def cli():
 @pytest.fixture
 def isolated_log_setup():
     """Log settings restored"""
-    with runez.logging.OriginalLogging():
-        runez.LogSpec.basename = "pytest"
-        yield runez.LogSpec
+    with runez.TempFolder(follow=True) as tmp:
+        with IsolatedLogs() as isolated:
+            isolated.spec.tmp = tmp
+            yield isolated
 
 
 @pytest.fixture
@@ -57,8 +72,8 @@ def logged():
 
 @pytest.fixture
 def temp_folder():
-    with runez.TempFolder() as path:
-        yield path
+    with runez.TempFolder() as tmp:
+        yield tmp
 
 
 class WrappedHandler(_pytest.logging.LogCaptureHandler):
@@ -134,7 +149,7 @@ class ClickRunner:
                 args = args[0].split()
         cmd = kwargs.pop("main", self.main)
         assert bool(cmd), "No main provided"
-        with runez.CaptureOutput(dryrun=runez.State.dryrun) as logged:
+        with runez.CaptureOutput(dryrun=runez.DRYRUN) as logged:
             runner = ClickWrapper.runner
             runner = runner()
             result = runner.invoke(cmd, args=args)

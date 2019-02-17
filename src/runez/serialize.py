@@ -2,17 +2,15 @@
 Convenience methods for (de)serializing objects
 """
 
-from __future__ import absolute_import
-
 import io
 import json
 import logging
 import os
 
-from runez.base import abort, State, string_type
-from runez.path import ensure_folder, resolved_path
-from runez.state import short
-
+from runez.base import string_type
+from runez.convert import resolved_path, short
+from runez.path import ensure_folder
+from runez.system import abort, is_dryrun
 
 LOG = logging.getLogger(__name__)
 
@@ -187,7 +185,7 @@ def save_json(data, path, fatal=True, logger=None, sort_keys=True, indent=2):
     try:
         path = resolved_path(path)
         ensure_folder(path, fatal=fatal, logger=None)
-        if State.dryrun:
+        if is_dryrun():
             LOG.info("Would save %s", short(path))
             return 1
 

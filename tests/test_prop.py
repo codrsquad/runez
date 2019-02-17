@@ -1,29 +1,8 @@
 import collections
-import time
 
 import pytest
-from mock import patch
 
 import runez
-
-
-def test_abort(logged):
-    assert runez.abort("aborted", fatal=(False, "some-return")) == "some-return"
-    assert "aborted" in logged.pop()
-
-    assert runez.abort("aborted", fatal=(False, "some-return"), code=0) == "some-return"
-    assert "aborted" in logged
-    assert "ERROR" not in logged.pop()
-
-    assert runez.abort("aborted", fatal=(None, "some-return")) == "some-return"
-    assert not logged
-
-
-def test_timezone():
-    assert runez.get_timezone() == time.tzname[0]
-    with patch("runez.base.time") as runez_time:
-        runez_time.tzname = []
-        assert runez.get_timezone() == ""
 
 
 class TracedCalls(object):
@@ -100,7 +79,7 @@ def tracked():
     yield TracedCalls.call_count
 
 
-def test_simple(tracked):
+def test_simple_prop(tracked):
     sample = SimpleCallback()
 
     # Test that because we return None, nothing keeps getting called until we actually set it
@@ -119,7 +98,7 @@ def test_simple(tracked):
     assert tracked("set", "nothing") == 1
 
 
-def test_classmethod(tracked):
+def test_classmethod_prop(tracked):
     sample = ClassmethodCallback()
 
     # Verify tracking and operations
@@ -149,7 +128,7 @@ def test_classmethod(tracked):
     assert tracked("set", "hello") == 3
 
 
-def test_generic(tracked):
+def test_generic_prop(tracked):
     sample = GenericCallback()
 
     # Verify that we call implementation only once when it does return a non-None value
@@ -172,7 +151,7 @@ def test_generic(tracked):
     assert tracked("set", "some_int") == 2
 
 
-def test_no_callback(tracked):
+def test_no_callback_prop(tracked):
     sample = NoCallback()
 
     assert sample.welcome == "welcome"

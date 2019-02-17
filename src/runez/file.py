@@ -1,13 +1,12 @@
-from __future__ import absolute_import
-
 import io
 import logging
 import os
 import shutil
 
-from runez.base import abort, decode, State
-from runez.path import ensure_folder, parent_folder, resolved_path
-from runez.state import short
+from runez.base import decode
+from runez.convert import resolved_path, short
+from runez.path import ensure_folder, parent_folder
+from runez.system import abort, is_dryrun
 
 
 LOG = logging.getLogger(__name__)
@@ -39,7 +38,7 @@ def delete(path, fatal=True, logger=LOG.debug):
     if not islink and (not path or not os.path.exists(path)):
         return 0
 
-    if State.dryrun:
+    if is_dryrun():
         LOG.debug("Would delete %s", short(path))
         return 1
 
@@ -189,7 +188,7 @@ def write(path, contents, fatal=True, logger=None):
     if not path:
         return 0
 
-    if State.dryrun:
+    if is_dryrun():
         action = "write %s bytes to" % len(contents) if contents else "touch"
         LOG.debug("Would %s %s", action, short(path))
         return 1
@@ -255,7 +254,7 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True)
             "Can't %s %s %s %s: source contained in destination", action, short(source), indicator, short(destination), fatal=(fatal, -1)
         )
 
-    if State.dryrun:
+    if is_dryrun():
         LOG.debug("Would %s %s %s %s", action, short(source), indicator, short(destination))
         return 1
 

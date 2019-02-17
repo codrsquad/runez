@@ -29,7 +29,7 @@ k2 =
 """
 
 
-def test_anchor():
+def test_anchored():
     user_path = runez.resolved_path("~/some-folder/bar")
     current_path = runez.resolved_path("./some-folder/bar")
 
@@ -113,9 +113,9 @@ def test_paths(temp_folder):
     assert "Can't create folder" in custom
     assert runez.verify_abort(runez.ensure_folder, None) is None
 
-    runez.base.AbortException = str
+    runez.system.AbortException = str
     assert runez.ensure_folder("sample", folder=True, fatal=True) == "1"
-    runez.base.AbortException = SystemExit
+    runez.system.AbortException = SystemExit
 
     assert runez.delete("sample") == 1
     assert runez.ensure_folder("sample", folder=True) == 1
@@ -209,7 +209,7 @@ def test_temp():
     with runez.CaptureOutput(anchors=["/tmp", "/etc"]) as logged:
         with runez.TempFolder() as tmp:
             assert os.path.isdir(tmp)
-            assert tmp != runez.path.SYMBOLIC_TMP
+            assert tmp != runez.convert.SYMBOLIC_TMP
         assert not os.path.isdir(tmp)
         assert os.getcwd() == cwd
 
@@ -218,16 +218,16 @@ def test_temp():
 
         assert not logged
 
-    symbolic = "%s/some-file" % runez.path.SYMBOLIC_TMP
+    symbolic = "%s/some-file" % runez.convert.SYMBOLIC_TMP
     with runez.CaptureOutput(dryrun=True) as logged:
         assert os.getcwd() == cwd
         with runez.TempFolder() as tmp:
-            assert tmp == runez.path.SYMBOLIC_TMP
+            assert tmp == runez.convert.SYMBOLIC_TMP
             assert runez.short(symbolic) == "some-file"
 
         assert os.getcwd() == cwd
         with runez.TempFolder(anchor=False) as tmp:
-            assert tmp == runez.path.SYMBOLIC_TMP
+            assert tmp == runez.convert.SYMBOLIC_TMP
             assert runez.short(symbolic) == symbolic
 
         assert not logged
@@ -245,3 +245,28 @@ def test_conf():
     del expected[""]
     del expected["s2"]
     assert runez.get_conf(SAMPLE_CONF.splitlines(), keep_empty=False) == expected
+
+
+def test_resolved_location(temp_folder):
+    class Record:
+        appname = "my-name"
+        filename = "{appname}.txt"
+        folder = "my-folder"
+
+    assert runez.path.resolved_location(None) is None
+    assert runez.path.resolved_location(Record, custom_location="") is None
+    assert runez.path.resolved_location(None, custom_location="appname") is None
+    assert runez.path.resolved_location(Record, custom_location="appname") == "appname"
+    assert runez.path.resolved_location(Record, custom_location="{appname}") == "my-name"
+
+    # 'my-folder' is auto-created
+    assert runez.path.resolved_location(Record, locations=["{folder}/{filename}"]) == "my-folder/my-name.txt"
+    assert os.path.isdir("my-folder")
+    assert runez.path.resolved_location(Record, locations=["{folder}"], basename="{filename}") == "my-folder/my-name.txt"
+
+    # my-folder/my-name.txt becomes not usable if 'my-folder' is an existing file
+    runez.delete("my-folder")
+    runez.touch("my-folder")
+    assert runez.path.resolved_location(Record, locations=["{folder}/{filename}"]) is None
+    assert runez.path.resolved_location(Record, locations=["{folder}/{filename}", "folder2/{filename}"]) == "folder2/my-name.txt"
+    assert os.path.isdir("folder2")

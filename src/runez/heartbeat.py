@@ -17,8 +17,6 @@ Usage:
     Heartbeat.stop()        # When shutting down
 """
 
-from __future__ import absolute_import
-
 import logging
 import threading
 import time

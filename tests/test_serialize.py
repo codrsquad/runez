@@ -6,15 +6,23 @@ import runez
 from runez.serialize import same_type, type_name
 
 
+class SomeRecord:
+
+    name = "my record"
+    some_int = 5
+
+
 def test_json(temp_folder):
     assert runez.read_json(None, fatal=False) is None
     assert runez.save_json(None, None, fatal=False) == 0
 
     data = {"a": "b"}
 
+    assert not runez.DRYRUN
     with runez.CaptureOutput(dryrun=True) as logged:
         assert runez.save_json(data, "sample.json") == 1
         assert "Would save" in logged.pop()
+    assert not runez.DRYRUN
 
     with runez.CaptureOutput() as logged:
         assert runez.read_json("sample.json", fatal=False) is None
@@ -42,7 +50,7 @@ def test_json(temp_folder):
 
     with runez.CaptureOutput() as logged:
         # Try with an object that isn't directly serializable, but has a to_dict() function
-        obj = runez.State()
+        obj = SomeRecord()
         obj.to_dict = lambda *_: data
 
         assert runez.save_json(obj, "sample2.json", logger=logging.debug) == 1

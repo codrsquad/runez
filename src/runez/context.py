@@ -14,26 +14,9 @@ try:
 except ImportError:
     from io import StringIO
 
-import runez.logging
-import runez.state
-from runez.base import State
-from runez.path import resolved_path, SYMBOLIC_TMP
-
-
-class Anchored:
-    """
-    An "anchor" is a known path that we don't wish to show in full when printing/logging
-    This allows to conveniently shorten paths, and show more readable relative paths
-    """
-
-    def __init__(self, folder):
-        self.folder = resolved_path(folder)
-
-    def __enter__(self):
-        runez.state.Anchored.add(self.folder)
-
-    def __exit__(self, *_):
-        runez.state.Anchored.pop(self.folder)
+from runez.convert import Anchored, resolved_path, SYMBOLIC_TMP
+from runez.logsetup import LogManager
+from runez.system import AbortException, is_dryrun, set_dryrun
 
 
 class CapturedStream:
@@ -131,23 +114,23 @@ class CaptureOutput:
         self._old_level = None
 
     def __enter__(self):
-        self._old_level = runez.logging.OriginalLogging.set_level(self.level)
+        self._old_level = LogManager.override_root_level(self.level)
         for s in self.captured:
             s.capture()
         if self.anchors:
-            runez.state.Anchored.add(self.anchors)
+            Anchored.add(self.anchors)
         if self.dryrun is not None:
-            (State.dryrun, self.dryrun) = (bool(self.dryrun), bool(State.dryrun))
+            self.dryrun = set_dryrun(self.dryrun)
         return self
 
     def __exit__(self, *args):
-        runez.logging.OriginalLogging.set_level(self._old_level)
+        LogManager.override_root_level(self._old_level)
         for s in self.captured:
             s.restore()
         if self.anchors:
-            runez.state.Anchored.pop(self.anchors)
+            Anchored.pop(self.anchors)
         if self.dryrun is not None:
-            State.dryrun = self.dryrun
+            set_dryrun(self.dryrun)
 
     def __repr__(self):
         return "".join(str(s) for s in self.captured)
@@ -191,12 +174,12 @@ class CurrentFolder:
         self.current_folder = os.getcwd()
         os.chdir(self.destination)
         if self.anchor:
-            runez.state.Anchored.add(self.destination)
+            Anchored.add(self.destination)
 
     def __exit__(self, *_):
         os.chdir(self.current_folder)
         if self.anchor:
-            runez.state.Anchored.pop(self.destination)
+            Anchored.pop(self.destination)
 
 
 class TempFolder:
@@ -218,8 +201,8 @@ class TempFolder:
 
     def __enter__(self):
         if self.dryrun is not None:
-            (State.dryrun, self.dryrun) = (bool(self.dryrun), bool(State.dryrun))
-        if not State.dryrun:
+            self.dryrun = set_dryrun(self.dryrun)
+        if not is_dryrun():
             # Use realpath() to properly resolve for example symlinks on OSX temp paths
             self.tmp_folder = os.path.realpath(tempfile.mkdtemp())
             if self.follow:
@@ -227,18 +210,18 @@ class TempFolder:
                 os.chdir(self.tmp_folder)
         tmp = self.tmp_folder or SYMBOLIC_TMP
         if self.anchor:
-            runez.state.Anchored.add(tmp)
+            Anchored.add(tmp)
         return tmp
 
     def __exit__(self, *_):
         if self.anchor:
-            runez.state.Anchored.pop(self.tmp_folder or SYMBOLIC_TMP)
+            Anchored.pop(self.tmp_folder or SYMBOLIC_TMP)
         if self.old_cwd:
             os.chdir(self.old_cwd)
         if self.tmp_folder:
             shutil.rmtree(self.tmp_folder)
         if self.dryrun is not None:
-            State.dryrun = self.dryrun
+            set_dryrun(self.dryrun)
 
 
 def verify_abort(func, *args, **kwargs):
@@ -254,7 +237,7 @@ def verify_abort(func, *args, **kwargs):
     :param kwargs: Named args to pass to 'func'
     :return str: Chatter from call to 'func', if it did indeed raise
     """
-    expected_exception = kwargs.pop("expected_exception", runez.base.AbortException)
+    expected_exception = kwargs.pop("expected_exception", AbortException)
     with CaptureOutput() as logged:
         try:
             func(*args, **kwargs)
