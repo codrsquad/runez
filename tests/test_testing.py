@@ -1,28 +1,46 @@
+import re
+
 import pytest
 
 
-def stringify(args):
-    return str(args)
+def stringify(*args):
+    return " ".join(args)
 
 
-def crash(args):
+def crash(*args):
     raise Exception("crashed: %s" % args)
 
 
 def test_success(cli):
     cli.main = stringify
     cli.run("--dryrun hello")
-    cli.assert_output_has("hello")
-    assert "foo" not in cli.output
+    assert cli.succeeded
+    assert cli.match("hello")
+    assert not cli.match("foo")
+
+    cli.expect_success("hello", "hello", "el+", regex=True)
 
     cli.run("hello")
-    cli.assert_output_has("hello")
+    m = cli.match("hello")
+    assert m
+    assert str(m) == "hello"
+    m = cli.match("el+", regex=True)
+    assert m
+    assert m.match == "ell"
+
+    assert not cli.match("h...", regex=False)
+    assert cli.match(re.compile("hel+o"))
+    assert not cli.match("Hello")
+    assert cli.match("Hello", regex=re.IGNORECASE)
+
+    cli.run([""])
+    assert not cli.match("hello")
 
 
 def test_crash(cli):
     with pytest.raises(AssertionError):
         # Nothing ran yet, no output
-        cli.assert_output_has("foo")
+        cli.match("foo")
 
     with pytest.raises(AssertionError):
         # No main provided
@@ -30,12 +48,12 @@ def test_crash(cli):
 
     cli.main = crash
     cli.run(["hello"])
-    assert cli.exit_code != 0
-    assert "crashed" in cli.output
-    cli.assert_output_has("hello")
+    assert cli.failed
+    assert cli.match("crashed...hello")
+    assert cli.match("Exited with stacktrace:", log=True)
+
+    cli.expect_failure("hello", "crashed...hello", "Exited with stacktrace:", "!this message shouldn't appear", log=True)
 
     with pytest.raises(AssertionError):
-        cli.assert_log_has("hello")
-
-    with pytest.raises(AssertionError):
-        cli.assert_output_has("foo")
+        # No captures specified
+        assert cli.match("crashed...hello", stdout=False, stderr=False, log=False)

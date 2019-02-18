@@ -38,7 +38,7 @@ class CapturedStream:
             return cls("log", None)
 
     def __repr__(self):
-        return "%s: %s" % (self.name, self.contents())
+        return self.contents()
 
     def __eq__(self, other):
         if isinstance(other, CapturedStream):
@@ -54,6 +54,9 @@ class CapturedStream:
     def contents(self):
         return self.buffer.getvalue()
 
+    def write(self, message):
+        self.buffer.write(message)
+
     def capture(self):
         if self.target:
             self.original = self.target.write
@@ -67,7 +70,6 @@ class CapturedStream:
             self.target.write = self.original
         else:
             self._shared._is_capturing = False
-        self.clear()
 
     def pop(self):
         """Current content popped, useful for testing"""
@@ -93,7 +95,7 @@ class CaptureOutput:
         # output has been captured in 'logged'
     """
 
-    def __init__(self, level=None, stdout=True, stderr=True, log=None, anchors=None, dryrun=None):
+    def __init__(self, level=None, stdout=True, stderr=True, log=None, anchors=None, dryrun=None, auto_clear=True):
         """
         :param int|None level: Change logging level, if specified
         :param bool stdout: Capture stdout
@@ -101,6 +103,7 @@ class CaptureOutput:
         :param bool|None log: Capture pytest logging (if running in pytest), leave at None for auto-detect
         :param str|list anchors: Optional paths to use as anchors for short()
         :param bool|None dryrun: Override dryrun (when explicitly specified, ie not None)
+        :param bool auto_clear: Clear buffer when exiting context
         """
         self.level = level
         self.stdout = CapturedStream("stdout", sys.stdout) if stdout else None
@@ -111,6 +114,7 @@ class CaptureOutput:
         self.captured = [c for c in (self.stdout, self.stderr, self.log) if c is not None]
         self.anchors = anchors
         self.dryrun = dryrun
+        self.auto_clear = auto_clear
         self._old_level = None
 
     def __enter__(self):
@@ -131,9 +135,11 @@ class CaptureOutput:
             Anchored.pop(self.anchors)
         if self.dryrun is not None:
             set_dryrun(self.dryrun)
+        if self.auto_clear:
+            self.clear()
 
     def __repr__(self):
-        return "".join(str(s) for s in self.captured)
+        return "\n".join("%s: %s" % (s.name, s) for s in self.captured)
 
     def __eq__(self, other):
         if isinstance(other, CaptureOutput):

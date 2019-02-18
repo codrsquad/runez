@@ -21,18 +21,18 @@ def test_capture():
     assert c3.stderr is None
     assert c3.log is not None
 
-    assert c1 == "stdout: stderr: log: "
-    assert c3 == "stdout: log: "
+    assert c1 == "stdout: \nstderr: \nlog: \n"
+    assert c3 == "stdout: \nlog: \n"
 
 
 def test_scope():
     # With pytest present, we capture all 3
-    assert str(runez.CaptureOutput()) == "stdout: stderr: log: "
+    assert len(runez.CaptureOutput().captured) == 3
 
     # If pytest isn't there, we capture stdout/stderr only by default
     original = runez.context.CapturedStream._shared
     runez.context.CapturedStream._shared = None
-    assert str(runez.CaptureOutput()) == "stdout: stderr: "
+    assert len(runez.CaptureOutput().captured) == 2
     runez.context.CapturedStream._shared = original
 
     with runez.CaptureOutput() as logged:

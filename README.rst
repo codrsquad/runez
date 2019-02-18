@@ -35,6 +35,8 @@ Features
 
 - Support for ``dryrun`` mode (show what would be done, but don't do it)
 
+- Perform most typical logging setups in one call to ``runez.log.setup()``
+
 - Log operations systematically (at debug level mostly), examples::
 
     Running: foo ...
