@@ -24,10 +24,14 @@ class CapturedStream:
 
     _shared = None
 
-    def __init__(self, name, target):
+    def __init__(self, name, target=None, buffer=None):
         self.name = name
         self.target = target
-        if target is None:
+        if buffer is not None:
+            self.buffer = StringIO(buffer.getvalue())
+            self.name += "*"
+
+        elif target is None:
             self.buffer = CapturedStream._shared._buffer
         else:
             self.buffer = StringIO()
@@ -35,14 +39,14 @@ class CapturedStream:
     @classmethod
     def log_intercept(cls):
         if cls._shared:
-            return cls("log", None)
+            return cls("log")
 
     def __repr__(self):
         return self.contents()
 
     def __eq__(self, other):
         if isinstance(other, CapturedStream):
-            return self.name == other.name
+            return self.name == other.name and self.contents() == other.contents()
         return str(self).strip() == str(other).strip()
 
     def __contains__(self, item):
@@ -50,6 +54,9 @@ class CapturedStream:
 
     def __len__(self):
         return len(self.contents())
+
+    def duplicate(self):
+        return CapturedStream(self.name, buffer=StringIO(self.contents()))
 
     def contents(self):
         return self.buffer.getvalue()
@@ -61,14 +68,14 @@ class CapturedStream:
         if self.target:
             self.original = self.target.write
             self.target.write = self.buffer.write
-        else:
+        elif self.name == "log":
             self._shared._is_capturing = True
 
     def restore(self):
         """Restore hijacked write() function"""
         if self.target:
             self.target.write = self.original
-        else:
+        elif self.name == "log":
             self._shared._is_capturing = False
 
     def pop(self):
@@ -83,7 +90,64 @@ class CapturedStream:
         self.buffer.truncate(0)
 
 
-class CaptureOutput:
+def _dupe(cap):
+    """
+    :param CapturedStream|None cap:
+    :return CapturedStream|None: Duplicate of 'cap', if any
+    """
+    if cap is not None:
+        return cap.duplicate()
+
+
+class TrackedOutput(object):
+    """
+    Track captured output
+    """
+
+    def __init__(self, stdout, stderr, log):
+        """
+        :param CapturedStream|None stdout: Captured stdout
+        :param CapturedStream|None stderr: Captured stderr
+        :param CapturedStream|None log: Captured logging
+        """
+        self.stdout = stdout
+        self.stderr = stderr
+        self.log = log
+        self.captured = [c for c in (self.stdout, self.stderr, self.log) if c is not None]
+
+    def __repr__(self):
+        return "\n".join("%s: %s" % (s.name, s) for s in self.captured)
+
+    def __eq__(self, other):
+        if isinstance(other, CaptureOutput):
+            return self.stdout == other.stdout and self.stderr == other.stderr and self.log == other.log
+        return str(self).strip() == str(other).strip()
+
+    def __contains__(self, item):
+        return any(item in s for s in self.captured)
+
+    def __len__(self):
+        return sum(len(s) for s in self.captured)
+
+    def duplicate(self):
+        return TrackedOutput(_dupe(self.stdout), _dupe(self.stderr), _dupe(self.log))
+
+    def contents(self):
+        return "".join(s.contents() for s in self.captured)
+
+    def pop(self):
+        """Current content popped, useful for testing"""
+        r = self.contents()
+        self.clear()
+        return r
+
+    def clear(self):
+        """Clear captured content"""
+        for s in self.captured:
+            s.clear()
+
+
+class CaptureOutput(TrackedOutput):
     """
     Context manager allowing to temporarily grab stdout/stderr output.
     Output is captured and made available only for the duration of the context.
@@ -95,7 +159,7 @@ class CaptureOutput:
         # output has been captured in 'logged'
     """
 
-    def __init__(self, level=None, stdout=True, stderr=True, log=None, anchors=None, dryrun=None, auto_clear=True):
+    def __init__(self, level=None, stdout=True, stderr=True, log=None, anchors=None, dryrun=None):
         """
         :param int|None level: Change logging level, if specified
         :param bool stdout: Capture stdout
@@ -103,18 +167,16 @@ class CaptureOutput:
         :param bool|None log: Capture pytest logging (if running in pytest), leave at None for auto-detect
         :param str|list anchors: Optional paths to use as anchors for short()
         :param bool|None dryrun: Override dryrun (when explicitly specified, ie not None)
-        :param bool auto_clear: Clear buffer when exiting context
         """
-        self.level = level
-        self.stdout = CapturedStream("stdout", sys.stdout) if stdout else None
-        self.stderr = CapturedStream("stderr", sys.stderr) if stderr else None
+        stdout = CapturedStream("stdout", target=sys.stdout) if stdout else None
+        stderr = CapturedStream("stderr", target=sys.stderr) if stderr else None
         if log is None:
             log = bool(CapturedStream._shared)
-        self.log = CapturedStream.log_intercept() if log else None
-        self.captured = [c for c in (self.stdout, self.stderr, self.log) if c is not None]
+        log = CapturedStream.log_intercept() if log else None
+        super(CaptureOutput, self).__init__(stdout, stderr, log)
+        self.level = level
         self.anchors = anchors
         self.dryrun = dryrun
-        self.auto_clear = auto_clear
         self._old_level = None
 
     def __enter__(self):
@@ -135,36 +197,7 @@ class CaptureOutput:
             Anchored.pop(self.anchors)
         if self.dryrun is not None:
             set_dryrun(self.dryrun)
-        if self.auto_clear:
-            self.clear()
-
-    def __repr__(self):
-        return "\n".join("%s: %s" % (s.name, s) for s in self.captured)
-
-    def __eq__(self, other):
-        if isinstance(other, CaptureOutput):
-            return self.stdout == other.stdout and self.stderr == other.stderr and self.log == other.log
-        return str(self).strip() == str(other).strip()
-
-    def __contains__(self, item):
-        return any(item in s for s in self.captured)
-
-    def __len__(self):
-        return sum(len(s) for s in self.captured)
-
-    def contents(self):
-        return "".join(s.contents() for s in self.captured)
-
-    def pop(self):
-        """Current content popped, useful for testing"""
-        r = self.contents()
         self.clear()
-        return r
-
-    def clear(self):
-        """Clear captured content"""
-        for s in self.captured:
-            s.clear()
 
 
 class CurrentFolder:

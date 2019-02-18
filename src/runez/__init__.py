@@ -15,7 +15,7 @@ It's recommended to set DRYRUN only once at the start of your run via: runez.log
 
 from runez import heartbeat, program, serialize
 from runez.base import decode, prop, Slotted
-from runez.context import CaptureOutput, CurrentFolder, TempFolder, verify_abort
+from runez.context import CaptureOutput, CurrentFolder, TempFolder, TrackedOutput, verify_abort
 from runez.convert import Anchored, flattened, formatted, quoted, represented_args, resolved_path, short, shortened, to_int
 from runez.file import copy, delete, first_line, get_conf, get_lines, move, symlink, touch, write
 from runez.heartbeat import Heartbeat
@@ -29,7 +29,7 @@ __all__ = [
     "DRYRUN",
     "heartbeat", "logsetup", "program", "serialize",
     "decode", "prop", "Slotted",
-    "CaptureOutput", "CurrentFolder", "TempFolder", "verify_abort",
+    "CaptureOutput", "CurrentFolder", "TempFolder", "TrackedOutput", "verify_abort",
     "Anchored", "flattened", "formatted", "quoted", "represented_args", "resolved_path", "short", "shortened", "to_int",
     "copy", "delete", "first_line", "get_conf", "get_lines", "move", "symlink", "touch", "write",
     "Heartbeat",

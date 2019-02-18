@@ -24,6 +24,10 @@ def test_capture():
     assert c1 == "stdout: \nstderr: \nlog: \n"
     assert c3 == "stdout: \nlog: \n"
 
+    c1d = c1.duplicate()
+    assert c1d.stdout.name == "stdout*"
+    assert c1d != c1
+
 
 def test_scope():
     # With pytest present, we capture all 3

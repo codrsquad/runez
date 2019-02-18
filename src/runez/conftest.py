@@ -142,7 +142,7 @@ class ClickRunner:
 
     def __init__(self):
         self.main = cli.default_main
-        self.logged = None  # type: runez.CaptureOutput
+        self.logged = None  # type: runez.TrackedOutput
         self.exit_code = None  # type: int
 
     def run(self, *args, **kwargs):
@@ -156,7 +156,7 @@ class ClickRunner:
         cmd = kwargs.pop("main", self.main)
         assert bool(cmd), "No main provided"
         with IsolatedLogs():
-            with runez.CaptureOutput(dryrun=runez.DRYRUN, auto_clear=False) as logged:
+            with runez.CaptureOutput(dryrun=runez.DRYRUN) as logged:
                 runner = ClickWrapper.runner
                 runner = runner()
                 result = runner.invoke(cmd, args=args, **kwargs)
@@ -167,7 +167,7 @@ class ClickRunner:
                         raise result.exception
                     except BaseException:
                         logging.exception("Exited with stacktrace:")
-                self.logged = logged
+                self.logged = logged.duplicate()
                 self.exit_code = result.exit_code
 
     @property
