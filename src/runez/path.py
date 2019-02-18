@@ -45,6 +45,8 @@ def ensure_folder(path, folder=False, fatal=True, logger=LOG.debug, dryrun=None)
         folder = parent_folder(path)
 
     if os.path.isdir(folder):
+        if not os.access(folder, os.W_OK):
+            return abort("Folder %s is not writable", folder, fatal=(fatal, -1))
         return 0
 
     if dryrun is None:

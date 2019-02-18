@@ -3,6 +3,7 @@ import os
 import sys
 
 import pytest
+from mock import patch
 
 import runez
 
@@ -174,3 +175,9 @@ def test_convenience(temp_log):
     assert "test_logsetup f:file.py mod:file func:write INFO Writing 12 bytes" in temp_log.stderr
     assert "test_logsetup f:test_logsetup.py mod:test_logsetup func:test_convenience INFO hello" in temp_log.stderr
     assert "test_logsetup f:test_logsetup.py mod:test_logsetup func:test_convenience ERROR oops" in temp_log.stderr
+
+
+def test_not_writable(isolated_log_setup):
+    with patch("runez.path.os.access", return_value=False):
+        runez.log.setup()
+        assert runez.log.file_handler is None
