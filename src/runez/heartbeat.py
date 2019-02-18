@@ -23,6 +23,7 @@ import time
 
 
 DEFAULT_FREQUENCY = 60
+LOG = logging.getLogger(__name__)
 
 
 class Task:
@@ -156,9 +157,7 @@ class Heartbeat:
                         task.execute()
 
                     except Exception as e:
-                        # Log only if user set up logging
-                        if logging.root:
-                            logging.root.warning("Task %s crashed:", task.name, exc_info=e)
+                        LOG.warning("Task %s crashed:", task.name, exc_info=e)
 
                     cls._last_execution = time.time()
                     cls._sleep_delay = cls.upcoming[0].next_execution - cls._last_execution

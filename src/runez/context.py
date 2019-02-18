@@ -2,7 +2,6 @@
 Convenience context managers
 """
 
-import logging
 import os
 import shutil
 import sys
@@ -15,47 +14,73 @@ try:
 except ImportError:
     from io import StringIO
 
-from runez.base import decode, flattened, State
-from runez.path import resolved_path, SYMBOLIC_TMP
+from runez.convert import Anchored, resolved_path, SYMBOLIC_TMP
+from runez.logsetup import LogManager
+from runez.system import AbortException, is_dryrun, set_dryrun
 
 
-class Anchored:
-    """
-    An "anchor" is a known path that we don't wish to show in full when printing/logging
-    This allows to conveniently shorten paths, and show more readable relative paths
-    """
+class CapturedStream:
+    """Capture output to a stream by hijacking temporarily its write() function"""
 
-    def __init__(self, folder):
-        self.folder = resolved_path(folder)
+    _shared = None
 
-    def __enter__(self):
-        Anchored.add(self.folder)
-
-    def __exit__(self, *_):
-        Anchored.pop(self.folder)
-
-    @classmethod
-    def set(cls, anchors):
-        """
-        :param str|list anchors: Optional paths to use as anchors for short()
-        """
-        State.anchors = sorted(flattened(anchors, unique=True), reverse=True)
+    def __init__(self, name, target):
+        self.name = name
+        self.target = target
+        if target is None:
+            self.buffer = CapturedStream._shared._buffer
+        else:
+            self.buffer = StringIO()
 
     @classmethod
-    def add(cls, anchors):
-        """
-        :param str|list anchors: Optional paths to use as anchors for short()
-        """
-        cls.set(State.anchors + [anchors])
+    def log_intercept(cls):
+        if cls._shared:
+            return cls("log", None)
 
-    @classmethod
-    def pop(cls, anchors):
-        """
-        :param str|list anchors: Optional paths to use as anchors for short()
-        """
-        for anchor in flattened(anchors):
-            if anchor in State.anchors:
-                State.anchors.remove(anchor)
+    def __repr__(self):
+        return self.contents()
+
+    def __eq__(self, other):
+        if isinstance(other, CapturedStream):
+            return self.name == other.name
+        return str(self).strip() == str(other).strip()
+
+    def __contains__(self, item):
+        return item is not None and item in self.contents()
+
+    def __len__(self):
+        return len(self.contents())
+
+    def contents(self):
+        return self.buffer.getvalue()
+
+    def write(self, message):
+        self.buffer.write(message)
+
+    def capture(self):
+        if self.target:
+            self.original = self.target.write
+            self.target.write = self.buffer.write
+        else:
+            self._shared._is_capturing = True
+
+    def restore(self):
+        """Restore hijacked write() function"""
+        if self.target:
+            self.target.write = self.original
+        else:
+            self._shared._is_capturing = False
+
+    def pop(self):
+        """Current content popped, useful for testing"""
+        r = self.contents()
+        self.clear()
+        return r
+
+    def clear(self):
+        """Clear captured content"""
+        self.buffer.seek(0)
+        self.buffer.truncate(0)
 
 
 class CaptureOutput:
@@ -65,88 +90,81 @@ class CaptureOutput:
 
     Sample usage:
 
-    with CaptureOutput() as output:
+    with CaptureOutput() as logged:
         # do something that generates output
-        # output is available in 'output'
+        # output has been captured in 'logged'
     """
 
-    def __init__(self, stdout=True, stderr=True, anchors=None, dryrun=None):
+    def __init__(self, level=None, stdout=True, stderr=True, log=None, anchors=None, dryrun=None, auto_clear=True):
         """
+        :param int|None level: Change logging level, if specified
         :param bool stdout: Capture stdout
         :param bool stderr: Capture stderr
+        :param bool|None log: Capture pytest logging (if running in pytest), leave at None for auto-detect
         :param str|list anchors: Optional paths to use as anchors for short()
         :param bool|None dryrun: Override dryrun (when explicitly specified, ie not None)
+        :param bool auto_clear: Clear buffer when exiting context
         """
+        self.level = level
+        self.stdout = CapturedStream("stdout", sys.stdout) if stdout else None
+        self.stderr = CapturedStream("stderr", sys.stderr) if stderr else None
+        if log is None:
+            log = bool(CapturedStream._shared)
+        self.log = CapturedStream.log_intercept() if log else None
+        self.captured = [c for c in (self.stdout, self.stderr, self.log) if c is not None]
         self.anchors = anchors
         self.dryrun = dryrun
-        self.old_out = sys.stdout
-        self.old_err = sys.stderr
-        self.old_handlers = logging.root.handlers
-
-        self.out_buffer = StringIO() if stdout else None
-
-        if stderr:
-            self.err_buffer = StringIO()
-            self.handler = logging.StreamHandler(stream=self.err_buffer)
-            self.handler.setLevel(logging.DEBUG)
-            self.handler.setFormatter(logging.Formatter("%(levelname)s - %(message)s"))
-        else:
-            self.err_buffer = None
-            self.handler = None
-
-    def pop(self):
-        """Current contents popped, useful for testing"""
-        r = self.__repr__()
-        if self.out_buffer:
-            self.out_buffer.seek(0)
-            self.out_buffer.truncate(0)
-        if self.err_buffer:
-            self.err_buffer.seek(0)
-            self.err_buffer.truncate(0)
-        return r
-
-    def __repr__(self):
-        result = ""
-        if self.out_buffer:
-            result += decode(self.out_buffer.getvalue())
-        if self.err_buffer:
-            result += decode(self.err_buffer.getvalue())
-        return result
+        self.auto_clear = auto_clear
+        self._old_level = None
 
     def __enter__(self):
-        if self.out_buffer:
-            sys.stdout = self.out_buffer
-        if self.err_buffer:
-            sys.stderr = self.err_buffer
-        if self.handler:
-            logging.root.handlers = [self.handler]
-
+        self._old_level = LogManager.override_root_level(self.level)
+        for s in self.captured:
+            s.capture()
         if self.anchors:
             Anchored.add(self.anchors)
-
         if self.dryrun is not None:
-            (State.dryrun, self.dryrun) = (bool(self.dryrun), bool(State.dryrun))
-
+            self.dryrun = set_dryrun(self.dryrun)
         return self
 
     def __exit__(self, *args):
-        sys.stdout = self.old_out
-        sys.stderr = self.old_err
-        self.out_buffer = None
-        self.err_buffer = None
-        logging.root.handlers = self.old_handlers
-
+        LogManager.override_root_level(self._old_level)
+        for s in self.captured:
+            s.restore()
         if self.anchors:
             Anchored.pop(self.anchors)
-
         if self.dryrun is not None:
-            State.dryrun = self.dryrun
+            set_dryrun(self.dryrun)
+        if self.auto_clear:
+            self.clear()
+
+    def __repr__(self):
+        return "\n".join("%s: %s" % (s.name, s) for s in self.captured)
+
+    def __eq__(self, other):
+        if isinstance(other, CaptureOutput):
+            return self.stdout == other.stdout and self.stderr == other.stderr and self.log == other.log
+        return str(self).strip() == str(other).strip()
 
     def __contains__(self, item):
-        return item is not None and item in str(self)
+        return any(item in s for s in self.captured)
 
     def __len__(self):
-        return len(str(self))
+        return sum(len(s) for s in self.captured)
+
+    def contents(self):
+        return "".join(s.contents() for s in self.captured)
+
+    def pop(self):
+        """Current content popped, useful for testing"""
+        r = self.contents()
+        self.clear()
+        return r
+
+    def clear(self):
+        """Clear captured content"""
+        for s in self.captured:
+            s.clear()
 
 
 class CurrentFolder:
@@ -182,30 +200,34 @@ class TempFolder:
         :param follow: If True, change working dir to temp folder (and restore)
         """
         self.anchor = anchor
-        self.dryrun = dryrun if dryrun is not None else State.dryrun
-        self.old_cwd = os.getcwd() if follow else None
+        self.dryrun = dryrun
+        self.follow = follow
+        self.old_cwd = None
         self.tmp_folder = None
 
     def __enter__(self):
-        if self.dryrun:
-            self.tmp_folder = SYMBOLIC_TMP
-        else:
+        if self.dryrun is not None:
+            self.dryrun = set_dryrun(self.dryrun)
+        if not is_dryrun():
             # Use realpath() to properly resolve for example symlinks on OSX temp paths
             self.tmp_folder = os.path.realpath(tempfile.mkdtemp())
-            if self.old_cwd:
+            if self.follow:
+                self.old_cwd = os.getcwd()
                 os.chdir(self.tmp_folder)
+        tmp = self.tmp_folder or SYMBOLIC_TMP
         if self.anchor:
-            Anchored.add(self.tmp_folder)
-        return self.tmp_folder
+            Anchored.add(tmp)
+        return tmp
 
     def __exit__(self, *_):
         if self.anchor:
-            Anchored.pop(self.tmp_folder)
-        if not self.dryrun:
-            if self.old_cwd:
-                os.chdir(self.old_cwd)
-            if self.tmp_folder:
-                shutil.rmtree(self.tmp_folder)
+            Anchored.pop(self.tmp_folder or SYMBOLIC_TMP)
+        if self.old_cwd:
+            os.chdir(self.old_cwd)
+        if self.tmp_folder:
+            shutil.rmtree(self.tmp_folder)
+        if self.dryrun is not None:
+            set_dryrun(self.dryrun)
 
 
 def verify_abort(func, *args, **kwargs):
@@ -213,7 +235,7 @@ def verify_abort(func, *args, **kwargs):
     Convenient wrapper around functions that should exit or raise an exception
 
     Example:
-        assert "Can't create folder" in verify_abort(ensure_folder, "/dev/null/foo")
+        assert "Can't create folder" in verify_abort(ensure_folder, "/dev/null/not-there")
 
     :param callable func: Function to execute
     :param args: Args to pass to 'func'
@@ -221,7 +243,7 @@ def verify_abort(func, *args, **kwargs):
     :param kwargs: Named args to pass to 'func'
     :return str: Chatter from call to 'func', if it did indeed raise
     """
-    expected_exception = kwargs.pop("expected_exception", SystemExit)
+    expected_exception = kwargs.pop("expected_exception", AbortException)
     with CaptureOutput() as logged:
         try:
             func(*args, **kwargs)

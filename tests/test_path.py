@@ -1,3 +1,4 @@
+import logging
 import os
 
 from mock import patch
@@ -7,7 +8,7 @@ import runez
 
 SAMPLE_CONF = """
 # Sample .conf (or .ini file)
-root = foo # Definition without section
+root = some-value # Definition without section
 
 [malformed section      # Missing closing square bracket
 malformed definition    # This line has no '=' sign (outside of this comment...), ignored
@@ -28,43 +29,43 @@ k2 =
 """
 
 
-def test_anchor():
-    user_path = runez.resolved_path("~/foo/bar")
-    current_path = runez.resolved_path("./foo/bar")
+def test_anchored():
+    user_path = runez.resolved_path("~/some-folder/bar")
+    current_path = runez.resolved_path("./some-folder/bar")
 
-    assert user_path != "~/foo/bar"
-    assert runez.short(user_path) == "~/foo/bar"
-    assert runez.short(current_path) != "foo/bar"
+    assert user_path != "~/some-folder/bar"
+    assert runez.short(user_path) == "~/some-folder/bar"
+    assert runez.short(current_path) != "some-folder/bar"
 
     with runez.Anchored(os.getcwd()):
-        assert runez.short(current_path) == "foo/bar"
+        assert runez.short(current_path) == "some-folder/bar"
 
 
 def test_basename():
     assert runez.basename(None) == ""
-    assert runez.basename("/foo/bar") == "bar"
-    assert runez.basename("foo/bar.py") == "bar"
-    assert runez.basename("foo/bar.baz.pyc") == "bar.baz"
+    assert runez.basename("/some-folder/bar") == "bar"
+    assert runez.basename("some-folder/bar.py") == "bar"
+    assert runez.basename("some-folder/bar.baz.pyc") == "bar.baz"
 
-    assert runez.basename("foo/bar.py", extension_marker=None) == "bar.py"
+    assert runez.basename("some-folder/bar.py", extension_marker=None) == "bar.py"
 
 
-def test_paths(temp_base):
+def test_paths(temp_folder):
     assert runez.resolved_path(None) is None
-    assert runez.resolved_path("foo") == os.path.join(temp_base, "foo")
-    assert runez.resolved_path("foo", base="bar") == os.path.join(temp_base, "bar", "foo")
+    assert runez.resolved_path("some-file") == os.path.join(temp_folder, "some-file")
+    assert runez.resolved_path("some-file", base="bar") == os.path.join(temp_folder, "bar", "some-file")
 
     assert runez.short(None) is None
     assert runez.short("") == ""
-    assert runez.short(temp_base) == temp_base
+    assert runez.short(temp_folder) == temp_folder
 
-    assert runez.short(temp_base + "/foo") == "foo"
-    assert runez.short(temp_base + "/foo") == "foo"
+    assert runez.short(temp_folder + "/some-file") == "some-file"
+    assert runez.short(temp_folder + "/some-file") == "some-file"
 
     assert runez.parent_folder(None) is None
-    assert runez.parent_folder(temp_base + "/foo") == temp_base
+    assert runez.parent_folder(temp_folder + "/some-file") == temp_folder
 
-    assert runez.represented_args(["ls", temp_base + "/foo bar", "-a"]) == 'ls "foo bar" -a'
+    assert runez.represented_args(["ls", temp_folder + "/some-file bar", "-a"]) == 'ls "some-file bar" -a'
 
     # Don't crash for no-ops
     assert runez.ensure_folder(None) == 0
@@ -72,58 +73,64 @@ def test_paths(temp_base):
     assert runez.copy(None, None) == 0
     assert runez.move(None, None) == 0
     assert runez.symlink(None, None) == 0
-    assert runez.copy("foo", "foo") == 0
-    assert runez.move("foo", "foo") == 0
-    assert runez.symlink("foo", "foo") == 0
+    assert runez.copy("some-file", "some-file") == 0
+    assert runez.move("some-file", "some-file") == 0
+    assert runez.symlink("some-file", "some-file") == 0
 
-    assert runez.ensure_folder("foo") == 0  # 'foo' would be in temp_base, which already exists
+    assert runez.ensure_folder("some-folder") == 0  # 'some-folder' would be in temp_folder, which already exists
 
     with runez.CaptureOutput(dryrun=True) as logged:
-        assert runez.ensure_folder("foo", folder=True, fatal=False) == 1
+        assert runez.ensure_folder("some-folder", folder=True, fatal=False) == 1
         assert "Would create" in logged.pop()
 
-        assert runez.touch("foo", logger=runez.debug) == 1
-        assert "Would touch foo" in logged.pop()
+        assert runez.touch("some-file", logger=logging.debug) == 1
+        assert "Would touch some-file" in logged.pop()
 
-        assert runez.copy("foo", "bar") == 1
-        assert "Would copy foo -> bar" in logged.pop()
+        assert runez.copy("some-file", "bar") == 1
+        assert "Would copy some-file -> bar" in logged.pop()
 
-        assert runez.move("foo", "bar") == 1
-        assert "Would move foo -> bar" in logged.pop()
+        assert runez.move("some-file", "bar") == 1
+        assert "Would move some-file -> bar" in logged.pop()
 
-        assert runez.symlink("foo", "bar") == 1
-        assert "Would symlink foo <- bar" in logged.pop()
+        assert runez.symlink("some-file", "bar") == 1
+        assert "Would symlink some-file <- bar" in logged.pop()
 
-        assert runez.delete(temp_base) == 1
+        assert runez.delete(temp_folder) == 1
         assert "Would delete" in logged.pop()
 
-        assert runez.copy("foo/bar/baz", "foo", fatal=False) == -1
+        assert runez.copy("some-folder/bar/baz", "some-folder", fatal=False) == -1
         assert "source contained in destination" in logged.pop()
 
-        assert runez.move("foo/bar/baz", "foo", fatal=False) == -1
+        assert runez.move("some-folder/bar/baz", "some-folder", fatal=False) == -1
         assert "source contained in destination" in logged.pop()
 
-        assert runez.symlink("foo/bar/baz", "foo", fatal=False) == -1
+        assert runez.symlink("some-folder/bar/baz", "some-folder", fatal=False) == -1
         assert "source contained in destination" in logged.pop()
 
     assert runez.touch("sample") == 1
     assert "Can't create folder" in runez.verify_abort(runez.ensure_folder, "sample", folder=True)
+    custom = runez.verify_abort(runez.ensure_folder, "sample", folder=True, fatal=SystemExit, expected_exception=SystemExit)
+    assert "Can't create folder" in custom
     assert runez.verify_abort(runez.ensure_folder, None) is None
+
+    runez.system.AbortException = str
+    assert runez.ensure_folder("sample", folder=True, fatal=True) == "1"
+    runez.system.AbortException = SystemExit
 
     assert runez.delete("sample") == 1
     assert runez.ensure_folder("sample", folder=True) == 1
-    assert os.getcwd() == temp_base
+    assert os.getcwd() == temp_folder
     with runez.CurrentFolder("sample", anchor=False):
         cwd = os.getcwd()
-        sample = os.path.join(temp_base, "sample")
+        sample = os.path.join(temp_folder, "sample")
         assert cwd == sample
-        assert runez.short(os.path.join(cwd, "foo")) == "sample/foo"
+        assert runez.short(os.path.join(cwd, "some-file")) == "sample/some-file"
     with runez.CurrentFolder("sample", anchor=True):
         cwd = os.getcwd()
-        sample = os.path.join(temp_base, "sample")
+        sample = os.path.join(temp_folder, "sample")
         assert cwd == sample
-        assert runez.short(os.path.join(cwd, "foo")) == "foo"
-    assert os.getcwd() == temp_base
+        assert runez.short(os.path.join(cwd, "some-file")) == "some-file"
+    assert os.getcwd() == temp_folder
 
     assert runez.delete("sample") == 1
 
@@ -131,7 +138,7 @@ def test_paths(temp_base):
         sample = os.path.join(os.path.dirname(__file__), "sample.txt")
         content = runez.get_lines(sample)
 
-        assert runez.write("sample", "".join(content), fatal=False, logger=runez.debug) == 1
+        assert runez.write("sample", "".join(content), fatal=False, logger=logging.debug) == 1
         assert runez.get_lines("sample") == content
         assert "Writing 13 bytes" in logged.pop()
 
@@ -167,8 +174,8 @@ def test_paths(temp_base):
 
     assert runez.touch(None) == 0
     assert not runez.is_younger(None, 1)
-    assert not runez.is_younger("/dev/null/foo", 1)
-    assert runez.first_line("/dev/null/foo") is None
+    assert not runez.is_younger("/dev/null/not-there", 1)
+    assert runez.first_line("/dev/null/not-there") is None
 
     assert runez.get_lines(None) is None
 
@@ -185,48 +192,81 @@ def test_failed_read(*_):
         assert runez.get_lines("bar", fatal=False) is None
         assert "Can't read" in logged.pop()
 
-        assert runez.write("bar", "foo", fatal=False)
+        assert runez.write("bar", "some content", fatal=False)
         assert "Can't write" in logged.pop()
 
-        assert runez.copy("foo", "bar", fatal=False) == -1
+        assert runez.copy("some-file", "bar", fatal=False) == -1
         assert "Can't delete" in logged
         assert "Can't copy" in logged.pop()
 
-        assert runez.make_executable("foo", fatal=False) == -1
+        assert runez.make_executable("some-file", fatal=False) == -1
         assert "Can't chmod" in logged.pop()
 
 
 def test_temp():
+    cwd = os.getcwd()
+
     with runez.CaptureOutput(anchors=["/tmp", "/etc"]) as logged:
         with runez.TempFolder() as tmp:
             assert os.path.isdir(tmp)
-            assert tmp != "<tmp>"
+            assert tmp != runez.convert.SYMBOLIC_TMP
         assert not os.path.isdir(tmp)
+        assert os.getcwd() == cwd
 
-        assert runez.short("/tmp/foo") == "foo"
-        assert runez.short("/etc/foo") == "foo"
+        assert runez.short("/tmp/some-file") == "some-file"
+        assert runez.short("/etc/some-file") == "some-file"
 
         assert not logged
 
+    symbolic = "%s/some-file" % runez.convert.SYMBOLIC_TMP
     with runez.CaptureOutput(dryrun=True) as logged:
+        assert os.getcwd() == cwd
         with runez.TempFolder() as tmp:
-            assert tmp == "<tmp>"
-            assert runez.short("<tmp>/foo") == "foo"
+            assert tmp == runez.convert.SYMBOLIC_TMP
+            assert runez.short(symbolic) == "some-file"
 
+        assert os.getcwd() == cwd
         with runez.TempFolder(anchor=False) as tmp:
-            assert tmp == "<tmp>"
-            assert runez.short("<tmp>/foo") == "<tmp>/foo"
+            assert tmp == runez.convert.SYMBOLIC_TMP
+            assert runez.short(symbolic) == symbolic
 
         assert not logged
+
+    assert os.getcwd() == cwd
 
 
 def test_conf():
     assert runez.get_conf(None) is None
 
-    expected = {None: {"root": "foo"}, "": {"ek": "ev"}, "s1": {"k1": "v1"}, "s2": {"k2": ""}}
+    expected = {None: {"root": "some-value"}, "": {"ek": "ev"}, "s1": {"k1": "v1"}, "s2": {"k2": ""}}
     assert runez.get_conf(SAMPLE_CONF.splitlines(), keep_empty=True) == expected
 
     del expected[None]
     del expected[""]
     del expected["s2"]
     assert runez.get_conf(SAMPLE_CONF.splitlines(), keep_empty=False) == expected
+
+
+def test_resolved_location(temp_folder):
+    class Record:
+        appname = "my-name"
+        filename = "{appname}.txt"
+        folder = "my-folder"
+
+    assert runez.path.resolved_location(None) is None
+    assert runez.path.resolved_location(Record, custom_location="") is None
+    assert runez.path.resolved_location(None, custom_location="appname") is None
+    assert runez.path.resolved_location(Record, custom_location="appname") == "appname"
+    assert runez.path.resolved_location(Record, custom_location="{appname}") == "my-name"
+
+    # 'my-folder' is auto-created
+    assert runez.path.resolved_location(Record, locations=["{folder}/{filename}"]) == "my-folder/my-name.txt"
+    assert os.path.isdir("my-folder")
+    assert runez.path.resolved_location(Record, locations=["{folder}"], basename="{filename}") == "my-folder/my-name.txt"
+
+    # my-folder/my-name.txt becomes not usable if 'my-folder' is an existing file
+    runez.delete("my-folder")
+    runez.touch("my-folder")
+    assert runez.path.resolved_location(Record, locations=["{folder}/{filename}"]) is None
+    assert runez.path.resolved_location(Record, locations=["{folder}/{filename}", "folder2/{filename}"]) == "folder2/my-name.txt"
+    assert os.path.isdir("folder2")

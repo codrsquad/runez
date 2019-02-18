@@ -4,10 +4,15 @@ Convenience methods for (de)serializing objects
 
 import io
 import json
+import logging
 import os
 
-from runez.base import abort, debug, short, State, string_type
-from runez.path import ensure_folder, resolved_path
+from runez.base import string_type
+from runez.convert import resolved_path, short
+from runez.path import ensure_folder
+from runez.system import abort, is_dryrun
+
+LOG = logging.getLogger(__name__)
 
 
 def type_name(value):
@@ -68,14 +73,14 @@ class Serializable:
         for key, value in data.items():
             key = key.replace("-", "_")
             if not hasattr(self, key):
-                debug("%s is not an attribute of %s", key, self.__class__.__name__)
+                LOG.debug("%s is not an attribute of %s", key, self.__class__.__name__)
                 continue
 
             attr = getattr(self, key)
             if attr is not None and not same_type(value, attr):
                 source = getattr(self, "_source", None)
                 origin = " in %s" % source if source else ""
-                debug("Wrong type '%s' for %s.%s%s, expecting '%s'", type_name(value), type_name(self), key, origin, type_name(attr))
+                LOG.debug("Wrong type '%s' for %s.%s%s, expecting '%s'", type_name(value), type_name(self), key, origin, type_name(attr))
                 continue
 
             setattr(self, key, value)
@@ -180,8 +185,8 @@ def save_json(data, path, fatal=True, logger=None, sort_keys=True, indent=2):
     try:
         path = resolved_path(path)
         ensure_folder(path, fatal=fatal, logger=None)
-        if State.dryrun:
-            debug("Would save %s", short(path))
+        if is_dryrun():
+            LOG.info("Would save %s", short(path))
             return 1
 
         if hasattr(data, "to_dict"):

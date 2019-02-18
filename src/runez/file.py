@@ -1,15 +1,19 @@
 import io
+import logging
 import os
 import shutil
 
-from runez.base import abort, debug, decode, short, State
-from runez.path import ensure_folder, parent_folder, resolved_path
+from runez.base import decode
+from runez.convert import resolved_path, short
+from runez.path import ensure_folder, parent_folder
+from runez.system import abort, is_dryrun
 
 
+LOG = logging.getLogger(__name__)
 TEXT_THRESHOLD_SIZE = 16384  # Max size in bytes to consider a file a "text file"
 
 
-def copy(source, destination, adapter=None, fatal=True, logger=debug):
+def copy(source, destination, adapter=None, fatal=True, logger=LOG.debug):
     """
     Copy source -> destination
 
@@ -23,7 +27,7 @@ def copy(source, destination, adapter=None, fatal=True, logger=debug):
     return _file_op(source, destination, _copy, adapter, fatal, logger)
 
 
-def delete(path, fatal=True, logger=debug):
+def delete(path, fatal=True, logger=LOG.debug):
     """
     :param str|None path: Path to file or folder to delete
     :param bool|None fatal: Abort execution on failure if True
@@ -34,8 +38,8 @@ def delete(path, fatal=True, logger=debug):
     if not islink and (not path or not os.path.exists(path)):
         return 0
 
-    if State.dryrun:
-        debug("Would delete %s", short(path))
+    if is_dryrun():
+        LOG.debug("Would delete %s", short(path))
         return 1
 
     if logger:
@@ -135,7 +139,7 @@ def get_lines(path, max_size=TEXT_THRESHOLD_SIZE, fatal=True, default=None):
         return abort("Can't read %s: %s", short(path), e, fatal=(fatal, default))
 
 
-def move(source, destination, adapter=None, fatal=True, logger=debug):
+def move(source, destination, adapter=None, fatal=True, logger=LOG.debug):
     """
     Move source -> destination
 
@@ -149,7 +153,7 @@ def move(source, destination, adapter=None, fatal=True, logger=debug):
     return _file_op(source, destination, _move, adapter, fatal, logger)
 
 
-def symlink(source, destination, adapter=None, must_exist=True, fatal=True, logger=debug):
+def symlink(source, destination, adapter=None, must_exist=True, fatal=True, logger=LOG.debug):
     """
     Symlink source <- destination
 
@@ -184,9 +188,9 @@ def write(path, contents, fatal=True, logger=None):
     if not path:
         return 0
 
-    if State.dryrun:
+    if is_dryrun():
         action = "write %s bytes to" % len(contents) if contents else "touch"
-        debug("Would %s %s", action, short(path))
+        LOG.debug("Would %s %s", action, short(path))
         return 1
 
     ensure_folder(path, fatal=fatal, logger=logger)
@@ -250,8 +254,8 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True)
             "Can't %s %s %s %s: source contained in destination", action, short(source), indicator, short(destination), fatal=(fatal, -1)
         )
 
-    if State.dryrun:
-        debug("Would %s %s %s %s", action, short(source), indicator, short(destination))
+    if is_dryrun():
+        LOG.debug("Would %s %s %s %s", action, short(source), indicator, short(destination))
         return 1
 
     if must_exist and not os.path.exists(source):

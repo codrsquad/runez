@@ -2,12 +2,19 @@
 Convenience methods for executing programs
 """
 
+import logging
 import os
 import subprocess  # nosec
 import sys
 import time
 
-from runez.base import abort, debug, decode, flattened, represented_args, short, State
+from runez.base import decode
+from runez.convert import flattened, represented_args, short
+from runez.system import abort, is_dryrun
+
+
+LOG = logging.getLogger(__name__)
+DEV_FOLDERS = ("venv", ".venv", ".tox", "build")
 
 
 def check_pid(pid):
@@ -21,6 +28,26 @@ def check_pid(pid):
 
     except (OSError, TypeError):
         return False
+
+
+def get_dev_folder(path=sys.prefix):
+    """
+    :param str path: Path to examine
+    :return str|None: Path to development build folder, such as .venv, .tox etc, if any
+    """
+    if not path or len(path) <= 4:
+        return None
+    dirpath, basename = os.path.split(path)
+    if basename in DEV_FOLDERS:
+        return path
+    return get_dev_folder(dirpath)
+
+
+def get_program_path(path=sys.argv[0]):
+    """
+    :return str: Path of currently running program
+    """
+    return which(path) or path
 
 
 def is_executable(path):
@@ -53,8 +80,8 @@ def make_executable(path, fatal=True):
     if is_executable(path):
         return 0
 
-    if State.dryrun:
-        debug("Would make %s executable", short(path))
+    if is_dryrun():
+        LOG.debug("Would make %s executable", short(path))
         return 1
 
     if not os.path.exists(path):
@@ -73,9 +100,9 @@ def run(program, *args, **kwargs):
     args = flattened(args, unique=False)
     full_path = which(program)
 
-    logger = kwargs.pop("logger", debug)
+    logger = kwargs.pop("logger", LOG.debug)
     fatal = kwargs.pop("fatal", True)
-    dryrun = kwargs.pop("dryrun", State.dryrun)
+    dryrun = kwargs.pop("dryrun", is_dryrun())
     include_error = kwargs.pop("include_error", False)
 
     message = "Would run" if dryrun else "Running"

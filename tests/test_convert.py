@@ -1,16 +1,14 @@
-from mock import patch
-
 import runez
 
 
-def test_shortening():
+def test_shortened():
     assert runez.shortened("") == ""
     assert runez.shortened(" some text ") == "some text"
     assert runez.shortened("some long text", size=9) == "some l..."
     assert runez.shortened("some long text", size=8) == "some..."
 
 
-def test_flattening():
+def test_flattened():
     assert runez.flattened(None) == []
     assert runez.flattened("") == []
 
@@ -40,7 +38,22 @@ def test_flattening():
     assert runez.represented_args([1, 2], separator="+") == "1+2"
 
 
-def test_quoting():
+def test_formatted():
+    class Record:
+        basename = "my-name"
+        filename = "{basename}.txt"
+
+    assert runez.formatted("") == ""
+    assert runez.formatted("", Record) == ""
+    assert runez.formatted("{not_there}", Record) is None
+    assert runez.formatted("{not_there}", Record, name="susan") is None
+    assert runez.formatted("{not_there}", Record, not_there="psyched!") == "psyched!"
+    assert runez.formatted("{filename}", Record) == "my-name.txt"
+    assert runez.formatted("{basename}/{filename}", Record) == "my-name/my-name.txt"
+    assert runez.formatted("{filename}") == "{filename}"
+
+
+def test_quoted():
     assert runez.quoted(None) is None
     assert runez.quoted("") == ""
     assert runez.quoted(" ") == '" "'
@@ -51,7 +64,7 @@ def test_quoting():
     assert runez.quoted('foo a="b"') == """'foo a="b"'"""
 
 
-def test_conversion():
+def test_to_int():
     # bogus
     assert runez.to_int(None) is None
     assert runez.to_int(None, default=0) == 0
@@ -61,14 +74,3 @@ def test_conversion():
     # valid
     assert runez.to_int(5, default=3) == 5
     assert runez.to_int("5", default=3) == 5
-
-
-def test_version():
-    v1 = runez.get_version(runez)
-    v2 = runez.get_version(runez.__name__)
-    assert v1 == v2
-
-    with runez.CaptureOutput() as logged:
-        with patch("pkg_resources.get_distribution", side_effect=Exception("testing")):
-            assert runez.get_version(runez) == "0.0.0"
-        assert "Can't determine version for runez" in logged

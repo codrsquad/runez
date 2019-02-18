@@ -35,6 +35,8 @@ Features
 
 - Support for ``dryrun`` mode (show what would be done, but don't do it)
 
+- Perform most typical logging setups in one call to ``runez.log.setup()``
+
 - Log operations systematically (at debug level mostly), examples::
 
     Running: foo ...
@@ -47,7 +49,7 @@ Features
 
 - Functions can be called without checking for return code etc (abort by default, with nice error)
 
-- They can also be called with ``fatal=False`` for inspection
+- They can also be called with ``fatal=False``, in which case the return value will indicate whether call succeeded or not
 
 - 100% test coverage
 
