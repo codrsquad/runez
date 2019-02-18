@@ -190,6 +190,15 @@ class LogManager:
             logger(message)
 
     @classmethod
+    def silence(cls, *modules):
+        """
+        :param modules: Modules, or names of modules to silence, by setting their log level to WARNING
+        """
+        for mod in modules:
+            name = mod.__name__ if hasattr(mod, "__name__") else mod
+            logging.getLogger(name).setLevel(logging.WARNING)
+
+    @classmethod
     def is_using_format(cls, markers, used_formats=None):
         """
         :param str markers: Space separated list of markers to look for

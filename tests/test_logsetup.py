@@ -96,10 +96,20 @@ def test_level(temp_log):
 
 
 def test_console(temp_log):
+    logger = logging.getLogger("runez")
+    old_level = logger.level
     runez.log.setup(location="")
+
     assert temp_log.logfile is None
-    logging.info("hello")
+    logger.info("hello")
     assert "INFO hello" in temp_log.stderr
+
+    temp_log.logged.clear()
+    runez.log.silence(runez)
+    logger.info("hello")
+    assert not temp_log.logged
+
+    logger.setLevel(old_level)
 
 
 def test_no_context(temp_log):
