@@ -81,6 +81,7 @@ def test_default(temp_log):
     logging.info("hello")
 
     temp_log.expect_logged("UTC [MainThread] [[version=1.0,worker=joe]] INFO - hello")
+    assert " logging to " in temp_log.stderr
     assert "INFO hello" in temp_log.stderr
 
 

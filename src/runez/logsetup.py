@@ -4,6 +4,7 @@ Convenience logging setup
 
 import inspect
 import logging
+import os
 import signal
 import sys
 import threading
@@ -18,7 +19,7 @@ except ImportError:
 
 import runez.system
 from runez.base import Slotted, ThreadGlobalContext
-from runez.convert import flattened
+from runez.convert import flattened, formatted
 from runez.path import basename as get_basename, resolved_location
 from runez.program import get_dev_folder, get_program_path
 
@@ -55,7 +56,7 @@ class LogSpec(Slotted):
 
     __slots__ = [
         "appname", "basename", "level", "console_stream", "locations", "rotate",
-        "console_format", "file_format", "context_format", "timezone", "dev", "tmp",
+        "console_format", "file_format", "context_format", "timezone", "dev", "tmp", "greeting",
     ]
 
     def resolved_location(self, custom_location):
@@ -107,7 +108,7 @@ class LogManager:
     _default_spec = LogSpec(
         appname=get_basename(get_program_path()),
         basename="{appname}.log",
-        level=logging.root.level,
+        level=logging.INFO,
         console_stream=sys.stderr,
         locations=["{dev}/log/{basename}", "/logs/{appname}/{basename}", "/var/log/{basename}"],
         rotate=None,
@@ -115,6 +116,7 @@ class LogManager:
         file_format="%(asctime)s %(timezone)s [%(threadName)s] %(context)s%(levelname)s - %(message)s",
         context_format="[[%s]] ",
         timezone=runez.system.get_timezone(),
+        greeting="Pid {pid}, logging to {location}",
     )
 
     # Spec defines how logs should be setup()
@@ -171,6 +173,21 @@ class LogManager:
             if cls.context.filter:
                 for handler in cls.handlers:
                     handler.addFilter(cls.context.filter)
+
+            if cls.file_handler and cls.spec.greeting:
+                message = formatted(cls.spec.greeting, pid=os.getpid(), location=location)
+                cls.greet(message)
+
+    @classmethod
+    def greet(cls, message, logger=None):
+        """
+        :param str message: Message to log
+        :param logger: Logger to use (default: logging.debug)
+        """
+        if message:
+            if logger is None:
+                logger = logging.debug
+            logger(message)
 
     @classmethod
     def is_using_format(cls, markers, used_formats=None):

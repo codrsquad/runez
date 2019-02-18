@@ -41,6 +41,7 @@ def formatted(text, *args, **kwargs):
         val = _find_value(key, objects)
         if val is None:
             return None
+        val = str(val)
         markers.extend(m for m in RE_FORMAT_MARKERS.findall(val) if m not in values)
         values[key] = val
     for key, val in values.items():
