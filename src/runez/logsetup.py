@@ -168,8 +168,7 @@ class LogManager:
 
             if cls.is_using_format("%(context)s"):
                 cls.context.enable()
-            if cls.is_using_format("%(name)s"):
-                cls._fix_logging_shortcuts()
+            cls._fix_logging_shortcuts()
             if cls.context.filter:
                 for handler in cls.handlers:
                     handler.addFilter(cls.context.filter)

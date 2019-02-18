@@ -234,18 +234,22 @@ class ClickRunner:
     def expect_messages(self, *expected, **kwargs):
         for message in expected:
             if message[0] == "!":
-                assert not self.match(message[1:], **kwargs)
+                m = self.match(message[1:], **kwargs)
+                if m:
+                    assert False, "Unexpected match in output: %s" % m
             else:
-                assert self.match(message, **kwargs)
+                m = self.match(message, **kwargs)
+                if not m:
+                    assert False, "Not seen in output: %s" % message
 
     def expect_success(self, args, *expected, **kwargs):
         self.run(args)
-        assert self.succeeded
+        assert self.succeeded, "%s failed, was expecting success:\n%s" % (args, self.logged)
         self.expect_messages(*expected, **kwargs)
 
     def expect_failure(self, args, *expected, **kwargs):
         self.run(args)
-        assert self.failed
+        assert self.failed, "%s succeeded, was expecting failure:\n%s" % (args, self.logged)
         self.expect_messages(*expected, **kwargs)
 
 

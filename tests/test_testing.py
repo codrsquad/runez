@@ -57,3 +57,15 @@ def test_crash(cli):
     with pytest.raises(AssertionError):
         # No captures specified
         assert cli.match("crashed...hello", stdout=False, stderr=False, log=False)
+
+    with pytest.raises(AssertionError):
+        # Expect success failed
+        cli.expect_success("hello")
+
+    with pytest.raises(AssertionError):
+        # Unexpected message seen in output
+        cli.expect_failure("hello", "!crashed...hello")
+
+    with pytest.raises(AssertionError):
+        # Expected message not seen in output
+        cli.expect_failure("hello", "this message shouldn't appear")
