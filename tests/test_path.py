@@ -245,28 +245,3 @@ def test_conf():
     del expected[""]
     del expected["s2"]
     assert runez.get_conf(SAMPLE_CONF.splitlines(), keep_empty=False) == expected
-
-
-def test_resolved_location(temp_folder):
-    class Record:
-        appname = "my-name"
-        filename = "{appname}.txt"
-        folder = "my-folder"
-
-    assert runez.path.resolved_location(None) is None
-    assert runez.path.resolved_location(Record, custom_location="") is None
-    assert runez.path.resolved_location(None, custom_location="appname") is None
-    assert runez.path.resolved_location(Record, custom_location="appname") == "appname"
-    assert runez.path.resolved_location(Record, custom_location="{appname}") == "my-name"
-
-    # 'my-folder' is auto-created
-    assert runez.path.resolved_location(Record, locations=["{folder}/{filename}"]) == "my-folder/my-name.txt"
-    assert os.path.isdir("my-folder")
-    assert runez.path.resolved_location(Record, locations=["{folder}"], basename="{filename}") == "my-folder/my-name.txt"
-
-    # my-folder/my-name.txt becomes not usable if 'my-folder' is an existing file
-    runez.delete("my-folder")
-    runez.touch("my-folder")
-    assert runez.path.resolved_location(Record, locations=["{folder}/{filename}"]) is None
-    assert runez.path.resolved_location(Record, locations=["{folder}/{filename}", "folder2/{filename}"]) == "folder2/my-name.txt"
-    assert os.path.isdir("folder2")

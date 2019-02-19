@@ -17,11 +17,18 @@ def test_logspec(isolated_log_setup):
     assert s1 == s2
     assert s1.appname == "pytest"
     assert s1.timezone == "UTC"
+    assert s1.should_log_to_file
+    assert s1.usable_location() == "/tmp/pytest.log"
 
-    s1.set(appname="testing", timezone=None)
+    s1.set(appname="testing", timezone=None, locations=[s1.tmp])
     assert s1.appname == "testing"
     assert s1.timezone is None
+    assert s1.usable_location() == "/tmp/testing.log"
     assert s1 != s2
+
+    s1.custom_location = ""
+    assert not s1.should_log_to_file
+    assert s1.usable_location() is None
 
     s1.set(s2)
     assert s1 == s2
@@ -79,15 +86,17 @@ def test_default(temp_log):
     runez.log.setup()
 
     assert temp_log.logfile == "pytest.log"
+    assert "Logging to" in temp_log.stderr
     logging.info("hello")
 
     temp_log.expect_logged("UTC [MainThread] [[version=1.0,worker=joe]] INFO - hello")
-    assert " logging to " in temp_log.stderr
     assert "INFO hello" in temp_log.stderr
 
 
 def test_level(temp_log):
     runez.log.setup(file_format=None, level=logging.INFO)
+
+    assert not temp_log.logged
     assert temp_log.logfile is None
     logging.debug("debug msg")
     logging.info("info msg")
@@ -98,7 +107,7 @@ def test_level(temp_log):
 def test_console(temp_log):
     logger = logging.getLogger("runez")
     old_level = logger.level
-    runez.log.setup(location="")
+    runez.log.setup(custom_location="")
 
     assert temp_log.logfile is None
     logger.info("hello")
@@ -187,7 +196,8 @@ def test_convenience(temp_log):
     assert "test_logsetup f:test_logsetup.py mod:test_logsetup func:test_convenience ERROR oops" in temp_log.stderr
 
 
-def test_not_writable(isolated_log_setup):
+def test_not_writable(temp_log):
     with patch("runez.path.os.access", return_value=False):
         runez.log.setup()
+        assert "No usable log locations" in temp_log.stderr
         assert runez.log.file_handler is None

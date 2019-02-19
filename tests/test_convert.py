@@ -43,13 +43,32 @@ def test_formatted():
         basename = "my-name"
         filename = "{basename}.txt"
 
+    assert runez.formatted("{filename}", Record) == "my-name.txt"
+    assert runez.formatted("{basename}/{filename}", Record) == "my-name/my-name.txt"
+
     assert runez.formatted("") == ""
     assert runez.formatted("", Record) == ""
     assert runez.formatted("{not_there}", Record) is None
     assert runez.formatted("{not_there}", Record, name="susan") is None
     assert runez.formatted("{not_there}", Record, not_there="psyched!") == "psyched!"
-    assert runez.formatted("{filename}", Record) == "my-name.txt"
-    assert runez.formatted("{basename}/{filename}", Record) == "my-name/my-name.txt"
+    assert runez.formatted("{not_there}", Record, strict=False) == "{not_there}"
+
+    deep = dict(a="a", b="b", aa="{a}", bb="{b}", ab="{aa}{bb}", ba="{bb}{aa}", abba="{ab}{ba}", deep="{abba}")
+    assert runez.formatted("{deep}", deep, max_depth=-1) == "{deep}"
+    assert runez.formatted("{deep}", deep, max_depth=0) == "{deep}"
+    assert runez.formatted("{deep}", deep, max_depth=1) == "{abba}"
+    assert runez.formatted("{deep}", deep, max_depth=2) == "{ab}{ba}"
+    assert runez.formatted("{deep}", deep, max_depth=3) == "{aa}{bb}{bb}{aa}"
+    assert runez.formatted("{deep}", deep, max_depth=4) == "{a}{b}{b}{a}"
+    assert runez.formatted("{deep}", deep, max_depth=5) == "abba"
+    assert runez.formatted("{deep}", deep, max_depth=6) == "abba"
+
+    cycle = dict(a="{b}", b="{a}")
+    assert runez.formatted("{a}", cycle, max_depth=0) == "{a}"
+    assert runez.formatted("{a}", cycle, max_depth=1) == "{b}"
+    assert runez.formatted("{a}", cycle, max_depth=2) == "{a}"
+    assert runez.formatted("{a}", cycle, max_depth=3) == "{b}"
+
     assert runez.formatted("{filename}") == "{filename}"
 
 

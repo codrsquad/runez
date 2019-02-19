@@ -29,25 +29,34 @@ def formatted(text, *args, **kwargs):
     :param kwargs: Optional values provided as named args
     :return str: Attributes from this class are expanded if mentioned
     """
+    strict = kwargs.pop("strict", True)
+    max_depth = kwargs.pop("max_depth", 3)
     objects = list(args) + [kwargs] if kwargs else args[0] if len(args) == 1 else args
     if not text or not objects:
         return text
-    values = {}
+    definitions = {}
     markers = RE_FORMAT_MARKERS.findall(text)
     while markers:
         key = markers.pop()
-        if key in values:
+        if key in definitions:
             continue
         val = _find_value(key, objects)
-        if val is None:
+        if strict and val is None:
             return None
-        val = str(val)
-        markers.extend(m for m in RE_FORMAT_MARKERS.findall(val) if m not in values)
-        values[key] = val
-    for key, val in values.items():
-        if '{' in val:
-            values[key] = values[key].format(**values)
-    return text.format(**values)
+        val = str(val) if val is not None else "{%s}" % key
+        markers.extend(m for m in RE_FORMAT_MARKERS.findall(val) if m not in definitions)
+        definitions[key] = val
+    if not max_depth or not isinstance(max_depth, int) or max_depth <= 0:
+        return text
+    expanded = dict((k, _rformat(k, v, definitions, max_depth)) for k, v in definitions.items())
+    return text.format(**expanded)
+
+
+def _rformat(key, value, definitions, max_depth):
+    if max_depth > 1 and value and "{" in value:
+        value = value.format(**definitions)
+        return _rformat(key, value, definitions, max_depth=max_depth - 1)
+    return value
 
 
 def quoted(text):

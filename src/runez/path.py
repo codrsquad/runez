@@ -5,7 +5,7 @@ Convenience methods for file/folder operations
 import logging
 import os
 
-from runez.convert import formatted, resolved_path, short
+from runez.convert import resolved_path, short
 from runez.system import abort, is_dryrun
 
 
@@ -74,30 +74,3 @@ def parent_folder(path, base=None):
     :return str: Absolute path of parent folder of 'path'
     """
     return path and os.path.dirname(resolved_path(path, base=base))
-
-
-def resolved_location(obj, custom_location=None, locations=None, basename=None):
-    """
-    :param obj: Object to expand formatting markers from, via formatted()
-    :param str|None custom_location: Custom location to use (overrides further determination)
-    :param list|None locations: Locations to try
-    :param str|None basename: Filename to use if resolved location points to a folder
-    :return str|None: Path to location to use, if it could be determined
-    """
-    if obj is not None:
-        if custom_location is not None:
-            # Custom location typically provided via --config CLI flag
-            return _auto_complete_filename(obj, formatted(custom_location, obj), basename)
-        if locations:
-            for location in locations:
-                path = _auto_complete_filename(obj, formatted(location, obj), basename)
-                if path and ensure_folder(path, fatal=False, dryrun=False) >= 0:
-                    return path
-
-
-def _auto_complete_filename(obj, location, filename):
-    if location:
-        if filename is not None and os.path.isdir(location):
-            filename = formatted(filename, obj)
-            return filename and os.path.join(location, filename)
-        return location
