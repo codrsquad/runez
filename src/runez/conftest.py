@@ -22,9 +22,9 @@ runez.log.override_spec(appname="pytest", timezone="UTC", locations=["{tmp}/{bas
 
 
 class IsolatedLogs:
-    """
-    Allows to isolate changes to logging setup.
-    This should only be useful for testing (as in general, logging setup is a global thing)
+    """Allows to isolate changes to logging setup.
+
+    This should only be useful for testing (as in general, logging setup is a global thing).
     """
 
     def __enter__(self):
@@ -37,8 +37,7 @@ class IsolatedLogs:
 
 @pytest.fixture
 def cli():
-    """
-    Convenience for click CLI testing.
+    """Convenience for click CLI testing.
 
     Example usage:
 
@@ -54,7 +53,6 @@ def cli():
             assert cli.match("Usage:")
             # or more specifically
             assert "Usage:" in cli.logged.stdout
-
     """
     yield ClickRunner()
 

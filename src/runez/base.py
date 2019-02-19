@@ -21,18 +21,40 @@ except NameError:
 UNSET = object()
 
 
-def decode(value):
-    """Python 2/3 friendly decoding of output"""
+def decode(value, strip=False):
+    """Python 2/3 friendly decoding of output.
+
+    Args:
+      value (str, bytes, optional): The value to decode.
+      strip (bool): If True, `strip()` the returned string.
+
+    Returns:
+        str: Decoded value, if applicable.
+
+    """
+    if value is None:
+        return None
     if isinstance(value, bytes) and not isinstance(value, str):
+        if strip:
+            return value.decode("utf-8").strip()
         return value.decode("utf-8")
+    if strip:
+        return unicode(value).strip()
     return unicode(value)
 
 
 class prop(object):
-    """
-    Decorator for settable cached properties.
+    """Decorator for settable cached properties.
+
     This comes in handy for properties you'd like to avoid computing multiple times,
     yet be able to arbitrarily change them as well, and be able to know when they get changed.
+
+    Attributes:
+        function (callable): Decorated function that will compute the `get()` of this property.
+        name (str): Name of property (name of implementing function).
+        field_name (str): Internal field name that will be used to cache value of this property.
+        on_prop (callable, optional): Reference to `__on_prop()` function in implementation class, notified on preprty set if present.
+
     """
 
     def __init__(self, func):
@@ -90,10 +112,26 @@ class Slotted(object):
             return True
 
     def _set(self, name, value):
+        """Set field with `name` to `value`.
+
+        Args:
+          name (str): Name of slot to set.
+          value: Associated value
+
+        """
         setattr(self, name, value)
 
     def set(self, *args, **kwargs):
-        """Conveniently set one or more fields at a time"""
+        """Conveniently set one or more fields at a time.
+
+        Args:
+          *args: Optionally set from another `Slotted` object, this is passed as `*args` only to allow for that optionality
+          **kwargs: Set from given key/value pairs (names must be valid, ie be defined in __slots__)
+
+        Raises:
+            ValueError: If any of paramters is invalid.
+
+        """
         if args:
             if kwargs:
                 raise ValueError("Provide either one positional, or field values as named arguments, but not both")
@@ -106,16 +144,16 @@ class Slotted(object):
                 return
             raise ValueError("Argument is not of type %s: %s" % (self.__class__.__name__, args[0]))
         for name in kwargs:
-            if not hasattr(self, name):
+            if name not in self.__slots__:
                 raise ValueError("Unknown %s field '%s'" % (self.__class__.__name__, name))
             self._set(name, kwargs[name])
 
 
 class ThreadGlobalContext:
-    """
-    Thread-local + global context, composed of key/value pairs
-    Thread-local context is a dict per thread (stored in a threading.local())
-    Global context is a simple dict (applies to all threads)
+    """Thread-local + global context, composed of key/value pairs.
+
+    Thread-local context is a dict per thread (stored in a threading.local()).
+    Global context is a simple dict (applies to all threads).
     """
 
     def __init__(self, filter_type):
@@ -237,9 +275,14 @@ else:
 
 
 def _find_on_prop(frame):
-    """
-    :param frame frame: Frame to examine
-    :return function|None, bool: __on_prop function if any, boolean indicates whether that function takes 'prop' as argument
+    """Find `__on_prop` function to notify on `@prop` change, if any.
+
+    Args:
+      frame (frame): Frame to examine.
+
+    Returns:
+        tuple of (callable, bool): __on_prop function if any, boolean indicates whether that function takes 'prop' as argument.
+
     """
     for name, func in frame.f_locals.items():
         if name.endswith("__on_prop"):

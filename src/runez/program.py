@@ -125,12 +125,8 @@ def run(program, *args, **kwargs):
             kwargs["env"] = added_env_paths(path_env, env=kwargs.get("env"))
         p = subprocess.Popen(args, stdout=stdout, stderr=stderr, **kwargs)  # nosec
         output, err = p.communicate()
-        output = decode(output)
-        err = decode(err)
-        if output is not None:
-            output = output.strip()
-        if err is not None:
-            err = err.strip()
+        output = decode(output, strip=True)
+        err = decode(err, strip=True)
 
         if p.returncode and fatal is not None:
             note = ": %s\n%s" % (err, output) if output or err else ""
