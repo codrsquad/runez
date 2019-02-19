@@ -131,6 +131,7 @@ class ClickWrapper:
         """
         try:
             from click.testing import CliRunner
+
             return CliRunner  # pragma: no cover, click used only if installed
 
         except ImportError:
@@ -228,7 +229,7 @@ class ClickRunner:
             elif expected in contents:
                 i = contents.index(expected)
                 pre = runez.shortened(contents[:i], 32)
-                post = runez.shortened(contents[i+len(expected):], 32)
+                post = runez.shortened(contents[i + len(expected):], 32)
                 return Match(c, expected, pre=pre, post=post)
 
     def expect_messages(self, *expected, **kwargs):

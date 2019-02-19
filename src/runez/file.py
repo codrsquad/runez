@@ -89,7 +89,7 @@ def get_conf(path, fatal=True, keep_empty=False, default=None):
         section = None
         for line in lines:
             line = decode(line).strip()
-            if '#' in line:
+            if "#" in line:
                 i = line.index("#")
                 line = line[:i].strip()
 
@@ -165,7 +165,7 @@ def symlink(source, destination, adapter=None, must_exist=True, fatal=True, logg
     :param callable|None logger: Logger to use
     :return int: 1 if effectively done, 0 if no-op, -1 on failure
     """
-    return _file_op(source, destination, _symlink, adapter,  fatal, logger, must_exist=must_exist)
+    return _file_op(source, destination, _symlink, adapter, fatal, logger, must_exist=must_exist)
 
 
 def touch(path, fatal=True, logger=None):

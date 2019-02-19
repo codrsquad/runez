@@ -229,6 +229,7 @@ if hasattr(inspect, "signature"):
     def _has_arg(func, arg_name):
         return arg_name in inspect.signature(func).parameters
 
+
 else:
     # python2
     def _has_arg(func, arg_name):

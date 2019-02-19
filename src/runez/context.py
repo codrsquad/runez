@@ -9,6 +9,7 @@ import tempfile
 
 try:
     import StringIO
+
     StringIO = StringIO.StringIO
 
 except ImportError:

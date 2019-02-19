@@ -8,6 +8,7 @@ class AbortException(Exception):
 
         runez.base.AbortException = SystemExit
     """
+
     def __init__(self, code):
         self.code = code
 
@@ -69,6 +70,7 @@ def get_version(mod, default="0.0.0"):
 
     try:
         import pkg_resources
+
         return pkg_resources.get_distribution(name).version
 
     except Exception as e:
@@ -84,6 +86,7 @@ def _get_runez():
     global _runez_module
     if _runez_module is None:
         import runez
+
         _runez_module = runez
     return _runez_module
 
