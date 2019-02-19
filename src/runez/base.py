@@ -16,6 +16,11 @@ except NameError:
     unicode = str
 
 
+# Internal marker for values that are NOT set
+# This allows to distinguish between an argument being given as `None`, vs not mentioned by caller
+UNSET = object()
+
+
 def decode(value):
     """Python 2/3 friendly decoding of output"""
     if isinstance(value, bytes) and not isinstance(value, str):
@@ -46,8 +51,8 @@ class prop(object):
     def __get__(self, instance, cls=None):
         if instance is None:
             instance = cls
-        cached = getattr(instance, self.field_name, None)
-        if cached is None:
+        cached = getattr(instance, self.field_name, UNSET)
+        if cached is UNSET:
             cached = self.function(instance)
             setattr(instance, self.field_name, cached)
         return cached

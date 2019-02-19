@@ -185,7 +185,6 @@ class LogManager:
         """
         :param bool|None debug: Enable debug level logging
         :param bool|None dryrun: Enable dryrun
-        :param str|None location: Optional custom log file location to use
         :param kwargs: Additional settings passed-through to 'spec'
         """
         with cls._lock:

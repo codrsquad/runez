@@ -32,7 +32,7 @@ class SimpleCallback(TracedCalls):
         This function should thus be called every time we look at it
         """
         self._track("get", "nothing")
-        return None
+        return runez.UNSET
 
 
 class ClassmethodCallback(TracedCalls):
@@ -84,9 +84,9 @@ def test_simple_prop(tracked):
 
     # Test that because we return None, nothing keeps getting called until we actually set it
     assert tracked("get", "nothing") == 0
-    assert sample.nothing is None
+    assert sample.nothing is runez.UNSET
     assert tracked("get", "nothing") == 1
-    assert sample.nothing is None
+    assert sample.nothing is runez.UNSET
     assert tracked("get", "nothing") == 2
     assert tracked("set", "nothing") == 0
 
@@ -109,23 +109,29 @@ def test_classmethod_prop(tracked):
     assert sample.hello == "hello"
     assert tracked("get", "hello") == 1
 
-    # Same with setting to None
-    sample.hello = None
+    # Test unsetting the property
+    sample.hello = runez.UNSET
     assert sample.hello == "hello"
     assert tracked("get", "hello") == 2
     assert tracked("set", "hello") == 1
+
+    # Same with setting to None
+    sample.hello = None
+    assert sample.hello is None
+    assert tracked("get", "hello") == 2
+    assert tracked("set", "hello") == 2
 
     # Setting is tracked properly (even if value identical)
     sample.hello = "hello"
     assert sample.hello == "hello"
     assert tracked("get", "hello") == 2
-    assert tracked("set", "hello") == 2
+    assert tracked("set", "hello") == 3
 
     # Setting to a different value
     sample.hello = "bar"
     assert sample.hello == "bar"
     assert tracked("get", "hello") == 2
-    assert tracked("set", "hello") == 3
+    assert tracked("set", "hello") == 4
 
 
 def test_generic_prop(tracked):
@@ -137,8 +143,8 @@ def test_generic_prop(tracked):
     assert tracked("get", "some_int") == 1
     assert tracked("set", "some_int") == 0
 
-    # Verify that resetting via None works
-    sample.some_int = None
+    # Verify that resetting works
+    sample.some_int = runez.UNSET
     assert sample.some_int == 123
     assert sample.some_int == 123
     assert tracked("get", "some_int") == 2
@@ -157,7 +163,7 @@ def test_no_callback_prop(tracked):
     assert sample.welcome == "welcome"
     sample.welcome = "hi"
     assert sample.welcome == "hi"
-    sample.welcome = None
+    sample.welcome = runez.UNSET
     assert sample.welcome == "welcome"
     assert tracked("get", "welcome") == 0
     assert tracked("set", "welcome") == 0
@@ -167,11 +173,11 @@ def test_class_prop(tracked):
     """
     Verify that using props on class directly also works (but won't work for setting those props...)
     """
-    assert SimpleCallback.nothing is None
+    assert SimpleCallback.nothing is runez.UNSET
     assert ClassmethodCallback.hello == "hello"
     assert GenericCallback.some_int == 123
 
-    assert SimpleCallback.nothing is None
+    assert SimpleCallback.nothing is runez.UNSET
     assert ClassmethodCallback.hello == "hello"
     assert GenericCallback.some_int == 123
 

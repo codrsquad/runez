@@ -2,7 +2,18 @@
 History
 =======
 
-1.4.0 (2019-02-17)
+1.5.0 (2019-02-19)
+------------------
+
+* Introcuced ``runez.UNSET`` to distinguish between values not provided vs ``None`` (to avoid confusion)
+
+* ``custom_location=`` instead of ``location=`` in ``runez.log.setup()``
+
+* ``custom_location`` is now part of ``runez.log.spec``
+  (meaning it can be set via ``log.setup()``, or via ``log.spec.set()``, just like all other settings)
+
+
+1.4.4 (2019-02-18)
 ------------------
 
 * Removed ``runez.State``, dryrun is now in ``runez.DRYRUN``
