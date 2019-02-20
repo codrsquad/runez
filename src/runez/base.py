@@ -1,7 +1,7 @@
 """
-Base functionality used by other parts of runez
+Base functionality used by other parts of `runez`.
 
-We track here whether we're running in dryrun mode, convenience logging etc
+This class should not import any other `runez` class, to avoid circular deps.
 """
 
 import inspect
@@ -27,6 +27,10 @@ class Undefined:
 
     def __repr__(self):
         return "UNSET"
+
+    def __len__(self):
+        # Ensures that Undefined instances evaluate as falsy
+        return 0
 
 
 # Internal marker for values that are NOT set
@@ -125,7 +129,8 @@ class Slotted(object):
             name (str): Name of slot to set.
             value: Associated value
         """
-        setattr(self, name, value)
+        if value is not UNSET:
+            setattr(self, name, value)
 
     def set(self, *args, **kwargs):
         """Conveniently set one or more fields at a time.

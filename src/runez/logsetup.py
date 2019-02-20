@@ -18,7 +18,7 @@ except ImportError:
     faulthandler = None
 
 import runez.system
-from runez.base import Slotted, ThreadGlobalContext
+from runez.base import Slotted, ThreadGlobalContext, UNSET
 from runez.convert import flattened, formatted
 from runez.path import basename as get_basename, ensure_folder
 from runez.program import get_dev_folder, get_program_path
@@ -181,36 +181,91 @@ class LogManager:
     _logging_snapshot = LoggingSnapshot()
 
     @classmethod
-    def setup(cls, debug=None, **kwargs):
+    def setup(
+            cls,
+            debug=None,
+            dryrun=None,
+            level=UNSET,
+            custom_location=UNSET,
+            console_stream=UNSET,
+            appname=UNSET,
+            basename=UNSET,
+            locations=UNSET,
+            rotate=UNSET,
+            console_format=UNSET,
+            file_format=UNSET,
+            context_format=UNSET,
+            timezone=UNSET,
+            dev=UNSET,
+            tmp=UNSET,
+            greeting=UNSET,
+    ):
         """
-        :param bool|None debug: Enable debug level logging
-        :param bool|None dryrun: Enable dryrun
-        :param kwargs: Additional settings passed-through to 'spec'
+        Args:
+            debug (bool): Enable debug level logging (overrides `level`)
+            dryrun (bool): Enable dryrun
+            level (int): Desired logging level (eg: logging.INFO)
+            custom_location (str|None): Desired custom file location (overrides {locations} search, handy as a --log cli flag)
+            console_stream (TextIOWrapper|None): Stream to use for console log (eg: sys.stderr), use None to deactivate
+            appname (str|None): Program's base name, not used directly, just as reference for default 'basename'
+            basename (str|None): Base name of target log file, not used directly, just as reference for default 'locations'
+            locations (list[str]|None): List of candidate folders for file logging (None: deactivate file logging)
+            rotate (str|None): How to rotate log file (None: deactive, "1d" for daily rotation, "50m" for size based rotation etc)
+            console_format (str|None): Format to use for console log, use None to deactivate
+            file_format (str|None): Format to use for file log, use None to deactivate
+            context_format (str|None): Format to use for contextual log, use None to deactivate
+            timezone (str|None): Time zone, use None to deactivate time zone logging
+            dev (str|None): Custom folder to use when running from a development venv (auto-determined if None)
+            tmp (str|None): Optional temp folder to use (auto determined)
+            greeting (str|None): Optional greeting message to log right after, extra {pid} and {location} format markers provided
         """
         with cls._lock:
             if cls.level is not None:
                 raise Exception("Please call runez.log.setup() only once")
-            dryrun = kwargs.pop("dryrun", None)
+
             if dryrun is not None:
                 if dryrun and debug is None:
                     debug = True
                 runez.system.set_dryrun(dryrun)
-            cls.spec.set(**kwargs)
+
+            cls.spec.set(
+                level=level,
+                custom_location=custom_location,
+                console_stream=console_stream,
+                appname=appname,
+                basename=basename,
+                locations=locations,
+                rotate=rotate,
+                console_format=console_format,
+                file_format=file_format,
+                context_format=context_format,
+                timezone=timezone,
+                dev=dev,
+                tmp=tmp,
+                greeting=greeting,
+            )
             cls.level = logging.DEBUG if debug else cls.spec.level
             if logging.root.level != cls.level:
                 logging.root.setLevel(cls.level)
+
             if cls.spec.dev is None:
                 cls.spec.dev = get_dev_folder()
+
             hconsole = _get_handler(cls.level, logging.StreamHandler, cls.spec.console_format, cls.spec.console_stream)
+
             actual_location = cls.spec.usable_location()
             if actual_location:
                 cls.file_handler = _get_handler(cls.level, logging.FileHandler, cls.spec.file_format, actual_location)
+
             cls.handlers = [h for h in (hconsole, cls.file_handler) if h is not None]
+
             cls.used_formats = " ".join(h.formatter._fmt for h in cls.handlers)
 
             if cls.is_using_format("%(context)s"):
                 cls.context.enable()
+
             cls._fix_logging_shortcuts()
+
             if cls.context.filter:
                 for handler in cls.handlers:
                     handler.addFilter(cls.context.filter)

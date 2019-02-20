@@ -13,3 +13,7 @@ def test_decode():
 
 def test_undefined():
     assert str(runez.UNSET) == "UNSET"
+
+    # Verify that runez.UNSET evaluates to falsy
+    assert not runez.UNSET
+    assert bool(runez.UNSET) is False
