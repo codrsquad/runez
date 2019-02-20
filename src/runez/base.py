@@ -24,7 +24,9 @@ class Undefined:
 
     Example application is `runez.log.setup()`
     """
-    pass
+
+    def __repr__(self):
+        return "UNSET"
 
 
 # Internal marker for values that are NOT set
@@ -94,10 +96,13 @@ class prop(object):
 class Slotted(object):
     """This class allows to easily initialize/set a descendant using named arguments"""
 
+    _default = None
+
     def __init__(self, *args, **kwargs):
         """
-        :param args: Optionally provide another instance of same type to initialize from
-        :param kwargs: Override one or more of this classes' fields listed above
+        Args:
+            *args (Slotted): Optionally provide another instance of same type to initialize from
+            **kwargs: Override one or more of this classes' fields (keys must refer to valid slots)
         """
         self._seed()
         self.set(*args, **kwargs)
@@ -105,7 +110,7 @@ class Slotted(object):
     def _seed(self):
         """Seed initial fields"""
         for name in self.__slots__:
-            setattr(self, name, None)
+            setattr(self, name, self.__class__._default)
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):

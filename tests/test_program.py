@@ -29,16 +29,6 @@ def test_capture(temp_folder, logged):
     assert "Running: chatter" in logged
 
 
-def test_decode():
-    assert runez.decode(None) is None
-
-    assert runez.decode(" something ") == " something "
-    assert runez.decode(" something ", strip=True) == "something"
-
-    assert runez.decode(b" something ") == " something "
-    assert runez.decode(b" something ", strip=True) == "something"
-
-
 def test_executable(temp_folder):
     with runez.CaptureOutput(dryrun=True) as logged:
         assert runez.make_executable("some-file") == 1
