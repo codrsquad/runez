@@ -16,21 +16,30 @@ except NameError:
     unicode = str
 
 
+class Undefined:
+    """Provides base type for `UNSET` below (representing an undefined value)
+
+    Allows to distinguish between a caller not providing a value, vs providing `None`.
+    This is needed in order to track whether a user actually provided a value (including `None`) as named argument.
+
+    Example application is `runez.log.setup()`
+    """
+    pass
+
+
 # Internal marker for values that are NOT set
-# This allows to distinguish between an argument being given as `None`, vs not mentioned by caller
-UNSET = object()
+UNSET = Undefined()  # type: Undefined
 
 
 def decode(value, strip=False):
     """Python 2/3 friendly decoding of output.
 
     Args:
-      value (str, bytes, optional): The value to decode.
-      strip (bool): If True, `strip()` the returned string.
+        value (str | bytes | None): The value to decode.
+        strip (bool): If True, `strip()` the returned string. (Default value = False)
 
     Returns:
         str: Decoded value, if applicable.
-
     """
     if value is None:
         return None
@@ -48,21 +57,15 @@ class prop(object):
 
     This comes in handy for properties you'd like to avoid computing multiple times,
     yet be able to arbitrarily change them as well, and be able to know when they get changed.
-
-    Attributes:
-        function (callable): Decorated function that will compute the `get()` of this property.
-        name (str): Name of property (name of implementing function).
-        field_name (str): Internal field name that will be used to cache value of this property.
-        on_prop (callable, optional): Reference to `__on_prop()` function in implementation class, notified on preprty set if present.
-
     """
 
     def __init__(self, func):
         """
-        :param callable: Wrapped function
+        Args:
+            func (function): Wrapped function
         """
         self.function = func
-        self.name = func.__name__
+        self.name = func.__name__  # type: str
         self.field_name = "__%s" % self.name
         self.on_prop, self.prop_arg = _find_on_prop(inspect.currentframe().f_back)
         self.__doc__ = func.__doc__
@@ -112,12 +115,10 @@ class Slotted(object):
             return True
 
     def _set(self, name, value):
-        """Set field with `name` to `value`.
-
+        """
         Args:
-          name (str): Name of slot to set.
-          value: Associated value
-
+            name (str): Name of slot to set.
+            value: Associated value
         """
         setattr(self, name, value)
 
@@ -125,12 +126,11 @@ class Slotted(object):
         """Conveniently set one or more fields at a time.
 
         Args:
-          *args: Optionally set from another `Slotted` object, this is passed as `*args` only to allow for that optionality
-          **kwargs: Set from given key/value pairs (names must be valid, ie be defined in __slots__)
+            *args: Optionally set from another `Slotted` object, this is passed as `*args` only to allow for that optionality
+            **kwargs: Set from given key/value pairs (names must be valid, ie be defined in __slots__)
 
         Raises:
-            ValueError: If any of paramters is invalid.
-
+            ValueError: If any of parameters is invalid.
         """
         if args:
             if kwargs:
@@ -187,19 +187,22 @@ class ThreadGlobalContext:
             return bool(self._gpayload)
 
     def set_threadlocal(self, **values):
-        """Set current thread's logging context to 'values'"""
+        """Set current thread's logging context to specified `values`"""
         with self._lock:
             self._ensure_threadlocal()
             self._tpayload.context = values
 
     def add_threadlocal(self, **values):
-        """Add 'values' to current thread's logging context"""
+        """Add `values` to current thread's logging context"""
         with self._lock:
             self._ensure_threadlocal()
             self._tpayload.context.update(**values)
 
     def remove_threadlocal(self, name):
-        """Remove entry with 'name' from current thread's context"""
+        """
+        Args:
+            name (str): Remove entry with `name` from current thread's context
+        """
         with self._lock:
             if self._tpayload is not None:
                 if name in self._tpayload.context:
@@ -213,18 +216,21 @@ class ThreadGlobalContext:
             self._tpayload = None
 
     def set_global(self, **values):
-        """Set global logging context to 'values'"""
+        """Set global logging context to provided `values`"""
         with self._lock:
             self._ensure_global(values)
 
     def add_global(self, **values):
-        """Add 'values' to global logging context"""
+        """Add `values` to global logging context"""
         with self._lock:
             self._ensure_global()
             self._gpayload.update(**values)
 
     def remove_global(self, name):
-        """Remove entry with 'name' from global context"""
+        """
+        Args:
+            name (str): Remove entry with `name` from global context
+        """
         with self._lock:
             if self._gpayload is not None:
                 if name in self._gpayload:
@@ -240,7 +246,8 @@ class ThreadGlobalContext:
 
     def to_dict(self):
         """
-        :return dict: Combined global and thread-specific logging context
+        Returns:
+            dict: Combined global and thread-specific logging context
         """
         with self._lock:
             result = {}
@@ -257,6 +264,10 @@ class ThreadGlobalContext:
         self.enable()
 
     def _ensure_global(self, values=None):
+        """
+        Args:
+            values (dict): Ensure internal global tracking dict is created, seed it with `values` when provided (Default value = None)
+        """
         if self._gpayload is None:
             self._gpayload = values or {}
         self.enable()
@@ -278,11 +289,10 @@ def _find_on_prop(frame):
     """Find `__on_prop` function to notify on `@prop` change, if any.
 
     Args:
-      frame (frame): Frame to examine.
+        frame (types.FrameType): Frame to examine.
 
     Returns:
-        tuple of (callable, bool): __on_prop function if any, boolean indicates whether that function takes 'prop' as argument.
-
+        (function | None, bool): __on_prop function if any, boolean indicates whether that function takes 'prop' as argument.
     """
     for name, func in frame.f_locals.items():
         if name.endswith("__on_prop"):
