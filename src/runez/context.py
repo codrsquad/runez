@@ -60,6 +60,10 @@ class CapturedStream:
         return CapturedStream(self.name, buffer=StringIO(self.contents()))
 
     def contents(self):
+        """
+        Returns:
+            str: Contents of `self.buffer`
+        """
         return self.buffer.getvalue()
 
     def write(self, message):
@@ -79,10 +83,12 @@ class CapturedStream:
         elif self.name == "log":
             self._shared._is_capturing = False
 
-    def pop(self):
+    def pop(self, strip=False):
         """Current content popped, useful for testing"""
         r = self.contents()
         self.clear()
+        if r and strip:
+            r = r.strip()
         return r
 
     def clear(self):

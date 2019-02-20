@@ -2,6 +2,9 @@ import logging
 import time
 
 
+LOG = logging.getLogger(__name__)
+
+
 class AbortException(Exception):
     """
     You can replace this with your preferred exception, for example:
@@ -34,7 +37,7 @@ def abort(*args, **kwargs):
     :return: kwargs["return_value"] (default: -1) to signify failure to non-fatal callers
     """
     code = kwargs.pop("code", 1)
-    logger = kwargs.pop("logger", logging.error if code else logging.info)
+    logger = kwargs.pop("logger", LOG.error if code else LOG.info)
     fatal = kwargs.pop("fatal", True)
     return_value = fatal
     if isinstance(fatal, tuple) and len(fatal) == 2:
@@ -74,7 +77,7 @@ def get_version(mod, default="0.0.0"):
         return pkg_resources.get_distribution(name).version
 
     except Exception as e:
-        logging.warning("Can't determine version for %s: %s", name, e, exc_info=e)
+        LOG.warning("Can't determine version for %s: %s", name, e, exc_info=e)
         return default
 
 

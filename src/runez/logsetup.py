@@ -24,6 +24,7 @@ from runez.path import basename as get_basename, ensure_folder
 from runez.program import get_dev_folder, get_program_path
 
 
+LOG = logging.getLogger(__name__)
 ORIGINAL_CF = logging.currentframe
 
 
@@ -50,30 +51,22 @@ class LogSpec(Slotted):
         runez.log.setup(console_stream=sys.stdout)
     or
         runez.log.spec.set(console_stream=sys.stdout)
+        runez.log.setup()
     or
         runez.log.spec.console_stream = sys.stdout
+        runez.log.setup()
     """
 
+    # See setup()'s docstring for meaning of each field
     __slots__ = [
-        "level",  # Desired logging level (eg: logging.INFO)
-        "custom_location",  # Desired custom file location (overrides {locations} search, handy as a --log cli flag)
-        "console_stream",  # stream to use for console log (eg: sys.stderr), use None to deactivate
-        "appname",  # Program's base name, not used directly, just as reference for default 'basename'
-        "basename",  # Base name of target log file, not used directly, just as reference for default 'locations'
-        "locations",  # List of candidate folders for file logging (None: deactivate file logging)
-        "rotate",  # How to rotate log file (None: deactive, "1d" for daily rotation, "50m" for size based rotation etc)
-        "console_format",  # Format to use for console log, use None to deactivate
-        "file_format",  # Format to use for file log, use None to deactivate
-        "context_format",  # Format to use for contextual log, use None to deactivate
-        "timezone",  # Time zone, use None to deactivate time zone logging
-        "dev",  # Custom folder to use when running from a development venv (auto-determined if None)
-        "tmp",  # Optional temp folder to use (auto determined)
-        "greeting",  # Optional greeting message to log right after runez.log.setup(), extra {pid} and {location} format markers provided
+        "appname", "basename", "console_format", "console_stream", "context_format", "custom_location",
+        "dev", "file_format", "greeting", "level", "locations", "rotate", "timezone", "tmp",
     ]
 
     def usable_location(self):
         """
-        :return str|None: First available usable location
+        Returns:
+            str | None: First available usable location
         """
         if self.custom_location is not None:
             # Custom location typically provided via --config CLI flag
@@ -81,13 +74,14 @@ class LogSpec(Slotted):
         if self.locations:
             for location in self.locations:
                 path = self._auto_complete_filename(location)
-                if path and ensure_folder(path, fatal=False, dryrun=False) >= 0:
+                if path and ensure_folder(path, fatal=False, logger=LOG.debug, dryrun=False) >= 0:
                     return path
 
     @property
     def should_log_to_file(self):
         """
-        :return bool: As per the spec, should we be logging to a file?
+        Returns:
+            bool: As per the spec, should we be logging to a file?
         """
         if self.custom_location is not None:
             return bool(self.custom_location)
@@ -95,8 +89,11 @@ class LogSpec(Slotted):
 
     def _auto_complete_filename(self, location):
         """
-        :param str|None location: Location to auto-complete with {basename}, if it points to a folder
-        :return str|None: {location}/{basename}
+        Args:
+            location (str | None): Location to auto-complete with {basename}, if it points to a folder
+
+        Returns:
+            str | None: {location}/{basename}
         """
         path = formatted(location, self)
         if path:
@@ -117,8 +114,9 @@ class _ContextFilter(logging.Filter):
 
     def __init__(self, context, name=""):
         """
-        :param ThreadGlobalContext context: Associated context
-        :param str name: Passed through to parent
+        Args:
+            context (ThreadGlobalContext): Associated context
+            name (str): Passed through to parent
         """
         super(_ContextFilter, self).__init__(name=name)
         self.context = context
@@ -142,8 +140,7 @@ class LogManager:
     """
 
     # Defaults used to initialize LogSpec instances
-    # You shouldn't need to change these, but changing prior to calling runez.log.setup() will take effect
-    # Use runez.log.override_spec() to change these defaults
+    # Use runez.log.override_spec() to change these defaults (do not change directly)
     _default_spec = LogSpec(
         level=logging.INFO,
         custom_location=None,
@@ -163,7 +160,7 @@ class LogManager:
 
     # Spec defines how logs should be setup()
     # Best way to provide your spec is via: runez.log.setup(), for example:
-    #   runez.log.setup(appname="my-app)
+    #   runez.log.setup(appname="my-app")
     spec = LogSpec(_default_spec)
 
     # Thread-local / global context
@@ -183,8 +180,8 @@ class LogManager:
     @classmethod
     def setup(
             cls,
-            debug=None,
-            dryrun=None,
+            debug=UNSET,
+            dryrun=UNSET,
             level=UNSET,
             custom_location=UNSET,
             console_stream=UNSET,
@@ -205,26 +202,28 @@ class LogManager:
             debug (bool): Enable debug level logging (overrides `level`)
             dryrun (bool): Enable dryrun
             level (int): Desired logging level (eg: logging.INFO)
-            custom_location (str|None): Desired custom file location (overrides {locations} search, handy as a --log cli flag)
-            console_stream (TextIOWrapper|None): Stream to use for console log (eg: sys.stderr), use None to deactivate
-            appname (str|None): Program's base name, not used directly, just as reference for default 'basename'
-            basename (str|None): Base name of target log file, not used directly, just as reference for default 'locations'
+            custom_location (str | None): Desired custom file location (overrides {locations} search, handy as a --log cli flag)
+            console_stream (TextIOWrapper | None): Stream to use for console log (eg: sys.stderr), use None to deactivate
+            appname (str | None): Program's base name, not used directly, just as reference for default 'basename'
+            basename (str | None): Base name of target log file, not used directly, just as reference for default 'locations'
             locations (list[str]|None): List of candidate folders for file logging (None: deactivate file logging)
-            rotate (str|None): How to rotate log file (None: deactive, "1d" for daily rotation, "50m" for size based rotation etc)
-            console_format (str|None): Format to use for console log, use None to deactivate
-            file_format (str|None): Format to use for file log, use None to deactivate
-            context_format (str|None): Format to use for contextual log, use None to deactivate
-            timezone (str|None): Time zone, use None to deactivate time zone logging
-            dev (str|None): Custom folder to use when running from a development venv (auto-determined if None)
-            tmp (str|None): Optional temp folder to use (auto determined)
-            greeting (str|None): Optional greeting message to log right after, extra {pid} and {location} format markers provided
+            rotate (str | None): How to rotate log file (None: deactive, "1d" for daily rotation, "50m" for size based rotation etc)
+            console_format (str | None): Format to use for console log, use None to deactivate
+            file_format (str | None): Format to use for file log, use None to deactivate
+            context_format (str | None): Format to use for contextual log, use None to deactivate
+            timezone (str | None): Time zone, use None to deactivate time zone logging
+            dev (str | None): Custom folder to use when running from a development venv (auto-determined if None)
+            tmp (str | None): Optional temp folder to use (auto determined)
+            greeting (str | None): Optional greeting message to log right after, extra {pid} and {location} format markers provided
         """
         with cls._lock:
             if cls.level is not None:
                 raise Exception("Please call runez.log.setup() only once")
 
-            if dryrun is not None:
-                if dryrun and debug is None:
+            if dryrun is not UNSET:
+                if dryrun and (debug is None or debug is UNSET):
+                    # Automatically turn debug on (if not explicitly specified) with dryrun,
+                    # as many of the "Would ..." messages are at debug level
                     debug = True
                 runez.system.set_dryrun(dryrun)
 
@@ -274,7 +273,7 @@ class LogManager:
                 pid = "pid %s" % os.getpid()
                 message = "Logging to %s" % actual_location if actual_location else "No usable log locations from {locations}"
                 message = formatted(cls.spec.greeting, cls.spec, pid=pid, location=message, strict=False)
-                logging.getLogger(__name__).debug(message)
+                LOG.debug(message)
 
     @classmethod
     def silence(cls, *modules):
