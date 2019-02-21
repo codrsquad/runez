@@ -72,16 +72,16 @@ class CapturedStream:
     def capture(self):
         if self.target:
             self.original = self.target.write
-            self.target.write = self.buffer.write
+            self.target.write = self.write
         elif self.name == "log":
-            self._shared._is_capturing = True
+            self._old_sc, self._shared._is_capturing = (self._shared._is_capturing, True)
 
     def restore(self):
         """Restore hijacked write() function"""
         if self.target:
             self.target.write = self.original
         elif self.name == "log":
-            self._shared._is_capturing = False
+            self._shared._is_capturing = self._old_sc
 
     def pop(self, strip=False):
         """Current content popped, useful for testing"""

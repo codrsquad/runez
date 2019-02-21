@@ -21,7 +21,7 @@ runez.log.override_root_level(logging.DEBUG)
 runez.log.override_spec(appname="pytest", timezone="UTC", locations=["{tmp}/{basename}"], tmp=os.path.join("/", "tmp"))
 
 
-class IsolatedLogs:
+class IsolatedLogSetup:
     """Allows to isolate changes to logging setup.
 
     This should only be useful for testing (as in general, logging setup is a global thing).
@@ -54,7 +54,7 @@ def cli():
             # or more specifically
             assert "Usage:" in cli.logged.stdout
     """
-    yield ClickRunner()
+    return ClickRunner()
 
 
 # Comes in handy for click apps with only one main entry point
@@ -65,7 +65,7 @@ cli.default_main = None
 def isolated_log_setup():
     """Log settings restored"""
     with runez.TempFolder(follow=True) as tmp:
-        with IsolatedLogs() as isolated:
+        with IsolatedLogSetup() as isolated:
             isolated.spec.tmp = tmp
             yield isolated
 
@@ -154,7 +154,7 @@ class ClickRunner:
         args = runez.flattened(args, split=runez.SHELL)
         cmd = kwargs.pop("main", self.main)
         assert bool(cmd), "No main provided"
-        with IsolatedLogs():
+        with IsolatedLogSetup():
             with runez.CaptureOutput(dryrun=runez.DRYRUN) as logged:
                 runner = ClickWrapper.runner
                 runner = runner()
@@ -168,6 +168,8 @@ class ClickRunner:
                         logging.exception("Exited with stacktrace:")
                 self.logged = logged.duplicate()
                 self.exit_code = result.exit_code
+        if self.logged:
+            logging.info("Captured output for %s:\n%s" % (runez.represented_args(args), self.logged))
 
     @property
     def succeeded(self):
@@ -243,12 +245,12 @@ class ClickRunner:
 
     def expect_success(self, args, *expected, **kwargs):
         self.run(args)
-        assert self.succeeded, "%s failed, was expecting success:\n%s" % (args, self.logged)
+        assert self.succeeded, "%s failed, was expecting success" % runez.represented_args(args)
         self.expect_messages(*expected, **kwargs)
 
     def expect_failure(self, args, *expected, **kwargs):
         self.run(args)
-        assert self.failed, "%s succeeded, was expecting failure:\n%s" % (args, self.logged)
+        assert self.failed, "%s succeeded, was expecting failure" % runez.represented_args(args)
         self.expect_messages(*expected, **kwargs)
 
 
