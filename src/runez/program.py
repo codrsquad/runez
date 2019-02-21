@@ -9,7 +9,7 @@ import sys
 import time
 
 from runez.base import decode
-from runez.convert import flattened, represented_args, short
+from runez.convert import flattened, represented_args, SHELL, short
 from runez.system import abort, is_dryrun
 
 
@@ -97,7 +97,7 @@ def make_executable(path, fatal=True):
 
 def run(program, *args, **kwargs):
     """Run 'program' with 'args'"""
-    args = flattened(args, unique=False)
+    args = flattened(args, split=SHELL)
     full_path = which(program)
 
     logger = kwargs.pop("logger", LOG.debug)

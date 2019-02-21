@@ -17,6 +17,7 @@ from runez import heartbeat, program, serialize
 from runez.base import decode, prop, Slotted, Undefined, UNSET
 from runez.context import CaptureOutput, CurrentFolder, TempFolder, TrackedOutput, verify_abort
 from runez.convert import Anchored, flattened, formatted, quoted, represented_args, resolved_path, short, shortened, to_int
+from runez.convert import SANITIZED, SHELL, UNIQUE
 from runez.file import copy, delete, first_line, get_conf, get_lines, move, symlink, touch, write
 from runez.heartbeat import Heartbeat
 from runez.logsetup import LogManager as log, LogSpec
@@ -31,6 +32,7 @@ __all__ = [
     "decode", "prop", "Slotted", "Undefined", "UNSET",
     "CaptureOutput", "CurrentFolder", "TempFolder", "TrackedOutput", "verify_abort",
     "Anchored", "flattened", "formatted", "quoted", "represented_args", "resolved_path", "short", "shortened", "to_int",
+    "SANITIZED", "SHELL", "UNIQUE",
     "copy", "delete", "first_line", "get_conf", "get_lines", "move", "symlink", "touch", "write",
     "Heartbeat",
     "log", "LogSpec",

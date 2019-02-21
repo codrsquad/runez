@@ -151,7 +151,7 @@ class ClickRunner:
         if len(args) == 1 and hasattr(args[0], "split"):
             # Convenience: allow to provide full command as one string argument
             args = args[0].split()
-        args = runez.flattened(args, unique=False)
+        args = runez.flattened(args, split=runez.SHELL)
         cmd = kwargs.pop("main", self.main)
         assert bool(cmd), "No main provided"
         with IsolatedLogs():

@@ -10,15 +10,35 @@ SYMBOLIC_TMP = "<tmp>"
 RE_FORMAT_MARKERS = re.compile(r"{([^}]*?)}")
 
 
-def flattened(value, separator=None, unique=True):
+SANITIZED = 1
+SHELL = 2
+UNIQUE = 4
+
+
+def flattened(value, split=None):
     """
-    :param value: Possibly nested arguments (sequence of lists, nested lists)
-    :param str|None separator: Split values with 'separator' if specified
-    :param bool unique: If True, return unique values only
-    :return list: 'value' flattened out (leaves from all involved lists/tuples)
+    Args:
+        value: Possibly nested arguments (sequence of lists, nested lists)
+        split (int | str | (str, int) | None): How to split values:
+            - None: simply flatten, no further processing
+            - one char string: split() on specified char
+            - SANITIZED: discard all None items
+            - UNIQUE: each value will appear only once
+            - SHELL:  filter out sequences of the form ["-f", None] (handy for simplified cmd line specification)
+
+    Returns:
+        list: 'value' flattened out (leaves from all involved lists/tuples)
     """
     result = []
-    _flatten(result, value, separator=separator, unique=unique)
+    separator = None
+    mode = 0
+    if isinstance(split, tuple):
+        separator, mode = split
+    elif isinstance(split, int):
+        mode = split
+    else:
+        separator = split
+    _flatten(result, value, separator, mode)
     return result
 
 
@@ -152,7 +172,7 @@ class Anchored:
         """
         :param str|list anchors: Optional paths to use as anchors for short()
         """
-        cls.paths = sorted(flattened(anchors, unique=True), reverse=True)
+        cls.paths = sorted(flattened(anchors, split=SANITIZED | UNIQUE), reverse=True)
 
     @classmethod
     def add(cls, anchors):
@@ -166,7 +186,7 @@ class Anchored:
         """
         :param str|list anchors: Optional paths to use as anchors for short()
         """
-        for anchor in flattened(anchors):
+        for anchor in flattened(anchors, split=SANITIZED | UNIQUE):
             if anchor in cls.paths:
                 cls.paths.remove(anchor)
 
@@ -192,29 +212,38 @@ class Anchored:
         return path
 
 
-def _flatten(result, value, separator=None, unique=True):
+def _flatten(result, value, separator, mode):
     """
-    :param list result: Will hold all flattened values
-    :param value: Possibly nested arguments (sequence of lists, nested lists)
-    :param str|None separator: Split values with 'separator' if specified
-    :param bool unique: If True, return unique values only
+    Args:
+        result (list): Will hold all flattened values
+        value: Possibly nested arguments (sequence of lists, nested lists)
+        separator (str | None): Split values with `separator` if specified
+        mode (int): Describes how keep flattenened values
+
+    Returns:
+        list: 'value' flattened out (leaves from all involved lists/tuples)
     """
-    if not value:
-        # Convenience: allow to filter out --foo None easily
-        if value is None and not unique and result and result[-1].startswith("-"):
-            result.pop(-1)
-        return
+    if value is None:
+        if mode & SHELL:
+            # Convenience: allow to filter out ["--switch", None] easily
+            if result and result[-1].startswith("-"):
+                result.pop(-1)
+            return
 
-    if isinstance(value, (list, tuple, set)):
-        for item in value:
-            _flatten(result, item, separator=separator, unique=unique)
-        return
+        if mode & SANITIZED:
+            return
 
-    if separator is not None and hasattr(value, "split") and separator in value:
-        _flatten(result, value.split(separator), separator=separator, unique=unique)
-        return
+    if value is not None:
+        if isinstance(value, (list, tuple, set)):
+            for item in value:
+                _flatten(result, item, separator, mode)
+            return
 
-    if not unique or value not in result:
+        if separator and hasattr(value, "split") and separator in value:
+            _flatten(result, value.split(separator), separator, mode)
+            return
+
+    if (mode & UNIQUE == 0) or value not in result:
         result.append(value)
 
 

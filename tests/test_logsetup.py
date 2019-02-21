@@ -105,6 +105,7 @@ def test_default(temp_log):
 
     assert temp_log.logfile == "pytest.log"
     assert "Logging to" in temp_log.stderr
+    assert "pid %s" % os.getpid() in temp_log.stderr
     logging.info("hello")
 
     temp_log.expect_logged("UTC [[version=1.0,worker=joe]] INFO - hello")
@@ -125,9 +126,11 @@ def test_level(temp_log):
 def test_console(temp_log):
     logger = logging.getLogger("runez")
     old_level = logger.level
-    runez.log.setup(custom_location="")
+    runez.log.setup(custom_location="", greeting=["{actual_location}, {pid}", ":: argv: {argv}"])
 
     assert temp_log.logfile is None
+    assert "DEBUG Not logging to file, pid " in temp_log.stderr
+    assert ":: argv: " in temp_log.stderr
     logger.info("hello")
     assert "INFO hello" in temp_log.stderr
 
@@ -149,9 +152,9 @@ def test_no_context(temp_log):
 
 def test_context(temp_log):
     runez.log.spec.locations = None
-    runez.log.spec.console_stream = sys.stdout
+    runez.log.spec.console_stream = sys.stderr
     runez.log.spec.console_format = "%(name)s %(timezone)s %(context)s%(levelname)s - %(message)s"
-    runez.log.setup()
+    runez.log.setup(greeting=None)
 
     assert temp_log.logfile is None
 
@@ -168,24 +171,24 @@ def test_context(temp_log):
     runez.log.context.set_global(version="1.0", name="foo")
     runez.log.context.add_threadlocal(worker="susan", a="b")
     logging.info("hello")
-    assert temp_log.stdout.pop(strip=True) == "test_logsetup UTC [[a=b,name=foo,version=1.0,worker=susan]] INFO - hello"
+    assert temp_log.stderr.pop(strip=True) == "test_logsetup UTC [[a=b,name=foo,version=1.0,worker=susan]] INFO - hello"
 
     # Remove them one by one
     runez.log.context.remove_threadlocal("a")
     logging.info("hello")
-    assert temp_log.stdout.pop(strip=True) == "test_logsetup UTC [[name=foo,version=1.0,worker=susan]] INFO - hello"
+    assert temp_log.stderr.pop(strip=True) == "test_logsetup UTC [[name=foo,version=1.0,worker=susan]] INFO - hello"
 
     runez.log.context.remove_global("name")
     logging.info("hello")
-    assert temp_log.stdout.pop(strip=True) == "test_logsetup UTC [[version=1.0,worker=susan]] INFO - hello"
+    assert temp_log.stderr.pop(strip=True) == "test_logsetup UTC [[version=1.0,worker=susan]] INFO - hello"
 
     runez.log.context.clear_threadlocal()
     logging.info("hello")
-    assert temp_log.stdout.pop(strip=True) == "test_logsetup UTC [[version=1.0]] INFO - hello"
+    assert temp_log.stderr.pop(strip=True) == "test_logsetup UTC [[version=1.0]] INFO - hello"
 
     runez.log.context.clear_global()
     logging.info("hello")
-    assert temp_log.stdout.pop(strip=True) == "test_logsetup UTC INFO - hello"
+    assert temp_log.stderr.pop(strip=True) == "test_logsetup UTC INFO - hello"
 
     assert not runez.log.context.has_global()
     assert not runez.log.context.has_threadlocal()

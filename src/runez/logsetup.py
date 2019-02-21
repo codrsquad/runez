@@ -20,7 +20,7 @@ except ImportError:
 
 import runez.system
 from runez.base import Slotted, ThreadGlobalContext, UNSET
-from runez.convert import flattened, formatted
+from runez.convert import flattened, formatted, represented_args, SANITIZED, UNIQUE
 from runez.path import basename as get_basename, ensure_folder
 from runez.program import get_dev_folder, get_program_path
 
@@ -63,6 +63,16 @@ class LogSpec(Slotted):
         "appname", "basename", "console_format", "console_stream", "context_format", "custom_location",
         "dev", "file_format", "greeting", "level", "locations", "rotate", "timezone", "tmp",
     ]
+
+    @property
+    def argv(self):
+        """str: Command line invocation, represented to show as greeting"""
+        return represented_args(sys.argv)
+
+    @property
+    def pid(self):
+        """str: Current process id represented to show as greeting"""
+        return "pid %s" % os.getpid()
 
     def usable_location(self):
         """
@@ -159,7 +169,7 @@ class LogManager:
         timezone=runez.system.get_timezone(),
         dev=None,
         tmp=None,
-        greeting="{location}, {pid}",
+        greeting="{actual_location}, {pid}",
     )
 
     # Spec defines how logs should be setup()
@@ -172,6 +182,7 @@ class LogManager:
 
     # Below fields should be read-only for outside users, do not modify these
     level = None  # Current severity level
+    actual_location = None
     file_handler = None  # type: logging.FileHandler # File we're currently logging to (if any)
     handlers = None  # type: list[logging.StreamHandler]
     used_formats = None  # type: str
@@ -218,7 +229,7 @@ class LogManager:
             timezone (str | None): Time zone, use None to deactivate time zone logging
             dev (str | None): Custom folder to use when running from a development venv (auto-determined if None)
             tmp (str | None): Optional temp folder to use (auto determined)
-            greeting (str | None): Optional greeting message to log right after, extra {pid} and {location} format markers provided
+            greeting (str | list[str] | None): Optional greeting message to log, extra {actual_location} format markers provided
         """
         with cls._lock:
             if cls.level is not None:
@@ -257,14 +268,13 @@ class LogManager:
             hconsole = logging.StreamHandler(cls.spec.console_stream)
             cls._add_handler(hconsole, cls.spec.console_format)
 
-            actual_location = None
             if cls.spec.should_log_to_file:
-                actual_location = cls.spec.usable_location()
-                if actual_location:
+                cls.actual_location = cls.spec.usable_location()
+                if cls.actual_location:
                     if not cls.spec.rotate:
-                        cls.file_handler = logging.FileHandler(actual_location)
+                        cls.file_handler = logging.FileHandler(cls.actual_location)
                     # else:
-                    #     cls.file_handler = RotatingFileHandler(actual_location, maxBytes=cls.spec.rotate, backupCount=1)
+                    #     cls.file_handler = RotatingFileHandler(cls.actual_location, maxBytes=cls.spec.rotate, backupCount=1)
                     cls._add_handler(cls.file_handler, cls.spec.file_format)
 
             if cls.is_using_format("%(context)s"):
@@ -276,31 +286,24 @@ class LogManager:
                 for handler in cls.handlers:
                     handler.addFilter(cls.context.filter)
 
-            if cls.spec.greeting and cls.spec.should_log_to_file:
-                pid = "pid %s" % os.getpid()
-                if actual_location:
-                    message = "Logging to %s" % actual_location
-                elif cls.spec.custom_location:
-                    message = "Can't log to {custom_location}"
-                else:
-                    message = "No usable log locations from {locations}"
-                message = formatted(cls.spec.greeting, cls.spec, pid=pid, location=message, strict=False)
-                LOG.debug(message)
+            if cls.spec.greeting:
+                for msg in flattened(cls.spec.greeting, split=SANITIZED):
+                    message = cls.formatted_greeting(msg)
+                    if message:
+                        LOG.debug(message)
 
     @classmethod
-    def _add_handler(cls, handler, format):
-        """
-        Args:
-            handler (logging.Handler): Handler to decorate
-            format (str): Format to use
-        """
-        handler.setFormatter(_get_formatter(format))
-        handler.setLevel(cls.level)
-        logging.root.addHandler(handler)
-        if cls.handlers is None:
-            cls.handlers = []
-        cls.used_formats = ("%s %s" % (cls.used_formats or "", format)).strip()
-        cls.handlers.append(handler)
+    def formatted_greeting(cls, greeting):
+        if greeting:
+            if cls.actual_location:
+                message = "Logging to %s" % cls.actual_location
+            elif cls.spec.custom_location:
+                message = "Can't log to {custom_location}"
+            elif not cls.spec.should_log_to_file:
+                message = "Not logging to file"
+            else:
+                message = "No usable log locations from {locations}"
+            return formatted(greeting, cls.spec, actual_location=message, strict=False)
 
     @classmethod
     def silence(cls, *modules):
@@ -323,7 +326,7 @@ class LogManager:
             used_formats = cls.used_formats
         if not markers or not used_formats:
             return False
-        return any(marker in used_formats for marker in flattened(markers, separator=" ", unique=True))
+        return any(marker in used_formats for marker in flattened(markers, split=(" ", UNIQUE)))
 
     @classmethod
     def enable_faulthandler(cls, signum=signal.SIGUSR1):
@@ -375,9 +378,25 @@ class LogManager:
         cls.context.reset()
         cls.spec = LogSpec(cls._default_spec)
         cls.level = None
+        cls.actual_location = None
         cls.file_handler = None
         cls.handlers = None
         cls.used_formats = None
+
+    @classmethod
+    def _add_handler(cls, handler, format):
+        """
+        Args:
+            handler (logging.Handler): Handler to decorate
+            format (str): Format to use
+        """
+        handler.setFormatter(_get_formatter(format))
+        handler.setLevel(cls.level)
+        logging.root.addHandler(handler)
+        if cls.handlers is None:
+            cls.handlers = []
+        cls.used_formats = ("%s %s" % (cls.used_formats or "", format)).strip()
+        cls.handlers.append(handler)
 
     @classmethod
     def _disable_faulthandler(cls):

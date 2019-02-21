@@ -72,24 +72,25 @@ def test_pids():
 
 def test_run(temp_folder):
     assert runez.program.added_env_paths(None) is None
+    ls = runez.which("ls")
 
     with runez.CaptureOutput(dryrun=True) as logged:
         assert "Would run: /dev/null" in runez.run("/dev/null", fatal=False)
         assert "Would run: /dev/null" in logged.pop()
 
-        assert "Would run:" in runez.run("ls")
-        assert "Would run:" in logged.pop()
+        assert "Would run:" in runez.run(ls, "--invalid-flag", None, ".")
+        assert "Would run: %s ." % ls in logged.pop()
 
     with runez.CaptureOutput() as logged:
         assert runez.run("/dev/null", fatal=False) is False
         assert "/dev/null is not installed" in logged.pop()
 
         assert runez.touch("sample") == 1
-        assert runez.run("ls", ".", path_env={"PATH": ":."}) == "sample"
-        assert "Running:" in logged.pop()
+        assert runez.run(ls, "--invalid-flag", None, ".", path_env={"PATH": ":."}) == "sample"
+        assert "Running: %s ." % ls in logged.pop()
 
-        assert runez.run("ls", "some-file", fatal=False) is False
-        assert "Running: " in logged
+        assert runez.run(ls, "some-file", fatal=False) is False
+        assert "Running: %s some-file" % ls in logged
         assert "exited with code" in logged
         assert "No such file" in logged.pop()
 
