@@ -2,6 +2,14 @@
 History
 =======
 
+1.5.1 (2019-02-20)
+------------------
+
+* Correctly handle ``custom_location``
+
+* Preparing for log file rotation support
+
+
 1.5.0 (2019-02-19)
 ------------------
 

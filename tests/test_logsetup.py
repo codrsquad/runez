@@ -20,16 +20,29 @@ def test_logspec(isolated_log_setup):
     assert s1.should_log_to_file
     assert s1.usable_location() == "/tmp/pytest.log"
 
+    # No appname -> can't determine a usable location anymore
+    s1.appname = None
+    assert s1.should_log_to_file
+    assert s1.usable_location() is None
+
     s1.set(appname="testing", timezone=None, locations=[s1.tmp])
     assert s1.appname == "testing"
     assert s1.timezone is None
     assert s1.usable_location() == "/tmp/testing.log"
     assert s1 != s2
 
+    # Empty string custom location just disables file logging
     s1.custom_location = ""
     assert not s1.should_log_to_file
     assert s1.usable_location() is None
 
+    # No basename, and custom location points to folder -> not usable
+    s1.appname = None
+    s1.custom_location = "/tmp"
+    assert s1.should_log_to_file
+    assert s1.usable_location() is None
+
+    # Restore from other spec
     s1.set(s2)
     assert s1 == s2
 
@@ -94,7 +107,7 @@ def test_default(temp_log):
     assert "Logging to" in temp_log.stderr
     logging.info("hello")
 
-    temp_log.expect_logged("UTC [MainThread] [[version=1.0,worker=joe]] INFO - hello")
+    temp_log.expect_logged("UTC [[version=1.0,worker=joe]] INFO - hello")
     assert "INFO hello" in temp_log.stderr
 
 
@@ -201,7 +214,7 @@ def test_convenience(temp_log):
     assert "test_logsetup f:test_logsetup.py mod:test_logsetup func:test_convenience ERROR oops" in temp_log.stderr
 
 
-def test_not_writable(temp_log):
+def test_auto_location_not_writable(temp_log):
     with patch("runez.path.os.access", return_value=False):
         runez.log.setup(console_format="%(name)s f:%(filename)s mod:%(module)s func:%(funcName)s %(levelname)s - %(message)s")
 
@@ -209,3 +222,14 @@ def test_not_writable(temp_log):
         assert "No usable log locations" in temp_log.stderr
 
         assert runez.log.file_handler is None
+
+
+def test_custom_location_not_writable(temp_log):
+    runez.log.setup(
+        custom_location="/dev/null/somewhere.log",
+    )
+
+    assert "DEBUG Can't create folder /dev/null" in temp_log.stderr
+    assert "DEBUG Can't log to /dev/null/somewhere.log" in temp_log.stderr
+
+    assert runez.log.file_handler is None

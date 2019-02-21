@@ -9,6 +9,7 @@ import signal
 import sys
 import threading
 from functools import partial
+# from logging.handlers import RotatingFileHandler
 
 try:
     # faulthandler is only available in python 3.3+
@@ -74,7 +75,7 @@ class LogSpec(Slotted):
         if self.locations:
             for location in self.locations:
                 path = self._auto_complete_filename(location)
-                if path and ensure_folder(path, fatal=False, logger=LOG.debug, dryrun=False) >= 0:
+                if path:
                     return path
 
     @property
@@ -99,8 +100,11 @@ class LogSpec(Slotted):
         if path:
             if self.basename and os.path.isdir(path):
                 filename = formatted(self.basename, self)
-                return filename and os.path.join(path, filename)
-            return path
+                if not filename:
+                    return None
+                path = os.path.join(path, filename)
+            if path and ensure_folder(path, fatal=False, logger=LOG.debug, dryrun=False) >= 0:
+                return path
 
 
 class _ContextFilter(logging.Filter):
@@ -150,7 +154,7 @@ class LogManager:
         locations=["{dev}/log/{basename}", "/logs/{appname}/{basename}", "/var/log/{basename}"],
         rotate=None,
         console_format="%(asctime)s %(levelname)s %(message)s",
-        file_format="%(asctime)s %(timezone)s [%(threadName)s] %(context)s%(levelname)s - %(message)s",
+        file_format="%(asctime)s %(timezone)s %(context)s%(levelname)s - %(message)s",
         context_format="[[%s]] ",
         timezone=runez.system.get_timezone(),
         dev=None,
@@ -250,15 +254,18 @@ class LogManager:
             if cls.spec.dev is None:
                 cls.spec.dev = get_dev_folder()
 
-            hconsole = _get_handler(cls.level, logging.StreamHandler, cls.spec.console_format, cls.spec.console_stream)
+            hconsole = logging.StreamHandler(cls.spec.console_stream)
+            cls._add_handler(hconsole, cls.spec.console_format)
 
-            actual_location = cls.spec.usable_location()
-            if actual_location:
-                cls.file_handler = _get_handler(cls.level, logging.FileHandler, cls.spec.file_format, actual_location)
-
-            cls.handlers = [h for h in (hconsole, cls.file_handler) if h is not None]
-
-            cls.used_formats = " ".join(h.formatter._fmt for h in cls.handlers)
+            actual_location = None
+            if cls.spec.should_log_to_file:
+                actual_location = cls.spec.usable_location()
+                if actual_location:
+                    if not cls.spec.rotate:
+                        cls.file_handler = logging.FileHandler(actual_location)
+                    # else:
+                    #     cls.file_handler = RotatingFileHandler(actual_location, maxBytes=cls.spec.rotate, backupCount=1)
+                    cls._add_handler(cls.file_handler, cls.spec.file_format)
 
             if cls.is_using_format("%(context)s"):
                 cls.context.enable()
@@ -271,9 +278,29 @@ class LogManager:
 
             if cls.spec.greeting and cls.spec.should_log_to_file:
                 pid = "pid %s" % os.getpid()
-                message = "Logging to %s" % actual_location if actual_location else "No usable log locations from {locations}"
+                if actual_location:
+                    message = "Logging to %s" % actual_location
+                elif cls.spec.custom_location:
+                    message = "Can't log to {custom_location}"
+                else:
+                    message = "No usable log locations from {locations}"
                 message = formatted(cls.spec.greeting, cls.spec, pid=pid, location=message, strict=False)
                 LOG.debug(message)
+
+    @classmethod
+    def _add_handler(cls, handler, format):
+        """
+        Args:
+            handler (logging.Handler): Handler to decorate
+            format (str): Format to use
+        """
+        handler.setFormatter(_get_formatter(format))
+        handler.setLevel(cls.level)
+        logging.root.addHandler(handler)
+        if cls.handlers is None:
+            cls.handlers = []
+        cls.used_formats = ("%s %s" % (cls.used_formats or "", format)).strip()
+        cls.handlers.append(handler)
 
     @classmethod
     def silence(cls, *modules):
@@ -415,41 +442,26 @@ class LogManager:
         logging.log = log
 
 
-def _replace_and_pad(format, marker, replacement):
+def _replace_and_pad(fmt, marker, replacement):
     """
-    :param str format: Format to tweak
+    :param str fmt: Format to tweak
     :param str marker: Marker to replace
     :param str replacement: What to replace marker with
     :return str: Resulting format, with marker replaced
     """
-    if marker not in format:
-        return format
+    if marker not in fmt:
+        return fmt
     if replacement:
-        return format.replace(marker, replacement)
-    # Remove mention of 'marker' in 'format', including leading space (if present)
-    format = format.replace("%s " % marker, marker)
-    return format.replace(marker, "")
+        return fmt.replace(marker, replacement)
+    # Remove mention of 'marker' in 'fmt', including leading space (if present)
+    fmt = fmt.replace("%s " % marker, marker)
+    return fmt.replace(marker, "")
 
 
-def _get_handler(level, base, format, target):
+def _get_formatter(fmt):
     """
-    :param type(logging.Handler) base: Handler implementation to use
-    :param str|None format: Format to use
-    :param str|None target: Target for handler
-    :return logging.Handler|None:
-    """
-    if format and target:
-        handler = base(target)
-        handler.setFormatter(_get_formatter(format))
-        handler.setLevel(level)
-        logging.root.addHandler(handler)
-        return handler
-
-
-def _get_formatter(format):
-    """
-    :param str format: Format specification
+    :param str fmt: Format specification
     :return logging.Formatter: Associated logging formatter
     """
-    format = _replace_and_pad(format, "%(timezone)s", LogManager.spec.timezone)
-    return logging.Formatter(format)
+    fmt = _replace_and_pad(fmt, "%(timezone)s", LogManager.spec.timezone)
+    return logging.Formatter(fmt)
