@@ -49,10 +49,12 @@ def formatted(text, *args, **kwargs):
     :param kwargs: Optional values provided as named args
     :return str: Attributes from this class are expanded if mentioned
     """
+    if not text or "{" not in text:
+        return text
     strict = kwargs.pop("strict", True)
     max_depth = kwargs.pop("max_depth", 3)
     objects = list(args) + [kwargs] if kwargs else args[0] if len(args) == 1 else args
-    if not text or not objects:
+    if not objects:
         return text
     definitions = {}
     markers = RE_FORMAT_MARKERS.findall(text)

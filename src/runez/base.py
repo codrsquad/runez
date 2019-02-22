@@ -158,6 +158,23 @@ class Slotted(object):
                 raise ValueError("Unknown %s field '%s'" % (self.__class__.__name__, name))
             self._set(name, kwargs[name])
 
+    def pop(self, settings):
+        """
+        Args:
+            settings (dict): Dict to pop applicable fields from
+        """
+        if settings:
+            for name in self.__slots__:
+                self._set(name, settings.pop(name, UNSET))
+
+    def to_dict(self):
+        result = {}
+        for name in self.__slots__:
+            val = getattr(self, name, UNSET)
+            if val is not UNSET:
+                result[name] = val
+        return result
+
 
 class ThreadGlobalContext:
     """Thread-local + global context, composed of key/value pairs.

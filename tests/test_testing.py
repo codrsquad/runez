@@ -17,19 +17,25 @@ def test_success(cli):
     assert cli.succeeded
     assert cli.match("hello")
     assert not cli.match("foo")
+    assert cli.match("el+", regex=True)
+    assert not cli.match("EL+", regex=True)
+    assert cli.match("EL+", regex=re.IGNORECASE)
 
     cli.expect_success("hello", "hello", "el+", regex=True)
 
-    cli.run("hello")
-    m = cli.match("hello")
+    cli.run("{marker} world", marker="hello")
+    m = cli.match("hello world")
     assert m
-    assert str(m) == "hello"
+    assert str(m) == "hello world"
     m = cli.match("el+", regex=True)
     assert m
     assert m.match == "ell"
 
+    assert cli.match("h...")
+    assert cli.match("h...", regex=True)
     assert not cli.match("h...", regex=False)
     assert cli.match(re.compile("hel+o"))
+
     assert not cli.match("Hello")
     assert cli.match("Hello", regex=re.IGNORECASE)
 
