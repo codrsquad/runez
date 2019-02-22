@@ -26,7 +26,7 @@ DEFAULT_FREQUENCY = 60
 LOG = logging.getLogger(__name__)
 
 
-class Task:
+class Task(object):
     """Task to be executed periodically"""
 
     def __init__(self, name=None, frequency=None):
@@ -58,7 +58,7 @@ class Task:
         return self.next_execution < other.next_execution
 
 
-class Heartbeat:
+class Heartbeat(object):
     """
     Daemon thread used to run periodical background tasks tasks like:
 

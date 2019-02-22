@@ -20,7 +20,7 @@ from runez.logsetup import LogManager
 from runez.system import AbortException, is_dryrun, set_dryrun
 
 
-class CapturedStream:
+class CapturedStream(object):
     """Capture output to a stream by hijacking temporarily its write() function"""
 
     _shared = None
@@ -207,7 +207,7 @@ class CaptureOutput(TrackedOutput):
         self.clear()
 
 
-class CurrentFolder:
+class CurrentFolder(object):
     """
     Context manager for changing the current working directory
     """
@@ -228,7 +228,7 @@ class CurrentFolder:
             Anchored.pop(self.destination)
 
 
-class TempFolder:
+class TempFolder(object):
     """
     Context manager for obtaining a temp folder
     """

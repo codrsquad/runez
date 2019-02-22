@@ -14,7 +14,7 @@ def test_missing_click():
     assert runez.click.log() is runez.click.log
 
 
-class FakeClick:
+class FakeClick(object):
 
     default = None
     help = None

@@ -6,7 +6,7 @@ import runez
 from runez.serialize import same_type, type_name
 
 
-class SomeRecord:
+class SomeRecord(object):
 
     name = "my record"
     some_int = 5

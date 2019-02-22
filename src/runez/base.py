@@ -16,7 +16,7 @@ except NameError:
     unicode = str
 
 
-class Undefined:
+class Undefined(object):
     """Provides base type for `UNSET` below (representing an undefined value)
 
     Allows to distinguish between a caller not providing a value, vs providing `None`.
@@ -176,7 +176,7 @@ class Slotted(object):
         return result
 
 
-class ThreadGlobalContext:
+class ThreadGlobalContext(object):
     """Thread-local + global context, composed of key/value pairs.
 
     Thread-local context is a dict per thread (stored in a threading.local()).

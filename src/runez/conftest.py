@@ -21,7 +21,7 @@ runez.log.override_root_level(logging.DEBUG)
 runez.log.override_spec(appname="pytest", timezone="UTC", locations=["{tmp}/{basename}"], tmp=os.path.join("/", "tmp"))
 
 
-class IsolatedLogSetup:
+class IsolatedLogSetup(object):
     """Allows to isolate changes to logging setup.
 
     This should only be useful for testing (as in general, logging setup is a global thing).
@@ -113,7 +113,7 @@ runez.context.CapturedStream._shared = WrappedHandler
 _pytest.logging.LogCaptureHandler = WrappedHandler
 
 
-class ClickWrapper:
+class ClickWrapper(object):
     """Wrap click invoke, when click is available, otherwise just call provided function"""
 
     __runner = None
@@ -146,7 +146,7 @@ class ClickWrapper:
             return cls
 
 
-class ClickRunner:
+class ClickRunner(object):
     """Allows to provide a test-friendly fixture around testing click entry-points"""
 
     def __init__(self, context=None):
@@ -292,7 +292,7 @@ class RunSpec(runez.Slotted):
     __slots__ = ["stdout", "stderr", "log", "regex"]
 
 
-class Match:
+class Match(object):
     def __init__(self, capture, match, pre=None, post=None):
         self.capture = capture
         self.match = match

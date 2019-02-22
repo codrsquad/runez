@@ -39,7 +39,7 @@ def same_type(t1, t2):
     return type(t1) == type(t2)
 
 
-class Serializable:
+class Serializable(object):
     """
     Serializable object
     """

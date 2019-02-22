@@ -147,7 +147,7 @@ class _ContextFilter(logging.Filter):
         return True
 
 
-class LogManager:
+class LogManager(object):
     """
     Global logging context managed by runez.
     There's only one, as multiple contexts would not be useful (logging setup is a global thing)

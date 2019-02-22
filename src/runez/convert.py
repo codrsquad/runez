@@ -151,7 +151,7 @@ def to_int(text, default=None):
         return default
 
 
-class Anchored:
+class Anchored(object):
     """
     An "anchor" is a known path that we don't wish to show in full when printing/logging
     This allows to conveniently shorten paths, and show more readable relative paths

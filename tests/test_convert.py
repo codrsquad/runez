@@ -56,7 +56,7 @@ def test_flattened():
 
 
 def test_formatted():
-    class Record:
+    class Record(object):
         basename = "my-name"
         filename = "{basename}.txt"
 

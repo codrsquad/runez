@@ -10,7 +10,7 @@ from runez.conftest import cli, isolated_log_setup, IsolatedLogSetup, logged, te
 assert all(s for s in [cli, isolated_log_setup, logged, temp_folder])
 
 
-class TempLog:
+class TempLog(object):
     def __init__(self, folder, capture):
         """
         :param str folder: Temp folder
