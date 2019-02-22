@@ -126,7 +126,7 @@ def test_level(temp_log):
 def test_console(temp_log):
     logger = logging.getLogger("runez")
     old_level = logger.level
-    runez.log.setup(custom_location="", greeting=["{actual_location}, {pid}", ":: argv: {argv}"])
+    runez.log.setup(custom_location="", greetings=["{actual_location}, {pid}", ":: argv: {argv}"])
 
     assert temp_log.logfile is None
     assert "DEBUG Not logging to file, pid " in temp_log.stderr
@@ -154,7 +154,7 @@ def test_context(temp_log):
     runez.log.spec.locations = None
     runez.log.spec.console_stream = sys.stdout
     runez.log.spec.console_format = "%(name)s %(timezone)s %(context)s%(levelname)s - %(message)s"
-    runez.log.setup(greeting=None)
+    runez.log.setup(greetings=None)
 
     assert temp_log.logfile is None
 

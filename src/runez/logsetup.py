@@ -61,7 +61,7 @@ class LogSpec(Slotted):
     # See setup()'s docstring for meaning of each field
     __slots__ = [
         "appname", "basename", "console_format", "console_stream", "context_format", "custom_location",
-        "dev", "file_format", "greeting", "level", "locations", "rotate", "timezone", "tmp",
+        "dev", "file_format", "greetings", "level", "locations", "rotate", "timezone", "tmp",
     ]
 
     @property
@@ -169,7 +169,7 @@ class LogManager:
         timezone=runez.system.get_timezone(),
         dev=None,
         tmp=None,
-        greeting="{actual_location}, {pid}",
+        greetings="{actual_location}, {pid}",
     )
 
     # Spec defines how logs should be setup()
@@ -210,7 +210,7 @@ class LogManager:
             timezone=UNSET,
             dev=UNSET,
             tmp=UNSET,
-            greeting=UNSET,
+            greetings=UNSET,
     ):
         """
         Args:
@@ -229,7 +229,7 @@ class LogManager:
             timezone (str | None): Time zone, use None to deactivate time zone logging
             dev (str | None): Custom folder to use when running from a development venv (auto-determined if None)
             tmp (str | None): Optional temp folder to use (auto determined)
-            greeting (str | list[str] | None): Optional greeting message to log, extra {actual_location} format markers provided
+            greetings (str | list[str] | None): Optional greetings message(s) to log, extra {actual_location} format markers provided
         """
         with cls._lock:
             if cls.level is not None:
@@ -256,7 +256,7 @@ class LogManager:
                 timezone=timezone,
                 dev=dev,
                 tmp=tmp,
-                greeting=greeting,
+                greetings=greetings,
             )
             cls.level = logging.DEBUG if debug else cls.spec.level
             if logging.root.level != cls.level:
@@ -286,8 +286,8 @@ class LogManager:
                 for handler in cls.handlers:
                     handler.addFilter(cls.context.filter)
 
-            if cls.spec.greeting:
-                for msg in flattened(cls.spec.greeting, split=SANITIZED):
+            if cls.spec.greetings:
+                for msg in flattened(cls.spec.greetings, split=SANITIZED):
                     message = cls.formatted_greeting(msg)
                     if message:
                         LOG.debug(message)
