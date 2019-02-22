@@ -1,4 +1,5 @@
 import re
+import sys
 
 import pytest
 
@@ -9,6 +10,11 @@ def stringify(*args):
 
 def crash(*args):
     raise Exception("crashed: %s" % args)
+
+
+def hard_exit(*args):
+    print(" ".join(args))
+    sys.exit(1)
 
 
 def test_success(cli):
@@ -75,3 +81,11 @@ def test_crash(cli):
     with pytest.raises(AssertionError):
         # Expected message not seen in output
         cli.expect_failure("hello", "this message shouldn't appear")
+
+
+def test_hard_exit(cli):
+    cli.main = hard_exit
+    cli.run("hello")
+    assert cli.failed
+    assert "hello" in cli.logged.stdout
+    assert "Exited with stacktrace" in cli.logged.log

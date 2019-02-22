@@ -6,6 +6,8 @@ Example:
     from runez.conftest import cli, isolated_log_setup, temp_folder
 """
 
+from __future__ import absolute_import
+
 import logging
 import os
 import re
@@ -129,7 +131,7 @@ class ClickWrapper(object):
             output = main(*args)
             return ClickWrapper(output=output, exit_code=0)
 
-        except Exception as e:
+        except BaseException as e:
             return ClickWrapper(str(e), exit_code=1, exception=e)
 
     @runez.prop
