@@ -183,6 +183,7 @@ class LogManager(object):
     # Below fields should be read-only for outside users, do not modify these
     level = None  # Current severity level
     actual_location = None
+    console_handler = None  # type: logging.StreamHandler
     file_handler = None  # type: logging.FileHandler # File we're currently logging to (if any)
     handlers = None  # type: list[logging.StreamHandler]
     used_formats = None  # type: str
@@ -265,8 +266,9 @@ class LogManager(object):
             if cls.spec.dev is None:
                 cls.spec.dev = get_dev_folder()
 
-            hconsole = logging.StreamHandler(cls.spec.console_stream)
-            cls._add_handler(hconsole, cls.spec.console_format)
+            if cls.spec.console_stream and cls.spec.console_format:
+                cls.console_handler = logging.StreamHandler(cls.spec.console_stream)
+                cls._add_handler(cls.console_handler, cls.spec.console_format)
 
             if cls.spec.should_log_to_file:
                 cls.actual_location = cls.spec.usable_location()
@@ -379,6 +381,7 @@ class LogManager(object):
         cls.spec = LogSpec(cls._default_spec)
         cls.level = None
         cls.actual_location = None
+        cls.console_handler = None
         cls.file_handler = None
         cls.handlers = None
         cls.used_formats = None
