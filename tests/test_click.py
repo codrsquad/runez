@@ -1,8 +1,23 @@
 # -*- coding: utf-8 -*-
 
+"""
+Test click related methods
+"""
+
 from mock import patch
 
 import runez
+
+
+def test_settings():
+    s = runez.click.settings(foo="bar")
+    assert len(s) == 3
+    assert s["epilog"] == "Test click related methods"
+    assert s["foo"] == "bar"
+    assert s["context_settings"] == dict(help_option_names=["-h", "--help"], max_content_width=140)
+
+    s = runez.click.settings(help="-h --help --explain")
+    assert s["context_settings"]["help_option_names"] == ["-h", "--help", "--explain"]
 
 
 def test_missing_click():

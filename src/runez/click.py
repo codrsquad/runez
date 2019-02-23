@@ -19,7 +19,35 @@ try:
 except ImportError:
     click = None
 
+from runez.convert import flattened
 from runez.system import get_version
+
+
+def settings(epilog=None, help=None, width=140, **kwargs):
+    """
+    Args:
+        epilog (str | None): Help epilog, defaults to __doc__ of caller module
+        help (list[str] | str | None): List of flags to show help, default: -h and --help
+        width (int): Constrain help to
+        **kwargs:
+
+    Returns:
+        dict: Dict passable to @click.command() or @click.group()
+    """
+    if epilog is None:
+        if hasattr(sys, "_getframe"):
+            doc = sys._getframe(1).f_globals.get("__doc__")
+            if doc:
+                epilog = doc.strip()
+
+    if help is None:
+        help = ["-h", "--help"]
+
+    return dict(
+        epilog=epilog,
+        context_settings=dict(help_option_names=flattened(help, split=" "), max_content_width=width),
+        **kwargs
+    )
 
 
 def debug(*args, **kwargs):
