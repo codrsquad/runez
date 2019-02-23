@@ -19,6 +19,7 @@ import runez
 from runez.base import string_type
 
 
+logging.root.setLevel(logging.DEBUG)
 runez.log.override_spec(
     appname="pytest",
     timezone="UTC",

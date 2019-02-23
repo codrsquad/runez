@@ -16,7 +16,6 @@ except ImportError:
     from io import StringIO
 
 from runez.convert import Anchored, resolved_path, SYMBOLIC_TMP
-from runez.logsetup import LogManager
 from runez.system import AbortException, is_dryrun, set_dryrun
 
 

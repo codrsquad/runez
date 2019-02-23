@@ -137,37 +137,27 @@ class Slotted(object):
                 if current is None or current is UNSET:
                     current = value.__class__()
                     current.set(value)
-                    setattr(self, name, value)
+                    setattr(self, name, current)
                     return
-                setattr(self, name, current)
-                return
+                if isinstance(current, Slotted):
+                    current.set(value)
+                    return
             setattr(self, name, value)
 
     def set(self, *args, **kwargs):
         """Conveniently set one or more fields at a time.
 
         Args:
-            *args: Optionally set from another `Slotted` object, this is passed as `*args` only to allow for that optionality
-            **kwargs: Set from given key/value pairs (names must be valid, ie be defined in __slots__)
-
-        Raises:
-            ValueError: If any of parameters is invalid.
+            *args: Optionally set from other objects, available fields from the passed object are used in order
+            **kwargs: Set from given key/value pairs (only names defined in __slots__ are used)
         """
         if args:
-            if kwargs:
-                raise ValueError("Provide either one positional, or field values as named arguments, but not both")
-            if len(args) > 1:
-                raise ValueError("Provide only one other %s as positional argument" % self.__class__.__name__)
-            other = args[0]
-            if isinstance(other, self.__class__):
-                for name in self.__slots__:
-                    self._set(name, getattr(other, name))
-                return
-            raise ValueError("Argument is not of type %s: %s" % (self.__class__.__name__, args[0]))
+            for arg in args:
+                if arg is not None:
+                    for name in self.__slots__:
+                        self._set(name, getattr(arg, name, UNSET))
         for name in kwargs:
-            if name not in self.__slots__:
-                raise ValueError("Unknown %s field '%s'" % (self.__class__.__name__, name))
-            self._set(name, kwargs[name])
+            self._set(name, kwargs.get(name, UNSET))
 
     def pop(self, settings):
         """

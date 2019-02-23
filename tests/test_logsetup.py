@@ -46,17 +46,22 @@ def test_logspec(isolated_log_setup):
     s1.set(s2)
     assert s1 == s2
 
-    with pytest.raises(ValueError):
-        s1.set(not_valid="this is not a field of LogSpec")
+    s1.set(s2, timezone="hello")
+    assert s1 != s2
+    assert s1.timezone == "hello"
 
-    with pytest.raises(ValueError):
-        s1.set("hello")
+    s1.set(s2, timezone=runez.UNSET)
+    assert s1 == s2
 
-    with pytest.raises(ValueError):
-        s1.set(s2, "hello")
+    # No-ops, because targets don't have any meaningful values
+    s1.set(not_valid="this is not a field of LogSpec")
+    assert s1 == s2
 
-    with pytest.raises(ValueError):
-        s1.set(s2, timezone="hello")
+    s1.set("hello")
+    assert s1 == s2
+
+    s1.set(s2, "hello")
+    assert s1 == s2
 
 
 def test_setup(temp_log):
@@ -101,13 +106,15 @@ def test_default(temp_log):
     runez.log.context.add_global(worker="mark")
     runez.log.context.add_threadlocal(worker="joe", foo="bar")
     runez.log.context.set_threadlocal(worker="joe")
-    runez.log.setup()
+    runez.log.setup(greetings="Logging to: {location}, pid {pid}")
 
     assert temp_log.logfile == "pytest.log"
-    assert "Logging to" in temp_log.stderr
-    assert "pid %s" % os.getpid() in temp_log.stderr
-    logging.info("hello")
+    assert "Logging to: " in temp_log.stderr
+    assert "pytest.log, pid %s" % os.getpid() in temp_log.stderr
+    temp_log.expect_logged("Logging to: ")
+    temp_log.expect_logged("pytest.log, pid %s" % os.getpid())
 
+    logging.info("hello")
     temp_log.expect_logged("UTC [[version=1.0,worker=joe]] INFO - hello")
     assert "INFO hello" in temp_log.stderr
 
@@ -126,20 +133,23 @@ def test_level(temp_log):
 def test_console(temp_log):
     logger = logging.getLogger("runez")
     old_level = logger.level
-    runez.log.setup(file_location="", greetings=["{actual_location}, {pid}", ":: argv: {argv}"])
 
-    assert temp_log.logfile is None
-    assert "DEBUG Not logging to file, pid " in temp_log.stderr
-    assert ":: argv: " in temp_log.stderr
-    logger.info("hello")
-    assert "INFO hello" in temp_log.stderr
+    try:
+        runez.log.setup(file_location="", greetings=["Logging to: {location}", ":: argv: {argv}"])
 
-    temp_log.logged.clear()
-    runez.log.silence(runez)
-    logger.info("hello")
-    assert not temp_log.logged
+        assert temp_log.logfile is None
+        assert "DEBUG Logging to: file log disabled" in temp_log.stderr
+        assert ":: argv: " in temp_log.stderr
+        logger.info("hello")
+        assert "INFO hello" in temp_log.stderr
 
-    logger.setLevel(old_level)
+        temp_log.logged.clear()
+        runez.log.silence(runez)
+        logger.info("hello")
+        assert not temp_log.logged
+
+    finally:
+        logger.setLevel(old_level)
 
 
 def test_no_context(temp_log):
@@ -219,20 +229,24 @@ def test_convenience(temp_log):
 
 def test_auto_location_not_writable(temp_log):
     with patch("runez.path.os.access", return_value=False):
-        runez.log.setup(console_format="%(name)s f:%(filename)s mod:%(module)s func:%(funcName)s %(levelname)s - %(message)s")
+        runez.log.setup(
+            greetings="Logging to: {location}",
+            console_format="%(name)s f:%(filename)s mod:%(module)s func:%(funcName)s %(levelname)s - %(message)s",
+        )
 
         assert "runez.logsetup f:system.py mod:system func:abort DEBUG" in temp_log.stderr
-        assert "No usable log locations" in temp_log.stderr
+        assert "Logging to: no usable locations" in temp_log.stderr
 
         assert runez.log.file_handler is None
 
 
 def test_file_location_not_writable(temp_log):
     runez.log.setup(
+        greetings="Logging to: {location}",
         file_location="/dev/null/somewhere.log",
     )
 
     assert "DEBUG Can't create folder /dev/null" in temp_log.stderr
-    assert "DEBUG Can't log to /dev/null/somewhere.log" in temp_log.stderr
+    assert "DEBUG Logging to: /dev/null/somewhere.log is not usable" in temp_log.stderr
 
     assert runez.log.file_handler is None

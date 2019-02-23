@@ -73,7 +73,7 @@ class LogSpec(Slotted):
     @property
     def pid(self):
         """str: Current process id represented to show as greeting"""
-        return "pid %s" % os.getpid()
+        return os.getpid()
 
     def usable_location(self):
         """
@@ -161,7 +161,7 @@ class LogManager(object):
         basename="{appname}.log",
         context_format="[[%s]] ",
         dev=None,
-        greetings="{actual_location}, {pid}",
+        greetings=None,
         timezone=runez.system.get_timezone(),
         tmp=None,
         console_format="%(asctime)s %(levelname)s %(message)s",
@@ -186,7 +186,7 @@ class LogManager(object):
     actual_location = None
     console_handler = None  # type: logging.StreamHandler
     file_handler = None  # type: logging.FileHandler # File we're currently logging to (if any)
-    handlers = None  # type: list[logging.StreamHandler]
+    handlers = None  # type: list[logging.Handler]
     used_formats = None  # type: str
     faulthandler = faulthandler
     faulthandler_signum = None  # type: int
@@ -312,14 +312,14 @@ class LogManager(object):
     def formatted_greeting(cls, greeting):
         if greeting:
             if cls.actual_location:
-                message = "Logging to %s" % cls.actual_location
+                location = cls.actual_location
             elif cls.spec.file_location:
-                message = "Can't log to {file_location}"
+                location = "{file_location} is not usable"
             elif not cls.spec.should_log_to_file:
-                message = "Not logging to file"
+                location = "file log disabled"
             else:
-                message = "No usable log locations from {locations}"
-            return formatted(greeting, cls.spec, actual_location=message, strict=False)
+                location = "no usable locations from {locations}"
+            return formatted(greeting, cls.spec, location=location, strict=False)
 
     @classmethod
     def silence(cls, *modules):
