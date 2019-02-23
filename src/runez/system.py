@@ -1,4 +1,5 @@
 import logging
+import sys
 import time
 
 
@@ -40,18 +41,43 @@ def abort(*args, **kwargs):
     logger = kwargs.pop("logger", LOG.error if code else LOG.info)
     fatal = kwargs.pop("fatal", True)
     return_value = fatal
+
     if isinstance(fatal, tuple) and len(fatal) == 2:
         fatal, return_value = fatal
+
     if logger and fatal is not None and args:
-        logger(*args, **kwargs)
+        if logging.root.handlers:
+            logger(*args, **kwargs)
+
+        else:
+            sys.stderr.write("%s\n" % formatted_string(*args))
+
     if fatal:
         if isinstance(fatal, type) and issubclass(fatal, BaseException):
             raise fatal(code)
+
         if AbortException is not None:
             if isinstance(AbortException, type) and issubclass(AbortException, BaseException):
                 raise AbortException(code)
+
             return AbortException(code)
+
     return return_value
+
+
+def formatted_string(*args):
+    if not args:
+        return ""
+
+    message = args[0]
+    if len(args) == 1:
+        return message
+
+    try:
+        return message % args[1:]
+
+    except TypeError:
+        return message
 
 
 def get_timezone():

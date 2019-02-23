@@ -113,10 +113,6 @@ def test_paths(temp_folder):
     assert "Can't create folder" in custom
     assert runez.verify_abort(runez.ensure_folder, None) is None
 
-    runez.system.AbortException = str
-    assert runez.ensure_folder("sample", folder=True, fatal=True) == "1"
-    runez.system.AbortException = SystemExit
-
     assert runez.delete("sample") == 1
     assert runez.ensure_folder("sample", folder=True) == 1
     assert os.getcwd() == temp_folder

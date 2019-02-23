@@ -113,6 +113,7 @@ class WrappedHandler(_pytest.logging.LogCaptureHandler):
         if self._is_capturing:
             msg = self.format(record)
             WrappedHandler._buffer.write(msg)
+            WrappedHandler._buffer.write("\n")
 
         else:
             super(WrappedHandler, self).emit(record)

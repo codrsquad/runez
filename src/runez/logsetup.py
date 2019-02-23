@@ -95,9 +95,11 @@ class LogSpec(Slotted):
         Returns:
             bool: As per the spec, should we be logging to a file?
         """
+        if not self.file_format:
+            return False
         if self.file_location is not None:
             return bool(self.file_location)
-        return bool(self.locations and self.file_format)
+        return bool(self.locations)
 
     def _auto_complete_filename(self, location):
         """
