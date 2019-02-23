@@ -15,6 +15,12 @@ def test_flattened():
     assert runez.flattened(None, split=runez.SHELL) == []
     assert runez.flattened(None, split=runez.UNIQUE) == [None]
 
+    assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET]) == ["-a", None, "b", runez.UNSET, runez.UNSET]
+    assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET], split=runez.UNIQUE) == ["-a", None, "b", runez.UNSET]
+    assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET], split=runez.SANITIZED) == ["-a", "b"]
+    assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET], split=runez.SHELL) == ["b"]
+    assert runez.flattened(["-a", [runez.UNSET, "b", runez.UNSET], runez.UNSET], split=runez.SHELL) == ["b"]
+
     assert runez.flattened(["a b"]) == ["a b"]
     assert runez.flattened([["a b"]]) == ["a b"]
 

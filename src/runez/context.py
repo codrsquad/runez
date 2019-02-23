@@ -184,10 +184,8 @@ class CaptureOutput(TrackedOutput):
         self.level = level
         self.anchors = anchors
         self.dryrun = dryrun
-        self._old_level = None
 
     def __enter__(self):
-        self._old_level = LogManager.override_root_level(self.level)
         for s in self.captured:
             s.capture()
         if self.anchors:
@@ -197,7 +195,6 @@ class CaptureOutput(TrackedOutput):
         return self
 
     def __exit__(self, *args):
-        LogManager.override_root_level(self._old_level)
         for s in self.captured:
             s.restore()
         if self.anchors:

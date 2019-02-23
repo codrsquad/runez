@@ -60,8 +60,9 @@ class LogSpec(Slotted):
 
     # See setup()'s docstring for meaning of each field
     __slots__ = [
-        "appname", "basename", "console_format", "console_stream", "context_format", "custom_location",
-        "dev", "file_format", "greetings", "level", "locations", "rotate", "timezone", "tmp",
+        "appname", "basename", "context_format", "dev", "greetings", "timezone", "tmp",
+        "console_format", "console_level", "console_stream",
+        "file_format", "file_level", "file_location", "locations", "rotate",
     ]
 
     @property
@@ -79,9 +80,9 @@ class LogSpec(Slotted):
         Returns:
             str | None: First available usable location
         """
-        if self.custom_location is not None:
+        if self.file_location is not None:
             # Custom location typically provided via --config CLI flag
-            return self._auto_complete_filename(self.custom_location)
+            return self._auto_complete_filename(self.file_location)
         if self.locations:
             for location in self.locations:
                 path = self._auto_complete_filename(location)
@@ -94,8 +95,8 @@ class LogSpec(Slotted):
         Returns:
             bool: As per the spec, should we be logging to a file?
         """
-        if self.custom_location is not None:
-            return bool(self.custom_location)
+        if self.file_location is not None:
+            return bool(self.file_location)
         return bool(self.locations and self.file_format)
 
     def _auto_complete_filename(self, location):
@@ -156,20 +157,21 @@ class LogManager(object):
     # Defaults used to initialize LogSpec instances
     # Use runez.log.override_spec() to change these defaults (do not change directly)
     _default_spec = LogSpec(
-        level=logging.INFO,
-        custom_location=None,
-        console_stream=sys.stderr,
         appname=get_basename(get_program_path()),
         basename="{appname}.log",
+        context_format="[[%s]] ",
+        dev=None,
+        greetings="{actual_location}, {pid}",
+        timezone=runez.system.get_timezone(),
+        tmp=None,
+        console_format="%(asctime)s %(levelname)s %(message)s",
+        console_level=logging.WARNING,
+        console_stream=sys.stderr,
+        file_format="%(asctime)s %(timezone)s %(context)s%(levelname)s - %(message)s",
+        file_level=logging.INFO,
+        file_location=None,
         locations=["{dev}/log/{basename}", "/logs/{appname}/{basename}", "/var/log/{basename}"],
         rotate=None,
-        console_format="%(asctime)s %(levelname)s %(message)s",
-        file_format="%(asctime)s %(timezone)s %(context)s%(levelname)s - %(message)s",
-        context_format="[[%s]] ",
-        timezone=runez.system.get_timezone(),
-        dev=None,
-        tmp=None,
-        greetings="{actual_location}, {pid}",
     )
 
     # Spec defines how logs should be setup()
@@ -181,7 +183,6 @@ class LogManager(object):
     context = ThreadGlobalContext(_ContextFilter)
 
     # Below fields should be read-only for outside users, do not modify these
-    level = None  # Current severity level
     actual_location = None
     console_handler = None  # type: logging.StreamHandler
     file_handler = None  # type: logging.FileHandler # File we're currently logging to (if any)
@@ -199,43 +200,48 @@ class LogManager(object):
             debug=UNSET,
             dryrun=UNSET,
             level=UNSET,
-            custom_location=UNSET,
-            console_stream=UNSET,
             appname=UNSET,
             basename=UNSET,
+            context_format=UNSET,
+            dev=UNSET,
+            greetings=UNSET,
+            timezone=UNSET,
+            tmp=UNSET,
+            console_format=UNSET,
+            console_level=UNSET,
+            console_stream=UNSET,
+            file_format=UNSET,
+            file_level=UNSET,
+            file_location=UNSET,
             locations=UNSET,
             rotate=UNSET,
-            console_format=UNSET,
-            file_format=UNSET,
-            context_format=UNSET,
-            timezone=UNSET,
-            dev=UNSET,
-            tmp=UNSET,
-            greetings=UNSET,
     ):
         """
         Args:
-            debug (bool): Enable debug level logging (overrides `level`)
+            debug (bool): Enable debug level logging (overrides other specified levels)
             dryrun (bool): Enable dryrun
-            level (int): Desired logging level (eg: logging.INFO)
-            custom_location (str | None): Desired custom file location (overrides {locations} search, handy as a --log cli flag)
-            console_stream (TextIOWrapper | None): Stream to use for console log (eg: sys.stderr), use None to deactivate
+            level (int | None): Shortcut to set both `console_level` and `file_level` at once
             appname (str | None): Program's base name, not used directly, just as reference for default 'basename'
             basename (str | None): Base name of target log file, not used directly, just as reference for default 'locations'
+            context_format (str | None): Format to use for contextual log, use None to deactivate
+            dev (str | None): Custom folder to use when running from a development venv (auto-determined if None)
+            greetings (str | list[str] | None): Optional greetings message(s) to log, extra {actual_location} format markers provided
+            timezone (str | None): Time zone, use None to deactivate time zone logging
+            tmp (str | None): Optional temp folder to use (auto determined)
+            console_format (str | None): Format to use for console log, use None to deactivate
+            console_level (int | None): Level to use for console logging
+            console_stream (TextIOWrapper | None): Stream to use for console log (eg: sys.stderr), use None to deactivate
+            file_format (str | None): Format to use for file log, use None to deactivate
+            file_level (str | None): Level to use for file logging
+            file_location (str | None): Desired custom file location (overrides {locations} search, handy as a --log cli flag)
             locations (list[str]|None): List of candidate folders for file logging (None: deactivate file logging)
             rotate (str | None): How to rotate log file (None: deactive, "1d" for daily rotation, "50m" for size based rotation etc)
-            console_format (str | None): Format to use for console log, use None to deactivate
-            file_format (str | None): Format to use for file log, use None to deactivate
-            context_format (str | None): Format to use for contextual log, use None to deactivate
-            timezone (str | None): Time zone, use None to deactivate time zone logging
-            dev (str | None): Custom folder to use when running from a development venv (auto-determined if None)
-            tmp (str | None): Optional temp folder to use (auto determined)
-            greetings (str | list[str] | None): Optional greetings message(s) to log, extra {actual_location} format markers provided
         """
         with cls._lock:
-            if cls.level is not None:
+            if cls.handlers is not None:
                 raise Exception("Please call runez.log.setup() only once")
 
+            cls.handlers = []
             if dryrun is not UNSET:
                 if dryrun and (debug is None or debug is UNSET):
                     # Automatically turn debug on (if not explicitly specified) with dryrun,
@@ -244,31 +250,39 @@ class LogManager(object):
                 runez.system.set_dryrun(dryrun)
 
             cls.spec.set(
-                level=level,
-                custom_location=custom_location,
-                console_stream=console_stream,
                 appname=appname,
                 basename=basename,
+                context_format=context_format,
+                dev=dev,
+                greetings=greetings,
+                timezone=timezone,
+                tmp=tmp,
+                console_format=console_format,
+                console_level=console_level or level,
+                console_stream=console_stream,
+                file_format=file_format,
+                file_level=file_level or level,
+                file_location=file_location,
                 locations=locations,
                 rotate=rotate,
-                console_format=console_format,
-                file_format=file_format,
-                context_format=context_format,
-                timezone=timezone,
-                dev=dev,
-                tmp=tmp,
-                greetings=greetings,
             )
-            cls.level = logging.DEBUG if debug else cls.spec.level
-            if logging.root.level != cls.level:
-                logging.root.setLevel(cls.level)
+
+            if debug:
+                root_level = logging.DEBUG
+                cls.spec.console_level = logging.DEBUG
+                cls.spec.file_level = logging.DEBUG
+
+            else:
+                root_level = min(flattened([cls.spec.console_level, cls.spec.file_level], split=SANITIZED))
+
+            logging.root.setLevel(root_level)
 
             if cls.spec.dev is None:
                 cls.spec.dev = get_dev_folder()
 
             if cls.spec.console_stream and cls.spec.console_format:
                 cls.console_handler = logging.StreamHandler(cls.spec.console_stream)
-                cls._add_handler(cls.console_handler, cls.spec.console_format)
+                cls._add_handler(cls.console_handler, cls.spec.console_format, cls.spec.console_level)
 
             if cls.spec.should_log_to_file:
                 cls.actual_location = cls.spec.usable_location()
@@ -277,7 +291,7 @@ class LogManager(object):
                         cls.file_handler = logging.FileHandler(cls.actual_location)
                     # else:
                     #     cls.file_handler = RotatingFileHandler(cls.actual_location, maxBytes=cls.spec.rotate, backupCount=1)
-                    cls._add_handler(cls.file_handler, cls.spec.file_format)
+                    cls._add_handler(cls.file_handler, cls.spec.file_format, cls.spec.file_level)
 
             if cls.is_using_format("%(context)s"):
                 cls.context.enable()
@@ -299,8 +313,8 @@ class LogManager(object):
         if greeting:
             if cls.actual_location:
                 message = "Logging to %s" % cls.actual_location
-            elif cls.spec.custom_location:
-                message = "Can't log to {custom_location}"
+            elif cls.spec.file_location:
+                message = "Can't log to {file_location}"
             elif not cls.spec.should_log_to_file:
                 message = "Not logging to file"
             else:
@@ -352,18 +366,6 @@ class LogManager(object):
             faulthandler.register(signum, file=dump_file, all_threads=True, chain=False)
 
     @classmethod
-    def override_root_level(cls, level):
-        """This function is useful for testing, to temporarily set logging level to debug basically"""
-        if level is not None:
-            old_level = cls._default_spec.level
-            if level != cls._default_spec.level:
-                cls._default_spec.level = level
-                cls.spec.level = level
-            if level != logging.root.level:
-                logging.root.setLevel(level)
-            return old_level
-
-    @classmethod
     def override_spec(cls, **kwargs):
         """OVerride 'spec' and '_default_spec' with given values"""
         cls._default_spec.set(**kwargs)
@@ -376,28 +378,26 @@ class LogManager(object):
         if cls.handlers is not None:
             for handler in cls.handlers:
                 logging.root.removeHandler(handler)
+            cls.handlers = None
         cls._logging_snapshot.restore()
         cls.context.reset()
         cls.spec = LogSpec(cls._default_spec)
-        cls.level = None
         cls.actual_location = None
         cls.console_handler = None
         cls.file_handler = None
-        cls.handlers = None
         cls.used_formats = None
 
     @classmethod
-    def _add_handler(cls, handler, format):
+    def _add_handler(cls, handler, format, level):
         """
         Args:
             handler (logging.Handler): Handler to decorate
             format (str): Format to use
         """
         handler.setFormatter(_get_formatter(format))
-        handler.setLevel(cls.level)
+        if level:
+            handler.setLevel(level)
         logging.root.addHandler(handler)
-        if cls.handlers is None:
-            cls.handlers = []
         cls.used_formats = ("%s %s" % (cls.used_formats or "", format)).strip()
         cls.handlers.append(handler)
 

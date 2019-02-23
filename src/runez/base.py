@@ -114,7 +114,9 @@ class Slotted(object):
     def _seed(self):
         """Seed initial fields"""
         for name in self.__slots__:
-            setattr(self, name, self.__class__._default)
+            value = getattr(self, name, UNSET)
+            if value is UNSET:
+                setattr(self, name, self.__class__._default)
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -130,6 +132,15 @@ class Slotted(object):
             value: Associated value
         """
         if value is not UNSET:
+            if isinstance(value, Slotted):
+                current = getattr(self, name, UNSET)
+                if current is None or current is UNSET:
+                    current = value.__class__()
+                    current.set(value)
+                    setattr(self, name, value)
+                    return
+                setattr(self, name, current)
+                return
             setattr(self, name, value)
 
     def set(self, *args, **kwargs):

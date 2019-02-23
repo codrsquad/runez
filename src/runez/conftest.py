@@ -19,8 +19,14 @@ import runez
 from runez.base import string_type
 
 
-runez.log.override_root_level(logging.DEBUG)
-runez.log.override_spec(appname="pytest", timezone="UTC", locations=["{tmp}/{basename}"], tmp=os.path.join("/", "tmp"))
+runez.log.override_spec(
+    appname="pytest",
+    timezone="UTC",
+    tmp=os.path.join("/", "tmp"),
+    console_level=logging.DEBUG,
+    file_level=logging.DEBUG,
+    locations=["{tmp}/{basename}"],
+)
 
 
 class IsolatedLogSetup(object):

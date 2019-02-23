@@ -2,7 +2,17 @@
 History
 =======
 
-1.5.1 (2019-02-20)
+1.6.0 (2019-02-22)
+------------------
+
+* Modified ``runez.log.setup()``:
+
+    * Renamed ``custom_location`` to ``file_location``
+
+    * Introducing ``console_level``, and ``file_level``
+
+
+1.5.5 (2019-02-21)
 ------------------
 
 * Correctly handle ``custom_location``

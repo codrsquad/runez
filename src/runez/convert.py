@@ -5,6 +5,8 @@ This is module should not import any other runez module, it's the lowest on the 
 import os
 import re
 
+from runez.base import UNSET
+
 
 SYMBOLIC_TMP = "<tmp>"
 RE_FORMAT_MARKERS = re.compile(r"{([^}]*?)}")
@@ -225,7 +227,7 @@ def _flatten(result, value, separator, mode):
     Returns:
         list: 'value' flattened out (leaves from all involved lists/tuples)
     """
-    if value is None:
+    if value is None or value is UNSET:
         if mode & SHELL:
             # Convenience: allow to filter out ["--switch", None] easily
             if result and result[-1].startswith("-"):

@@ -32,13 +32,13 @@ def test_logspec(isolated_log_setup):
     assert s1 != s2
 
     # Empty string custom location just disables file logging
-    s1.custom_location = ""
+    s1.file_location = ""
     assert not s1.should_log_to_file
     assert s1.usable_location() is None
 
     # No basename, and custom location points to folder -> not usable
     s1.appname = None
-    s1.custom_location = "/tmp"
+    s1.file_location = "/tmp"
     assert s1.should_log_to_file
     assert s1.usable_location() is None
 
@@ -126,7 +126,7 @@ def test_level(temp_log):
 def test_console(temp_log):
     logger = logging.getLogger("runez")
     old_level = logger.level
-    runez.log.setup(custom_location="", greetings=["{actual_location}, {pid}", ":: argv: {argv}"])
+    runez.log.setup(file_location="", greetings=["{actual_location}, {pid}", ":: argv: {argv}"])
 
     assert temp_log.logfile is None
     assert "DEBUG Not logging to file, pid " in temp_log.stderr
@@ -227,9 +227,9 @@ def test_auto_location_not_writable(temp_log):
         assert runez.log.file_handler is None
 
 
-def test_custom_location_not_writable(temp_log):
+def test_file_location_not_writable(temp_log):
     runez.log.setup(
-        custom_location="/dev/null/somewhere.log",
+        file_location="/dev/null/somewhere.log",
     )
 
     assert "DEBUG Can't create folder /dev/null" in temp_log.stderr
