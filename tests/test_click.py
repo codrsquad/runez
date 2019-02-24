@@ -20,6 +20,14 @@ def test_settings():
     assert s["context_settings"]["help_option_names"] == ["-h", "--help", "--explain"]
 
 
+def test_command():
+    with patch("runez.click.click") as fake_click:
+        fake_click.command = FakeClick
+        fake_click.group = FakeClick
+        assert runez.click.command().epilog == "Test click related methods"
+        assert runez.click.group().epilog == "Test click related methods"
+
+
 def test_missing_click():
     # When click is not installed, we don't crash, we just don't decorate the underlying functions
     assert runez.click.click is None
@@ -32,6 +40,7 @@ def test_missing_click():
 class FakeClick(object):
 
     default = None
+    epilog = None
     help = None
     metavar = None
     required = None
