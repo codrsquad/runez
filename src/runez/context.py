@@ -125,7 +125,7 @@ class TrackedOutput(object):
         return "\n".join("%s: %s" % (s.name, s) for s in self.captured)
 
     def __eq__(self, other):
-        if isinstance(other, CaptureOutput):
+        if isinstance(other, TrackedOutput):
             return self.stdout == other.stdout and self.stderr == other.stderr and self.log == other.log
         return str(self).strip() == str(other).strip()
 

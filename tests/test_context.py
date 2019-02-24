@@ -11,7 +11,10 @@ def test_capture():
     c3 = runez.CaptureOutput(stderr=False)
 
     assert c1 == c2
+    assert c1.stdout == ""
+
     assert c1 != c3
+    assert c1 != "hello"
 
     assert c1.stdout is not None
     assert c1.stderr is not None

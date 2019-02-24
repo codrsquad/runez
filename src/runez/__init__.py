@@ -13,8 +13,9 @@ DRYRUN mode: operations like copy(), delete() etc will not actually do their thi
 It's recommended to set DRYRUN only once at the start of your run via: runez.log.setup(dryrun=...)
 """
 
-from runez import click, heartbeat, program, serialize
+from runez import click, config, heartbeat, program, serialize
 from runez.base import decode, prop, Slotted, Undefined, UNSET
+from runez.config import capped, to_boolean, to_bytesize, to_dict, to_json, to_number
 from runez.context import CaptureOutput, CurrentFolder, TempFolder, TrackedOutput, verify_abort
 from runez.convert import Anchored, flattened, formatted, quoted, represented_args, resolved_path, short, shortened, to_int
 from runez.convert import SANITIZED, SHELL, UNIQUE
@@ -28,8 +29,9 @@ from runez.system import abort, get_timezone, get_version, set_dryrun
 
 __all__ = [
     "DRYRUN",
-    "click", "heartbeat", "logsetup", "program", "serialize",
+    "click", "config", "heartbeat", "logsetup", "program", "serialize",
     "decode", "prop", "Slotted", "Undefined", "UNSET",
+    "capped", "to_boolean", "to_bytesize", "to_dict", "to_json", "to_number",
     "CaptureOutput", "CurrentFolder", "TempFolder", "TrackedOutput", "verify_abort",
     "Anchored", "flattened", "formatted", "quoted", "represented_args", "resolved_path", "short", "shortened", "to_int",
     "SANITIZED", "SHELL", "UNIQUE",

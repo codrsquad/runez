@@ -76,13 +76,6 @@ def formatted(text, *args, **kwargs):
     return text.format(**expanded)
 
 
-def _rformat(key, value, definitions, max_depth):
-    if max_depth > 1 and value and "{" in value:
-        value = value.format(**definitions)
-        return _rformat(key, value, definitions, max_depth=max_depth - 1)
-    return value
-
-
 def quoted(text):
     """
     :param str|None text: Text to optionally quote
@@ -214,6 +207,13 @@ class Anchored(object):
 
         path = path.replace(cls.home, "~")
         return path
+
+
+def _rformat(key, value, definitions, max_depth):
+    if max_depth > 1 and value and "{" in value:
+        value = value.format(**definitions)
+        return _rformat(key, value, definitions, max_depth=max_depth - 1)
+    return value
 
 
 def _flatten(result, value, separator, mode):

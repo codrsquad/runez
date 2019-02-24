@@ -52,12 +52,16 @@ def settings(epilog=None, help=None, width=140, **kwargs):
 
 def debug(*args, **kwargs):
     """Show debugging information."""
-    return option(debug, *args, is_flag=True, **kwargs)
+    kwargs.setdefault("is_flag", True)
+    kwargs.setdefault("default", None)
+    return option(debug, *args, **kwargs)
 
 
 def dryrun(*args, **kwargs):
     """Perform a dryrun."""
-    return option(dryrun, *args, is_flag=True, **kwargs)
+    kwargs.setdefault("is_flag", True)
+    kwargs.setdefault("default", None)
+    return option(dryrun, *args, **kwargs)
 
 
 def log(*args, **kwargs):
