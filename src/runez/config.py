@@ -419,6 +419,20 @@ def to_dict(value, prefix=None, separators="=,"):
     return result
 
 
+def to_int(value, default=None, minimum=None, maximum=None):
+    """
+    Args:
+        value: Value to convert
+        default (int | None): Default to use `value` can't be turned into an int
+        minimum (int | None): If specified, result can't be below this minimum
+        maximum (int | None): If specified, result can't be above this maximum
+
+    Returns:
+        (int | None): Corresponding numeric value
+    """
+    return to_number(int, value, default=default, minimum=minimum, maximum=maximum)
+
+
 def to_json(value):
     """
     Args:
@@ -440,7 +454,7 @@ def to_number(result_type, value, default=None, minimum=None, maximum=None):
     Args:
         result_type (type): Numerical type to convert to (one of: int, float, ...)
         value (str): Value to convert
-        default (result_type.__class__ | None): Default value to use if key is not configured
+        default (result_type.__class__ | None): Default to use `value` can't be turned into an int
         minimum (result_type.__class__ | None): If specified, result can't be below this minimum
         maximum (result_type.__class__ | None): If specified, result can't be above this maximum
 

@@ -133,19 +133,6 @@ def shortened(text, size=120):
     return text
 
 
-def to_int(text, default=None):
-    """
-    :param text: Value to convert
-    :param int|None default: Default to use if 'text' can't be parsed
-    :return int:
-    """
-    try:
-        return int(text)
-
-    except (TypeError, ValueError):
-        return default
-
-
 class Anchored(object):
     """
     An "anchor" is a known path that we don't wish to show in full when printing/logging

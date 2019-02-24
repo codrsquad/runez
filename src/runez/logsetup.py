@@ -9,7 +9,7 @@ import signal
 import sys
 import threading
 from functools import partial
-# from logging.handlers import RotatingFileHandler
+from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 
 try:
     # faulthandler is only available in python 3.3+
@@ -20,6 +20,7 @@ except ImportError:
 
 import runez.system
 from runez.base import Slotted, ThreadGlobalContext, UNSET
+from runez.config import to_bytesize, to_int
 from runez.convert import flattened, formatted, represented_args, SANITIZED, UNIQUE
 from runez.path import basename as get_basename, ensure_folder
 from runez.program import get_dev_folder, get_program_path
@@ -27,6 +28,7 @@ from runez.program import get_dev_folder, get_program_path
 
 LOG = logging.getLogger(__name__)
 ORIGINAL_CF = logging.currentframe
+DEFAULT_LOG_ROTATE_BACKUP_COUNT = 10
 
 
 class LoggingSnapshot(Slotted):
@@ -289,11 +291,12 @@ class LogManager(object):
             if cls.spec.should_log_to_file:
                 cls.actual_location = cls.spec.usable_location()
                 if cls.actual_location:
-                    if not cls.spec.rotate:
-                        cls.file_handler = logging.FileHandler(cls.actual_location)
-                    # else:
-                    #     cls.file_handler = RotatingFileHandler(cls.actual_location, maxBytes=cls.spec.rotate, backupCount=1)
-                    cls._add_handler(cls.file_handler, cls.spec.file_format, cls.spec.file_level)
+                    cls.file_handler = _get_file_handler(cls.actual_location, cls.spec.rotate)
+                    if cls.file_handler:
+                        cls._add_handler(cls.file_handler, cls.spec.file_format, cls.spec.file_level)
+
+                    else:
+                        raise ValueError("Invalid log rotate spec: %s" % cls.spec.rotate)
 
             if cls.is_using_format("%(context)s"):
                 cls.context.enable()
@@ -489,3 +492,52 @@ def _get_formatter(fmt):
     """
     fmt = _replace_and_pad(fmt, "%(timezone)s", LogManager.spec.timezone)
     return logging.Formatter(fmt)
+
+
+def _get_file_handler(location, rotate):
+    """
+    rotate examples: (default: keep up to DEFAULT_LOG_ROTATE_BACKUP_COUNT files)
+        time:midnight - Rotate at midnight
+        time:15s - Rotate every 15 seconds
+        time:2h,5 - Rotate every 2 hours, keep up to 5 files
+        time:7d,5 - Rotate every 7 days, keep up to 5 files
+        size:20m - Rotate every 20MB
+        size:1g,3 - Rotate every 1MB, keep up to 3 files
+    """
+    if not rotate:
+        return logging.FileHandler(location)
+
+    kind, _, interval = rotate.partition(":")
+    mode, _, count = interval.partition(",")
+
+    if not mode:
+        return None
+
+    if count:
+        count = to_int(count)
+        if count is None:
+            return None
+
+    else:
+        count = DEFAULT_LOG_ROTATE_BACKUP_COUNT
+
+    if kind == "time":
+        if mode == "midnight":
+            return TimedRotatingFileHandler(location, when="midnight", backupCount=count)
+
+        timed = "shd"
+        if mode[-1].lower() not in timed:
+            return None
+
+        interval = to_int(mode[:-1])
+        if interval is None:
+            return None
+
+        return TimedRotatingFileHandler(location, when=mode[-1], interval=interval, backupCount=count)
+
+    if kind == "size":
+        size = to_bytesize(mode)
+        if size is None:
+            return None
+
+        return RotatingFileHandler(location, maxBytes=size, backupCount=count)

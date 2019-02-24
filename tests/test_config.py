@@ -219,6 +219,18 @@ def test_to_dict():
     assert runez.to_dict("a:b+pref.c:d", prefix="pref", separators=":+") == {"pref.a": "b", "pref.c": "d"}
 
 
+def test_to_int():
+    # bogus
+    assert runez.to_int(None) is None
+    assert runez.to_int(None, default=0) == 0
+    assert runez.to_int("foo", default=1) == 1
+    assert runez.to_int("6.1", default=2) == 2
+
+    # valid
+    assert runez.to_int(5, default=3) == 5
+    assert runez.to_int("5", default=3) == 5
+
+
 def test_props_front():
     # --config not at front of list, propsfs now takes precedence
     config = runez.config.Configuration(runez.config.PropsfsProvider(SAMPLES))
