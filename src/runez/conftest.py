@@ -18,6 +18,7 @@ import pytest
 import runez
 
 
+LOG = logging.getLogger(__name__)
 logging.root.setLevel(logging.DEBUG)
 runez.log.override_spec(
     appname="pytest",
@@ -204,7 +205,7 @@ class ClickRunner(object):
                     try:
                         raise result.exception
                     except BaseException:
-                        logging.exception("Exited with stacktrace:")
+                        LOG.exception("Exited with stacktrace:")
 
                 self.logged = logged.duplicate()
                 self.exit_code = result.exit_code
@@ -213,8 +214,8 @@ class ClickRunner(object):
             handler = WrappedHandler.find_wrapper()
             if handler:
                 handler.reset()
-            title = runez.header("Captured output for: %s" % runez.represented_args(self.args))
-            logging.info("\n%s\n%s\n", title, self.logged)
+            title = runez.header("Captured output for: %s" % runez.represented_args(self.args), dash="=")
+            LOG.info("\n%s\nmain: %s\nexit_code: %s\n%s\n", title, self.main, self.exit_code, self.logged)
 
     @property
     def succeeded(self):
