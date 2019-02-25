@@ -16,7 +16,6 @@ import _pytest.logging
 import pytest
 
 import runez
-from runez.base import string_type
 
 
 logging.root.setLevel(logging.DEBUG)
@@ -118,6 +117,17 @@ class WrappedHandler(_pytest.logging.LogCaptureHandler):
         else:
             super(WrappedHandler, self).emit(record)
 
+    @classmethod
+    def find_wrapper(cls):
+        """
+        Returns:
+            (WrappedHandler | None): WrappedHandler is logging.root, if present
+        """
+        if logging.root.handlers:
+            for handler in logging.root.handlers:
+                if handler and handler.__class__ is WrappedHandler:
+                    return handler
+
 
 runez.context.CapturedStream._shared = WrappedHandler
 _pytest.logging.LogCaptureHandler = WrappedHandler
@@ -200,7 +210,11 @@ class ClickRunner(object):
                 self.exit_code = result.exit_code
 
         if self.logged:
-            logging.info("Captured output for %s:\n%s" % (runez.represented_args(self.args), self.logged))
+            handler = WrappedHandler.find_wrapper()
+            if handler:
+                handler.reset()
+            title = runez.header("Captured output for: %s" % runez.represented_args(self.args))
+            logging.info("\n%s\n%s\n", title, self.logged)
 
     @property
     def succeeded(self):
@@ -241,11 +255,11 @@ class ClickRunner(object):
         else:
             flags = 0
 
-        if isinstance(expected, string_type) and "..." in expected and not isinstance(regex, bool):
+        if isinstance(expected, runez.base.string_type) and "..." in expected and not isinstance(regex, bool):
             regex = True
             expected = expected.replace("...", ".+")
 
-        if not isinstance(expected, string_type):
+        if not isinstance(expected, runez.base.string_type):
             # Assume regex, no easy way to verify isinstance(expected, re.Pattern) for python < 3.7
             regex = expected
 

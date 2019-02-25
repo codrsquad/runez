@@ -56,15 +56,27 @@ def test_crash(cli):
 
     with pytest.raises(AssertionError):
         # No main provided
-        cli.run("hello")
+        cli.run("hello no main")
 
     cli.main = crash
-    cli.run(["hello"])
+    cli.run(["hello with main"])
     assert cli.failed
     assert cli.match("crashed...hello")
     assert cli.match("Exited with stacktrace:", log=True)
 
     cli.expect_failure("hello", "crashed...hello", "Exited with stacktrace:", "!this message shouldn't appear", log=True)
+
+    cli.main = stringify
+    cli.run(["successful hello"])
+    assert cli.succeeded
+    assert cli.match("successful hello")
+
+    cli.main = crash
+    cli.run(["hello again"])
+    assert cli.failed
+    assert not cli.match("hello with main")
+    assert not cli.match("successful hello")
+    assert cli.match("hello again")
 
     with pytest.raises(AssertionError):
         # No captures specified
