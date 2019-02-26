@@ -13,21 +13,21 @@ LOG = logging.getLogger(__name__)
 
 
 def test_logspec(isolated_log_setup):
-    s1 = runez.LogSpec(runez.log._default_spec)
-    s2 = runez.LogSpec(runez.log._default_spec)
+    s1 = runez.LogSpec(runez.log._default_spec, appname="pytest")
+    s2 = runez.LogSpec(runez.log._default_spec, appname="pytest")
     assert s1 == s2
     assert s1.appname == "pytest"
     assert s1.timezone == "UTC"
     assert s1.should_log_to_file
     assert s1.usable_location() == "/tmp/pytest.log"
 
-    # No appname -> can't determine a usable location anymore
-    s1.appname = None
+    # No basename -> can't determine a usable location anymore
+    s1.basename = None
     assert s1.should_log_to_file
     assert s1.usable_location() is None
 
-    s1.set(appname="testing", timezone=None, locations=[s1.tmp])
-    assert s1.appname == "testing"
+    s1.set(basename="testing.log", timezone=None, locations=[s1.tmp])
+    assert s1.basename == "testing.log"
     assert s1.timezone is None
     assert s1.usable_location() == "/tmp/testing.log"
     assert s1 != s2
@@ -38,7 +38,7 @@ def test_logspec(isolated_log_setup):
     assert s1.usable_location() is None
 
     # No basename, and custom location points to folder -> not usable
-    s1.appname = None
+    s1.basename = None
     s1.file_location = "/tmp"
     assert s1.should_log_to_file
     assert s1.usable_location() is None
@@ -87,7 +87,7 @@ def test_setup(temp_log):
 
         # Auto-debug on dryrun
         logging.debug("hello")
-        assert "hello" in temp_log.logged.stderr
+        assert "hello" in temp_log.stderr
 
         with pytest.raises(Exception):
             # SHouldn't call setup() twice
@@ -110,20 +110,23 @@ def test_default(temp_log):
     runez.log.setup(greetings="Logging to: {location}, pid {pid}")
 
     assert temp_log.logfile == "pytest.log"
-    assert "Logging to: " in temp_log.stderr
-    assert "pytest.log, pid %s" % os.getpid() in temp_log.stderr
+    assert "Logging to: " in temp_log.log
+    assert "pytest.log, pid %s" % os.getpid() in temp_log.log
     temp_log.expect_logged("Logging to: ")
     temp_log.expect_logged("pytest.log, pid %s" % os.getpid())
 
     logging.info("hello")
+    logging.warning("hello")
     temp_log.expect_logged("UTC [[version=1.0,worker=joe]] INFO - hello")
-    assert "INFO hello" in temp_log.stderr
+    temp_log.expect_logged("UTC [[version=1.0,worker=joe]] WARNING - hello")
+    assert "INFO hello" not in temp_log.stderr
+    assert "WARNING hello" in temp_log.stderr
 
 
 def test_level(temp_log):
     runez.log.setup(file_format=None, level=logging.INFO)
 
-    assert not temp_log.logged
+    assert not temp_log
     assert temp_log.logfile is None
     logging.debug("debug msg")
     logging.info("info msg")
@@ -136,7 +139,7 @@ def test_console(temp_log):
     old_level = logger.level
 
     try:
-        runez.log.setup(file_location="", greetings=["Logging to: {location}", ":: argv: {argv}"])
+        runez.log.setup(console_level=logging.DEBUG, file_location="", greetings=["Logging to: {location}", ":: argv: {argv}"])
 
         assert temp_log.logfile is None
         assert "DEBUG Logging to: file log disabled" in temp_log.stderr
@@ -144,10 +147,10 @@ def test_console(temp_log):
         logger.info("hello")
         assert "INFO hello" in temp_log.stderr
 
-        temp_log.logged.clear()
+        temp_log.clear()
         runez.log.silence(runez)
         logger.info("hello")
-        assert not temp_log.logged
+        assert not temp_log
 
     finally:
         logger.setLevel(old_level)
@@ -165,6 +168,7 @@ def test_context(temp_log):
     runez.log.spec.locations = None
     runez.log.spec.console_stream = sys.stdout
     runez.log.spec.console_format = "%(name)s %(timezone)s %(context)s%(levelname)s - %(message)s"
+    runez.log.spec.console_level = logging.DEBUG
     runez.log.setup(greetings=None)
 
     assert temp_log.logfile is None
@@ -208,7 +212,7 @@ def test_context(temp_log):
 def test_convenience(temp_log):
     fmt = "%(name)s f:%(filename)s mod:%(module)s func:%(funcName)s %(levelname)s %(message)s "
     fmt += " path:%(pathname)s"
-    runez.log.setup(console_format=fmt, file_format=None)
+    runez.log.setup(console_format=fmt, console_level=logging.DEBUG, file_format=None)
 
     assert temp_log.logfile is None
     runez.write("some-file", "some content", logger=logging.info)
@@ -233,6 +237,7 @@ def test_auto_location_not_writable(temp_log):
         runez.log.setup(
             greetings="Logging to: {location}",
             console_format="%(name)s f:%(filename)s mod:%(module)s func:%(funcName)s %(levelname)s - %(message)s",
+            console_level=logging.DEBUG,
         )
 
         assert "runez.logsetup f:system.py mod:system func:abort DEBUG" in temp_log.stderr
@@ -244,6 +249,7 @@ def test_auto_location_not_writable(temp_log):
 def test_file_location_not_writable(temp_log):
     runez.log.setup(
         greetings="Logging to: {location}",
+        console_level=logging.DEBUG,
         file_location="/dev/null/somewhere.log",
     )
 

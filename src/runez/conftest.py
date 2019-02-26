@@ -11,6 +11,7 @@ from __future__ import absolute_import
 import logging
 import os
 import re
+import sys
 
 import _pytest.logging
 import pytest
@@ -19,13 +20,20 @@ import runez
 
 
 LOG = logging.getLogger(__name__)
+
+# Set DEBUG logging level when running tests, makes sure LOG.debug() calls get captured (for inspection in tests)
 logging.root.setLevel(logging.DEBUG)
+
+if sys.argv and "pycharm" in sys.argv[0].lower():  # pragma: no cover
+    # Ignore PyCharm's special wrapper "_jb_pytest_runner"...
+    pt = runez.which("pytest")
+    if pt:
+        sys.argv[0] = pt
+
+# Set logsetup defaults to stable/meaningful for pytest runs
 runez.log.override_spec(
-    appname="pytest",
     timezone="UTC",
     tmp=os.path.join("/", "tmp"),
-    console_level=logging.DEBUG,
-    file_level=logging.DEBUG,
     locations=["{tmp}/{basename}"],
 )
 

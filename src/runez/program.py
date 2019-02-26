@@ -43,10 +43,12 @@ def get_dev_folder(path=sys.prefix):
     return get_dev_folder(dirpath)
 
 
-def get_program_path(path=sys.argv[0]):
+def get_program_path(path=None):
     """
     :return str: Path of currently running program
     """
+    if path is None:
+        path = sys.argv[0]
     return which(path) or path
 
 

@@ -113,7 +113,7 @@ class LogSpec(Slotted):
         """
         path = formatted(location, self)
         if path:
-            if self.basename and os.path.isdir(path):
+            if os.path.isdir(path):
                 filename = formatted(self.basename, self)
                 if not filename:
                     return None
@@ -161,7 +161,7 @@ class LogManager(object):
     # Defaults used to initialize LogSpec instances
     # Use runez.log.override_spec() to change these defaults (do not change directly)
     _default_spec = LogSpec(
-        appname=get_basename(get_program_path()),
+        appname=None,
         basename="{appname}.log",
         context_format="[[%s]] ",
         dev=None,
@@ -172,7 +172,7 @@ class LogManager(object):
         console_level=logging.WARNING,
         console_stream=sys.stderr,
         file_format="%(asctime)s %(timezone)s %(context)s%(levelname)s - %(message)s",
-        file_level=logging.INFO,
+        file_level=logging.DEBUG,
         file_location=None,
         locations=["{dev}/log/{basename}", "/logs/{appname}/{basename}", "/var/log/{basename}"],
         rotate=None,
@@ -180,7 +180,7 @@ class LogManager(object):
 
     # Spec defines how logs should be setup()
     # Best way to provide your spec is via: runez.log.setup(), for example:
-    #   runez.log.setup(appname="my-app")
+    #   runez.log.setup(rotate="size:50m")
     spec = LogSpec(_default_spec)
 
     # Thread-local / global context
@@ -271,6 +271,8 @@ class LogManager(object):
                 rotate=rotate,
             )
 
+            cls._auto_fill_defaults()
+
             if debug:
                 root_level = logging.DEBUG
                 cls.spec.console_level = logging.DEBUG
@@ -280,9 +282,6 @@ class LogManager(object):
                 root_level = min(flattened([cls.spec.console_level, cls.spec.file_level], split=SANITIZED))
 
             logging.root.setLevel(root_level)
-
-            if cls.spec.dev is None:
-                cls.spec.dev = get_dev_folder()
 
             if cls.spec.console_stream and cls.spec.console_format:
                 cls.console_handler = logging.StreamHandler(cls.spec.console_stream)
@@ -391,6 +390,14 @@ class LogManager(object):
         cls.console_handler = None
         cls.file_handler = None
         cls.used_formats = None
+
+    @classmethod
+    def _auto_fill_defaults(cls):
+        """Late auto-filled missing defaults (caller's value kept if provided)"""
+        if not cls.spec.appname:
+            cls.spec.appname = get_basename(get_program_path())
+        if not cls.spec.dev:
+            cls.spec.dev = get_dev_folder()
 
     @classmethod
     def _add_handler(cls, handler, format, level):

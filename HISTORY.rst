@@ -2,12 +2,14 @@
 History
 =======
 
-1.6.5 (2019-02-25)
+1.6.6 (2019-02-25)
 ------------------
 
 * Added ``runez.config``
 
 * Added ``runez.header()``
+
+* Auto-simplify ``sys.argv`` when running tests in pycharm
 
 
 1.6.2 (2019-02-22)
