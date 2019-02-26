@@ -209,7 +209,7 @@ class ClickRunner(object):
                 if result.output:
                     logged.stdout.write(result.output)
 
-                if result.exception:
+                if result.exception and not isinstance(result.exception, SystemExit):
                     try:
                         raise result.exception
                     except BaseException:

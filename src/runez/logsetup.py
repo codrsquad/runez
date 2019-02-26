@@ -187,6 +187,7 @@ class LogManager(object):
     context = ThreadGlobalContext(_ContextFilter)
 
     # Below fields should be read-only for outside users, do not modify these
+    debug = None
     actual_location = None
     console_handler = None  # type: logging.StreamHandler
     file_handler = None  # type: logging.FileHandler # File we're currently logging to (if any)
@@ -253,6 +254,7 @@ class LogManager(object):
                     debug = True
                 runez.system.set_dryrun(dryrun)
 
+            cls.debug = debug
             cls.spec.set(
                 appname=appname,
                 basename=basename,
@@ -326,13 +328,16 @@ class LogManager(object):
             return formatted(greeting, cls.spec, location=location, strict=False)
 
     @classmethod
-    def silence(cls, *modules):
+    def silence(cls, *modules, **kwargs):
         """
-        :param modules: Modules, or names of modules to silence, by setting their log level to WARNING
+        Args:
+            *modules: Modules, or names of modules to silence (by setting their log level to WARNING or above)
+            **kwargs: Pass as kwargs due to python 2.7, would be level=logging.WARNING otherwise
         """
+        level = kwargs.pop("level", logging.WARNING)
         for mod in modules:
             name = mod.__name__ if hasattr(mod, "__name__") else mod
-            logging.getLogger(name).setLevel(logging.WARNING)
+            logging.getLogger(name).setLevel(level)
 
     @classmethod
     def is_using_format(cls, markers, used_formats=None):
@@ -386,6 +391,7 @@ class LogManager(object):
         cls._logging_snapshot.restore()
         cls.context.reset()
         cls.spec = LogSpec(cls._default_spec)
+        cls.debug = None
         cls.actual_location = None
         cls.console_handler = None
         cls.file_handler = None

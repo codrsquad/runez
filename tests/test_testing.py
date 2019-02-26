@@ -13,8 +13,7 @@ def crash(*args):
 
 
 def hard_exit(*args):
-    print(" ".join(args))
-    sys.exit(1)
+    sys.exit(" ".join(args))
 
 
 def test_success(cli):
@@ -100,4 +99,4 @@ def test_hard_exit(cli):
     cli.run("hello")
     assert cli.failed
     assert "hello" in cli.logged.stdout
-    assert "Exited with stacktrace" in cli.logged.log
+    assert "Exited with stacktrace" not in cli.logged.log
