@@ -161,18 +161,19 @@ class ClickWrapper(object):
         except BaseException as e:
             return ClickWrapper(str(e), exit_code=1, exception=e)
 
-    @runez.prop
-    def runner(cls):
+    @classmethod
+    def get_runner(cls):
         """
-        :return type: CliRunner if available
+        Returns:
+            (ClickWrapper| click.testing.CliRunner): CliRunner if available
         """
         try:
             from click.testing import CliRunner
 
-            return CliRunner  # pragma: no cover, click used only if installed
+            return CliRunner()  # pragma: no cover, click used only if installed
 
         except ImportError:
-            return cls
+            return cls()
 
 
 class ClickRunner(object):
@@ -201,8 +202,7 @@ class ClickRunner(object):
 
         with IsolatedLogSetup():
             with runez.CaptureOutput(dryrun=runez.DRYRUN) as logged:
-                runner = ClickWrapper.runner
-                runner = runner()
+                runner = ClickWrapper.get_runner()
                 assert bool(self.main), "No main provided"
                 result = runner.invoke(self.main, args=self.args)
 

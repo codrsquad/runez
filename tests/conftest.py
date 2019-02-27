@@ -24,7 +24,7 @@ class TempLog(object):
         self.stdout = capture.stdout
         self.stderr = capture.stderr
 
-    @runez.prop
+    @property
     def logfile(self):
         if runez.log.file_handler:
             return runez.short(runez.log.file_handler.baseFilename)
