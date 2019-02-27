@@ -4,7 +4,6 @@ Base functionality used by other parts of `runez`.
 This class should not import any other `runez` class, to avoid circular deps.
 """
 
-import inspect
 import threading
 
 
@@ -56,45 +55,6 @@ def decode(value, strip=False):
     if strip:
         return unicode(value).strip()
     return unicode(value)
-
-
-class prop(object):
-    """Decorator for settable cached properties.
-
-    This comes in handy for properties you'd like to avoid computing multiple times,
-    yet be able to arbitrarily change them as well, and be able to know when they get changed.
-    """
-
-    def __init__(self, func):
-        """
-        Args:
-            func (function): Wrapped function
-        """
-        self.function = func
-        self.name = func.__name__  # type: str
-        self.field_name = "__%s" % self.name
-        self.on_prop, self.prop_arg = _find_on_prop(inspect.currentframe().f_back)
-        self.__doc__ = func.__doc__
-
-    def __repr__(self):
-        return self.name
-
-    def __get__(self, instance, cls=None):
-        if instance is None:
-            instance = cls
-        cached = getattr(instance, self.field_name, UNSET)
-        if cached is UNSET:
-            cached = self.function(instance)
-            setattr(instance, self.field_name, cached)
-        return cached
-
-    def __set__(self, instance, value):
-        setattr(instance, self.field_name, value)
-        if self.on_prop:
-            if self.prop_arg:
-                self.on_prop(instance, prop=self)
-            else:
-                self.on_prop(instance)
 
 
 class Slotted(object):
@@ -299,32 +259,3 @@ class ThreadGlobalContext(object):
         if self._gpayload is None:
             self._gpayload = values or {}
         self.enable()
-
-
-if hasattr(inspect, "signature"):
-    # python3
-    def _has_arg(func, arg_name):
-        return arg_name in inspect.signature(func).parameters
-
-
-else:
-    # python2
-    def _has_arg(func, arg_name):
-        return arg_name in inspect.getargspec(func).args
-
-
-def _find_on_prop(frame):
-    """Find `__on_prop` function to notify on `@prop` change, if any.
-
-    Args:
-        frame (types.FrameType): Frame to examine.
-
-    Returns:
-        (function | None, bool): __on_prop function if any, boolean indicates whether that function takes 'prop' as argument.
-    """
-    for name, func in frame.f_locals.items():
-        if name.endswith("__on_prop"):
-            if isinstance(func, classmethod):
-                func = func.__func__
-            return func, _has_arg(func, "prop")
-    return None, False

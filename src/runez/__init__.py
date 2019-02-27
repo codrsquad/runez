@@ -14,7 +14,7 @@ It's recommended to set DRYRUN only once at the start of your run via: runez.log
 """
 
 from runez import click, config, heartbeat, program, serialize
-from runez.base import decode, prop, Slotted, Undefined, UNSET
+from runez.base import decode, Slotted, Undefined, UNSET
 from runez.config import capped, to_boolean, to_bytesize, to_dict, to_int, to_json, to_number
 from runez.context import CaptureOutput, CurrentFolder, TempFolder, TrackedOutput, verify_abort
 from runez.convert import Anchored, flattened, formatted, quoted, represented_args, resolved_path, short, shortened
@@ -31,7 +31,7 @@ from runez.system import abort, get_timezone, get_version, set_dryrun
 __all__ = [
     "DRYRUN",
     "click", "config", "heartbeat", "logsetup", "program", "serialize",
-    "decode", "prop", "Slotted", "Undefined", "UNSET",
+    "decode", "Slotted", "Undefined", "UNSET",
     "capped", "to_boolean", "to_bytesize", "to_dict", "to_int", "to_json", "to_number",
     "CaptureOutput", "CurrentFolder", "TempFolder", "TrackedOutput", "verify_abort",
     "Anchored", "flattened", "formatted", "quoted", "represented_args", "resolved_path", "short", "shortened",

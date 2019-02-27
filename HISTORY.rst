@@ -2,7 +2,7 @@
 History
 =======
 
-1.6.6 (2019-02-25)
+1.6.8 (2019-02-26)
 ------------------
 
 * Added ``runez.config``
@@ -10,6 +10,8 @@ History
 * Added ``runez.header()``
 
 * Auto-simplify ``sys.argv`` when running tests in pycharm
+
+* Removed ``prop`` (wasn't useful after all)
 
 
 1.6.2 (2019-02-22)
