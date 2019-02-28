@@ -23,34 +23,6 @@ from runez.convert import flattened
 from runez.system import get_version
 
 
-def settings(epilog=None, help=None, width=140, **attrs):
-    """
-    Args:
-        epilog (str | None): Help epilog, defaults to __doc__ of caller module
-        help (list[str] | str | None): List of flags to show help, default: -h and --help
-        width (int): Constrain help to
-        **attrs:
-
-    Returns:
-        dict: Dict passable to @click.command() or @click.group()
-    """
-    if epilog is None:
-        epilog = _get_caller_doc()
-
-    if help is None:
-        help = ["-h", "--help"]
-
-    context_settings = attrs.pop("context_settings", {})
-    context_settings["help_option_names"] = flattened(help, split=" ")
-    context_settings["max_content_width"] = width
-
-    return dict(
-        epilog=epilog,
-        context_settings=context_settings,
-        **attrs
-    )
-
-
 def command(epilog=None, help=None, width=140, **attrs):
     """Same as `@click.command()`, but with common settings (ie: "-h" for help, epilog, slightly larger help display)"""
     if epilog is None:
@@ -65,6 +37,13 @@ def group(epilog=None, help=None, width=140, **attrs):
         epilog = _get_caller_doc()
     attrs = settings(epilog=epilog, help=help, width=width, **attrs)
     return click.group(**attrs)
+
+
+def config(*args, **attrs):
+    """Override configuration"""
+    attrs.setdefault("metavar", "KEY=VALUE")
+    attrs.setdefault("multiple", True)
+    return option(config, *args, **attrs)
 
 
 def debug(*args, **attrs):
@@ -95,6 +74,34 @@ def version(*args, **attrs):
         if package:
             attrs.setdefault("version", get_version(package))
     return click.version_option(*args, **attrs)
+
+
+def settings(epilog=None, help=None, width=140, **attrs):
+    """
+    Args:
+        epilog (str | None): Help epilog, defaults to __doc__ of caller module
+        help (list[str] | str | None): List of flags to show help, default: -h and --help
+        width (int): Constrain help to
+        **attrs:
+
+    Returns:
+        dict: Dict passable to @click.command() or @click.group()
+    """
+    if epilog is None:
+        epilog = _get_caller_doc()
+
+    if help is None:
+        help = ["-h", "--help"]
+
+    context_settings = attrs.pop("context_settings", {})
+    context_settings["help_option_names"] = flattened(help, split=" ")
+    context_settings["max_content_width"] = width
+
+    return dict(
+        epilog=epilog,
+        context_settings=context_settings,
+        **attrs
+    )
 
 
 def option(func, *args, **attrs):

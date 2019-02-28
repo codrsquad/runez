@@ -80,6 +80,11 @@ def test_with_click():
         assert decorated.required is False
         assert decorated.show_default is True
 
+        config = FakeClick.get_decorated(runez.click.config)
+        assert isinstance(config, FakeClick)
+        assert config.args == ["--config"]
+        assert not config.default
+
         debug = FakeClick.get_decorated(runez.click.debug)
         assert isinstance(debug, FakeClick)
         assert debug.args == ["--debug"]

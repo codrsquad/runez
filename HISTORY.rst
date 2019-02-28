@@ -2,10 +2,10 @@
 History
 =======
 
-1.6.8 (2019-02-26)
+1.6.9 (2019-02-28)
 ------------------
 
-* Added ``runez.config``
+* Added ``runez.config`` and ``runez.click.config``
 
 * Added ``runez.header()``
 
