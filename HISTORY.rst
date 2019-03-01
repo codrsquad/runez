@@ -2,8 +2,10 @@
 History
 =======
 
-1.6.9 (2019-02-28)
+1.6.10 (2019-03-01)
 ------------------
+
+* ``runez.log.setup(rotate=)`` raises more descriptive ``ValueError`` if bogus value passed
 
 * Added ``runez.config`` and ``runez.click.config``
 
@@ -12,10 +14,6 @@ History
 * Auto-simplify ``sys.argv`` when running tests in pycharm
 
 * Removed ``prop`` (wasn't useful after all)
-
-
-1.6.2 (2019-02-22)
-------------------
 
 * Modified ``runez.log.setup()``:
 
@@ -30,10 +28,6 @@ History
 * Correctly handle ``custom_location``
 
 * Preparing for log file rotation support
-
-
-1.5.0 (2019-02-19)
-------------------
 
 * Introcuced ``runez.UNSET`` to distinguish between values not provided vs ``None`` (to avoid confusion)
 
@@ -57,10 +51,6 @@ History
 ------------------
 
 * Added ``basename`` and ``prop``
-
-
-1.3.6 (2019-01-24)
-------------------
 
 * Added ``Heartbeat``, ``shortened``, ``testing``
 

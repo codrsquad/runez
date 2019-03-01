@@ -296,11 +296,7 @@ class LogManager(object):
                 cls.actual_location = cls.spec.usable_location()
                 if cls.actual_location:
                     cls.file_handler = _get_file_handler(cls.actual_location, cls.spec.rotate, cls.spec.rotate_count)
-                    if cls.file_handler:
-                        cls._add_handler(cls.file_handler, cls.spec.file_format, cls.spec.file_level)
-
-                    else:
-                        raise ValueError("Invalid log rotate spec: %s" % cls.spec.rotate)
+                    cls._add_handler(cls.file_handler, cls.spec.file_format, cls.spec.file_level)
 
             if cls.is_using_format("%(context)s"):
                 cls.context.enable()
@@ -532,7 +528,7 @@ def _get_file_handler(location, rotate, rotate_count):
     kind, _, mode = rotate.partition(":")
 
     if not mode:
-        return None
+        raise ValueError("Invalid 'rotate' (missing kind): %s" % rotate)
 
     if kind == "time":
         if mode == "midnight":
@@ -540,17 +536,19 @@ def _get_file_handler(location, rotate, rotate_count):
 
         timed = "shd"
         if mode[-1].lower() not in timed:
-            return None
+            raise ValueError("Invalid 'rotate' (unknown time spec): %s" % rotate)
 
         interval = to_int(mode[:-1])
         if interval is None:
-            return None
+            raise ValueError("Invalid 'rotate' (time range not an int): %s" % rotate)
 
         return TimedRotatingFileHandler(location, when=mode[-1], interval=interval, backupCount=rotate_count)
 
     if kind == "size":
         size = to_bytesize(mode)
         if size is None:
-            return None
+            raise ValueError("Invalid 'rotate' (size not a bytesize): %s" % rotate)
 
         return RotatingFileHandler(location, maxBytes=size, backupCount=rotate_count)
+
+    raise ValueError("Invalid 'rotate' (unknown type): %s" % rotate)

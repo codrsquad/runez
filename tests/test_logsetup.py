@@ -265,14 +265,26 @@ def test_bad_rotate(temp_log):
 
 
 def test_log_rotate(temp_folder):
+    with pytest.raises(ValueError):
+        assert runez.logsetup._get_file_handler("test.log", "time", 0) is None
+
+    with pytest.raises(ValueError):
+        assert runez.logsetup._get_file_handler("test.log", "time:unclear", 0) is None
+
+    with pytest.raises(ValueError):
+        assert runez.logsetup._get_file_handler("test.log", "time:h", 0) is None
+
+    with pytest.raises(ValueError):
+        assert runez.logsetup._get_file_handler("test.log", "time:1h,something", 0) is None
+
+    with pytest.raises(ValueError):
+        assert runez.logsetup._get_file_handler("test.log", "size:not a number,3", 0) is None
+
+    with pytest.raises(ValueError):
+        assert runez.logsetup._get_file_handler("test.log", "unknown:something", 0) is None
+
     assert runez.logsetup._get_file_handler("test.log", None, 0).__class__ is logging.FileHandler
     assert runez.logsetup._get_file_handler("test.log", "", 0).__class__ is logging.FileHandler
-    assert runez.logsetup._get_file_handler("test.log", "foo", 0) is None
-    assert runez.logsetup._get_file_handler("test.log", "time:foo", 0) is None
-    assert runez.logsetup._get_file_handler("test.log", "time:h", 0) is None
-
-    assert runez.logsetup._get_file_handler("test.log", "time:1h,foo", 0) is None
-    assert runez.logsetup._get_file_handler("test.log", "size:foo,3", 0) is None
 
     h = runez.logsetup._get_file_handler("test.log", "time:1h", 0)
     assert isinstance(h, TimedRotatingFileHandler)
