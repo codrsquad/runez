@@ -265,27 +265,27 @@ def test_bad_rotate(temp_log):
 
 
 def test_log_rotate(temp_folder):
-    assert runez.logsetup._get_file_handler("test.log", None).__class__ is logging.FileHandler
-    assert runez.logsetup._get_file_handler("test.log", "").__class__ is logging.FileHandler
-    assert runez.logsetup._get_file_handler("test.log", "foo") is None
-    assert runez.logsetup._get_file_handler("test.log", "time:foo") is None
-    assert runez.logsetup._get_file_handler("test.log", "time:h") is None
+    assert runez.logsetup._get_file_handler("test.log", None, 0).__class__ is logging.FileHandler
+    assert runez.logsetup._get_file_handler("test.log", "", 0).__class__ is logging.FileHandler
+    assert runez.logsetup._get_file_handler("test.log", "foo", 0) is None
+    assert runez.logsetup._get_file_handler("test.log", "time:foo", 0) is None
+    assert runez.logsetup._get_file_handler("test.log", "time:h", 0) is None
 
-    assert runez.logsetup._get_file_handler("test.log", "time:1h,foo") is None
-    assert runez.logsetup._get_file_handler("test.log", "size:foo,3") is None
+    assert runez.logsetup._get_file_handler("test.log", "time:1h,foo", 0) is None
+    assert runez.logsetup._get_file_handler("test.log", "size:foo,3", 0) is None
 
-    h = runez.logsetup._get_file_handler("test.log", "time:1h")
+    h = runez.logsetup._get_file_handler("test.log", "time:1h", 0)
     assert isinstance(h, TimedRotatingFileHandler)
-    assert h.backupCount == runez.logsetup.DEFAULT_LOG_ROTATE_BACKUP_COUNT
+    assert h.backupCount == 0
     assert h.interval == 3600
     assert h.when == "H"
 
-    h = runez.logsetup._get_file_handler("test.log", "time:midnight,7")
+    h = runez.logsetup._get_file_handler("test.log", "time:midnight", 7)
     assert isinstance(h, TimedRotatingFileHandler)
     assert h.backupCount == 7
     assert h.when == "MIDNIGHT"
 
-    h = runez.logsetup._get_file_handler("test.log", "size:10k,3")
+    h = runez.logsetup._get_file_handler("test.log", "size:10k", 3)
     assert isinstance(h, RotatingFileHandler)
     assert h.backupCount == 3
     assert h.maxBytes == 10240

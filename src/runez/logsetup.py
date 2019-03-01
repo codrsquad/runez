@@ -28,7 +28,6 @@ from runez.program import get_dev_folder, get_program_path
 
 LOG = logging.getLogger(__name__)
 ORIGINAL_CF = logging.currentframe
-DEFAULT_LOG_ROTATE_BACKUP_COUNT = 10
 
 
 class LoggingSnapshot(Slotted):
@@ -64,7 +63,7 @@ class LogSpec(Slotted):
     __slots__ = [
         "appname", "basename", "context_format", "dev", "greetings", "timezone", "tmp",
         "console_format", "console_level", "console_stream",
-        "file_format", "file_level", "file_location", "locations", "rotate",
+        "file_format", "file_level", "file_location", "locations", "rotate", "rotate_count",
     ]
 
     @property
@@ -176,6 +175,7 @@ class LogManager(object):
         file_location=None,
         locations=["{dev}/log/{basename}", "/logs/{appname}/{basename}", "/var/log/{basename}"],
         rotate=None,
+        rotate_count=10,
     )
 
     # Spec defines how logs should be setup()
@@ -220,6 +220,7 @@ class LogManager(object):
             file_location=UNSET,
             locations=UNSET,
             rotate=UNSET,
+            rotate_count=UNSET,
     ):
         """
         Args:
@@ -240,7 +241,8 @@ class LogManager(object):
             file_level (str | None): Level to use for file logging
             file_location (str | None): Desired custom file location (overrides {locations} search, handy as a --log cli flag)
             locations (list[str]|None): List of candidate folders for file logging (None: deactivate file logging)
-            rotate (str | None): How to rotate log file (None: deactive, "1d" for daily rotation, "50m" for size based rotation etc)
+            rotate (str | None): How to rotate log file (None: no rotation, "time:1d" for daily rotation, "size:50m" for size based)
+            rotate_count (int): How many rotations to keep
         """
         with cls._lock:
             if cls.handlers is not None:
@@ -271,6 +273,7 @@ class LogManager(object):
                 file_location=file_location,
                 locations=locations,
                 rotate=rotate,
+                rotate_count=rotate_count,
             )
 
             cls._auto_fill_defaults()
@@ -292,7 +295,7 @@ class LogManager(object):
             if cls.spec.should_log_to_file:
                 cls.actual_location = cls.spec.usable_location()
                 if cls.actual_location:
-                    cls.file_handler = _get_file_handler(cls.actual_location, cls.spec.rotate)
+                    cls.file_handler = _get_file_handler(cls.actual_location, cls.spec.rotate, cls.spec.rotate_count)
                     if cls.file_handler:
                         cls._add_handler(cls.file_handler, cls.spec.file_format, cls.spec.file_level)
 
@@ -507,36 +510,33 @@ def _get_formatter(fmt):
     return logging.Formatter(fmt)
 
 
-def _get_file_handler(location, rotate):
+def _get_file_handler(location, rotate, rotate_count):
     """
-    rotate examples: (default: keep up to DEFAULT_LOG_ROTATE_BACKUP_COUNT files)
-        time:midnight - Rotate at midnight
-        time:15s - Rotate every 15 seconds
-        time:2h,5 - Rotate every 2 hours, keep up to 5 files
-        time:7d,5 - Rotate every 7 days, keep up to 5 files
-        size:20m - Rotate every 20MB
-        size:1g,3 - Rotate every 1MB, keep up to 3 files
+    Args:
+        location (str | None): Log file path
+        rotate (str | None): How to rotate, examples:
+            time:midnight - Rotate at midnight
+            time:15s - Rotate every 15 seconds
+            time:2h - Rotate every 2 hours
+            time:7d - Rotate every 7 days
+            size:20m - Rotate every 20MB
+            size:1g - Rotate every 1MB
+        rotate_count (int): How many backups to keep
+
+    Returns:
+        (logging.Handler): Associated handler
     """
     if not rotate:
         return logging.FileHandler(location)
 
-    kind, _, interval = rotate.partition(":")
-    mode, _, count = interval.partition(",")
+    kind, _, mode = rotate.partition(":")
 
     if not mode:
         return None
 
-    if count:
-        count = to_int(count)
-        if count is None:
-            return None
-
-    else:
-        count = DEFAULT_LOG_ROTATE_BACKUP_COUNT
-
     if kind == "time":
         if mode == "midnight":
-            return TimedRotatingFileHandler(location, when="midnight", backupCount=count)
+            return TimedRotatingFileHandler(location, when="midnight", backupCount=rotate_count)
 
         timed = "shd"
         if mode[-1].lower() not in timed:
@@ -546,11 +546,11 @@ def _get_file_handler(location, rotate):
         if interval is None:
             return None
 
-        return TimedRotatingFileHandler(location, when=mode[-1], interval=interval, backupCount=count)
+        return TimedRotatingFileHandler(location, when=mode[-1], interval=interval, backupCount=rotate_count)
 
     if kind == "size":
         size = to_bytesize(mode)
         if size is None:
             return None
 
-        return RotatingFileHandler(location, maxBytes=size, backupCount=count)
+        return RotatingFileHandler(location, maxBytes=size, backupCount=rotate_count)
