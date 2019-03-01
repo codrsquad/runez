@@ -2,7 +2,7 @@
 History
 =======
 
-1.6.10 (2019-03-01)
+1.6.11 (2019-03-01)
 ------------------
 
 * ``runez.log.setup(rotate=)`` raises more descriptive ``ValueError`` if bogus value passed

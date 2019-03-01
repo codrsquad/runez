@@ -49,7 +49,7 @@ class IsolatedLogSetup(object):
         return runez.log
 
     def __exit__(self, *_):
-        runez.log._reset()
+        runez.log.reset()
 
 
 @pytest.fixture

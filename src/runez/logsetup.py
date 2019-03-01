@@ -314,6 +314,23 @@ class LogManager(object):
                         LOG.debug(message)
 
     @classmethod
+    def reset(cls):
+        """Reset logging as it was before setup(), no need to call this outside of testing, or some very special cases"""
+        cls._disable_faulthandler()
+        if cls.handlers is not None:
+            for handler in cls.handlers:
+                logging.root.removeHandler(handler)
+            cls.handlers = None
+        cls._logging_snapshot.restore()
+        cls.context.reset()
+        cls.spec = LogSpec(cls._default_spec)
+        cls.debug = None
+        cls.actual_location = None
+        cls.console_handler = None
+        cls.file_handler = None
+        cls.used_formats = None
+
+    @classmethod
     def formatted_greeting(cls, greeting):
         if greeting:
             if cls.actual_location:
@@ -378,23 +395,6 @@ class LogManager(object):
         """OVerride 'spec' and '_default_spec' with given values"""
         cls._default_spec.set(**kwargs)
         cls.spec.set(**kwargs)
-
-    @classmethod
-    def _reset(cls):
-        """Reset logging as it was before setup(), no need to call this outside of testing, or some very special cases"""
-        cls._disable_faulthandler()
-        if cls.handlers is not None:
-            for handler in cls.handlers:
-                logging.root.removeHandler(handler)
-            cls.handlers = None
-        cls._logging_snapshot.restore()
-        cls.context.reset()
-        cls.spec = LogSpec(cls._default_spec)
-        cls.debug = None
-        cls.actual_location = None
-        cls.console_handler = None
-        cls.file_handler = None
-        cls.used_formats = None
 
     @classmethod
     def _auto_fill_defaults(cls):
