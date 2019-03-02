@@ -45,6 +45,10 @@ class Task(object):
         Either provide a descendant with an implementation for this, or replace this 'execute' function with any callable
         """
 
+    def set_next_execution(self):
+        """Compute 'self.next_execution'"""
+        self.next_execution = time.time() + self.frequency
+
     def __repr__(self):
         return "%s (%s)" % (self.name, self.next_execution)
 
@@ -52,10 +56,10 @@ class Task(object):
         return self is other
 
     def __le__(self, other):
-        return self.next_execution <= other.next_execution
+        return (self.next_execution, self.frequency) <= (other.next_execution, other.frequency)
 
     def __lt__(self, other):
-        return self.next_execution < other.next_execution
+        return (self.next_execution, self.frequency) < (other.next_execution, other.frequency)
 
 
 class Heartbeat(object):
@@ -67,8 +71,7 @@ class Heartbeat(object):
     - refreshing data from a remote server
     """
 
-    tasks = []  # list(Task) # List of functions to be periodically called
-    upcoming = []  # list(Task) # Ordered list of next tasks to run
+    tasks = []  # type: list[Task] # List of functions to be periodically called
 
     _lock = threading.Lock()
     _thread = None  # Background daemon thread used to periodically execute the tasks
@@ -101,26 +104,21 @@ class Heartbeat(object):
         :param int|float|None frequency: Frequency at which to execute the task
         """
         with cls._lock:
-            if isinstance(task, Task):
-                cls.tasks.append(task)
-                if frequency:
-                    task.frequency = frequency
+            if not isinstance(task, Task):
+                t = Task(name=task.__name__, frequency=frequency)
+                t.execute, task = task, t
 
-            else:
-                new_task = Task(name=task.__name__, frequency=frequency)
-                new_task.execute = task
-                cls.tasks.append(new_task)
-                task = new_task
+            if frequency:
+                task.frequency = frequency
 
-            task.next_execution = time.time() + task.frequency
-            cls.upcoming.append(task)
-            cls.upcoming.sort()
+            cls.tasks.append(task)
+            cls.tasks.sort()
 
     @classmethod
     def resolved_task(cls, task):
         """Task instance representing 'task', if any"""
         for t in cls.tasks:
-            if t == task or t.execute == task:
+            if t is task or t.execute is task:
                 return t
 
     @classmethod
@@ -134,33 +132,46 @@ class Heartbeat(object):
 
             if task:
                 cls.tasks.remove(task)
-                cls.upcoming.remove(task)
 
-            if not cls.upcoming:
-                # Edge case: when no tasks are to be executed, check for task additions every second
-                cls._sleep_delay = 1
+            cls.tasks.sort()
+
+    @classmethod
+    def _execute_task(cls, task):
+        try:
+            task.execute()
+
+        except Exception as e:
+            LOG.warning("Task %s crashed:", task.name, exc_info=e)
+
+        task.set_next_execution()
 
     @classmethod
     def _run(cls):
         """Background thread's main function, execute registered tasks accordingly to their frequencies"""
+        if cls._thread:
+            with cls._lock:
+                # First run: execute each task once to get it started
+                for task in cls.tasks:
+                    cls._execute_task(task)
+                cls.tasks.sort()
+                cls._last_execution = time.time()
+
         while cls._thread:
             with cls._lock:
-                if cls.upcoming:
-                    # Execute next upcoming task
-                    task = cls.upcoming[0]
-                    # Bump before execution so task run time does not influence its frequency
-                    task.next_execution = time.time() + task.frequency
-                    # This will sort by next_execution time
-                    cls.upcoming.sort()
-
-                    try:
-                        task.execute()
-
-                    except Exception as e:
-                        LOG.warning("Task %s crashed:", task.name, exc_info=e)
-
+                if cls.tasks:
+                    for task in cls.tasks:
+                        if task.next_execution - cls._last_execution < 0.5:
+                            cls._execute_task(task)
+                        else:
+                            break
+                    cls.tasks.sort()
                     cls._last_execution = time.time()
-                    cls._sleep_delay = cls.upcoming[0].next_execution - cls._last_execution
+                    cls._sleep_delay = cls.tasks[0].next_execution - cls._last_execution
+
+                else:
+                    cls._sleep_delay = 1
+
+                sleep_delay = max(0.1, cls._sleep_delay)
 
             # Don't hold cls._lock while sleeping, sleep delay should be 1 second when no tasks are present
-            time.sleep(max(0.1, cls._sleep_delay))
+            time.sleep(sleep_delay)

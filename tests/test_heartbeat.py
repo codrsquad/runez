@@ -38,28 +38,30 @@ def test_heartbeat():
     crash = Counter(name="crasher")
     crash.crash = True
 
-    runez.Heartbeat.add_task(task, frequency=0.1)
-    runez.Heartbeat.add_task(crash, frequency=0.2)
+    # Exercise case with no tasks
+    assert len(runez.Heartbeat.tasks) == 0
+    runez.Heartbeat.start()
+    time.sleep(1.1)
+    runez.Heartbeat.stop()
+    assert len(runez.Heartbeat.tasks) == 0
+
+    # Exercise case with several tasks
+    runez.Heartbeat.add_task(task, frequency=0.7)
+    runez.Heartbeat.add_task(crash, frequency=1.5)
     runez.Heartbeat.add_task(do_nothing)
-
     assert len(runez.Heartbeat.tasks) == 3
-    assert len(runez.Heartbeat.upcoming) == 3
-    assert runez.Heartbeat.upcoming[0].name == "Counter"
-    assert runez.Heartbeat.upcoming[1].name == "crasher"
-    assert runez.Heartbeat.upcoming[2].name == "do_nothing"
-
+    assert runez.Heartbeat.tasks[0].name == "Counter"
+    assert runez.Heartbeat.tasks[1].name == "crasher"
+    assert runez.Heartbeat.tasks[2].name == "do_nothing"
+    runez.Heartbeat.start()
+    time.sleep(1.8)
     runez.Heartbeat.remove_task(do_nothing)
     assert len(runez.Heartbeat.tasks) == 2
-    assert len(runez.Heartbeat.upcoming) == 2
-
-    runez.Heartbeat.start()
-    time.sleep(0.5)
     runez.Heartbeat.stop()
 
-    assert task.count >= 2
-    assert crash.count >= 1
+    assert task.count == 3
+    assert crash.count == 2
 
-    runez.Heartbeat.remove_task(task)
     runez.Heartbeat.remove_task(crash)
+    runez.Heartbeat.remove_task(task)
     assert len(runez.Heartbeat.tasks) == 0
-    assert len(runez.Heartbeat.upcoming) == 0
