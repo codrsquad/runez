@@ -111,19 +111,11 @@ def temp_folder():
 class WrappedHandler(_pytest.logging.LogCaptureHandler):
     """pytest aggressively imposes its own capture, this allows to capture it in our context managers"""
 
-    _is_capturing = False
-    _buffer = runez.context.StringIO()
-
     def __init__(self):
         super(WrappedHandler, self).__init__()
 
     def emit(self, record):
-        if self._is_capturing:
-            msg = self.format(record)
-            WrappedHandler._buffer.write(msg)
-            WrappedHandler._buffer.write("\n")
-
-        else:
+        if not runez.context.CapturedStream.emit(self, record):
             super(WrappedHandler, self).emit(record)
 
     @classmethod
@@ -138,8 +130,8 @@ class WrappedHandler(_pytest.logging.LogCaptureHandler):
                     return handler
 
 
-runez.context.CapturedStream._shared = WrappedHandler
 _pytest.logging.LogCaptureHandler = WrappedHandler
+runez.context.LOG_AUTO_CAPTURE = True
 
 
 class ClickWrapper(object):

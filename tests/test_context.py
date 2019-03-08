@@ -33,14 +33,14 @@ def test_capture():
 
 
 def test_scope():
-    # With pytest present, we capture all 3
+    # With LOG_AUTO_CAPTURE (enable by runez.conftest for example), we capture all 3
+    assert runez.context.LOG_AUTO_CAPTURE
     assert len(runez.CaptureOutput().captured) == 3
 
-    # If pytest isn't there, we capture stdout/stderr only by default
-    original = runez.context.CapturedStream._shared
-    runez.context.CapturedStream._shared = None
+    # Without LOG_AUTO_CAPTURE, we capture stdout/stderr only by default
+    runez.context.LOG_AUTO_CAPTURE = False
     assert len(runez.CaptureOutput().captured) == 2
-    runez.context.CapturedStream._shared = original
+    runez.context.LOG_AUTO_CAPTURE = True
 
     with runez.CaptureOutput() as logged:
         # Verify all channels are captured

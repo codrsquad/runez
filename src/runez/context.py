@@ -19,10 +19,12 @@ from runez.convert import Anchored, resolved_path, SYMBOLIC_TMP
 from runez.system import AbortException, is_dryrun, set_dryrun
 
 
+LOG_AUTO_CAPTURE = False
+_LOG_CAPTURE_STACK = []
+
+
 class CapturedStream(object):
     """Capture output to a stream by hijacking temporarily its write() function"""
-
-    _shared = None
 
     def __init__(self, name, target=None, buffer=None):
         self.name = name
@@ -31,15 +33,17 @@ class CapturedStream(object):
             self.buffer = StringIO(buffer.getvalue())
             self.name += "*"
 
-        elif target is None:
-            self.buffer = CapturedStream._shared._buffer
         else:
             self.buffer = StringIO()
 
     @classmethod
-    def log_intercept(cls):
-        if cls._shared:
-            return cls("log")
+    def emit(cls, caller, record):
+        if _LOG_CAPTURE_STACK:
+            buffer = _LOG_CAPTURE_STACK[-1]
+            msg = caller.format(record)
+            buffer.write(msg)
+            buffer.write("\n")
+            return True
 
     def __repr__(self):
         return self.contents()
@@ -72,17 +76,17 @@ class CapturedStream(object):
         if self.target:
             self.original = self.target.write
             self.target.write = self.write
+
         elif self.name == "log":
-            self._old_sc, self._shared._is_capturing = (self._shared._is_capturing, True)
-            pass
+            _LOG_CAPTURE_STACK.append(self.buffer)
 
     def restore(self):
         """Restore hijacked write() function"""
         if self.target:
             self.target.write = self.original
+
         elif self.name == "log":
-            self._shared._is_capturing = self._old_sc
-            pass
+            _LOG_CAPTURE_STACK.pop()
 
     def pop(self, strip=False):
         """Current content popped, useful for testing"""
@@ -179,8 +183,8 @@ class CaptureOutput(TrackedOutput):
         stdout = CapturedStream("stdout", target=sys.stdout) if stdout else None
         stderr = CapturedStream("stderr", target=sys.stderr) if stderr else None
         if log is None:
-            log = bool(CapturedStream._shared)
-        log = CapturedStream.log_intercept() if log else None
+            log = LOG_AUTO_CAPTURE
+        log = CapturedStream("log") if log else None
         super(CaptureOutput, self).__init__(stdout, stderr, log)
         self.level = level
         self.anchors = anchors
