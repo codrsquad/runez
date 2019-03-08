@@ -131,7 +131,7 @@ class WrappedHandler(_pytest.logging.LogCaptureHandler):
 
 
 _pytest.logging.LogCaptureHandler = WrappedHandler
-runez.context.LOG_AUTO_CAPTURE = True
+# runez.context.LOG_AUTO_CAPTURE = True
 
 
 class ClickWrapper(object):
@@ -193,7 +193,7 @@ class ClickRunner(object):
         self.args = runez.flattened(args, split=runez.SHELL)
 
         with IsolatedLogSetup():
-            with runez.CaptureOutput(dryrun=runez.DRYRUN) as logged:
+            with runez.CaptureOutput(log=True, dryrun=runez.DRYRUN) as logged:
                 runner = ClickWrapper.get_runner()
                 assert bool(self.main), "No main provided"
                 result = runner.invoke(self.main, args=self.args)

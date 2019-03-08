@@ -30,7 +30,7 @@ from runez.path import basename, ensure_folder, parent_folder
 from runez.program import check_pid, get_dev_folder, get_program_path, is_executable, is_younger, make_executable, run, which
 from runez.represent import header
 from runez.serialize import read_json, save_json, Serializable
-from runez.system import abort, get_timezone, get_version, set_dryrun
+from runez.system import abort, get_caller_name, get_timezone, get_version, set_dryrun
 
 __all__ = [
     "DRYRUN",
@@ -47,7 +47,7 @@ __all__ = [
     "check_pid", "get_dev_folder", "get_program_path", "is_executable", "is_younger", "make_executable", "run", "which",
     "header",
     "read_json", "save_json", "Serializable",
-    "abort", "get_timezone", "get_version", "set_dryrun",
+    "abort", "get_caller_name", "get_timezone", "get_version", "set_dryrun",
 ]
 
 DRYRUN = False

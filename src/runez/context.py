@@ -16,17 +16,52 @@ except ImportError:
     from io import StringIO
 
 from runez.convert import Anchored, resolved_path, SYMBOLIC_TMP
-from runez.system import AbortException, is_dryrun, set_dryrun
+from runez.system import AbortException, get_caller_name, is_dryrun, set_dryrun
 
 
 LOG_AUTO_CAPTURE = False
 _LOG_CAPTURE_STACK = []
 
 
+class CapturedBuffer(object):
+    def __init__(self):
+        pass
+
+
+class StackedStream(object):
+    def __init__(self, name):
+        self.name = name
+        self.stack = []
+
+    def emit(self, caller, record):
+        if self.stack:
+            buffer = self.stack[-1]
+            msg = caller.format(record)
+            buffer.write(msg)
+            buffer.write("\n")
+            return True
+
+    def write(self, message):
+        if self.stack:
+            self.stack[-1].write(message)
+
+    def push(self, target):
+        pass
+
+    def pop(self):
+        pass
+
+
+_LOG_STACK = StackedStream("log")
+_STDOUT_STACK = StackedStream("stdout")
+_STDERR_STACK = StackedStream("stderr")
+
+
 class CapturedStream(object):
     """Capture output to a stream by hijacking temporarily its write() function"""
 
-    def __init__(self, name, target=None, buffer=None):
+    def __init__(self, caller, name, target=None, buffer=None):
+        self.meta = {"caller": caller}
         self.name = name
         self.target = target
         if buffer is not None:
@@ -60,7 +95,7 @@ class CapturedStream(object):
         return len(self.contents())
 
     def duplicate(self):
-        return CapturedStream(self.name, buffer=StringIO(self.contents()))
+        return CapturedStream(self.caller, self.name, buffer=StringIO(self.contents()))
 
     def contents(self):
         """
@@ -74,8 +109,8 @@ class CapturedStream(object):
 
     def capture(self):
         if self.target:
-            self.original = self.target.write
-            self.target.write = self.write
+            self.meta["original"] = self.target.write
+            self.target.write = self.buffer.write
 
         elif self.name == "log":
             _LOG_CAPTURE_STACK.append(self.buffer)
@@ -83,7 +118,7 @@ class CapturedStream(object):
     def restore(self):
         """Restore hijacked write() function"""
         if self.target:
-            self.target.write = self.original
+            self.target.write = self.meta["original"]
 
         elif self.name == "log":
             _LOG_CAPTURE_STACK.pop()
@@ -155,6 +190,7 @@ class TrackedOutput(object):
 
     def clear(self):
         """Clear captured content"""
+        assert True
         for s in self.captured:
             s.clear()
 
@@ -180,11 +216,12 @@ class CaptureOutput(TrackedOutput):
         :param str|list anchors: Optional paths to use as anchors for short()
         :param bool|None dryrun: Override dryrun (when explicitly specified, ie not None)
         """
-        stdout = CapturedStream("stdout", target=sys.stdout) if stdout else None
-        stderr = CapturedStream("stderr", target=sys.stderr) if stderr else None
+        self.caller = get_caller_name()
+        stdout = CapturedStream(self.caller, "stdout", target=sys.stdout) if stdout else None
+        stderr = CapturedStream(self.caller, "stderr", target=sys.stderr) if stderr else None
         if log is None:
             log = LOG_AUTO_CAPTURE
-        log = CapturedStream("log") if log else None
+        log = CapturedStream(self.caller, "log") if log else None
         super(CaptureOutput, self).__init__(stdout, stderr, log)
         self.level = level
         self.anchors = anchors

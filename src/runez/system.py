@@ -1,3 +1,4 @@
+import inspect
 import logging
 import sys
 import time
@@ -78,6 +79,14 @@ def formatted_string(*args):
 
     except TypeError:
         return message
+
+
+def get_caller_name():
+    """
+    Returns:
+        (str): Name of module who called you
+    """
+    return inspect.currentframe().f_back.f_back.f_globals["__name__"]
 
 
 def get_timezone():
