@@ -74,6 +74,7 @@ class CapturedStream(object):
             self.target.write = self.write
         elif self.name == "log":
             self._old_sc, self._shared._is_capturing = (self._shared._is_capturing, True)
+            pass
 
     def restore(self):
         """Restore hijacked write() function"""
@@ -81,6 +82,7 @@ class CapturedStream(object):
             self.target.write = self.original
         elif self.name == "log":
             self._shared._is_capturing = self._old_sc
+            pass
 
     def pop(self, strip=False):
         """Current content popped, useful for testing"""
