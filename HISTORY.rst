@@ -2,8 +2,10 @@
 History
 =======
 
-1.6.11 (2019-03-02)
+1.6.12 (2019-03-07)
 -------------------
+
+* Allow stacked ``CaptureOutput``
 
 * Better heartbeat
 
