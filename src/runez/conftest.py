@@ -20,6 +20,7 @@ import runez
 
 
 LOG = logging.getLogger(__name__)
+runez.context.AUTO_CAPTURE_LOGS = True
 
 # Set DEBUG logging level when running tests, makes sure LOG.debug() calls get captured (for inspection in tests)
 logging.root.setLevel(logging.DEBUG)
@@ -43,18 +44,34 @@ class IsolatedLogSetup(object):
 
     This should only be useful for testing (as in general, logging setup is a global thing).
     """
+    def __init__(self, tmp=False):
+        self.tmp = tmp
+        self.tf = None
 
-    def __enter__(self):
+    def __enter__(self, tmp=False):
         """Context manager to save and restore log setup, useful for testing"""
-        return runez.log
+        WrappedHandler.isolation += 1
+        self.old_handlers = logging.root.handlers
+        logging.root.handlers = []
+        self.old_spec = runez.log.spec.tmp
+
+        if self.tmp:
+            self.tf = runez.TempFolder()
+            runez.log.spec.tmp = self.tf.__enter__()
+            return runez.log.spec.tmp
 
     def __exit__(self, *_):
         runez.log.reset()
+        logging.root.handlers = self.old_handlers
+        WrappedHandler.isolation -= 1
+        runez.log.spec.tmp = self.old_spec
+        if self.tf:
+            self.tf.__exit__(*_)
 
 
 @pytest.fixture
 def cli():
-    """Convenience for click CLI testing.
+    """Convenience fixture for click CLI testing.
 
     Example usage:
 
@@ -90,15 +107,13 @@ cli.context = runez.TempFolder
 @pytest.fixture
 def isolated_log_setup():
     """Log settings restored"""
-    with runez.TempFolder(follow=True) as tmp:
-        with IsolatedLogSetup() as isolated:
-            isolated.spec.tmp = tmp
-            yield isolated
+    with IsolatedLogSetup(tmp=True):
+        yield
 
 
 @pytest.fixture
 def logged():
-    with runez.CaptureOutput() as logged:
+    with runez.CaptureOutput(log=True) as logged:
         yield logged
 
 
@@ -109,13 +124,12 @@ def temp_folder():
 
 
 class WrappedHandler(_pytest.logging.LogCaptureHandler):
-    """pytest aggressively imposes its own capture, this allows to capture it in our context managers"""
+    """pytest aggressively imposes its own capture, this allows to impose our capture where applicable"""
 
-    def __init__(self):
-        super(WrappedHandler, self).__init__()
+    isolation = 0
 
     def emit(self, record):
-        if not runez.context.CapturedStream.emit(self, record):
+        if WrappedHandler.isolation == 0:
             super(WrappedHandler, self).emit(record)
 
     @classmethod
@@ -131,7 +145,6 @@ class WrappedHandler(_pytest.logging.LogCaptureHandler):
 
 
 _pytest.logging.LogCaptureHandler = WrappedHandler
-runez.context.LOG_AUTO_CAPTURE = True
 
 
 class ClickWrapper(object):
@@ -192,29 +205,30 @@ class ClickRunner(object):
 
         self.args = runez.flattened(args, split=runez.SHELL)
 
-        with IsolatedLogSetup():
-            with runez.CaptureOutput(dryrun=runez.DRYRUN) as logged:
+        with IsolatedLogSetup(tmp=False):
+            with runez.CaptureOutput(log=True, dryrun=runez.DRYRUN) as logged:
+                self.logged = logged
                 runner = ClickWrapper.get_runner()
                 assert bool(self.main), "No main provided"
                 result = runner.invoke(self.main, args=self.args)
 
                 if result.output:
-                    logged.stdout.write(result.output)
+                    logged.stdout.buffer.write(result.output)
 
                 if result.exception and not isinstance(result.exception, SystemExit):
                     try:
                         raise result.exception
+
                     except BaseException:
                         LOG.exception("Exited with stacktrace:")
 
-                self.logged = logged.duplicate()
                 self.exit_code = result.exit_code
 
         if self.logged:
             handler = WrappedHandler.find_wrapper()
             if handler:
                 handler.reset()
-            title = runez.header("Captured output for: %s" % runez.represented_args(self.args), dash="=")
+            title = runez.header("Captured output for: %s" % runez.represented_args(self.args), border="==")
             LOG.info("\n%s\nmain: %s\nexit_code: %s\n%s\n", title, self.main, self.exit_code, self.logged)
 
     @property
@@ -225,23 +239,22 @@ class ClickRunner(object):
     def failed(self):
         return self.exit_code != 0
 
-    def match(self, expected, stdout=None, stderr=None, log=None, regex=None):
+    def match(self, expected, stdout=None, stderr=None, regex=None):
         """
         :param str|re.Pattern expected: Message to find in self.logged
-        :param bool|None stdout: Look at stdout (default: yes)
-        :param bool|None stderr: Look at stderr (default: yes)
-        :param bool|None log: Look at what was logged (default: no)
+        :param bool|None stdout: Look at stdout (default: yes, if captured)
+        :param bool|None stderr: Look at stderr (default: yes, if captured)
         :param int|bool|None regex: Specify whether 'expected' should be a regex
         :return Match|None: Match found, if any
         """
-        if stdout is None and stderr is None and log is None:
+        if stdout is None and stderr is None:
             # By default, look at stdout/stderr only
             stdout = stderr = True
 
         assert expected, "No 'expected' provided"
         assert self.exit_code is not None, "run() was not called yet"
 
-        captures = [stdout and self.logged.stdout, stderr and self.logged.stderr, log and self.logged.log]
+        captures = [stdout and self.logged.stdout, stderr and self.logged.stderr]
         captures = [c for c in captures if c is not None and c is not False]
 
         assert captures, "No captures specified"
@@ -314,7 +327,7 @@ class RunSpec(runez.Slotted):
 
     _default = runez.UNSET
 
-    __slots__ = ["stdout", "stderr", "log", "regex"]
+    __slots__ = ["stdout", "stderr", "regex"]
 
 
 class Match(object):

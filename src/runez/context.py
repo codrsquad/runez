@@ -2,6 +2,7 @@
 Convenience context managers
 """
 
+import logging
 import os
 import shutil
 import sys
@@ -19,39 +20,22 @@ from runez.convert import Anchored, resolved_path, SYMBOLIC_TMP
 from runez.system import AbortException, is_dryrun, set_dryrun
 
 
-LOG_AUTO_CAPTURE = False
-_LOG_CAPTURE_STACK = []
+AUTO_CAPTURE_LOGS = False
 
 
 class CapturedStream(object):
     """Capture output to a stream by hijacking temporarily its write() function"""
 
-    def __init__(self, name, target=None, buffer=None):
+    def __init__(self, name, target):
         self.name = name
         self.target = target
-        if buffer is not None:
-            self.buffer = StringIO(buffer.getvalue())
-            self.name += "*"
-
-        else:
-            self.buffer = StringIO()
-
-    @classmethod
-    def emit(cls, caller, record):
-        if _LOG_CAPTURE_STACK:
-            buffer = _LOG_CAPTURE_STACK[-1]
-            msg = caller.format(record)
-            buffer.write(msg)
-            buffer.write("\n")
-            return True
+        self.buffer = StringIO()
+        self.capture_write = "_pytest" in str(self.target.__class__)
+        if self.capture_write and self.target.write.__name__ == self.captured_write.__name__:
+            self.capture_write = False
 
     def __repr__(self):
         return self.contents()
-
-    def __eq__(self, other):
-        if isinstance(other, CapturedStream):
-            return self.name == other.name and self.contents() == other.contents()
-        return str(self).strip() == str(other).strip()
 
     def __contains__(self, item):
         return item is not None and item in self.contents()
@@ -59,8 +43,8 @@ class CapturedStream(object):
     def __len__(self):
         return len(self.contents())
 
-    def duplicate(self):
-        return CapturedStream(self.name, buffer=StringIO(self.contents()))
+    def captured_write(self, message):
+        self.buffer.write(message)
 
     def contents(self):
         """
@@ -69,24 +53,22 @@ class CapturedStream(object):
         """
         return self.buffer.getvalue()
 
-    def write(self, message):
-        self.buffer.write(message)
-
-    def capture(self):
-        if self.target:
+    def _start_capture(self):
+        if self.capture_write:
+            # setting sys.stdout doesn't survive with cross module fixtures, so we hijack its write the 1st time we see it
             self.original = self.target.write
-            self.target.write = self.write
+            self.target.write = self.captured_write
 
-        elif self.name == "log":
-            _LOG_CAPTURE_STACK.append(self.buffer)
+        else:
+            self.original = getattr(sys, self.name)
+            setattr(sys, self.name, self.buffer)
 
-    def restore(self):
-        """Restore hijacked write() function"""
-        if self.target:
+    def _stop_capture(self):
+        if self.capture_write:
             self.target.write = self.original
 
-        elif self.name == "log":
-            _LOG_CAPTURE_STACK.pop()
+        else:
+            setattr(sys, self.name, self.original)
 
     def pop(self, strip=False):
         """Current content popped, useful for testing"""
@@ -102,47 +84,28 @@ class CapturedStream(object):
         self.buffer.truncate(0)
 
 
-def _dupe(cap):
-    """
-    :param CapturedStream|None cap:
-    :return CapturedStream|None: Duplicate of 'cap', if any
-    """
-    if cap is not None:
-        return cap.duplicate()
-
-
 class TrackedOutput(object):
     """
     Track captured output
     """
 
-    def __init__(self, stdout, stderr, log):
+    def __init__(self, stdout, stderr):
         """
         :param CapturedStream|None stdout: Captured stdout
         :param CapturedStream|None stderr: Captured stderr
-        :param CapturedStream|None log: Captured logging
         """
         self.stdout = stdout
         self.stderr = stderr
-        self.log = log
-        self.captured = [c for c in (self.stdout, self.stderr, self.log) if c is not None]
+        self.captured = [c for c in (self.stdout, self.stderr) if c is not None]
 
     def __repr__(self):
         return "\n".join("%s: %s" % (s.name, s) for s in self.captured)
-
-    def __eq__(self, other):
-        if isinstance(other, TrackedOutput):
-            return self.stdout == other.stdout and self.stderr == other.stderr and self.log == other.log
-        return str(self).strip() == str(other).strip()
 
     def __contains__(self, item):
         return any(item in s for s in self.captured)
 
     def __len__(self):
         return sum(len(s) for s in self.captured)
-
-    def duplicate(self):
-        return TrackedOutput(_dupe(self.stdout), _dupe(self.stderr), _dupe(self.log))
 
     def contents(self):
         return "".join(s.contents() for s in self.captured)
@@ -155,58 +118,77 @@ class TrackedOutput(object):
 
     def clear(self):
         """Clear captured content"""
+        assert True
         for s in self.captured:
             s.clear()
 
 
-class CaptureOutput(TrackedOutput):
+class CaptureOutput(object):
     """
-    Context manager allowing to temporarily grab stdout/stderr output.
+    Context manager allowing to temporarily grab stdout/stderr/log output.
     Output is captured and made available only for the duration of the context.
 
     Sample usage:
 
     with CaptureOutput() as logged:
         # do something that generates output
-        # output has been captured in 'logged'
+        # output has been captured in `logged`, see `logged.stdout` etc
+        assert "foo" in logged
+        assert "bar" in logged.stdout
     """
 
-    def __init__(self, level=None, stdout=True, stderr=True, log=None, anchors=None, dryrun=None):
+    def __init__(self, stdout=True, stderr=True, log=None, anchors=None, dryrun=None):
         """
-        :param int|None level: Change logging level, if specified
         :param bool stdout: Capture stdout
         :param bool stderr: Capture stderr
-        :param bool|None log: Capture pytest logging (if running in pytest), leave at None for auto-detect
+        :param str|bool|None log: Capture logging, with given format
         :param str|list anchors: Optional paths to use as anchors for short()
         :param bool|None dryrun: Override dryrun (when explicitly specified, ie not None)
         """
-        stdout = CapturedStream("stdout", target=sys.stdout) if stdout else None
-        stderr = CapturedStream("stderr", target=sys.stderr) if stderr else None
-        if log is None:
-            log = LOG_AUTO_CAPTURE
-        log = CapturedStream("log") if log else None
-        super(CaptureOutput, self).__init__(stdout, stderr, log)
-        self.level = level
+        self.stdout = stdout
+        self.stderr = stderr
+        self.log = AUTO_CAPTURE_LOGS if log is None else log
         self.anchors = anchors
         self.dryrun = dryrun
+        self.old_handlers = None
 
     def __enter__(self):
-        for s in self.captured:
-            s.capture()
+        self.tracked = TrackedOutput(
+            CapturedStream("stdout", sys.stdout) if self.stdout else None,
+            CapturedStream("stderr", sys.stderr) if self.stderr else None,
+        )
+
+        for c in self.tracked.captured:
+            c._start_capture()
+
+        if self.log:
+            fmt = "%(levelname)s %(message)s" if self.log is True else self.log
+            handler = logging.StreamHandler(stream=sys.stderr)
+            handler.setFormatter(logging.Formatter(fmt))
+            handler.setLevel(logging.DEBUG)
+            self.old_handlers = logging.root.handlers
+            logging.root.handlers = [handler]
+
         if self.anchors:
             Anchored.add(self.anchors)
+
         if self.dryrun is not None:
             self.dryrun = set_dryrun(self.dryrun)
-        return self
+
+        return self.tracked
 
     def __exit__(self, *args):
-        for s in self.captured:
-            s.restore()
+        for c in self.tracked.captured:
+            c._stop_capture()
+
+        if self.log:
+            logging.root.handlers = self.old_handlers
+
         if self.anchors:
             Anchored.pop(self.anchors)
+
         if self.dryrun is not None:
             set_dryrun(self.dryrun)
-        self.clear()
 
 
 class CurrentFolder(object):
@@ -290,5 +272,6 @@ def verify_abort(func, *args, **kwargs):
         try:
             func(*args, **kwargs)
             return None
+
         except expected_exception:
             return str(logged)

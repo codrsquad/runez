@@ -110,8 +110,6 @@ def test_default(temp_log):
     runez.log.setup(greetings="Logging to: {location}, pid {pid}")
 
     assert temp_log.logfile == "pytest.log"
-    assert "Logging to: " in temp_log.log
-    assert "pytest.log, pid %s" % os.getpid() in temp_log.log
     temp_log.expect_logged("Logging to: ")
     temp_log.expect_logged("pytest.log, pid %s" % os.getpid())
 

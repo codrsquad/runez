@@ -61,9 +61,9 @@ def test_crash(cli):
     cli.run(["hello with main"])
     assert cli.failed
     assert cli.match("crashed...hello")
-    assert cli.match("Exited with stacktrace:", log=True)
+    assert cli.match("Exited with stacktrace:")
 
-    cli.expect_failure("hello", "crashed...hello", "Exited with stacktrace:", "!this message shouldn't appear", log=True)
+    cli.expect_failure("hello", "crashed...hello", "Exited with stacktrace:", "!this message shouldn't appear")
 
     cli.main = stringify
     cli.run(["successful hello"])
@@ -79,7 +79,7 @@ def test_crash(cli):
 
     with pytest.raises(AssertionError):
         # No captures specified
-        assert cli.match("crashed...hello", stdout=False, stderr=False, log=False)
+        assert cli.match("crashed...hello", stdout=False, stderr=False)
 
     with pytest.raises(AssertionError):
         # Expect success failed
@@ -99,4 +99,4 @@ def test_hard_exit(cli):
     cli.run("hello")
     assert cli.failed
     assert "hello" in cli.logged.stdout
-    assert "Exited with stacktrace" not in cli.logged.log
+    assert "Exited with stacktrace" not in cli.logged

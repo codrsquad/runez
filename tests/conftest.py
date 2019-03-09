@@ -1,4 +1,5 @@
 import logging
+import os
 
 import pytest
 
@@ -13,16 +14,15 @@ assert all(s for s in [cli, isolated_log_setup, logged, temp_folder])
 
 
 class TempLog(object):
-    def __init__(self, folder, capture):
+    def __init__(self, folder, tracked):
         """
         :param str folder: Temp folder
-        :param runez.CaptureOutput capture: Log capture context manager
+        :param runez.TrackedOutput tracked: Tracked output
         """
         self.folder = folder
-        self._capture = capture
-        self.log = capture.log
-        self.stdout = capture.stdout
-        self.stderr = capture.stderr
+        self.tracked = tracked
+        self.stdout = tracked.stdout
+        self.stderr = tracked.stderr
 
     @property
     def logfile(self):
@@ -42,27 +42,23 @@ class TempLog(object):
         assert not remaining
 
     def clear(self):
-        self._capture.clear()
+        self.tracked.clear()
 
     def __repr__(self):
-        return str(self._capture)
+        return str(self.tracked)
 
     def __str__(self):
         return self.folder
 
     def __contains__(self, item):
-        return item in self._capture
+        return item in self.tracked
 
     def __len__(self):
-        return len(self._capture)
+        return len(self.tracked)
 
 
 @pytest.fixture
 def temp_log():
-    with runez.TempFolder(follow=True) as tmp:
-        with IsolatedLogSetup() as isolated:
-            with runez.CaptureOutput(anchors=tmp) as capture:
-                assert not capture.log
-                isolated.spec.tmp = tmp
-                isolated.spec.console_format = "%(levelname)s %(message)s"
-                yield TempLog(tmp, capture)
+    with IsolatedLogSetup(tmp=True):
+        with runez.CaptureOutput(log=False) as tracked:
+            yield TempLog(os.getcwd(), tracked)
