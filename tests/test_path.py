@@ -107,25 +107,29 @@ def test_paths(temp_folder):
         assert runez.symlink("some-folder/bar/baz", "some-folder", fatal=False) == -1
         assert "source contained in destination" in logged.pop()
 
-    assert runez.touch("sample") == 1
-    assert "Can't create folder" in runez.verify_abort(runez.ensure_folder, "sample", folder=True)
-    custom = runez.verify_abort(runez.ensure_folder, "sample", folder=True, fatal=SystemExit, expected_exception=SystemExit)
-    assert "Can't create folder" in custom
-    assert runez.verify_abort(runez.ensure_folder, None) is None
+    with runez.CaptureOutput():
+        assert runez.touch("sample") == 1
+        assert "Can't create folder" in runez.verify_abort(runez.ensure_folder, "sample", folder=True)
+        custom = runez.verify_abort(runez.ensure_folder, "sample", folder=True, fatal=SystemExit, expected_exception=SystemExit)
+        assert "Can't create folder" in custom
+        assert runez.verify_abort(runez.ensure_folder, None) is None
 
-    assert runez.delete("sample") == 1
-    assert runez.ensure_folder("sample", folder=True) == 1
-    assert os.getcwd() == temp_folder
+        assert runez.delete("sample") == 1
+        assert runez.ensure_folder("sample", folder=True) == 1
+        assert os.getcwd() == temp_folder
+
     with runez.CurrentFolder("sample", anchor=False):
         cwd = os.getcwd()
         sample = os.path.join(temp_folder, "sample")
         assert cwd == sample
         assert runez.short(os.path.join(cwd, "some-file")) == "sample/some-file"
+
     with runez.CurrentFolder("sample", anchor=True):
         cwd = os.getcwd()
         sample = os.path.join(temp_folder, "sample")
         assert cwd == sample
         assert runez.short(os.path.join(cwd, "some-file")) == "some-file"
+
     assert os.getcwd() == temp_folder
 
     assert runez.delete("sample") == 1
