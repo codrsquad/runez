@@ -115,8 +115,18 @@ class WrappedHandler(_pytest.logging.LogCaptureHandler):
         super(WrappedHandler, self).__init__()
 
     def emit(self, record):
-        if not runez.context.CapturedStream.emit(self, record):
-            super(WrappedHandler, self).emit(record)
+        if not runez.context._LOG_STACK:
+            return super(WrappedHandler, self).emit(record)
+
+        try:
+            msg = self.format(record)
+            stream = runez.context._LOG_STACK[-1].buffer
+            stream.write(msg)
+            stream.write(self.terminator)
+            self.flush()
+
+        except Exception:
+            self.handleError(record)
 
     @classmethod
     def find_wrapper(cls):
@@ -131,7 +141,6 @@ class WrappedHandler(_pytest.logging.LogCaptureHandler):
 
 
 _pytest.logging.LogCaptureHandler = WrappedHandler
-# runez.context.LOG_AUTO_CAPTURE = True
 
 
 class ClickWrapper(object):
@@ -194,6 +203,7 @@ class ClickRunner(object):
 
         with IsolatedLogSetup():
             with runez.CaptureOutput(log=True, dryrun=runez.DRYRUN) as logged:
+                self.logged = logged
                 runner = ClickWrapper.get_runner()
                 assert bool(self.main), "No main provided"
                 result = runner.invoke(self.main, args=self.args)
@@ -204,10 +214,10 @@ class ClickRunner(object):
                 if result.exception and not isinstance(result.exception, SystemExit):
                     try:
                         raise result.exception
+
                     except BaseException:
                         LOG.exception("Exited with stacktrace:")
 
-                self.logged = logged.duplicate()
                 self.exit_code = result.exit_code
 
         if self.logged:

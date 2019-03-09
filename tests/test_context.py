@@ -4,45 +4,8 @@ import sys
 import runez
 
 
-def test_capture():
-    """Exercise edge cases around capture"""
-    c1 = runez.CaptureOutput()
-    c2 = runez.CaptureOutput()
-    c3 = runez.CaptureOutput(stderr=False)
-
-    assert c1 == c2
-    assert c1.stdout == ""
-
-    assert c1 != c3
-    assert c1 != "hello"
-
-    assert c1.stdout is not None
-    assert c1.stderr is not None
-    assert c1.log is not None
-
-    assert c3.stdout is not None
-    assert c3.stderr is None
-    assert c3.log is not None
-
-    assert c1 == "stdout: \nstderr: \nlog: \n"
-    assert c3 == "stdout: \nlog: \n"
-
-    c1d = c1.duplicate()
-    assert c1d.stdout.name == "stdout*"
-    assert c1d != c1
-
-
 def test_scope():
-    # With LOG_AUTO_CAPTURE (enable by runez.conftest for example), we capture all 3
-    assert runez.context.LOG_AUTO_CAPTURE
-    assert len(runez.CaptureOutput().captured) == 3
-
-    # Without LOG_AUTO_CAPTURE, we capture stdout/stderr only by default
-    runez.context.LOG_AUTO_CAPTURE = False
-    assert len(runez.CaptureOutput().captured) == 2
-    runez.context.LOG_AUTO_CAPTURE = True
-
-    with runez.CaptureOutput() as logged:
+    with runez.CaptureOutput(log=True) as logged:
         # Verify all channels are captured
         logging.debug("hello")
         assert "DEBUG    hello" in logged.pop()
