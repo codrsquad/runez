@@ -20,7 +20,6 @@ import runez
 
 
 LOG = logging.getLogger(__name__)
-runez.context.AUTO_CAPTURE_LOGS = True
 
 # Set DEBUG logging level when running tests, makes sure LOG.debug() calls get captured (for inspection in tests)
 logging.root.setLevel(logging.DEBUG)
@@ -44,29 +43,38 @@ class IsolatedLogSetup(object):
 
     This should only be useful for testing (as in general, logging setup is a global thing).
     """
-    def __init__(self, tmp=False):
-        self.tmp = tmp
-        self.tf = None
+    def __init__(self, adjust_tmp=True):
+        self.adjust_tmp = adjust_tmp
+        self.temp_folder = None
 
     def __enter__(self, tmp=False):
         """Context manager to save and restore log setup, useful for testing"""
         WrappedHandler.isolation += 1
         self.old_handlers = logging.root.handlers
         logging.root.handlers = []
-        self.old_spec = runez.log.spec.tmp
 
-        if self.tmp:
-            self.tf = runez.TempFolder()
-            runez.log.spec.tmp = self.tf.__enter__()
+        if self.adjust_tmp:
+            # Adjust log.spec.tmp, and leave logging.root without any predefined handlers
+            # intent: underlying wants to perform their own log.setup()
+            self.old_spec = runez.log.spec.tmp
+            self.temp_folder = runez.TempFolder()
+            runez.log.spec.tmp = self.temp_folder.__enter__()
             return runez.log.spec.tmp
 
+        # If we're not adjusting tmp, then make sure we have at least one logging handler defined
+        handler = logging.StreamHandler(stream=sys.stderr)
+        handler.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
+        handler.setLevel(logging.DEBUG)
+        logging.root.addHandler(handler)
+
     def __exit__(self, *_):
+        WrappedHandler.isolation -= 1
         runez.log.reset()
         logging.root.handlers = self.old_handlers
-        WrappedHandler.isolation -= 1
-        runez.log.spec.tmp = self.old_spec
-        if self.tf:
-            self.tf.__exit__(*_)
+
+        if self.temp_folder:
+            runez.log.spec.tmp = self.old_spec
+            self.temp_folder.__exit__(*_)
 
 
 @pytest.fixture
@@ -107,13 +115,13 @@ cli.context = runez.TempFolder
 @pytest.fixture
 def isolated_log_setup():
     """Log settings restored"""
-    with IsolatedLogSetup(tmp=True):
+    with IsolatedLogSetup():
         yield
 
 
 @pytest.fixture
 def logged():
-    with runez.CaptureOutput(log=True) as logged:
+    with runez.CaptureOutput() as logged:
         yield logged
 
 
@@ -130,7 +138,17 @@ class WrappedHandler(_pytest.logging.LogCaptureHandler):
 
     def emit(self, record):
         if WrappedHandler.isolation == 0:
-            super(WrappedHandler, self).emit(record)
+            if runez.context._CAPTURE_STACK:
+                try:
+                    msg = self.format(record)
+                    stream = runez.context._CAPTURE_STACK[-1].buffer
+                    stream.write(msg + "\n")
+                    self.flush()
+                except Exception:  # pragma: no cover
+                    self.handleError(record)
+
+            else:
+                super(WrappedHandler, self).emit(record)
 
     @classmethod
     def find_wrapper(cls):
@@ -205,8 +223,8 @@ class ClickRunner(object):
 
         self.args = runez.flattened(args, split=runez.SHELL)
 
-        with IsolatedLogSetup(tmp=False):
-            with runez.CaptureOutput(log=True, dryrun=runez.DRYRUN) as logged:
+        with IsolatedLogSetup(adjust_tmp=False):
+            with runez.CaptureOutput(dryrun=runez.DRYRUN) as logged:
                 self.logged = logged
                 runner = ClickWrapper.get_runner()
                 assert bool(self.main), "No main provided"

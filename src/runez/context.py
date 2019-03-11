@@ -2,7 +2,6 @@
 Convenience context managers
 """
 
-import logging
 import os
 import shutil
 import sys
@@ -20,7 +19,7 @@ from runez.convert import Anchored, resolved_path, SYMBOLIC_TMP
 from runez.system import AbortException, is_dryrun, set_dryrun
 
 
-AUTO_CAPTURE_LOGS = False
+_CAPTURE_STACK = []
 
 
 class CapturedStream(object):
@@ -125,7 +124,7 @@ class TrackedOutput(object):
 
 class CaptureOutput(object):
     """
-    Context manager allowing to temporarily grab stdout/stderr/log output.
+    Context manager allowing to temporarily grab stdout/stderr output.
     Output is captured and made available only for the duration of the context.
 
     Sample usage:
@@ -137,20 +136,17 @@ class CaptureOutput(object):
         assert "bar" in logged.stdout
     """
 
-    def __init__(self, stdout=True, stderr=True, log=None, anchors=None, dryrun=None):
+    def __init__(self, stdout=True, stderr=True, anchors=None, dryrun=None):
         """
         :param bool stdout: Capture stdout
         :param bool stderr: Capture stderr
-        :param str|bool|None log: Capture logging, with given format
         :param str|list anchors: Optional paths to use as anchors for short()
         :param bool|None dryrun: Override dryrun (when explicitly specified, ie not None)
         """
         self.stdout = stdout
         self.stderr = stderr
-        self.log = AUTO_CAPTURE_LOGS if log is None else log
         self.anchors = anchors
         self.dryrun = dryrun
-        self.old_handlers = None
 
     def __enter__(self):
         self.tracked = TrackedOutput(
@@ -161,13 +157,8 @@ class CaptureOutput(object):
         for c in self.tracked.captured:
             c._start_capture()
 
-        if self.log:
-            fmt = "%(levelname)s %(message)s" if self.log is True else self.log
-            handler = logging.StreamHandler(stream=sys.stderr)
-            handler.setFormatter(logging.Formatter(fmt))
-            handler.setLevel(logging.DEBUG)
-            self.old_handlers = logging.root.handlers
-            logging.root.handlers = [handler]
+        if self.tracked.captured:
+            _CAPTURE_STACK.append(self.tracked.captured[-1])
 
         if self.anchors:
             Anchored.add(self.anchors)
@@ -178,11 +169,11 @@ class CaptureOutput(object):
         return self.tracked
 
     def __exit__(self, *args):
+        if self.tracked.captured:
+            _CAPTURE_STACK.pop()
+
         for c in self.tracked.captured:
             c._stop_capture()
-
-        if self.log:
-            logging.root.handlers = self.old_handlers
 
         if self.anchors:
             Anchored.pop(self.anchors)

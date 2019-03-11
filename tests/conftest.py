@@ -59,6 +59,6 @@ class TempLog(object):
 
 @pytest.fixture
 def temp_log():
-    with IsolatedLogSetup(tmp=True):
-        with runez.CaptureOutput(log=False) as tracked:
+    with IsolatedLogSetup():
+        with runez.CaptureOutput() as tracked:
             yield TempLog(os.getcwd(), tracked)
