@@ -40,7 +40,7 @@ def decode(value, strip=False):
     """Python 2/3 friendly decoding of output.
 
     Args:
-        value (str | bytes | None): The value to decode.
+        value (str | unicode | bytes | None): The value to decode.
         strip (bool): If True, `strip()` the returned string. (Default value = False)
 
     Returns:
@@ -86,7 +86,7 @@ class Slotted(object):
     def _set(self, name, value):
         """
         Args:
-            name (str): Name of slot to set.
+            name (str | unicode): Name of slot to set.
             value: Associated value
         """
         if value is not UNSET:
@@ -187,7 +187,7 @@ class ThreadGlobalContext(object):
     def remove_threadlocal(self, name):
         """
         Args:
-            name (str): Remove entry with `name` from current thread's context
+            name (str | unicode): Remove entry with `name` from current thread's context
         """
         with self._lock:
             if self._tpayload is not None:
@@ -215,7 +215,7 @@ class ThreadGlobalContext(object):
     def remove_global(self, name):
         """
         Args:
-            name (str): Remove entry with `name` from global context
+            name (str | unicode): Remove entry with `name` from global context
         """
         with self._lock:
             if self._gpayload is not None:

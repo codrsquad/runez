@@ -19,7 +19,7 @@ DRYRUN mode:
 
 from runez import click, config, heartbeat, program, serialize
 from runez.base import decode, Slotted, Undefined, UNSET
-from runez.config import capped, to_boolean, to_bytesize, to_dict, to_int, to_json, to_number
+from runez.config import capped, from_json, to_boolean, to_bytesize, to_dict, to_int, to_number
 from runez.context import CaptureOutput, CurrentFolder, TempFolder, TrackedOutput, verify_abort
 from runez.convert import Anchored, flattened, formatted, quoted, represented_args, resolved_path, short, shortened
 from runez.convert import SANITIZED, SHELL, UNIQUE
@@ -36,7 +36,7 @@ __all__ = [
     "DRYRUN",
     "click", "config", "heartbeat", "logsetup", "program", "serialize",
     "decode", "Slotted", "Undefined", "UNSET",
-    "capped", "to_boolean", "to_bytesize", "to_dict", "to_int", "to_json", "to_number",
+    "capped", "from_json", "to_boolean", "to_bytesize", "to_dict", "to_int", "to_number",
     "CaptureOutput", "CurrentFolder", "TempFolder", "TrackedOutput", "verify_abort",
     "Anchored", "flattened", "formatted", "quoted", "represented_args", "resolved_path", "short", "shortened",
     "SANITIZED", "SHELL", "UNIQUE",

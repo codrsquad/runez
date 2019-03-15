@@ -1,8 +1,8 @@
 def header(text, border="--"):
     """
     Args:
-        text (str): Text to turn into a header
-        border (str): Characters to use to decorate header
+        text (str | unicode): Text to turn into a header
+        border (str | unicode): Characters to use to decorate header
 
     Returns:
         (str): Decorated

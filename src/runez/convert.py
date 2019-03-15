@@ -21,7 +21,7 @@ def flattened(value, split=None):
     """
     Args:
         value: Possibly nested arguments (sequence of lists, nested lists)
-        split (int | str | (str, int) | None): How to split values:
+        split (int | str | unicode | (str | unicode, int) | None): How to split values:
             - None: simply flatten, no further processing
             - one char string: split() on specified char
             - SANITIZED: discard all None items
@@ -46,10 +46,13 @@ def flattened(value, split=None):
 
 def formatted(text, *args, **kwargs):
     """
-    :param str text: Text to format
-    :param args: Objects to extract values from (as attributes)
-    :param kwargs: Optional values provided as named args
-    :return str: Attributes from this class are expanded if mentioned
+    Args:
+        text (str | unicode): Text to format
+        *args: Objects to extract values from (as attributes)
+        **kwargs: Optional values provided as named args
+
+    Returns:
+        (str): Attributes from this class are expanded if mentioned
     """
     if not text or "{" not in text:
         return text
@@ -78,8 +81,11 @@ def formatted(text, *args, **kwargs):
 
 def quoted(text):
     """
-    :param str|None text: Text to optionally quote
-    :return str: Quoted if 'text' contains spaces
+    Args:
+        text (str | unicode | None): Text to optionally quote
+
+    Returns:
+        (str): Quoted if 'text' contains spaces
     """
     if text and " " in text:
         sep = "'" if '"' in text else '"'
@@ -89,9 +95,12 @@ def quoted(text):
 
 def represented_args(args, separator=" "):
     """
-    :param list|tuple|None args: Arguments to represent
-    :param str separator: Separator to use
-    :return str: Quoted as needed textual representation
+    Args:
+        args (list | tuple | None): Arguments to represent
+        separator (str | unicode): Separator to use
+
+    Returns:
+        (str): Quoted as needed textual representation
     """
     result = []
     if args:
@@ -102,9 +111,12 @@ def represented_args(args, separator=" "):
 
 def resolved_path(path, base=None):
     """
-    :param str|None path: Path to resolve
-    :param str|None base: Base path to use to resolve relative paths (default: current working dir)
-    :return str: Absolute path
+    Args:
+        path (str | unicode | None): Path to resolve
+        base (str | unicode | None): Base path to use to resolve relative paths (default: current working dir)
+
+    Returns:
+        (str): Absolute path
     """
     if not path or path.startswith(SYMBOLIC_TMP):
         return path
@@ -122,9 +134,12 @@ def short(path):
 
 def shortened(text, size=120):
     """
-    :param str text: Text to shorten
-    :param int size: Max chars
-    :return str: Leading part of 'text' with at most 'size' chars
+    Args:
+        text (str | unicode): Text to shorten
+        size (int): Max chars
+
+    Returns:
+        (str): Leading part of 'text' with at most 'size' chars
     """
     if text:
         text = text.strip()
@@ -154,21 +169,24 @@ class Anchored(object):
     @classmethod
     def set(cls, *anchors):
         """
-        :param str|list anchors: Optional paths to use as anchors for short()
+        Args:
+            *anchors (str | unicode | list): Optional paths to use as anchors for short()
         """
         cls.paths = sorted(flattened(anchors, split=SANITIZED | UNIQUE), reverse=True)
 
     @classmethod
     def add(cls, anchors):
         """
-        :param str|list anchors: Optional paths to use as anchors for short()
+        Args:
+            anchors (str | unicode | list): Optional paths to use as anchors for short()
         """
         cls.set(cls.paths, anchors)
 
     @classmethod
     def pop(cls, anchors):
         """
-        :param str|list anchors: Optional paths to use as anchors for short()
+        Args:
+            anchors (str | unicode | list): Optional paths to use as anchors for short()
         """
         for anchor in flattened(anchors, split=SANITIZED | UNIQUE):
             if anchor in cls.paths:
@@ -180,8 +198,11 @@ class Anchored(object):
         Example:
             short("examined /Users/joe/foo") => "examined ~/foo"
 
-        :param path: Path to represent in its short form
-        :return str: Short form, using '~' if applicable
+        Args:
+            path: Path to represent in its short form
+
+        Returns:
+            (str): Short form, using '~' if applicable
         """
         if not path:
             return path
@@ -208,7 +229,7 @@ def _flatten(result, value, separator, mode):
     Args:
         result (list): Will hold all flattened values
         value: Possibly nested arguments (sequence of lists, nested lists)
-        separator (str | None): Split values with `separator` if specified
+        separator (str | unicode | None): Split values with `separator` if specified
         mode (int): Describes how keep flattenened values
 
     Returns:

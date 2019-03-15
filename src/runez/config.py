@@ -85,7 +85,7 @@ class Configuration:
     def use_propsfs(self, folder=None, front=False):
         """
         Args:
-            folder (str | None): Optional custom mount folder (defaults to /mnt/props on Linux, and /Volumes/props on OSX)
+            folder (str | unicode | None): Optional custom mount folder (defaults to /mnt/props on Linux, and /Volumes/props on OSX)
             front (bool): If True, add provider to front of list
         """
         if folder is None:
@@ -96,8 +96,8 @@ class Configuration:
         """
         Args:
             config: Multi-value option, typically tuple from click CLI flag such as --config
-            prefix (str | None): Prefix to add to all parsed keys
-            name (str): Name of cli flag
+            prefix (str | unicode | None): Prefix to add to all parsed keys
+            name (str | unicode): Name of cli flag
             front (bool): If True, add provider to front of list
         """
         if config:
@@ -107,7 +107,7 @@ class Configuration:
     def use_json(self, *paths):
         """
         Args:
-            *paths (str): Paths to files to add as static DictProvider-s, only existing files are added
+            *paths (str | unicode): Paths to files to add as static DictProvider-s, only existing files are added
         """
         for path in paths:
             if path:
@@ -137,8 +137,8 @@ class Configuration:
     def get_str(self, key, default=None):
         """
         Args:
-            key (str | None): Key to lookup
-            default (str | None): Default to use if key is not configured
+            key (str | unicode | None): Key to lookup
+            default (str | unicode | None): Default to use if key is not configured
 
         Returns:
             (str | None): Value of key, if defined
@@ -154,7 +154,7 @@ class Configuration:
     def get_int(self, key, default=None, minimum=None, maximum=None):
         """
         Args:
-            key (str): Key to lookup
+            key (str | unicode): Key to lookup
             default (int | None): Default to use if key is not configured
             minimum (int | None): If specified, result can't be below this minimum
             maximum (int | None): If specified, result can't be above this maximum
@@ -167,7 +167,7 @@ class Configuration:
     def get_float(self, key, default=None, minimum=None, maximum=None):
         """
         Args:
-            key (str): Key to lookup
+            key (str | unicode): Key to lookup
             default (float | None): Default to use if key is not configured
             minimum (float | None): If specified, result can't be below this minimum
             maximum (float | None): If specified, result can't be above this maximum
@@ -180,7 +180,7 @@ class Configuration:
     def get_bool(self, key, default=None):
         """
         Args:
-            key (str): Key to lookup
+            key (str | unicode): Key to lookup
             default (bool | None): Default to use if key is not configured
 
         Returns:
@@ -197,11 +197,11 @@ class Configuration:
         """Size in bytes expressed by value configured under 'key'
 
         Args:
-            key (str): Key to lookup
-            default (int | str | None): Default to use if key is not configured
-            minimum (int | str | None): If specified, result can't be below this minimum
-            maximum (int | str | None): If specified, result can't be above this maximum
-            default_unit (str | None): Default unit for unqualified values (see UNITS)
+            key (str | unicode): Key to lookup
+            default (int | str | unicode | None): Default to use if key is not configured
+            minimum (int | str | unicode | None): If specified, result can't be below this minimum
+            maximum (int | str | unicode | None): If specified, result can't be above this maximum
+            default_unit (str | unicode | None): Default unit for unqualified values (see UNITS)
             base (int): Base to use (usually 1024)
 
         Returns:
@@ -215,22 +215,22 @@ class Configuration:
     def get_json(self, key, default=None):
         """
         Args:
-            key (str): Key to lookup
-            default (str | dict | list | None): Default to use if key is not configured
+            key (str | unicode): Key to lookup
+            default (str | unicode | dict | list | None): Default to use if key is not configured
 
         Returns:
             (dict | list | str | int | None): Deserialized json, if any
         """
         value = self.get_str(key)
         if value is not None:
-            value = to_json(value)
+            value = from_json(value)
             if value is not None:
                 return value
 
         if isinstance(default, (dict, list)):
             return default
 
-        return to_json(default)
+        return from_json(default)
 
 
 CONFIG = Configuration()
@@ -263,7 +263,7 @@ class ConfigProvider:
     def get_str(self, key):
         """
         Args:
-            key (str): Key to lookup
+            key (str | unicode): Key to lookup
 
         Returns:
             (str | None): Configured value, if any
@@ -278,7 +278,7 @@ class PropsfsProvider(ConfigProvider):
     def __init__(self, folder):
         """
         Args:
-            folder (str): Path to propsfs virtual mount
+            folder (str | unicode): Path to propsfs virtual mount
         """
         self.folder = folder
 
@@ -301,7 +301,7 @@ class DictProvider(ConfigProvider):
         """
         Args:
             values (dict | None): Given values
-            name (str | None): Symbolic name given to this provider
+            name (str | unicode | None): Symbolic name given to this provider
         """
         self.name = name or "dict"
         self.values = values or {}
@@ -335,10 +335,25 @@ def capped(value, minimum=None, maximum=None):
     return value
 
 
+def from_json(value):
+    """
+    Args:
+        value: Json to parse
+
+    Returns:
+        (dict | list | str | int | None): Deserialized value, if possible
+    """
+    try:
+        return json.loads(value)
+
+    except (TypeError, ValueError):
+        return None
+
+
 def to_boolean(value):
     """
     Args:
-        value (str | None): Value to convert to bool
+        value (str | unicode | None): Value to convert to bool
 
     Returns:
         (bool): Deduced boolean value
@@ -358,8 +373,8 @@ def to_bytesize(value, default_unit=None, base=DEFAULT_BASE):
     """Convert `value` to bytes, accepts notations such as "4k" to mean 4096 bytes
 
     Args:
-        value (str | int | None): Number of bytes optionally suffixed by a char from UNITS
-        default_unit (str | None): Default unit to use for unqualified values
+        value (str | unicode | int | None): Number of bytes optionally suffixed by a char from UNITS
+        default_unit (str | unicode | None): Default unit to use for unqualified values
         base (int): Base to use (usually 1024)
 
     Returns:
@@ -393,8 +408,8 @@ def to_dict(value, prefix=None, separators="=,"):
     """
     Args:
         value: Value to turn into a dict
-        prefix (str | None): Optional prefix for keys (if provided, `prefix.` is added to all keys)
-        separators (str): 2 chars: 1st is assignment separator, 2nd is key-value pair separator
+        prefix (str | unicode | None): Optional prefix for keys (if provided, `prefix.` is added to all keys)
+        separators (str | unicode): 2 chars: 1st is assignment separator, 2nd is key-value pair separator
 
     Returns:
         (dict): Parse key/values
@@ -433,27 +448,12 @@ def to_int(value, default=None, minimum=None, maximum=None):
     return to_number(int, value, default=default, minimum=minimum, maximum=maximum)
 
 
-def to_json(value):
-    """
-    Args:
-        value (str): Json to parse
-
-    Returns:
-        (dict | list | str | int | None): Deserialized value, if possible
-    """
-    try:
-        return json.loads(value)
-
-    except (TypeError, ValueError):
-        return None
-
-
 def to_number(result_type, value, default=None, minimum=None, maximum=None):
     """Cast `value` to numeric `result_type` if possible
 
     Args:
         result_type (type): Numerical type to convert to (one of: int, float, ...)
-        value (str): Value to convert
+        value (str | unicode): Value to convert
         default (result_type.__class__ | None): Default to use `value` can't be turned into an int
         minimum (result_type.__class__ | None): If specified, result can't be below this minimum
         maximum (result_type.__class__ | None): If specified, result can't be above this maximum
@@ -472,7 +472,7 @@ def unitized(value, unit, base=DEFAULT_BASE):
     """
     Args:
         value (int | float): Value to expand
-        unit (str): Given unit (see UNITS)
+        unit (str | unicode): Given unit (see UNITS)
         base (int): Base to use (usually 1024)
 
     Returns:

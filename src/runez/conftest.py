@@ -259,11 +259,14 @@ class ClickRunner(object):
 
     def match(self, expected, stdout=None, stderr=None, regex=None):
         """
-        :param str|re.Pattern expected: Message to find in self.logged
-        :param bool|None stdout: Look at stdout (default: yes, if captured)
-        :param bool|None stderr: Look at stderr (default: yes, if captured)
-        :param int|bool|None regex: Specify whether 'expected' should be a regex
-        :return Match|None: Match found, if any
+        Args:
+            expected (str | unicode | re.Pattern): Message to find in self.logged
+            stdout (bool | None): Look at stdout (default: yes, if captured)
+            stderr (bool | None): Look at stderr (default: yes, if captured)
+            regex (int | bool | None): Specify whether 'expected' should be a regex
+
+        Returns:
+            (Match | None): Match found, if any
         """
         if stdout is None and stderr is None:
             # By default, look at stdout/stderr only

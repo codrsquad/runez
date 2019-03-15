@@ -105,7 +105,7 @@ class LogSpec(Slotted):
     def _auto_complete_filename(self, location):
         """
         Args:
-            location (str | None): Location to auto-complete with {basename}, if it points to a folder
+            location (str | unicode | None): Location to auto-complete with {basename}, if it points to a folder
 
         Returns:
             str | None: {location}/{basename}
@@ -134,7 +134,7 @@ class _ContextFilter(logging.Filter):
         """
         Args:
             context (ThreadGlobalContext): Associated context
-            name (str): Passed through to parent
+            name (str | unicode): Passed through to parent
         """
         super(_ContextFilter, self).__init__(name=name)
         self.context = context
@@ -227,21 +227,21 @@ class LogManager(object):
             debug (bool): Enable debug level logging (overrides other specified levels)
             dryrun (bool): Enable dryrun
             level (int | None): Shortcut to set both `console_level` and `file_level` at once
-            appname (str | None): Program's base name, not used directly, just as reference for default 'basename'
-            basename (str | None): Base name of target log file, not used directly, just as reference for default 'locations'
-            context_format (str | None): Format to use for contextual log, use None to deactivate
-            dev (str | None): Custom folder to use when running from a development venv (auto-determined if None)
-            greetings (str | list[str] | None): Optional greetings message(s) to log, extra {actual_location} format markers provided
-            timezone (str | None): Time zone, use None to deactivate time zone logging
-            tmp (str | None): Optional temp folder to use (auto determined)
-            console_format (str | None): Format to use for console log, use None to deactivate
+            appname (str | unicode | None): Program's base name, not used directly, just as reference for default 'basename'
+            basename (str | unicode | None): Base name of target log file, not used directly, just as reference for default 'locations'
+            context_format (str | unicode | None): Format to use for contextual log, use None to deactivate
+            dev (str | unicode | None): Custom folder to use when running from a development venv (auto-determined if None)
+            greetings (str | unicode | list[str | unicode] | None): Optional greetings message(s) to log
+            timezone (str | unicode | None): Time zone, use None to deactivate time zone logging
+            tmp (str | unicode | None): Optional temp folder to use (auto determined)
+            console_format (str | unicode | None): Format to use for console log, use None to deactivate
             console_level (int | None): Level to use for console logging
             console_stream (TextIOWrapper | None): Stream to use for console log (eg: sys.stderr), use None to deactivate
-            file_format (str | None): Format to use for file log, use None to deactivate
-            file_level (str | None): Level to use for file logging
-            file_location (str | None): Desired custom file location (overrides {locations} search, handy as a --log cli flag)
-            locations (list[str]|None): List of candidate folders for file logging (None: deactivate file logging)
-            rotate (str | None): How to rotate log file (None: no rotation, "time:1d" for daily rotation, "size:50m" for size based)
+            file_format (str | unicode | None): Format to use for file log, use None to deactivate
+            file_level (str | unicode | None): Level to use for file logging
+            file_location (str | unicode | None): Desired custom file location (overrides {locations} search, handy as a --log cli flag)
+            locations (list[str | unicode]|None): List of candidate folders for file logging (None: deactivate file logging)
+            rotate (str | unicode | None): How to rotate log file (None: no rotation, "time:1d" time-based, "size:50m" size-based)
             rotate_count (int): How many rotations to keep
         """
         with cls._lock:
@@ -358,11 +358,13 @@ class LogManager(object):
     @classmethod
     def is_using_format(cls, markers, used_formats=None):
         """
-        :param str markers: Space separated list of markers to look for
-        :param str used_formats: Formats to consider (default: cls.used_formats)
-        :return bool: True if any one of the 'markers' is seen in 'used_formats'
+        Args:
+            markers (str | unicode): Space separated list of markers to look for
+            used_formats (str | unicode): Formats to consider (default: cls.used_formats)
+
+        Returns:
+            (bool): True if any one of the 'markers' is seen in 'used_formats'
         """
-        """"""
         if used_formats is None:
             used_formats = cls.used_formats
         if not markers or not used_formats:
@@ -409,7 +411,7 @@ class LogManager(object):
         """
         Args:
             handler (logging.Handler): Handler to decorate
-            format (str): Format to use
+            format (str | unicode): Format to use
         """
         handler.setFormatter(_get_formatter(format))
         if level:
@@ -483,10 +485,13 @@ class LogManager(object):
 
 def _replace_and_pad(fmt, marker, replacement):
     """
-    :param str fmt: Format to tweak
-    :param str marker: Marker to replace
-    :param str replacement: What to replace marker with
-    :return str: Resulting format, with marker replaced
+    Args:
+        fmt (str | unicode): Format to tweak
+        marker (str | unicode): Marker to replace
+        replacement (str | unicode): What to replace marker with
+
+    Returns:
+        (str): Resulting format, with marker replaced
     """
     if marker not in fmt:
         return fmt
@@ -499,8 +504,11 @@ def _replace_and_pad(fmt, marker, replacement):
 
 def _get_formatter(fmt):
     """
-    :param str fmt: Format specification
-    :return logging.Formatter: Associated logging formatter
+    Args:
+        fmt (str | unicode): Format specification
+
+    Returns:
+        (logging.Formatter): Associated logging formatter
     """
     fmt = _replace_and_pad(fmt, "%(timezone)s", LogManager.spec.timezone)
     return logging.Formatter(fmt)
@@ -509,8 +517,8 @@ def _get_formatter(fmt):
 def _get_file_handler(location, rotate, rotate_count):
     """
     Args:
-        location (str | None): Log file path
-        rotate (str | None): How to rotate, examples:
+        location (str | unicode | None): Log file path
+        rotate (str | unicode | None): How to rotate, examples:
             time:midnight - Rotate at midnight
             time:15s - Rotate every 15 seconds
             time:2h - Rotate every 2 hours

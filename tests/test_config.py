@@ -240,16 +240,16 @@ def test_props_front():
 
 
 def test_json():
-    assert runez.config.to_json(None) is None
-    assert runez.config.to_json("") is None
-    assert runez.config.to_json("foo") is None
-    assert runez.config.to_json("{") is None
-    assert runez.config.to_json(5) is None
-    assert runez.config.to_json({}) is None
-    assert runez.config.to_json([]) is None
+    assert runez.config.from_json(None) is None
+    assert runez.config.from_json("") is None
+    assert runez.config.from_json("foo") is None
+    assert runez.config.from_json("{") is None
+    assert runez.config.from_json(5) is None
+    assert runez.config.from_json({}) is None
+    assert runez.config.from_json([]) is None
 
-    assert runez.config.to_json(' "foo" ') == "foo"
-    assert runez.config.to_json("5") == 5
+    assert runez.config.from_json(' "foo" ') == "foo"
+    assert runez.config.from_json("5") == 5
 
-    assert runez.config.to_json("{}") == {}
-    assert runez.config.to_json("[5, 6]") == [5, 6]
+    assert runez.config.from_json("{}") == {}
+    assert runez.config.from_json("[5, 6]") == [5, 6]

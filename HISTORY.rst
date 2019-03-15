@@ -2,6 +2,13 @@
 History
 =======
 
+1.7.2 (2019-03-15)
+------------------
+
+* Renamed ``to_json`` -> ``from_json`` (to avoid confusion)
+
+* Augmented all docstrings to accept ``str`` or ``unicode``, to avoid type-check warnings in python 2.7
+
 1.7.1 (2019-03-11)
 ------------------
 

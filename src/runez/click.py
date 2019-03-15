@@ -79,8 +79,8 @@ def version(*args, **attrs):
 def settings(epilog=None, help=None, width=140, **attrs):
     """
     Args:
-        epilog (str | None): Help epilog, defaults to __doc__ of caller module
-        help (list[str] | str | None): List of flags to show help, default: -h and --help
+        epilog (str | unicode | None): Help epilog, defaults to __doc__ of caller module
+        help (list[str | unicode] | str | unicode | None): List of flags to show help, default: -h and --help
         width (int): Constrain help to
         **attrs:
 
