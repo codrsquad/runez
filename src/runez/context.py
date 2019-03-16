@@ -252,11 +252,13 @@ def verify_abort(func, *args, **kwargs):
     Example:
         assert "Can't create folder" in verify_abort(ensure_folder, "/dev/null/not-there")
 
-    :param callable func: Function to execute
-    :param args: Args to pass to 'func'
-    :param Exception expected_exception: Type of exception that should be raised
-    :param kwargs: Named args to pass to 'func'
-    :return str: Chatter from call to 'func', if it did indeed raise
+    Args:
+        func (callable): Function to execute
+        *args: Args to pass to 'func'
+        **kwargs: Named args to pass to 'func'
+
+    Returns:
+        (str): Chatter from call to 'func', if it did indeed raise
     """
     expected_exception = kwargs.pop("expected_exception", AbortException)
     with CaptureOutput() as logged:

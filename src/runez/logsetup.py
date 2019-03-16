@@ -407,17 +407,17 @@ class LogManager(object):
             cls.spec.dev = get_dev_folder()
 
     @classmethod
-    def _add_handler(cls, handler, format, level):
+    def _add_handler(cls, handler, fmt, level):
         """
         Args:
             handler (logging.Handler): Handler to decorate
-            format (str | unicode): Format to use
+            fmt (str | unicode): Format to use
         """
-        handler.setFormatter(_get_formatter(format))
+        handler.setFormatter(_get_formatter(fmt))
         if level:
             handler.setLevel(level)
         logging.root.addHandler(handler)
-        cls.used_formats = ("%s %s" % (cls.used_formats or "", format)).strip()
+        cls.used_formats = ("%s %s" % (cls.used_formats or "", fmt)).strip()
         cls.handlers.append(handler)
 
     @classmethod
