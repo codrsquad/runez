@@ -15,8 +15,8 @@ try:
 except ImportError:
     from io import StringIO
 
-from runez.convert import Anchored, resolved_path, SYMBOLIC_TMP
-from runez.system import AbortException, is_dryrun, set_dryrun
+import runez.convert
+import runez.system
 
 
 _CAPTURE_STACK = []
@@ -161,10 +161,10 @@ class CaptureOutput(object):
             _CAPTURE_STACK.append(self.tracked.captured[-1])
 
         if self.anchors:
-            Anchored.add(self.anchors)
+            runez.convert.Anchored.add(self.anchors)
 
         if self.dryrun is not None:
-            self.dryrun = set_dryrun(self.dryrun)
+            self.dryrun = runez.system.set_dryrun(self.dryrun)
 
         return self.tracked
 
@@ -176,10 +176,10 @@ class CaptureOutput(object):
             c._stop_capture()
 
         if self.anchors:
-            Anchored.pop(self.anchors)
+            runez.convert.Anchored.pop(self.anchors)
 
         if self.dryrun is not None:
-            set_dryrun(self.dryrun)
+            runez.system.set_dryrun(self.dryrun)
 
 
 class CurrentFolder(object):
@@ -189,18 +189,18 @@ class CurrentFolder(object):
 
     def __init__(self, destination, anchor=False):
         self.anchor = anchor
-        self.destination = resolved_path(destination)
+        self.destination = runez.convert.resolved_path(destination)
 
     def __enter__(self):
         self.current_folder = os.getcwd()
         os.chdir(self.destination)
         if self.anchor:
-            Anchored.add(self.destination)
+            runez.convert.Anchored.add(self.destination)
 
     def __exit__(self, *_):
         os.chdir(self.current_folder)
         if self.anchor:
-            Anchored.pop(self.destination)
+            runez.convert.Anchored.pop(self.destination)
 
 
 class TempFolder(object):
@@ -222,27 +222,27 @@ class TempFolder(object):
 
     def __enter__(self):
         if self.dryrun is not None:
-            self.dryrun = set_dryrun(self.dryrun)
-        if not is_dryrun():
+            self.dryrun = runez.system.set_dryrun(self.dryrun)
+        if not runez.system.is_dryrun():
             # Use realpath() to properly resolve for example symlinks on OSX temp paths
             self.tmp_folder = os.path.realpath(tempfile.mkdtemp())
             if self.follow:
                 self.old_cwd = os.getcwd()
                 os.chdir(self.tmp_folder)
-        tmp = self.tmp_folder or SYMBOLIC_TMP
+        tmp = self.tmp_folder or runez.convert.SYMBOLIC_TMP
         if self.anchor:
-            Anchored.add(tmp)
+            runez.convert.Anchored.add(tmp)
         return tmp
 
     def __exit__(self, *_):
         if self.anchor:
-            Anchored.pop(self.tmp_folder or SYMBOLIC_TMP)
+            runez.convert.Anchored.pop(self.tmp_folder or runez.convert.SYMBOLIC_TMP)
         if self.old_cwd:
             os.chdir(self.old_cwd)
         if self.tmp_folder:
             shutil.rmtree(self.tmp_folder)
         if self.dryrun is not None:
-            set_dryrun(self.dryrun)
+            runez.system.set_dryrun(self.dryrun)
 
 
 def verify_abort(func, *args, **kwargs):
@@ -260,7 +260,7 @@ def verify_abort(func, *args, **kwargs):
     Returns:
         (str): Chatter from call to 'func', if it did indeed raise
     """
-    expected_exception = kwargs.pop("expected_exception", AbortException)
+    expected_exception = kwargs.pop("expected_exception", runez.system.AbortException)
     with CaptureOutput() as logged:
         try:
             func(*args, **kwargs)

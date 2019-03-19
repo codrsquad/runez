@@ -11,7 +11,7 @@ class AbortException(Exception):
     """
     You can replace this with your preferred exception, for example:
 
-        runez.base.AbortException = SystemExit
+        runez.system.AbortException = SystemExit
     """
 
     def __init__(self, code):

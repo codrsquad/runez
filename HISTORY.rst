@@ -2,12 +2,19 @@
 History
 =======
 
+1.7.3 (2019-03-19)
+------------------
+
+* Added ``runez.log.spec.clean_handlers`` (``True`` by default), to automatically cleanup any pre-existing ``logging.root.handlers``
+
+
 1.7.2 (2019-03-15)
 ------------------
 
 * Renamed ``to_json`` -> ``from_json`` (to avoid confusion)
 
 * Augmented all docstrings to accept ``str`` or ``unicode``, to avoid type-check warnings in python 2.7
+
 
 1.7.1 (2019-03-11)
 ------------------

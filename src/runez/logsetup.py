@@ -61,7 +61,7 @@ class LogSpec(Slotted):
 
     # See setup()'s docstring for meaning of each field
     __slots__ = [
-        "appname", "basename", "context_format", "dev", "greetings", "timezone", "tmp",
+        "appname", "basename", "clean_handlers", "context_format", "dev", "greetings", "timezone", "tmp",
         "console_format", "console_level", "console_stream",
         "file_format", "file_level", "file_location", "locations", "rotate", "rotate_count",
     ]
@@ -162,6 +162,7 @@ class LogManager(object):
     _default_spec = LogSpec(
         appname=None,
         basename="{appname}.log",
+        clean_handlers=True,
         context_format="[[%s]] ",
         dev=None,
         greetings=None,
@@ -207,6 +208,7 @@ class LogManager(object):
             level=UNSET,
             appname=UNSET,
             basename=UNSET,
+            clean_handlers=UNSET,
             context_format=UNSET,
             dev=UNSET,
             greetings=UNSET,
@@ -229,6 +231,7 @@ class LogManager(object):
             level (int | None): Shortcut to set both `console_level` and `file_level` at once
             appname (str | unicode | None): Program's base name, not used directly, just as reference for default 'basename'
             basename (str | unicode | None): Base name of target log file, not used directly, just as reference for default 'locations'
+            clean_handlers (bool): Remove any existing logging.root.handlers
             context_format (str | unicode | None): Format to use for contextual log, use None to deactivate
             dev (str | unicode | None): Custom folder to use when running from a development venv (auto-determined if None)
             greetings (str | unicode | list[str | unicode] | None): Optional greetings message(s) to log
@@ -260,6 +263,7 @@ class LogManager(object):
             cls.spec.set(
                 appname=appname,
                 basename=basename,
+                clean_handlers=clean_handlers,
                 context_format=context_format,
                 dev=dev,
                 greetings=greetings,
@@ -287,6 +291,10 @@ class LogManager(object):
                 root_level = min(flattened([cls.spec.console_level, cls.spec.file_level], split=SANITIZED))
 
             logging.root.setLevel(root_level)
+
+            if cls.spec.clean_handlers:
+                for h in logging.root.handlers:
+                    logging.root.removeHandler(h)
 
             if cls.spec.console_stream and cls.spec.console_format:
                 cls.console_handler = logging.StreamHandler(cls.spec.console_stream)
