@@ -263,8 +263,8 @@ def verify_abort(func, *args, **kwargs):
     expected_exception = kwargs.pop("expected_exception", runez.system.AbortException)
     with CaptureOutput() as logged:
         try:
-            func(*args, **kwargs)
-            return None
+            value = func(*args, **kwargs)
+            assert False, "%s did not raise, but returned %s" % (func, value)
 
         except expected_exception:
             return str(logged)

@@ -1,6 +1,7 @@
 import logging
 import os
 
+import pytest
 from mock import patch
 
 import runez
@@ -112,7 +113,8 @@ def test_paths(temp_folder):
         assert "Can't create folder" in runez.verify_abort(runez.ensure_folder, "sample", folder=True)
         custom = runez.verify_abort(runez.ensure_folder, "sample", folder=True, fatal=SystemExit, expected_exception=SystemExit)
         assert "Can't create folder" in custom
-        assert runez.verify_abort(runez.ensure_folder, None) is None
+        with pytest.raises(AssertionError):
+            assert runez.verify_abort(runez.ensure_folder, None)
 
         assert runez.delete("sample") == 1
         assert runez.ensure_folder("sample", folder=True) == 1
