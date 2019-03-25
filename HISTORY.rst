@@ -2,6 +2,12 @@
 History
 =======
 
+1.7.5 (2019-03-25)
+------------------
+
+* Strip trailing spaces by default when saving pretty-printed json
+
+
 1.7.4 (2019-03-21)
 ------------------
 

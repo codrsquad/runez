@@ -170,14 +170,19 @@ def read_json(path, default=None, fatal=True, logger=None):
         return abort("Couldn't read %s: %s", short(path), e, fatal=(fatal, default))
 
 
-def save_json(data, path, fatal=True, logger=None, sort_keys=True, indent=2):
+def save_json(data, path, fatal=True, logger=None, sort_keys=True, indent=2, **kwargs):
     """
-    :param object|None data: Data to serialize and save
-    :param str|None path: Path to file where to save
-    :param bool|None fatal: Abort execution on failure if True
-    :param callable|None logger: Logger to use
-    :param bool sort_keys: Save json with sorted keys
-    :param int indent: Indentation to use
+    Args:
+        data (object | None): Data to serialize and save
+        path (str | None): Path to file where to save
+        fatal (bool | None): Abort execution on failure if True
+        logger (callable | None): Logger to use
+        sort_keys (bool): Save json with sorted keys
+        indent (int): Indentation to use
+        **kwargs: Passed through to `json.dump()`
+
+    Returns:
+        (int): 1 if saved, -1 if failed (when `fatal` is False)
     """
     if data is None or not path:
         return abort("No file %s", short(path), fatal=fatal)
@@ -192,8 +197,11 @@ def save_json(data, path, fatal=True, logger=None, sort_keys=True, indent=2):
         if hasattr(data, "to_dict"):
             data = data.to_dict()
 
+        if indent:
+            kwargs.setdefault("separators", (",", ': '))
+
         with open(path, "wt") as fh:
-            json.dump(data, fh, sort_keys=sort_keys, indent=indent)
+            json.dump(data, fh, sort_keys=sort_keys, indent=indent, **kwargs)
             fh.write("\n")
 
         if logger:
