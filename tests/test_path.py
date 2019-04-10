@@ -174,7 +174,7 @@ def test_paths(temp_folder):
         assert os.path.exists("x/z1/sample3")
         assert os.path.islink("x/z1/sample3")
 
-        assert runez.copy("x/y", "x/z2", ignore="sample2") == 1
+        assert runez.copy("x/y", "x/z2", ignore=["sample2"]) == 1
         assert os.path.exists("x/z2/sample")
         assert not os.path.exists("x/z2/sample2")
         assert os.path.exists("x/z2/sample3")

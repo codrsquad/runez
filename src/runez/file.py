@@ -4,7 +4,7 @@ import os
 import shutil
 
 from runez.base import decode
-from runez.convert import flattened, resolved_path, SANITIZED, short
+from runez.convert import resolved_path, short
 from runez.path import ensure_folder, parent_folder
 from runez.system import abort, is_dryrun
 
@@ -281,8 +281,7 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True,
                 func(source, destination, ignore=ignore)
 
             else:
-                ignored_names = set(flattened(ignore, split=SANITIZED))
-                func(source, destination, ignore=lambda *_: ignored_names)
+                func(source, destination, ignore=lambda *_: ignore)
 
         else:
             func(source, destination)
