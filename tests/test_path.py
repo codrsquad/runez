@@ -168,11 +168,22 @@ def test_paths(temp_folder):
         assert runez.move("sample", "x/y/sample2") == 1
         assert not os.path.exists("sample")
 
-        assert runez.copy("x/y", "x/z") == 1
-        assert os.path.exists("x/z/sample")
-        assert os.path.exists("x/z/sample2")
-        assert os.path.exists("x/z/sample3")
-        assert os.path.islink("x/z/sample3")
+        assert runez.copy("x/y", "x/z1") == 1
+        assert os.path.exists("x/z1/sample")
+        assert os.path.exists("x/z1/sample2")
+        assert os.path.exists("x/z1/sample3")
+        assert os.path.islink("x/z1/sample3")
+
+        assert runez.copy("x/y", "x/z2", ignore="sample2") == 1
+        assert os.path.exists("x/z2/sample")
+        assert not os.path.exists("x/z2/sample2")
+        assert os.path.exists("x/z2/sample3")
+        assert os.path.islink("x/z2/sample3")
+
+        assert runez.copy("x/y", "x/z3", ignore=lambda src, dest: ["sample3"]) == 1
+        assert os.path.exists("x/z3/sample")
+        assert os.path.exists("x/z3/sample2")
+        assert not os.path.exists("x/z3/sample3")
 
     assert runez.touch(None) == 0
     assert not runez.is_younger(None, 1)

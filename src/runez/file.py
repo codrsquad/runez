@@ -4,27 +4,29 @@ import os
 import shutil
 
 from runez.base import decode
-from runez.convert import resolved_path, short
+from runez.convert import flattened, resolved_path, SANITIZED, short
 from runez.path import ensure_folder, parent_folder
 from runez.system import abort, is_dryrun
-
 
 LOG = logging.getLogger(__name__)
 TEXT_THRESHOLD_SIZE = 16384  # Max size in bytes to consider a file a "text file"
 
 
-def copy(source, destination, adapter=None, fatal=True, logger=LOG.debug):
-    """
-    Copy source -> destination
+def copy(source, destination, ignore=None, adapter=None, fatal=True, logger=LOG.debug):
+    """Copy source -> destination
 
-    :param str|None source: Source file or folder
-    :param str|None destination: Destination file or folder
-    :param callable adapter: Optional function to call on 'source' before copy
-    :param bool|None fatal: Abort execution on failure if True
-    :param callable|None logger: Logger to use
-    :return int: 1 if effectively done, 0 if no-op, -1 on failure
+    Args:
+        source (str | None): Source file or folder
+        destination (str | None): Destination file or folder
+        ignore (callable | list | str | None): Names to be ignored
+        adapter (callable | None): Optional function to call on 'source' before copy
+        fatal (bool | None): Abort execution on failure if True
+        logger (callable | None): Logger to use
+
+    Returns:
+        (int): 1 if effectively done, 0 if no-op, -1 on failure
     """
-    return _file_op(source, destination, _copy, adapter, fatal, logger)
+    return _file_op(source, destination, _copy, adapter, fatal, logger, ignore=ignore)
 
 
 def delete(path, fatal=True, logger=LOG.debug):
@@ -209,10 +211,10 @@ def write(path, contents, fatal=True, logger=None):
         return abort("Can't write to %s: %s", short(path), e, fatal=(fatal, -1))
 
 
-def _copy(source, destination):
+def _copy(source, destination, ignore=None):
     """Effective copy"""
     if os.path.isdir(source):
-        shutil.copytree(source, destination, symlinks=True)
+        shutil.copytree(source, destination, symlinks=True, ignore=ignore)
     else:
         shutil.copy(source, destination)
 
@@ -229,18 +231,21 @@ def _symlink(source, destination):
     os.symlink(source, destination)
 
 
-def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True):
-    """
-    Call func(source, destination)
+def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True, ignore=None):
+    """Call func(source, destination)
 
-    :param str|None source: Source file or folder
-    :param str|None destination: Destination file or folder
-    :param callable func: Implementation function
-    :param callable adapter: Optional function to call on 'source' before copy
-    :param bool|None fatal: Abort execution on failure if True
-    :param callable|None logger: Logger to use
-    :param bool must_exist: If True, verify that source does indeed exist
-    :return int: 1 if effectively done, 0 if no-op, -1 on failure
+    Args:
+        source (str | None): Source file or folder
+        destination (str | None): Destination file or folder
+        func (callable): Implementation function
+        adapter (callable | None): Optional function to call on 'source' before copy
+        fatal (bool | None): Abort execution on failure if True
+        logger (callable | None): Logger to use
+        must_exist (bool): If True, verify that source does indeed exist
+        ignore (callable | list | str | None): Names to be ignored
+
+    Returns:
+        (int): 1 if effectively done, 0 if no-op, -1 on failure
     """
     if not source or not destination or source == destination:
         return 0
@@ -271,7 +276,17 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True)
             if logger:
                 logger("%s %s %s %s%s", action.title(), short(source), indicator, short(destination), note)
 
-        func(source, destination)
+        if ignore is not None:
+            if callable(ignore):
+                func(source, destination, ignore=ignore)
+
+            else:
+                ignored_names = set(flattened(ignore, split=SANITIZED))
+                func(source, destination, ignore=lambda *_: ignored_names)
+
+        else:
+            func(source, destination)
+
         return 1
 
     except Exception as e:
