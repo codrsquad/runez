@@ -2,10 +2,16 @@
 History
 =======
 
+1.7.7 (2019-04-23)
+------------------
+
+* Hint type of ``runez.conftest.cli`` for PyCharm's auto-complete
+
+
 1.7.6 (2019-04-10)
 ------------------
 
-* Added support for `ignore=[...]` in `copy()`
+* Added support for ``ignore=[...]`` in ``copy()``
 
 
 1.7.5 (2019-03-25)
