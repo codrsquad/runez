@@ -105,6 +105,9 @@ def cli():
             yield ClickRunner(context=context)
 
 
+# This just allows to get auto-complete to work in PyCharm
+cli = cli  # type: ClickRunner
+
 # Comes in handy for click apps with only one main entry point
 cli.default_main = None
 
@@ -129,6 +132,11 @@ def logged():
 def temp_folder():
     with runez.TempFolder() as tmp:
         yield tmp
+
+
+# This just allows to get auto-complete to work in PyCharm
+logged = logged  # type: runez.TrackedOutput
+temp_folder = temp_folder  # type: str
 
 
 class WrappedHandler(_pytest.logging.LogCaptureHandler):
@@ -202,7 +210,13 @@ class ClickWrapper(object):
 class ClickRunner(object):
     """Allows to provide a test-friendly fixture around testing click entry-points"""
 
+    default_main = None  # This just allows to get auto-complete to work in PyCharm
+
     def __init__(self, context=None):
+        """
+        Args:
+            context (callable | None): Context (example: temp folder) this click run was invoked under
+        """
         self.context = context
         self.main = cli.default_main
         self.args = None  # type: list[str] # Arguments used in last run() invocation
