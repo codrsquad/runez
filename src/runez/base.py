@@ -158,11 +158,14 @@ class ThreadGlobalContext(object):
             self._tpayload = None
             self._gpayload = None
 
-    def enable(self):
+    def enable(self, on):
         """Enable contextual logging"""
         with self._lock:
-            if self.filter is None:
-                self.filter = self._filter_type(self)
+            if on:
+                if self.filter is None:
+                    self.filter = self._filter_type(self)
+            else:
+                self.filter = None
 
     def has_threadlocal(self):
         with self._lock:
@@ -247,7 +250,6 @@ class ThreadGlobalContext(object):
         if self._tpayload is None:
             self._tpayload = threading.local()
             self._tpayload.context = {}
-        self.enable()
 
     def _ensure_global(self, values=None):
         """
@@ -256,4 +258,3 @@ class ThreadGlobalContext(object):
         """
         if self._gpayload is None:
             self._gpayload = values or {}
-        self.enable()

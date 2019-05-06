@@ -2,6 +2,12 @@
 History
 =======
 
+1.8.0 (2019-05-06)
+------------------
+
+* ``runez.log.setup()`` can now be called multiple times, to setup logs iteratively
+
+
 1.7.7 (2019-04-23)
 ------------------
 

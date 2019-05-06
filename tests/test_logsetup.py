@@ -83,17 +83,47 @@ def test_setup(temp_log):
     cwd = os.getcwd()
     assert not runez.DRYRUN
     with runez.TempFolder(dryrun=False):
-        runez.log.setup(dryrun=True, level=logging.INFO)
+        assert not runez.log.debug
 
         # Auto-debug on dryrun
+        runez.log.setup(dryrun=True, level=logging.INFO)
+        assert runez.log.debug
         logging.debug("hello")
-        assert "hello" in temp_log.stderr
+        assert runez.log.debug
+        assert not temp_log.stdout
+        assert "DEBUG hello" in temp_log.stderr.pop()
 
-        with pytest.raises(Exception):
-            # SHouldn't call setup() twice
-            runez.log.setup()
+        # Second call without any customization is a no-op
+        runez.log.setup()
+        assert runez.log.debug
+        logging.debug("hello")
+        assert not temp_log.stdout
+        assert "DEBUG hello" in temp_log.stderr.pop()
 
-        if runez.log.faulthandler:
+        # Change stream
+        runez.log.setup(console_stream=sys.stdout)
+        logging.debug("hello")
+        assert "DEBUG hello" in temp_log.stdout.pop()
+        assert not temp_log.stderr
+
+        # Change logging level
+        runez.log.setup(debug=False, console_level=logging.INFO)
+        assert not runez.log.debug
+        logging.debug("hello")
+        assert not temp_log.stdout
+        assert not temp_log.stderr
+        logging.info("hello")
+        assert "INFO hello" in temp_log.stdout.pop()
+        assert not temp_log.stderr
+
+        # Change format
+        runez.log.setup(console_format="%(levelname)s - %(message)s")
+        assert not runez.log.debug
+        logging.info("hello")
+        assert "INFO - hello" in temp_log.stdout.pop()
+        assert not temp_log.stderr
+
+        if runez.logsetup.faulthandler:
             # Available only in python3
             runez.log.enable_faulthandler()
             assert runez.log.faulthandler_signum
@@ -119,6 +149,13 @@ def test_default(temp_log):
     temp_log.expect_logged("UTC [[version=1.0,worker=joe]] WARNING - hello")
     assert "INFO hello" not in temp_log.stderr
     assert "WARNING hello" in temp_log.stderr
+
+    # Now stop logging context
+    runez.log.setup(file_format="%(asctime)s %(timezone)s %(levelname)s - %(message)s")
+    logging.info("hello")
+    logging.warning("hello")
+    temp_log.expect_logged("UTC INFO - hello")
+    temp_log.expect_logged("UTC WARNING - hello")
 
 
 def test_level(temp_log):
@@ -165,7 +202,7 @@ def test_no_context(temp_log):
 def test_context(temp_log):
     runez.log.spec.locations = None
     runez.log.spec.console_stream = sys.stdout
-    runez.log.spec.console_format = "%(name)s %(timezone)s %(context)s%(levelname)s - %(message)s"
+    runez.log.spec.console_format = "%(timezone)s %(context)s%(levelname)s - %(message)s"
     runez.log.spec.console_level = logging.DEBUG
     runez.log.setup(greetings=None)
 
@@ -184,31 +221,31 @@ def test_context(temp_log):
     runez.log.context.set_global(version="1.0", name="foo")
     runez.log.context.add_threadlocal(worker="susan", a="b")
     logging.info("hello")
-    assert temp_log.stdout.pop(strip=True) == "test_logsetup UTC [[a=b,name=foo,version=1.0,worker=susan]] INFO - hello"
+    assert temp_log.stdout.pop(strip=True) == "UTC [[a=b,name=foo,version=1.0,worker=susan]] INFO - hello"
 
     # Remove them one by one
     runez.log.context.remove_threadlocal("a")
     logging.info("hello")
-    assert temp_log.stdout.pop(strip=True) == "test_logsetup UTC [[name=foo,version=1.0,worker=susan]] INFO - hello"
+    assert temp_log.stdout.pop(strip=True) == "UTC [[name=foo,version=1.0,worker=susan]] INFO - hello"
 
     runez.log.context.remove_global("name")
     logging.info("hello")
-    assert temp_log.stdout.pop(strip=True) == "test_logsetup UTC [[version=1.0,worker=susan]] INFO - hello"
+    assert temp_log.stdout.pop(strip=True) == "UTC [[version=1.0,worker=susan]] INFO - hello"
 
     runez.log.context.clear_threadlocal()
     logging.info("hello")
-    assert temp_log.stdout.pop(strip=True) == "test_logsetup UTC [[version=1.0]] INFO - hello"
+    assert temp_log.stdout.pop(strip=True) == "UTC [[version=1.0]] INFO - hello"
 
     runez.log.context.clear_global()
     logging.info("hello")
-    assert temp_log.stdout.pop(strip=True) == "test_logsetup UTC INFO - hello"
+    assert temp_log.stdout.pop(strip=True) == "UTC INFO - hello"
 
     assert not runez.log.context.has_global()
     assert not runez.log.context.has_threadlocal()
 
 
 def test_convenience(temp_log):
-    fmt = "%(name)s f:%(filename)s mod:%(module)s func:%(funcName)s %(levelname)s %(message)s "
+    fmt = "f:%(filename)s mod:%(module)s func:%(funcName)s %(levelname)s %(message)s "
     fmt += " path:%(pathname)s"
     runez.log.setup(console_format=fmt, console_level=logging.DEBUG, file_format=None)
 
@@ -217,17 +254,17 @@ def test_convenience(temp_log):
     logging.info("hello")
     logging.exception("oops")
 
-    assert "runez.file f:file.py mod:file func:write INFO Writing 12 bytes" in temp_log.stderr
-    assert "test_logsetup f:test_logsetup.py mod:test_logsetup func:test_convenience INFO hello" in temp_log.stderr
-    assert "test_logsetup f:test_logsetup.py mod:test_logsetup func:test_convenience ERROR oops" in temp_log.stderr
+    assert "f:file.py mod:file func:write INFO Writing 12 bytes" in temp_log.stderr
+    assert "f:test_logsetup.py mod:test_logsetup func:test_convenience INFO hello" in temp_log.stderr
+    assert "f:test_logsetup.py mod:test_logsetup func:test_convenience ERROR oops" in temp_log.stderr
     temp_log.stderr.clear()
 
     runez.write("some-file", "some content", logger=LOG.info)
     LOG.info("hello")
     LOG.exception("oops")
-    assert "test_logsetup f:file.py mod:file func:write INFO Writing 12 bytes" in temp_log.stderr
-    assert "test_logsetup f:test_logsetup.py mod:test_logsetup func:test_convenience INFO hello" in temp_log.stderr
-    assert "test_logsetup f:test_logsetup.py mod:test_logsetup func:test_convenience ERROR oops" in temp_log.stderr
+    assert "f:file.py mod:file func:write INFO Writing 12 bytes" in temp_log.stderr
+    assert "f:test_logsetup.py mod:test_logsetup func:test_convenience INFO hello" in temp_log.stderr
+    assert "f:test_logsetup.py mod:test_logsetup func:test_convenience ERROR oops" in temp_log.stderr
 
 
 def test_auto_location_not_writable(temp_log):
@@ -238,7 +275,7 @@ def test_auto_location_not_writable(temp_log):
             console_level=logging.DEBUG,
         )
 
-        assert "runez.logsetup f:system.py mod:system func:abort DEBUG" in temp_log.stderr
+        assert "runez.logsetup f:logsetup.py mod:logsetup func:greet DEBUG" in temp_log.stderr
         assert "Logging to: no usable locations" in temp_log.stderr
 
         assert runez.log.file_handler is None
@@ -299,3 +336,20 @@ def test_log_rotate(temp_folder):
     assert isinstance(h, RotatingFileHandler)
     assert h.backupCount == 3
     assert h.maxBytes == 10240
+
+
+def test_clean_handlers(temp_log):
+    # Initially, only pytest logger is here
+    assert len(logging.root.handlers) == 1
+
+    # Default setup adds a console + file log
+    runez.log.setup()
+    assert len(logging.root.handlers) == 3
+
+    # Clean up all non-runez handlers: removes pytest's handler
+    runez.log.setup(clean_handlers=True)
+    assert len(logging.root.handlers) == 2
+
+    # Cancel file log
+    runez.log.setup(file_format=None)
+    assert len(logging.root.handlers) == 1
