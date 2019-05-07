@@ -23,7 +23,6 @@ from runez.config import to_bytesize, to_int
 from runez.convert import flattened, formatted, represented_args, SANITIZED, UNIQUE
 from runez.path import basename as get_basename, ensure_folder
 from runez.program import get_dev_folder, get_program_path
-from runez.system import get_caller_name
 
 
 LOG = logging.getLogger(__name__)
@@ -534,7 +533,7 @@ class LogManager(object):
 
         def log(level, msg, *args, **kwargs):
             """Wrapper to make logging.info() etc report the right module %(name)"""
-            name = get_caller_name()
+            name = sys._getframe(1).f_globals.get("__name__")
             logger = logging.getLogger(name)
             try:
                 logging.currentframe = lambda: sys._getframe(4)

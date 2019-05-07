@@ -148,14 +148,18 @@ def test_default(temp_log):
     temp_log.expect_logged("UTC [[version=1.0,worker=joe]] INFO - hello")
     temp_log.expect_logged("UTC [[version=1.0,worker=joe]] WARNING - hello")
     assert "INFO hello" not in temp_log.stderr
-    assert "WARNING hello" in temp_log.stderr
+    assert "WARNING hello" in temp_log.stderr.pop()
 
     # Now stop logging context
-    runez.log.setup(file_format="%(asctime)s %(timezone)s %(levelname)s - %(message)s")
+    runez.log.setup(
+        console_format="%(funcName)s %(module)s %(levelname)s %(message)s",
+        file_format="%(asctime)s %(timezone)s %(levelname)s %(message)s"
+    )
     logging.info("hello")
     logging.warning("hello")
-    temp_log.expect_logged("UTC INFO - hello")
-    temp_log.expect_logged("UTC WARNING - hello")
+    assert "test_default test_logsetup WARNING hello" == temp_log.stderr.pop(strip=True)
+    temp_log.expect_logged("UTC INFO hello")
+    temp_log.expect_logged("UTC WARNING hello")
 
 
 def test_level(temp_log):

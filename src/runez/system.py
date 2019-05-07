@@ -1,4 +1,3 @@
-import inspect
 import logging
 import sys
 import time
@@ -81,26 +80,27 @@ def formatted_string(*args):
         return message
 
 
-def get_caller_name():
+def get_timezone():
     """
     Returns:
-        (str): Name of module who called you
+        (str): Name of current timezone
     """
-    return inspect.currentframe().f_back.f_back.f_globals["__name__"]
-
-
-def get_timezone():
     try:
         return time.tzname[0]
+
     except (IndexError, TypeError):
         return ""
 
 
-def get_version(mod, default="0.0.0"):
+def get_version(mod, default="0.0.0", logger=LOG.warning):
     """
-    :param module|str mod: Module, or module name to find version for (pass either calling module, or its .__name__)
-    :param str default: Value to return if version determination fails
-    :return str: Determined version
+    Args:
+        mod (module | str): Module, or module name to find version for (pass either calling module, or its .__name__)
+        default (str): Value to return if version determination fails
+        logger (callable | None): Logger to use to report inability to determine version
+
+    Returns:
+        (str): Determined version
     """
     name = mod
     if hasattr(mod, "__name__"):
@@ -112,7 +112,9 @@ def get_version(mod, default="0.0.0"):
         return pkg_resources.get_distribution(name).version
 
     except Exception as e:
-        LOG.warning("Can't determine version for %s: %s", name, e, exc_info=e)
+        if logger:
+            logger("Can't determine version for %s: %s", name, e, exc_info=e)
+
         return default
 
 

@@ -2,6 +2,14 @@
 History
 =======
 
+1.8.1 (2019-05-07)
+------------------
+
+* ``get_version()`` can now be silent
+
+* Removed ``get_caller_name()``
+
+
 1.8.0 (2019-05-06)
 ------------------
 
