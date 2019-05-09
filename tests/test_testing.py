@@ -13,6 +13,8 @@ def crash(*args):
 
 
 def hard_exit(*args):
+    if len(args) == 1 and isinstance(args[0], int):
+        sys.exit(args[0])
     sys.exit(" ".join(args))
 
 
@@ -100,3 +102,8 @@ def test_hard_exit(cli):
     assert cli.failed
     assert "hello" in cli.logged.stdout
     assert "Exited with stacktrace" not in cli.logged
+
+    cli.run(2)
+    assert cli.failed
+    assert cli.exit_code == 2
+    assert not cli.logged

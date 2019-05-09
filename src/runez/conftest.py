@@ -197,6 +197,17 @@ class ClickWrapper(object):
             output = main(*args)
             return ClickWrapper(output=output, exit_code=0)
 
+        except SystemExit as e:
+            if isinstance(e.code, int):
+                exit_code = e.code
+                output = None
+
+            else:
+                exit_code = 1
+                output = str(e)
+
+            return ClickWrapper(output=output, exit_code=exit_code)
+
         except BaseException as e:
             return ClickWrapper(str(e), exit_code=1, exception=e)
 
