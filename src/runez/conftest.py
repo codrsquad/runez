@@ -18,6 +18,14 @@ import pytest
 
 import runez
 
+try:  # pragma: no cover, click used only if installed
+    from click import BaseCommand as _ClickCommand
+    from click.testing import CliRunner as _CliRunner
+
+except ImportError:
+    _ClickCommand = None
+    _CliRunner = None
+
 
 LOG = logging.getLogger(__name__)
 
@@ -193,18 +201,15 @@ class ClickWrapper(object):
             return ClickWrapper(str(e), exit_code=1, exception=e)
 
     @classmethod
-    def get_runner(cls):
+    def get_runner(cls, main):
         """
         Returns:
             (ClickWrapper| click.testing.CliRunner): CliRunner if available
         """
-        try:
-            from click.testing import CliRunner
+        if _ClickCommand is not None and isinstance(main, _ClickCommand):  # pragma: no cover, click used only if installed
+            return _CliRunner()
 
-            return CliRunner()  # pragma: no cover, click used only if installed
-
-        except ImportError:
-            return cls()
+        return cls()
 
 
 class ClickRunner(object):
@@ -241,8 +246,8 @@ class ClickRunner(object):
         with IsolatedLogSetup(adjust_tmp=False):
             with runez.CaptureOutput(dryrun=runez.DRYRUN) as logged:
                 self.logged = logged
-                runner = ClickWrapper.get_runner()
                 assert bool(self.main), "No main provided"
+                runner = ClickWrapper.get_runner(self.main)
                 result = runner.invoke(self.main, args=self.args)
 
                 if result.output:
