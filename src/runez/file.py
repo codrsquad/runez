@@ -267,8 +267,7 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True,
         return abort("%s does not exist, can't %s to %s", short(source), action.title(), short(destination), fatal=(fatal, -1))
 
     try:
-        # Delete destination, but ensure that its parent folder exists
-        delete(destination, fatal=fatal, logger=None)
+        # Ensure parent folder exists
         ensure_folder(destination, fatal=fatal, logger=None)
 
         if logger:

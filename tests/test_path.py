@@ -77,6 +77,7 @@ def test_paths(temp_folder):
     assert runez.copy("some-file", "some-file") == 0
     assert runez.move("some-file", "some-file") == 0
     assert runez.symlink("some-file", "some-file") == 0
+    assert runez.delete("non-existing") == 0
 
     assert runez.ensure_folder("some-folder") == 0  # 'some-folder' would be in temp_folder, which already exists
 
@@ -200,7 +201,7 @@ def test_paths(temp_folder):
 @patch("os.path.exists", return_value=True)
 @patch("os.path.isfile", return_value=True)
 @patch("os.path.getsize", return_value=10)
-def test_failed_read(*_):
+def test_failure(*_):
     with runez.CaptureOutput() as logged:
         assert runez.get_lines("bar", fatal=False) is None
         assert "Can't read" in logged.pop()
@@ -208,8 +209,10 @@ def test_failed_read(*_):
         assert runez.write("bar", "some content", fatal=False)
         assert "Can't write" in logged.pop()
 
-        assert runez.copy("some-file", "bar", fatal=False) == -1
+        assert runez.delete("some-file", fatal=False) == -1
         assert "Can't delete" in logged
+
+        assert runez.copy("some-file", "bar", fatal=False) == -1
         assert "Can't copy" in logged.pop()
 
         assert runez.make_executable("some-file", fatal=False) == -1
