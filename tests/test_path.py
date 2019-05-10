@@ -186,6 +186,15 @@ def test_paths(temp_folder):
         assert os.path.exists("x/z3/sample2")
         assert not os.path.exists("x/z3/sample3")
 
+        assert runez.copy("x/y", "x/z2") == 1
+        assert os.path.exists("x/z2/sample2")
+
+        # Copy a folder over an existing file
+        runez.touch("x2")
+        assert not os.path.exists("x2/z2/sample2")
+        assert runez.copy("x", "x2") == 1
+        assert os.path.exists("x2/z2/sample2")
+
     assert runez.touch(None) == 0
     assert not runez.is_younger(None, 1)
     assert not runez.is_younger("/dev/null/not-there", 1)

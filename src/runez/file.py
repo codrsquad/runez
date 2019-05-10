@@ -214,7 +214,13 @@ def write(path, contents, fatal=True, logger=None):
 def _copy(source, destination, ignore=None):
     """Effective copy"""
     if os.path.isdir(source):
-        shutil.copytree(source, destination, symlinks=True, ignore=ignore)
+        if os.path.isdir(destination):
+            for fname in os.listdir(source):
+                _copy(os.path.join(source, fname), os.path.join(destination, fname), ignore=ignore)
+        else:
+            if os.path.isfile(destination) or os.path.islink(destination):
+                os.unlink(destination)
+            shutil.copytree(source, destination, symlinks=True, ignore=ignore)
     else:
         shutil.copy(source, destination)
 
