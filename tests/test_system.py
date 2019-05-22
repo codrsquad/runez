@@ -37,6 +37,8 @@ def test_timezone():
 def test_version():
     with runez.CaptureOutput() as logged:
         expected = runez.get_version(runez)
+        assert expected
+        assert expected != "0.0.0"
         assert expected == runez.get_version(runez.__name__)
         assert expected == runez.get_version("runez")
         assert expected == runez.get_version("runez.base")

@@ -69,10 +69,11 @@ def log(*args, **attrs):
 
 def version(*args, **attrs):
     """Show the version and exit."""
-    if hasattr(sys, "_getframe"):
-        package = attrs.pop("package", sys._getframe(1).f_globals.get("__package__"))
-        if package:
-            attrs.setdefault("version", get_version(package))
+    if "version" not in attrs:
+        if hasattr(sys, "_getframe"):
+            package = attrs.pop("package", sys._getframe(1).f_globals.get("__package__"))
+            if package:
+                attrs.setdefault("version", get_version(package))
     return click.version_option(*args, **attrs)
 
 
