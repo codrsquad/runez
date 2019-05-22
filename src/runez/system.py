@@ -109,7 +109,8 @@ def get_version(mod, default="0.0.0", logger=LOG.warning):
     try:
         import pkg_resources
 
-        return pkg_resources.get_distribution(name).version
+        mname = name.partition(".")[0]
+        return pkg_resources.get_distribution(mname).version
 
     except Exception as e:
         if logger:
