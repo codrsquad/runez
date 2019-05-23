@@ -261,15 +261,15 @@ def _flatten(result, value, separator, mode):
 
 def _get_value(obj, key):
     """Get a value for 'key' from 'obj', if possible"""
-    if isinstance(obj, (list, tuple)):
-        for item in obj:
-            v = _find_value(key, item)
-            if v is not None:
-                return v
-        return None
-    if isinstance(obj, dict):
-        return obj.get(key)
     if obj is not None:
+        if isinstance(obj, (list, tuple)):
+            for item in obj:
+                v = _find_value(key, item)
+                if v is not None:
+                    return v
+            return None
+        if hasattr(obj, "get"):
+            return obj.get(key)
         return getattr(obj, key, None)
 
 

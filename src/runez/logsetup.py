@@ -111,7 +111,7 @@ class LogSpec(Slotted):
         Returns:
             str | None: {location}/{basename}
         """
-        path = formatted(location, self)
+        path = formatted(location, self, os.environ)
         if path:
             if os.path.isdir(path):
                 filename = formatted(self.basename, self)
