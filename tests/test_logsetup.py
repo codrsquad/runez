@@ -44,9 +44,15 @@ def test_logspec(isolated_log_setup):
     assert s1.usable_location() is None
 
     # Location referring to env var
-    with patch.dict(os.environ, {"FOO": "foo"}):
-        s1.set(file_location=None, locations=["{FOO}/bar"])
-        assert s1.usable_location() == "foo/bar"
+    s1.set(file_location=None, locations=["./{FOO}/bar"])
+    with patch.dict(os.environ, {"FOO": "foo"}, clear=True):
+        assert s1.usable_location() == "./foo/bar"
+
+    with patch.dict(os.environ, {"FOO": ""}, clear=True):
+        assert s1.usable_location() == ".//bar"
+
+    with patch.dict(os.environ, {}, clear=True):
+        assert s1.usable_location() is None
 
     # Restore from other spec
     s1.set(s2)
