@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import os
 
 import pytest
@@ -10,6 +12,13 @@ TEST_DIR = os.path.dirname(__file__)
 SAMPLES = os.path.join(TEST_DIR, "sample")
 
 
+def test_no_implementation():
+    provider = runez.config.ConfigProvider()
+    assert str(provider) == "config"
+    assert provider.overview() == "config"
+    assert provider.get_str("anything") is None
+
+
 def test_global_setup():
     assert str(runez.config.CONFIG) == "empty"
     assert len(runez.config.CONFIG.providers) == 0
@@ -20,7 +29,7 @@ def test_global_setup():
 
     # Add one CLI source
     runez.config.use_cli(["a=b"])
-    assert str(runez.config.CONFIG) == "--config: 1 values"
+    assert str(runez.config.CONFIG) == "--config"
     assert len(runez.config.CONFIG.providers) == 1
     assert runez.config.get_str("a") == "b"
 
@@ -28,7 +37,7 @@ def test_global_setup():
     runez.config.use_propsfs()
     assert len(runez.config.CONFIG.providers) == 2
     assert runez.config.get_str("a") == "b"
-    assert str(runez.config.CONFIG) == "--config: 1 values, propsfs"
+    assert str(runez.config.CONFIG) == "--config, propsfs"
 
     # Adding propsfs twice is a no-op
     runez.config.use_propsfs()
@@ -36,7 +45,7 @@ def test_global_setup():
 
     # Re-adding CLI with different values replaces prev
     runez.config.use_cli(["a=c"])
-    assert str(runez.config.CONFIG) == "--config: 1 values, propsfs"
+    assert str(runez.config.CONFIG) == "--config, propsfs"
     assert len(runez.config.CONFIG.providers) == 2
     assert runez.config.get_str("a") == "c"
 
@@ -48,7 +57,7 @@ def test_global_setup():
 
     # Replace providers
     runez.config.set_providers(runez.config.DictProvider(None))
-    assert str(runez.config.CONFIG) == "dict: 0 values"
+    assert str(runez.config.CONFIG) == "dict"
     assert len(runez.config.CONFIG.providers) == 1
 
     # Remove all providers
@@ -85,7 +94,7 @@ def test_cli():
     assert str(config) == "empty"
 
     config.use_cli(["foo", "", None, "a=b", "c=5.1k", " ", ""])
-    assert str(config) == "--config: 3 values"
+    assert str(config) == "--config"
     assert config.get_str("foo") == ""
     assert config.get_str("a") == "b"
     assert config.get_str("c") == "5.1k"
@@ -96,61 +105,71 @@ def test_cli():
 
 
 def test_env_vars():
-    with patch.dict(os.environ, {"SOME_KEY": "some-value"}, clear=True):
-        config = runez.config.Configuration()
-        config.use_env_vars()
-        assert len(config.providers) == 1
-        assert str(config) == "env vars: 1 values"
-        assert config.get_str("SOME_KEY") == "some-value"
-        assert config.get_str("some-key") == "some-value"
+    with runez.CaptureOutput() as output:
+        with patch.dict(os.environ, {"SOME_KEY": "some-value"}, clear=True):
+            config = runez.config.Configuration()
+            config.tracer = print
+            config.use_env_vars()
+            assert len(config.providers) == 1
+            assert len(config.providers[0].values) == 1
+            assert str(config) == "env vars"
+            assert config.get_str("SOME_KEY") == "some-value"
+            assert config.get_str("some-key") == "some-value"
+            assert "Adding config provider env vars" in output.pop()
 
-        # Using same provider twice yields to same outcome
-        config.use_env_vars()
-        assert len(config.providers) == 1
-        assert str(config) == "env vars: 1 values"
-        assert config.get_str("SOME_KEY") == "some-value"
-        assert config.get_str("some-key") == "some-value"
+            # Using same provider twice yields to same outcome
+            config.use_env_vars()
+            assert len(config.providers) == 1
+            assert str(config) == "env vars"
+            assert config.get_str("SOME_KEY") == "some-value"
+            assert config.get_str("some-key") == "some-value"
 
-    with patch.dict(os.environ, {"FOO": "1", "MY_FOO": "2", "MY_FOO_X": "3"}, clear=True):
-        config = runez.config.Configuration()
-        config.use_env_vars(prefix="MY_", suffix="_X", name="prog")
-        assert str(config) == "prog: 3 values"
-        assert config.get_str("FOO") == "3"
-        assert config.get_str("MY_FOO_X") == "3"
-        assert config.get_str("foo") == "3"
-        assert config.get_str("my-foo") == "3"
-        assert config.get_str("my-foo-x") == "3"
+        with patch.dict(os.environ, {"FOO": "1", "MY_FOO": "2", "MY_FOO_X": "3"}, clear=True):
+            config = runez.config.Configuration()
+            config.use_env_vars(prefix="MY_", suffix="_X", name="prog")
+            assert str(config) == "prog"
+            assert config.get_str("FOO") == "3"
+            assert config.get_str("MY_FOO_X") == "3"
+            assert config.get_str("foo") == "3"
+            assert config.get_str("my-foo") == "3"
+            assert config.get_str("my-foo-x") == "3"
 
 
 def test_samples():
-    config = runez.config.Configuration()
-    config.add(runez.config.PropsfsProvider(SAMPLES))
-    assert str(config) == "propsfs"
+    with runez.CaptureOutput() as output:
+        config = runez.config.Configuration()
+        config.tracer = print
+        config.add(runez.config.PropsfsProvider(SAMPLES))
+        assert str(config) == "propsfs"
+        assert "Adding config provider propsfs" in output.pop()
 
-    assert config.get_str("non-existent") is None
+        assert config.get_str("non-existent") is None
+        assert not output
 
-    assert config.get_str("some-string") == "hello there"
-    assert config.get_int("some-string") is None
-    assert config.get_float("some-string") is None
-    assert config.get_bool("some-string") is False
-    assert config.get_bytesize("some-string") is None
+        assert config.get_str("some-string") == "hello there"
+        assert "Using some-string='hello there' from propsfs" in output.pop()
 
-    assert config.get_str("some-string", default="foo") == "hello there"
-    assert config.get_int("some-string", default=5) == 5
-    assert config.get_float("some-string", default=5.1) == 5.1
-    assert config.get_bool("some-string", default=False) is False
-    assert config.get_bytesize("some-string", default=5) == 5
+        assert config.get_int("some-string") is None
+        assert config.get_float("some-string") is None
+        assert config.get_bool("some-string") is False
+        assert config.get_bytesize("some-string") is None
 
-    assert config.get_str("some-int") == "123"
-    assert config.get_int("some-int") == 123
-    assert config.get_float("some-int") == 123
-    assert config.get_bool("some-int") is True
-    assert config.get_bytesize("some-int") == 123
+        assert config.get_str("some-string", default="foo") == "hello there"
+        assert config.get_int("some-string", default=5) == 5
+        assert config.get_float("some-string", default=5.1) == 5.1
+        assert config.get_bool("some-string", default=False) is False
+        assert config.get_bytesize("some-string", default=5) == 5
 
-    assert config.get_json("sample.json") == {"some-key": "some-value", "some-int": 51}
-    assert config.get_json("some-string") is None
-    assert config.get_json("some-string", default={"a": "b"}) == {"a": "b"}
-    assert config.get_json("some-string", default='{"a": "b"}') == {"a": "b"}
+        assert config.get_str("some-int") == "123"
+        assert config.get_int("some-int") == 123
+        assert config.get_float("some-int") == 123
+        assert config.get_bool("some-int") is True
+        assert config.get_bytesize("some-int") == 123
+
+        assert config.get_json("sample.json") == {"some-key": "some-value", "some-int": 51}
+        assert config.get_json("some-string") is None
+        assert config.get_json("some-string", default={"a": "b"}) == {"a": "b"}
+        assert config.get_json("some-string", default='{"a": "b"}') == {"a": "b"}
 
 
 def test_capped():
@@ -199,7 +218,8 @@ def test_bytesize():
     # Introduce 2 prefixed keys
     config.use_cli(("twenty-k=20kb", "five-one-g=5.1g"), prefix="test", name="prefixed")
 
-    assert str(config) == "prefixed: 2 values, --config: 2 values, propsfs"
+    assert str(config) == "prefixed, --config, propsfs"
+    assert config.overview() == "prefixed: 2 values, --config: 2 values, propsfs: %s" % SAMPLES
 
     # CLIs are added at front of list by default
     assert config.get_bytesize("some-int") == 12
@@ -264,7 +284,7 @@ def test_props_front():
     config = runez.config.Configuration(runez.config.PropsfsProvider(SAMPLES))
     config.use_cli(("some-int=12", "some-string=foo"), front=False)
     assert config.get_bytesize("some-int") == 123
-    assert str(config) == "propsfs, --config: 2 values"
+    assert str(config) == "propsfs, --config"
 
 
 def test_json():

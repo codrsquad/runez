@@ -10,6 +10,7 @@ Usage example:
     @click.option("--config", metavar="KEY=VALUE", multiple=True, help="Override configuration")
     def main(config):
         runez.config.use_cli(config)
+        runez.config.use__env_vars(prefix="MY_PROGRAM_")
         runez.config.use_propsfs()
 
     # Get values from anywhere in your code
@@ -41,6 +42,9 @@ class Configuration:
     Adding a 2nd provider with same id as an existing one replaces it (instead of being added)
     """
 
+    # Optional callable to report which values were successfully looked up (set to something like logging.debug for example)
+    tracer = None  # type: callable
+
     def __init__(self, *providers):
         """
         Args:
@@ -54,6 +58,14 @@ class Configuration:
             return "empty"
 
         return ", ".join(str(p) for p in self.providers)
+
+    def overview(self, separator=", "):
+        """str: A short overview of current providers"""
+        return separator.join(p.overview() for p in self.providers)
+
+    def _trace(self, message):
+        if self.tracer:
+            self.tracer(message)
 
     def clear(self):
         """Remove all providers"""
@@ -96,7 +108,7 @@ class Configuration:
         """
         Args:
             config: Multi-value option, typically tuple from click CLI flag such as --config
-            prefix (str | unicode | None): Prefix to add to all parsed keys
+            prefix (str | unicode | None): Prefix to add to all provided keys
             name (str | unicode): Name of cli flag
             front (bool): If True, add provider to front of list
         """
@@ -138,12 +150,15 @@ class Configuration:
         if provider:
             i = self.provider_id_slot(provider)
             if i is not None:
+                self._trace("Replacing config provider %s at index %s" % (provider, i))
                 self.providers[i] = provider
 
-            elif front:
+            elif front and self.providers:
+                self._trace("Adding config provider %s to front" % provider)
                 self.providers.insert(0, provider)
 
             else:
+                self._trace("Adding config provider %s" % provider)
                 self.providers.append(provider)
 
     def get_str(self, key, default=None):
@@ -159,6 +174,7 @@ class Configuration:
             for provider in self.providers:
                 value = provider.get_str(key)
                 if value is not None:
+                    self._trace("Using %s='%s' from %s" % (key, value, provider))
                     return value
 
         return default
@@ -251,6 +267,7 @@ clear = CONFIG.clear
 set_providers = CONFIG.set_providers
 use_propsfs = CONFIG.use_propsfs
 use_cli = CONFIG.use_cli
+use__env_vars = CONFIG.use_env_vars
 use_json = CONFIG.use_json
 get_str = CONFIG.get_str
 get_int = CONFIG.get_int
@@ -271,6 +288,10 @@ class ConfigProvider:
 
     def __repr__(self):
         return self.provider_id()
+
+    def overview(self):
+        """str: A short overview of this provider"""
+        return str(self)
 
     def provider_id(self):
         """Id of this provider (there can only be one active at a time)"""
@@ -313,6 +334,10 @@ class PropsfsProvider(ConfigProvider):
         """
         self.folder = folder
 
+    def overview(self):
+        """str: A short overview of this provider"""
+        return "%s: %s" % (self, self.folder)
+
     def _get_str(self, key):
         try:
             path = os.path.join(self.folder, key)
@@ -343,7 +368,8 @@ class DictProvider(ConfigProvider):
         self.prefix = prefix
         self.suffix = suffix
 
-    def __repr__(self):
+    def overview(self):
+        """str: A short overview of this provider"""
         return "%s: %s values" % (self.name, len(self.values))
 
     def provider_id(self):
