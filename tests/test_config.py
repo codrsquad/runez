@@ -117,12 +117,32 @@ def test_env_vars():
             assert config.get_str("some-key") == "some-value"
             assert "Adding config provider env vars" in output.pop()
 
+            assert config.get_str("key") is None
+            assert not output
+
             # Using same provider twice yields to same outcome
             config.use_env_vars()
+            assert "Replacing config provider env vars at index 0" in output.pop()
             assert len(config.providers) == 1
             assert str(config) == "env vars"
             assert config.get_str("SOME_KEY") == "some-value"
             assert config.get_str("some-key") == "some-value"
+            assert "Using some-key='some-value' from env vars" in output.pop()
+
+            # Different view on env vars taken into account
+            config.use_env_vars(prefix="SOME_")
+            assert "Adding config provider SOME_* env vars to front" in output.pop()
+            assert len(config.providers) == 2
+            assert config.overview() == "SOME_* env vars: 1 values, env vars: 1 values"
+            assert config.get_str("some-key") == "some-value"
+            output.clear()
+            assert config.get_str("key") == "some-value"
+            assert "Using key='some-value' from SOME_* env vars" in output.pop()
+
+            # Again, adding same provider twice is a no-op
+            config.use_env_vars(prefix="SOME_")
+            assert "Replacing config provider SOME_* env vars at index 0" in output.pop()
+            assert len(config.providers) == 2
 
         with patch.dict(os.environ, {"FOO": "1", "MY_FOO": "2", "MY_FOO_X": "3"}, clear=True):
             config = runez.config.Configuration()

@@ -116,7 +116,7 @@ class Configuration:
             provider = DictProvider(to_dict(config, prefix=prefix), name=name)
             self.add(provider, front=front)
 
-    def use_env_vars(self, prefix=None, suffix=None, normalizer=snakified, name="env vars", front=True):
+    def use_env_vars(self, prefix=None, suffix=None, normalizer=snakified, name=None, front=True):
         """
         Args:
             prefix (str | None): Prefix to normalize keys with
@@ -125,6 +125,13 @@ class Configuration:
             name (str | unicode): Name to identify config provider as
             front (bool): If True, add provider to front of list
         """
+        if name is None:
+            if prefix or suffix:
+                name = "%s env vars" % affixed("*", prefix=prefix, suffix=suffix)
+
+            else:
+                name = "env vars"
+
         provider = DictProvider(os.environ, name=name, prefix=prefix, suffix=suffix, normalizer=normalizer)
         self.add(provider, front=front)
 
