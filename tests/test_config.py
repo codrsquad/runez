@@ -99,6 +99,14 @@ def test_env_vars():
     with patch.dict(os.environ, {"SOME_KEY": "some-value"}, clear=True):
         config = runez.config.Configuration()
         config.use_env_vars()
+        assert len(config.providers) == 1
+        assert str(config) == "env vars: 1 values"
+        assert config.get_str("SOME_KEY") == "some-value"
+        assert config.get_str("some-key") == "some-value"
+
+        # Using same provider twice yields to same outcome
+        config.use_env_vars()
+        assert len(config.providers) == 1
         assert str(config) == "env vars: 1 values"
         assert config.get_str("SOME_KEY") == "some-value"
         assert config.get_str("some-key") == "some-value"

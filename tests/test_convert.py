@@ -118,6 +118,10 @@ def test_wordification():
     assert runez.camel_cased("my-key") == "MyKey"
     assert runez.entitled("my-key") == "My key"
 
+    assert runez.affixed(None) is None
+    assert runez.affixed("") == ""
+    assert runez.affixed("", prefix="my-") == "my-"
+
     assert runez.affixed("my-key") == "my-key"
     assert runez.affixed("my-key", prefix="my-") == "my-key"
     assert runez.affixed("key", prefix="my-") == "my-key"
