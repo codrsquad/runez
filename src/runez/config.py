@@ -24,7 +24,7 @@ import os
 import platform
 
 from runez.base import decode
-from runez.convert import flattened, SANITIZED
+from runez.convert import affixed, flattened, SANITIZED, snakified
 
 
 DEFAULT_BASE = 1024
@@ -103,6 +103,18 @@ class Configuration:
         if config:
             provider = DictProvider(to_dict(config, prefix=prefix), name=name)
             self.add(provider, front=front)
+
+    def use_env_vars(self, prefix=None, suffix=None, normalizer=snakified, name="env vars", front=True):
+        """
+        Args:
+            prefix (str | None): Prefix to normalize keys with
+            suffix (str | None): Suffix to normalize keys with
+            normalizer (callable | None): Optional key normalizer to use (default: uppercase + snakified)
+            name (str | unicode): Name to identify config provider as
+            front (bool): If True, add provider to front of list
+        """
+        provider = DictProvider(os.environ, name=name, prefix=prefix, suffix=suffix, normalizer=normalizer)
+        self.add(provider, front=front)
 
     def use_json(self, *paths):
         """
@@ -253,12 +265,26 @@ class ConfigProvider:
     Interface for config providers, that associate a value to a given key
     """
 
+    key_normalizer = None  # Optional callable to use to normalize keys on query
+    prefix = None  # Optional prefix to use
+    suffix = None  # Optional suffix to use
+
     def __repr__(self):
         return self.provider_id()
 
     def provider_id(self):
         """Id of this provider (there can only be one active at a time)"""
         return self.__class__.__name__.replace("Provider", "").lower()
+
+    def normalized_key(self, key):
+        """
+        Args:
+            key (str | unicode): Key being looked up
+
+        Returns:
+            (str): Normalized key to effectively use for lookup in this provider
+        """
+        return affixed(key, prefix=self.prefix, suffix=self.suffix, normalize=self.key_normalizer)
 
     def get_str(self, key):
         """
@@ -268,6 +294,11 @@ class ConfigProvider:
         Returns:
             (str | None): Configured value, if any
         """
+        normal_key = self.normalized_key(key)
+        return self._get_str(normal_key)
+
+    def _get_str(self, key):
+        """Effective implementation, to be provided by descendants"""
 
 
 class PropsfsProvider(ConfigProvider):
@@ -282,7 +313,7 @@ class PropsfsProvider(ConfigProvider):
         """
         self.folder = folder
 
-    def get_str(self, key):
+    def _get_str(self, key):
         try:
             path = os.path.join(self.folder, key)
             with open(path) as fh:
@@ -297,14 +328,20 @@ class PropsfsProvider(ConfigProvider):
 class DictProvider(ConfigProvider):
     """Key-value pairs from a given dict"""
 
-    def __init__(self, values, name=None):
+    def __init__(self, values, name=None, prefix=None, suffix=None, normalizer=None):
         """
         Args:
             values (dict | None): Given values
             name (str | unicode | None): Symbolic name given to this provider
+            prefix (str | None): Prefix to normalize keys with
+            suffix (str | None): Suffix to normalize keys with
+            normalizer (callable | None): Optional key normalizer to use
         """
         self.name = name or "dict"
         self.values = values or {}
+        self.key_normalizer = normalizer
+        self.prefix = prefix
+        self.suffix = suffix
 
     def __repr__(self):
         return "%s: %s values" % (self.name, len(self.values))
@@ -312,7 +349,7 @@ class DictProvider(ConfigProvider):
     def provider_id(self):
         return self.name
 
-    def get_str(self, key):
+    def _get_str(self, key):
         return self.values.get(key)
 
 

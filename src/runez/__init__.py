@@ -22,6 +22,7 @@ from runez.base import decode, Slotted, Undefined, UNSET
 from runez.config import capped, from_json, to_boolean, to_bytesize, to_dict, to_int, to_number
 from runez.context import CaptureOutput, CurrentFolder, TempFolder, TrackedOutput, verify_abort
 from runez.convert import Anchored, flattened, formatted, quoted, represented_args, resolved_path, short, shortened
+from runez.convert import affixed, camel_cased, entitled, get_words, snakified, wordified  # noqa, import order not useful here
 from runez.convert import SANITIZED, SHELL, UNIQUE
 from runez.file import copy, delete, first_line, get_conf, get_lines, move, symlink, touch, write
 from runez.heartbeat import Heartbeat
@@ -39,6 +40,7 @@ __all__ = [
     "capped", "from_json", "to_boolean", "to_bytesize", "to_dict", "to_int", "to_number",
     "CaptureOutput", "CurrentFolder", "TempFolder", "TrackedOutput", "verify_abort",
     "Anchored", "flattened", "formatted", "quoted", "represented_args", "resolved_path", "short", "shortened",
+    "affixed", "camel_cased", "entitled", "get_words", "snakified", "wordified",
     "SANITIZED", "SHELL", "UNIQUE",
     "copy", "delete", "first_line", "get_conf", "get_lines", "move", "symlink", "touch", "write",
     "Heartbeat",

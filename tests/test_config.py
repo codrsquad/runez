@@ -1,6 +1,7 @@
 import os
 
 import pytest
+from mock import patch
 
 import runez
 
@@ -92,6 +93,25 @@ def test_cli():
 
     assert config.get_str("not-there") is None
     assert config.get_str("") is None
+
+
+def test_env_vars():
+    with patch.dict(os.environ, {"SOME_KEY": "some-value"}, clear=True):
+        config = runez.config.Configuration()
+        config.use_env_vars()
+        assert str(config) == "env vars: 1 values"
+        assert config.get_str("SOME_KEY") == "some-value"
+        assert config.get_str("some-key") == "some-value"
+
+    with patch.dict(os.environ, {"FOO": "1", "MY_FOO": "2", "MY_FOO_X": "3"}, clear=True):
+        config = runez.config.Configuration()
+        config.use_env_vars(prefix="MY_", suffix="_X", name="prog")
+        assert str(config) == "prog: 3 values"
+        assert config.get_str("FOO") == "3"
+        assert config.get_str("MY_FOO_X") == "3"
+        assert config.get_str("foo") == "3"
+        assert config.get_str("my-foo") == "3"
+        assert config.get_str("my-foo-x") == "3"
 
 
 def test_samples():

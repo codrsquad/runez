@@ -10,6 +10,7 @@ from runez.base import UNSET
 
 SYMBOLIC_TMP = "<tmp>"
 RE_FORMAT_MARKERS = re.compile(r"{([^}]*?)}")
+RE_WORDS = re.compile(r"[^\w]+")
 
 
 SANITIZED = 1
@@ -215,6 +216,104 @@ class Anchored(object):
 
         path = path.replace(cls.home, "~")
         return path
+
+
+def affixed(text, prefix=None, suffix=None, normalize=None):
+    """
+    Args:
+        text (str | None): Text to ensure prefixed
+        prefix (str | None): Prefix to add (if not already there)
+        suffix (str | None): Suffix to add (if not already there)
+        normalize (callable | None): Optional function to apply to `text`
+
+    Returns:
+        (str | None): `text' guaranteed starting with `prefix` and ending with `suffix`
+    """
+    if text is not None:
+        if normalize:
+            text = normalize(text)
+
+        if prefix and not text.startswith(prefix):
+            text = prefix + text
+
+        if suffix and not text.endswith(suffix):
+            text = text + suffix
+
+    return text
+
+
+def camel_cased(text, separator=""):
+    """
+    Args:
+        text (str): Text to camel case
+        separator (str): Separator to use
+
+    Returns:
+        (str): Camel-cased text
+    """
+    return wordified(text, separator=separator, normalize=str.title)
+
+
+def entitled(text, separator=" "):
+    """
+    Args:
+        text (str): Text to turn into title
+        separator (str): Separator to use
+
+    Returns:
+        (str): First letter (of 1st word only) upper-cased
+    """
+    words = get_words(text)
+    if words:
+        words[0] = words[0].title()
+    return separator.join(words)
+
+
+def get_words(text, normalize=None):
+    """
+    Args:
+        text (str | None): Text to extract words from
+        normalize (callable | None): Optional function to apply on each word
+
+    Returns:
+        (list | None): Words, if any
+    """
+    if not text:
+        return []
+
+    words = [s.strip().split("_") for s in RE_WORDS.split(text)]
+    words = [s for s in flattened(words) if s]
+    if normalize:
+        words = [normalize(s) for s in words]
+    return words
+
+
+def snakified(text, normalize=str.upper):
+    """
+    Args:
+        text (str): Text to transform
+        normalize (callable | None): Optional function to apply on each word
+
+    Returns:
+        (str | None): Upper-cased and snake-ified
+    """
+    return wordified(text, normalize=normalize)
+
+
+def wordified(text, separator="_", normalize=None):
+    """
+    Args:
+        text (str | None): Text to process as words
+        separator (str): Separator to use to join words back
+        normalize (callable | None): Optional function to apply on each word
+
+    Returns:
+        (str): Dashes replaced by underscore
+    """
+    if text is None:
+        return None
+
+    return separator.join(get_words(text, normalize=normalize))
 
 
 def _rformat(key, value, definitions, max_depth):

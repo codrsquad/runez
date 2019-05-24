@@ -104,3 +104,21 @@ def test_quoted():
     assert runez.quoted("a b") == '"a b"'
     assert runez.quoted('a="b"') == 'a="b"'
     assert runez.quoted('foo a="b"') == """'foo a="b"'"""
+
+
+def test_wordification():
+    assert runez.get_words(None) == []
+    assert runez.get_words("a") == ["a"]
+    assert runez.get_words("hi_There-you", normalize=str.lower) == ["hi", "there", "you"]
+
+    assert runez.wordified(None) is None
+    assert runez.wordified("Hello_There", separator="-") == "Hello-There"
+
+    assert runez.snakified("my-key") == "MY_KEY"
+    assert runez.camel_cased("my-key") == "MyKey"
+    assert runez.entitled("my-key") == "My key"
+
+    assert runez.affixed("my-key") == "my-key"
+    assert runez.affixed("my-key", prefix="my-") == "my-key"
+    assert runez.affixed("key", prefix="my-") == "my-key"
+    assert runez.affixed("my-key", prefix="X_", normalize=runez.snakified) == "X_MY_KEY"
