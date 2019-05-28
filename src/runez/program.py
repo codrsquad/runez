@@ -156,6 +156,8 @@ def run(program, *args, **kwargs):
         err = decode(err, strip=True)
 
         if stdout is None and stderr is None:
+            if p.returncode and fatal:
+                return abort("%s exited with code %s" % (short(program), p.returncode), fatal=fatal, code=p.returncode)
             return p.returncode
 
         if p.returncode and fatal is not None:

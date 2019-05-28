@@ -95,7 +95,20 @@ def test_run(temp_folder):
         assert runez.run("foo", stdout=None, stderr=None) == 0
         assert runez.run("foo") == "hello"
 
+        # Success not influenced by `fatal`
         assert runez.run(ls, ".", stdout=None, stderr=None) == 0
+        assert runez.run(ls, ".", stdout=None, stderr=None, fatal=None) == 0
+        assert runez.run(ls, ".", stdout=None, stderr=None, fatal=False) == 0
+        assert runez.run(ls, ".", stdout=None, stderr=None, fatal=True) == 0
+
+        # Failure is influenced by `fatal`
+        exit_code = runez.run(ls, "--foo", ".", stdout=None, stderr=None, fatal=None)
+        assert isinstance(exit_code, int) and exit_code != 0
+
+        exit_code = runez.run(ls, "--foo", ".", stdout=None, stderr=None, fatal=False)
+        assert isinstance(exit_code, int) and exit_code != 0
+
+        assert "exited with code" in runez.verify_abort(runez.run, ls, "--foo", ".", stdout=None, stderr=None, fatal=True)
 
         assert runez.touch("sample") == 1
         files = runez.run(ls, "--invalid-flag", None, ".", path_env={"PATH": ":."})
