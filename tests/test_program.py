@@ -78,12 +78,16 @@ def test_run(temp_folder):
         assert "Would run: /dev/null" in runez.run("/dev/null", fatal=False)
         assert "Would run: /dev/null" in logged.pop()
 
+        assert runez.run(ls, ".", stdout=None, stderr=None) == 0
+
         assert "Would run:" in runez.run(ls, "--invalid-flag", None, ".")
         assert "Would run: %s ." % ls in logged.pop()
 
     with runez.CaptureOutput() as logged:
         assert runez.run("/dev/null", fatal=False) is False
         assert "/dev/null is not installed" in logged.pop()
+
+        assert runez.run(ls, ".", stdout=None, stderr=None) == 0
 
         assert runez.touch("sample") == 1
         assert runez.run(ls, "--invalid-flag", None, ".", path_env={"PATH": ":."}) == "sample"

@@ -98,7 +98,29 @@ def make_executable(path, fatal=True):
 
 
 def run(program, *args, **kwargs):
-    """Run 'program' with 'args'"""
+    """
+    Run 'program' with 'args'
+
+    Special optional keyword arguments:
+    - dryrun (bool): When True (defaults to runez.DRYRUN), do not really run but call logger("Would run: ...") instead
+
+    - fatal (bool | None):
+        - when program invocation succeeds:
+            - return output if available (ie: if stdout/stderr were not explicitly provided as None)
+            - return exit code otherwise
+        - when program invocation fails:
+            - with fatal=None: Return `None` on failure
+            - with fatal=False: Return False on failure
+            - with fatal=True: Raise AbortException(exit_code) on failure
+
+    - include_error (bool): When True, include stderr contents in returned string
+
+    - logger (callable | None): When provided (defaults to LOG.debug), call logger("Running: ...")
+
+    - path_env (dict | None): Allows to inject PATH-like env vars, see `added_env_paths()`
+
+    - stdout, stderr: Passed through to `subprocess.Popen`, when both are None causes this function to return exit code instead of output
+    """
     args = flattened(args, split=SHELL)
     full_path = which(program)
 
@@ -112,14 +134,17 @@ def run(program, *args, **kwargs):
     if logger:
         logger(message)
 
+    stdout = kwargs.pop("stdout", subprocess.PIPE)
+    stderr = kwargs.pop("stderr", subprocess.PIPE)
+
     if dryrun:
+        if stdout is None and stderr is None:
+            return 0
         return message
 
     if not full_path:
         return abort("%s is not installed", short(program), fatal=fatal)
 
-    stdout = kwargs.pop("stdout", subprocess.PIPE)
-    stderr = kwargs.pop("stderr", subprocess.PIPE)
     args = [full_path] + args
     try:
         path_env = kwargs.pop("path_env", None)
@@ -130,13 +155,17 @@ def run(program, *args, **kwargs):
         output = decode(output, strip=True)
         err = decode(err, strip=True)
 
+        if stdout is None and stderr is None:
+            return p.returncode
+
         if p.returncode and fatal is not None:
             note = ": %s\n%s" % (err, output) if output or err else ""
             message = "%s exited with code %s%s" % (short(program), p.returncode, note.strip())
-            return abort(message, fatal=fatal)
+            return abort(message, fatal=fatal, code=p.returncode)
 
         if include_error and err:
             output = "%s\n%s" % (output, err)
+
         return output and output.strip()
 
     except Exception as e:
