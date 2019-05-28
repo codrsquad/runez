@@ -186,6 +186,9 @@ def which(program, ignore_own_venv=False):
         fp = os.path.join(p, program)
         if (not ignore_own_venv or not fp.startswith(sys.prefix)) and is_executable(fp):
             return fp
+    program = os.path.join(os.getcwd(), program)
+    if is_executable(program):
+        return program
     return None
 
 

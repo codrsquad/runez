@@ -73,10 +73,15 @@ def test_pids():
 def test_run(temp_folder):
     assert runez.program.added_env_paths(None) is None
     ls = runez.which("ls")
+    runez.write("foo", "#!/bin/sh\necho hello")
+    os.chmod("foo", 0o755)
 
     with runez.CaptureOutput(dryrun=True) as logged:
         assert "Would run: /dev/null" in runez.run("/dev/null", fatal=False)
         assert "Would run: /dev/null" in logged.pop()
+
+        assert runez.run("foo", stdout=None, stderr=None) == 0
+        assert "Would run: foo" in runez.run("foo")
 
         assert runez.run(ls, ".", stdout=None, stderr=None) == 0
 
@@ -87,10 +92,15 @@ def test_run(temp_folder):
         assert runez.run("/dev/null", fatal=False) is False
         assert "/dev/null is not installed" in logged.pop()
 
+        assert runez.run("foo", stdout=None, stderr=None) == 0
+        assert runez.run("foo") == "hello"
+
         assert runez.run(ls, ".", stdout=None, stderr=None) == 0
 
         assert runez.touch("sample") == 1
-        assert runez.run(ls, "--invalid-flag", None, ".", path_env={"PATH": ":."}) == "sample"
+        files = runez.run(ls, "--invalid-flag", None, ".", path_env={"PATH": ":."})
+        assert "foo" in files
+        assert "sample" in files
         assert "Running: %s ." % ls in logged.pop()
 
         assert runez.run(ls, "some-file", fatal=False) is False
