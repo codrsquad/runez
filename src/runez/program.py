@@ -10,7 +10,7 @@ import time
 
 from runez.base import decode
 from runez.convert import flattened, represented_args, SHELL, short
-from runez.system import abort, is_dryrun
+from runez.system import abort, AbortException, is_dryrun
 
 
 LOG = logging.getLogger(__name__)
@@ -171,6 +171,8 @@ def run(program, *args, **kwargs):
         return output and output.strip()
 
     except Exception as e:
+        if isinstance(e, AbortException):
+            raise
         return abort("%s failed: %s", short(program), e, exc_info=e, fatal=fatal)
 
 
