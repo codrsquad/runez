@@ -98,11 +98,7 @@ def settings(epilog=None, help=None, width=140, **attrs):
     context_settings["help_option_names"] = flattened(help, split=" ")
     context_settings["max_content_width"] = width
 
-    return dict(
-        epilog=epilog,
-        context_settings=context_settings,
-        **attrs
-    )
+    return dict(epilog=epilog, context_settings=context_settings, **attrs)
 
 
 def option(func, *args, **attrs):

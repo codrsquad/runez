@@ -39,11 +39,7 @@ if sys.argv and "pycharm" in sys.argv[0].lower():  # pragma: no cover
         sys.argv[0] = pt
 
 # Set logsetup defaults to stable/meaningful for pytest runs
-runez.log.override_spec(
-    timezone="UTC",
-    tmp=os.path.join("/", "tmp"),
-    locations=["{tmp}/{basename}"],
-)
+runez.log.override_spec(timezone="UTC", tmp=os.path.join("/", "tmp"), locations=["{tmp}/{basename}"])
 
 
 class IsolatedLogSetup(object):
@@ -51,6 +47,7 @@ class IsolatedLogSetup(object):
 
     This should only be useful for testing (as in general, logging setup is a global thing).
     """
+
     def __init__(self, adjust_tmp=True):
         self.adjust_tmp = adjust_tmp
         self.temp_folder = None

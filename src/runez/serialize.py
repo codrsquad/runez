@@ -198,7 +198,7 @@ def save_json(data, path, fatal=True, logger=None, sort_keys=True, indent=2, **k
             data = data.to_dict()
 
         if indent:
-            kwargs.setdefault("separators", (",", ': '))
+            kwargs.setdefault("separators", (",", ": "))
 
         with open(path, "wt") as fh:
             json.dump(data, fh, sort_keys=sort_keys, indent=indent, **kwargs)

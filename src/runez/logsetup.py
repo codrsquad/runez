@@ -60,9 +60,21 @@ class LogSpec(Slotted):
 
     # See setup()'s docstring for meaning of each field
     __slots__ = [
-        "appname", "basename", "context_format", "dev", "timezone", "tmp",
-        "console_format", "console_level", "console_stream",
-        "file_format", "file_level", "file_location", "locations", "rotate", "rotate_count",
+        "appname",
+        "basename",
+        "console_format",
+        "console_level",
+        "console_stream",
+        "context_format",
+        "dev",
+        "file_format",
+        "file_level",
+        "file_location",
+        "locations",
+        "rotate",
+        "rotate_count",
+        "timezone",
+        "tmp",
     ]
 
     @property
@@ -163,19 +175,19 @@ class LogManager(object):
     _default_spec = LogSpec(
         appname=None,
         basename="{appname}.log",
-        context_format="[[%s]] ",
-        dev=None,
-        timezone=runez.system.get_timezone(),
-        tmp=None,
         console_format="%(asctime)s %(levelname)s %(message)s",
         console_level=logging.WARNING,
         console_stream=sys.stderr,
+        context_format="[[%s]] ",
+        dev=None,
         file_format="%(asctime)s %(timezone)s %(context)s%(levelname)s - %(message)s",
         file_level=logging.DEBUG,
         file_location=None,
         locations=["{dev}/log/{basename}", "/logs/{appname}/{basename}", "/var/log/{basename}"],
         rotate=None,
         rotate_count=10,
+        timezone=runez.system.get_timezone(),
+        tmp=None,
     )
 
     # Spec defines how logs should be setup()
@@ -204,46 +216,46 @@ class LogManager(object):
             debug=UNSET,
             dryrun=UNSET,
             level=UNSET,
+            clean_handlers=UNSET,
+            greetings=UNSET,
             appname=UNSET,
             basename=UNSET,
-            clean_handlers=UNSET,
-            context_format=UNSET,
-            dev=UNSET,
-            greetings=UNSET,
-            timezone=UNSET,
-            tmp=UNSET,
             console_format=UNSET,
             console_level=UNSET,
             console_stream=UNSET,
+            context_format=UNSET,
+            dev=UNSET,
             file_format=UNSET,
             file_level=UNSET,
             file_location=UNSET,
             locations=UNSET,
             rotate=UNSET,
             rotate_count=UNSET,
+            timezone=UNSET,
+            tmp=UNSET,
     ):
         """
         Args:
             debug (bool): Enable debug level logging (overrides other specified levels)
             dryrun (bool): Enable dryrun
             level (int | None): Shortcut to set both `console_level` and `file_level` at once
+            clean_handlers (bool): Remove any existing logging.root.handlers
+            greetings (str | unicode | list[str | unicode] | None): Optional greetings message(s) to log
             appname (str | unicode | None): Program's base name, not used directly, just as reference for default 'basename'
             basename (str | unicode | None): Base name of target log file, not used directly, just as reference for default 'locations'
-            clean_handlers (bool): Remove any existing logging.root.handlers
-            context_format (str | unicode | None): Format to use for contextual log, use None to deactivate
-            dev (str | unicode | None): Custom folder to use when running from a development venv (auto-determined if None)
-            greetings (str | unicode | list[str | unicode] | None): Optional greetings message(s) to log
-            timezone (str | unicode | None): Time zone, use None to deactivate time zone logging
-            tmp (str | unicode | None): Optional temp folder to use (auto determined)
             console_format (str | unicode | None): Format to use for console log, use None to deactivate
             console_level (int | None): Level to use for console logging
             console_stream (TextIOWrapper | None): Stream to use for console log (eg: sys.stderr), use None to deactivate
+            context_format (str | unicode | None): Format to use for contextual log, use None to deactivate
+            dev (str | unicode | None): Custom folder to use when running from a development venv (auto-determined if None)
             file_format (str | unicode | None): Format to use for file log, use None to deactivate
             file_level (str | unicode | None): Level to use for file logging
             file_location (str | unicode | None): Desired custom file location (overrides {locations} search, handy as a --log cli flag)
             locations (list[str | unicode]|None): List of candidate folders for file logging (None: deactivate file logging)
             rotate (str | unicode | None): How to rotate log file (None: no rotation, "time:1d" time-based, "size:50m" size-based)
             rotate_count (int): How many rotations to keep
+            timezone (str | unicode | None): Time zone, use None to deactivate time zone logging
+            tmp (str | unicode | None): Optional temp folder to use (auto determined)
         """
         with cls._lock:
             if dryrun is not UNSET:
@@ -259,19 +271,19 @@ class LogManager(object):
             cls.spec.set(
                 appname=appname,
                 basename=basename,
-                context_format=context_format,
-                dev=dev,
-                timezone=timezone,
-                tmp=tmp,
                 console_format=console_format,
                 console_level=console_level or level,
                 console_stream=console_stream,
+                context_format=context_format,
+                dev=dev,
                 file_format=file_format,
                 file_level=file_level or level,
                 file_location=file_location,
                 locations=locations,
                 rotate=rotate,
                 rotate_count=rotate_count,
+                timezone=timezone,
+                tmp=tmp,
             )
 
             cls._auto_fill_defaults()
