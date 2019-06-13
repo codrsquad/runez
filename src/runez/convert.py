@@ -205,7 +205,7 @@ class Anchored(object):
         Returns:
             (str): Short form, using '~' if applicable
         """
-        if not path:
+        if path is None:
             return path
 
         path = str(path)

@@ -58,7 +58,8 @@ def test_flattened():
 
     assert runez.represented_args(None) == ""
     assert runez.represented_args([]) == ""
-    assert runez.represented_args([1, 2], separator="+") == "1+2"
+    assert runez.represented_args([0, 1, 2], separator="+") == "0+1+2"
+    assert runez.represented_args(["foo", {}, 0, [1, 2], {3: 4}, 5]) == 'foo {} 0 "[1, 2]" "{3: 4}" 5'
 
 
 def test_formatted():
