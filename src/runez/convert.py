@@ -354,6 +354,9 @@ def _flatten(result, value, separator, mode):
             _flatten(result, value.split(separator), separator, mode)
             return
 
+        if mode & SHELL:
+            value = "%s" % value
+
     if (mode & UNIQUE == 0) or value not in result:
         result.append(value)
 

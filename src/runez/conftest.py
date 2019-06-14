@@ -191,8 +191,25 @@ class ClickWrapper(object):
     def invoke(self, main, args):
         """Mocked click-like behavior"""
         try:
-            output = main(*args)
-            return ClickWrapper(output=output, exit_code=0)
+            try:
+                output = main(*args)
+                return ClickWrapper(output=output, exit_code=0)
+
+            except TypeError as e:
+                msg = str(e)
+                if msg and msg.startswith(main.__name__) and "takes" in msg and "arguments" in msg:
+                    # py2: TypeError: hard_exit_no_args() takes no arguments (1 given)
+                    # py3: TypeError: hard_exit_no_args() takes 0 positional arguments but 1 was given
+                    old_argv = sys.argv
+                    try:
+                        sys.argv = old_argv[:1] + args
+                        output = main()
+                        return ClickWrapper(output=output, exit_code=0)
+
+                    finally:
+                        sys.argv = old_argv
+
+                raise
 
         except SystemExit as e:
             if isinstance(e.code, int):

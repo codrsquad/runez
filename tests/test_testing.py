@@ -3,23 +3,40 @@ import sys
 
 import pytest
 
+import runez
 
-def stringify(*args):
+
+def sample_main(*args):
+    if args:
+        args = runez.flattened(args, split=runez.SHELL)
+        if args[0] == "TypeError":
+            # Raise a TypeError
+            len(42)
+
+        exit_code = runez.to_int(args[0])
+        if exit_code is not None:
+            # When first arg is a number, call sys.exit() with that number
+            if len(args) > 1:
+                print(" ".join(args[1:]))
+            sys.exit(exit_code)
+
+        if args[0] == "Exception":
+            # Raise a generic exception
+            raise Exception("crashed: %s" % args[1:])
+
+        if args[0] == "exit":
+            # exit without explicit code
+            sys.exit(" ".join(args[1:]))
+
+    # Simulate some output
     return " ".join(args)
 
 
-def crash(*args):
-    raise Exception("crashed: %s" % args)
+def sample_main_no_args():
+    return sample_main(*sys.argv[1:])
 
 
-def hard_exit(*args):
-    if len(args) == 1 and isinstance(args[0], int):
-        sys.exit(args[0])
-    sys.exit(" ".join(args))
-
-
-def test_success(cli):
-    cli.main = stringify
+def verify_success(cli):
     cli.run("--dryrun hello")
     assert cli.succeeded
     assert cli.match("hello")
@@ -50,6 +67,67 @@ def test_success(cli):
     assert not cli.match("hello")
 
 
+def test_success(cli):
+    cli.main = sample_main
+    verify_success(cli)
+
+    cli.main = sample_main_no_args
+    verify_success(cli)
+
+
+def verify_crash(cli):
+    cli.run(["Exception", "hello with main"])
+    assert cli.failed
+    assert cli.match("crashed...hello")
+    assert cli.match("Exited with stacktrace:")
+
+    cli.run("TypeError")
+    assert cli.failed
+    assert cli.match("TypeError: ... has no len")
+
+    cli.run("exit", "some message")
+    assert cli.failed
+    assert cli.match("some message", "!stacktrace")
+
+    cli.expect_failure("Exception hello", "crashed...hello", "Exited with stacktrace:", "!this message shouldn't appear")
+
+    cli.run(["successful hello"])
+    assert cli.succeeded
+    assert cli.match("successful hello")
+
+    cli.run(["Exception", "hello again"])
+    assert cli.failed
+    assert not cli.match("hello with main")
+    assert not cli.match("successful hello")
+    assert cli.match("hello again")
+
+    cli.run(1, "hello")
+    assert cli.failed
+    assert "hello" in cli.logged.stdout
+    assert "Exited with stacktrace" not in cli.logged
+
+    cli.run(2)
+    assert cli.failed
+    assert cli.exit_code == 2
+    assert not cli.logged
+
+    with pytest.raises(AssertionError):
+        # No captures specified
+        assert cli.match("crashed...hello", stdout=False, stderr=False)
+
+    with pytest.raises(AssertionError):
+        # Expect success failed
+        cli.expect_success("Exception", "hello")
+
+    with pytest.raises(AssertionError):
+        # Unexpected message seen in output
+        cli.expect_failure(["Exception", "hello"], "!crashed...hello")
+
+    with pytest.raises(AssertionError):
+        # Expected message not seen in output
+        cli.expect_failure(["Exception", "hello"], "this message shouldn't appear")
+
+
 def test_crash(cli):
     with pytest.raises(AssertionError):
         # Nothing ran yet, no output
@@ -59,51 +137,8 @@ def test_crash(cli):
         # No main provided
         cli.run("hello no main")
 
-    cli.main = crash
-    cli.run(["hello with main"])
-    assert cli.failed
-    assert cli.match("crashed...hello")
-    assert cli.match("Exited with stacktrace:")
+    cli.main = sample_main
+    verify_crash(cli)
 
-    cli.expect_failure("hello", "crashed...hello", "Exited with stacktrace:", "!this message shouldn't appear")
-
-    cli.main = stringify
-    cli.run(["successful hello"])
-    assert cli.succeeded
-    assert cli.match("successful hello")
-
-    cli.main = crash
-    cli.run(["hello again"])
-    assert cli.failed
-    assert not cli.match("hello with main")
-    assert not cli.match("successful hello")
-    assert cli.match("hello again")
-
-    with pytest.raises(AssertionError):
-        # No captures specified
-        assert cli.match("crashed...hello", stdout=False, stderr=False)
-
-    with pytest.raises(AssertionError):
-        # Expect success failed
-        cli.expect_success("hello")
-
-    with pytest.raises(AssertionError):
-        # Unexpected message seen in output
-        cli.expect_failure("hello", "!crashed...hello")
-
-    with pytest.raises(AssertionError):
-        # Expected message not seen in output
-        cli.expect_failure("hello", "this message shouldn't appear")
-
-
-def test_hard_exit(cli):
-    cli.main = hard_exit
-    cli.run("hello")
-    assert cli.failed
-    assert "hello" in cli.logged.stdout
-    assert "Exited with stacktrace" not in cli.logged
-
-    cli.run(2)
-    assert cli.failed
-    assert cli.exit_code == 2
-    assert not cli.logged
+    cli.main = sample_main_no_args
+    verify_crash(cli)

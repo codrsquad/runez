@@ -8,9 +8,9 @@ import runez
 CHATTER = """
 #!/bin/bash
 
+echo "$@"
 ls
 ls some-file
-echo
 echo
 """
 
@@ -21,12 +21,16 @@ def test_capture(temp_folder, logged):
     assert runez.make_executable(chatter, fatal=False) == 1
 
     assert runez.run(chatter, fatal=False) == "chatter"
+    assert "Running: chatter" in logged.pop()
 
     r = runez.run(chatter, include_error=True, fatal=False)
     assert r.startswith("chatter")
     assert "No such file" in r
+    assert "Running: chatter" in logged.pop()
 
-    assert "Running: chatter" in logged
+    r = runez.run(chatter, "hello", "-a", 0, "-b", None, 1, 2, None, "foo bar", fatal=False)
+    assert r.startswith("hello -a 0 1 2 foo bar")
+    assert 'Running: chatter hello -a 0 1 2 "foo bar"' in logged.pop()
 
 
 def test_executable(temp_folder):
