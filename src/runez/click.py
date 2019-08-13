@@ -131,6 +131,8 @@ def option(func, *args, **attrs):
 
 def _get_caller_doc(caller_depth=2):
     if hasattr(sys, "_getframe"):
-        doc = sys._getframe(caller_depth).f_globals.get("__doc__")
-        if doc:
-            return doc.strip()
+        caller = sys._getframe(caller_depth).f_globals
+        if caller.get("__package__") != "runez":
+            doc = caller.get("__doc__")
+            if doc:
+                return doc.strip()
