@@ -10,11 +10,11 @@ Usage example:
     @click.option("--config", metavar="KEY=VALUE", multiple=True, help="Override configuration")
     def main(config):
         runez.config.use_cli(config)
-        runez.config.use__env_vars(prefix="MY_PROGRAM_")
-        runez.config.use_propsfs()
+        runez.config.use_env_vars(prefix="MY_PROGRAM_")
+        runez.config.use_json("~/.config/my-program.json", "/etc/my-program.json")
 
     # Get values from anywhere in your code
-    runez.config.get_str("foo")
+    runez.config.get("foo")
     runez.config.get_int("foo", minimum=5, maximum=10)
     runez.config.get_bytesize("foo", default="1k")
     ...
@@ -168,6 +168,24 @@ class Configuration:
                 self._trace("Adding config provider %s" % provider)
                 self.providers.append(provider)
 
+    def get(self, key, default=None):
+        """
+        Args:
+            key (str | unicode | None): Key to lookup
+            default: Default to use if key is not configured
+
+        Returns:
+            Value of key, if defined
+        """
+        if key:
+            for provider in self.providers:
+                value = provider.get(key)
+                if value is not None:
+                    self._trace("Using %s='%s' from %s" % (key, value, provider))
+                    return value
+
+        return default
+
     def get_str(self, key, default=None):
         """
         Args:
@@ -177,14 +195,10 @@ class Configuration:
         Returns:
             (str | None): Value of key, if defined
         """
-        if key:
-            for provider in self.providers:
-                value = provider.get_str(key)
-                if value is not None:
-                    self._trace("Using %s='%s' from %s" % (key, value, provider))
-                    return value
-
-        return default
+        value = self.get(key, default=default)
+        if value is None:
+            return None
+        return str(value)
 
     def get_int(self, key, default=None, minimum=None, maximum=None):
         """
@@ -276,6 +290,7 @@ use_propsfs = CONFIG.use_propsfs
 use_cli = CONFIG.use_cli
 use__env_vars = CONFIG.use_env_vars
 use_json = CONFIG.use_json
+get = CONFIG.get
 get_str = CONFIG.get_str
 get_int = CONFIG.get_int
 get_float = CONFIG.get_float
@@ -314,18 +329,18 @@ class ConfigProvider:
         """
         return affixed(key, prefix=self.prefix, suffix=self.suffix, normalize=self.key_normalizer)
 
-    def get_str(self, key):
+    def get(self, key):
         """
         Args:
             key (str | unicode): Key to lookup
 
         Returns:
-            (str | None): Configured value, if any
+            Configured value, if any
         """
         normal_key = self.normalized_key(key)
-        return self._get_str(normal_key)
+        return self._get(normal_key)
 
-    def _get_str(self, key):
+    def _get(self, key):
         """Effective implementation, to be provided by descendants"""
 
 
@@ -345,7 +360,7 @@ class PropsfsProvider(ConfigProvider):
         """str: A short overview of this provider"""
         return "%s: %s" % (self, self.folder)
 
-    def _get_str(self, key):
+    def _get(self, key):
         try:
             path = os.path.join(self.folder, key)
             with open(path) as fh:
@@ -382,7 +397,7 @@ class DictProvider(ConfigProvider):
     def provider_id(self):
         return self.name
 
-    def _get_str(self, key):
+    def _get(self, key):
         return self.values.get(key)
 
 

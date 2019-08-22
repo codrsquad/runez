@@ -16,7 +16,7 @@ def test_no_implementation():
     provider = runez.config.ConfigProvider()
     assert str(provider) == "config"
     assert provider.overview() == "config"
-    assert provider.get_str("anything") is None
+    assert provider.get("anything") is None
 
 
 def test_global_setup():
@@ -64,6 +64,13 @@ def test_global_setup():
     runez.config.clear()
     assert str(runez.config.CONFIG) == "empty"
     assert len(runez.config.CONFIG.providers) == 0
+
+    # Custom dict
+    runez.config.set_providers(runez.config.DictProvider({"a": {"b": "c"}}))
+    assert str(runez.config.CONFIG) == "dict"
+    assert len(runez.config.CONFIG.providers) == 1
+    assert runez.config.get("a") == {"b": "c"}
+    assert runez.config.get_str("a") == str({"b": "c"})
 
 
 def test_missing():
