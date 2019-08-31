@@ -27,6 +27,10 @@ def test_abort(logged):
         assert runez.abort("oops", logger=None) == "1"
 
 
+def test_platform():
+    assert runez.get_platform()
+
+
 def test_timezone():
     assert runez.get_timezone() == time.tzname[0]
     with patch("runez.system.time") as runez_time:

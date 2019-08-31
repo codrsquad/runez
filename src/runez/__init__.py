@@ -28,10 +28,11 @@ from runez.file import copy, delete, first_line, get_conf, get_lines, move, syml
 from runez.heartbeat import Heartbeat
 from runez.logsetup import LogManager as log, LogSpec
 from runez.path import basename, ensure_folder, parent_folder
-from runez.program import check_pid, get_dev_folder, get_program_path, is_executable, is_younger, make_executable, run, which
+from runez.program import check_pid, get_dev_folder, get_program_path, is_executable, is_younger, make_executable
+from runez.program import require_installed, run, which
 from runez.represent import header
 from runez.serialize import read_json, save_json, Serializable
-from runez.system import abort, get_timezone, get_version, set_dryrun
+from runez.system import abort, get_platform, get_timezone, get_version, set_dryrun
 
 __all__ = [
     "DRYRUN",
@@ -46,10 +47,11 @@ __all__ = [
     "Heartbeat",
     "log", "LogSpec",
     "basename", "ensure_folder", "parent_folder",
-    "check_pid", "get_dev_folder", "get_program_path", "is_executable", "is_younger", "make_executable", "run", "which",
+    "check_pid", "get_dev_folder", "get_program_path", "is_executable", "is_younger", "make_executable",
+    "require_installed", "run", "which",
     "header",
     "read_json", "save_json", "Serializable",
-    "abort", "get_timezone", "get_version", "set_dryrun",
+    "abort", "get_platform", "get_timezone", "get_version", "set_dryrun",
 ]
 
 DRYRUN = False

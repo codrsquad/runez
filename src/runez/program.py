@@ -10,11 +10,15 @@ import time
 
 from runez.base import decode
 from runez.convert import flattened, represented_args, SHELL, short
-from runez.system import abort, AbortException, is_dryrun
+from runez.system import abort, AbortException, get_platform, is_dryrun
 
 
 LOG = logging.getLogger(__name__)
 DEV_FOLDERS = ("venv", ".venv", ".tox", "build")
+DEFAULT_PLATFORM_INSTRUCTIONS = {
+    "darwin": "run: `brew install {program}`",
+    "linux": "run: `apt install {program}`",
+}
 
 
 def check_pid(pid):
@@ -194,6 +198,44 @@ def which(program, ignore_own_venv=False):
     if is_executable(program):
         return program
     return None
+
+
+def get_platform_install_instructions(program, instructions=None):
+    if instructions is None:
+        instructions = DEFAULT_PLATFORM_INSTRUCTIONS
+    text = instructions.get(get_platform())
+    if not text:
+        text = ":\n- %s" % "\n- ".join("on %s: %s" % (k, v) for k, v in instructions.items())
+    else:
+        text = ", %s" % text
+    return text.format(program=program)
+
+
+def require_installed(program, instructions=None, fatal=True):
+    """
+    Args:
+        program (str): Program to check
+        instructions (str | dict): Short instructions letting user know how to get `program` installed, example: `run: brew install foo`
+                                   Extra convenience, specify:
+                                   - None if `program` can simply be install via `brew install <program>`
+                                   - A word (without spaces) to refer to "usual" package (brew on OSX, apt on Linux etc)
+                                   - A dict with instructions per `sys.platform`
+        fatal (bool): If True, raise `AbortException` when `program` is not installed
+
+    Returns:
+        (bool): True if installed, False otherwise (and fatal=False)
+    """
+    if which(program) is None:
+        if not instructions:
+            instructions = get_platform_install_instructions(program)
+        elif isinstance(instructions, dict):
+            instructions = get_platform_install_instructions(program, instructions=instructions)
+        elif " " not in instructions:
+            instructions = get_platform_install_instructions(instructions)
+        else:
+            instructions = ", %s" % instructions
+        return abort("%s is not installed%s", program, instructions, fatal=(fatal, False))
+    return True
 
 
 def added_env_paths(env_vars, env=None):

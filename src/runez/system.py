@@ -80,6 +80,10 @@ def formatted_string(*args):
         return message
 
 
+def get_platform():
+    return sys.platform
+
+
 def get_timezone():
     """
     Returns:

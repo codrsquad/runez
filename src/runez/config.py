@@ -22,10 +22,10 @@ Usage example:
 
 import json
 import os
-import platform
 
 from runez.base import decode
 from runez.convert import affixed, flattened, SANITIZED, snakified
+from runez.system import get_platform
 
 
 DEFAULT_BASE = 1024
@@ -101,7 +101,7 @@ class Configuration:
             front (bool): If True, add provider to front of list
         """
         if folder is None:
-            folder = "/%s/props" % ("Volumes" if platform.system().lower() == "darwin" else "mnt")
+            folder = "/%s/props" % ("Volumes" if get_platform() == "darwin" else "mnt")
         self.add(PropsfsProvider(folder), front=front)
 
     def use_cli(self, config, prefix=None, name="--config", front=True):

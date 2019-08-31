@@ -68,6 +68,26 @@ def test_which():
     assert runez.which("ls")
 
 
+def test_require_installed():
+    with patch("runez.program.which", return_value="/bin/foo"):
+        assert runez.require_installed("foo") is True
+
+    with patch("runez.program.which", return_value=None):
+        assert "foo is not installed, see http://..." in runez.verify_abort(runez.require_installed, "foo", "see http://...")
+
+        linux = {"linux": "see http:..."}
+        with patch("runez.program.get_platform", return_value="darwin"):
+            assert "foo is not installed, run: `brew install foo`" in runez.verify_abort(runez.require_installed, "foo", "foo")
+            assert "run: `brew install foo`" in runez.verify_abort(runez.require_installed, "foo")
+            text = runez.verify_abort(runez.require_installed, "foo", instructions=linux)
+            assert "not installed:\n" in text
+            assert "- on linux: see http:..." in text
+
+        with patch("runez.program.get_platform", return_value="linux"):
+            assert "run: `apt install foo`" in runez.verify_abort(runez.require_installed, "foo")
+            assert "not installed, see http:..." in runez.verify_abort(runez.require_installed, "foo", instructions=linux)
+
+
 def test_pids():
     assert runez.check_pid(0)
     assert runez.check_pid(os.getpid())
