@@ -1,7 +1,10 @@
+#  -*- encoding: utf-8 -*-
+
 """
 This is module should not import any other runez module, it's the lowest on the import chain
 """
 
+import datetime
 import os
 import re
 
@@ -17,12 +20,16 @@ SANITIZED = 1
 SHELL = 2
 UNIQUE = 4
 
+SECONDS_IN_ONE_MINUTE = 60
+SECONDS_IN_ONE_HOUR = 60 * SECONDS_IN_ONE_MINUTE
+SECONDS_IN_ONE_DAY = 24 * SECONDS_IN_ONE_HOUR
+
 
 def flattened(value, split=None):
     """
     Args:
         value: Possibly nested arguments (sequence of lists, nested lists)
-        split (int | str | unicode | (str | unicode, int) | None): How to split values:
+        split (int | str | unicode | (str | unicode | None, int) | None): How to split values:
             - None: simply flatten, no further processing
             - one char string: split() on specified char
             - SANITIZED: discard all None items
@@ -107,6 +114,118 @@ def represented_args(args, separator=" "):
     if args:
         for text in args:
             result.append(quoted(short(text)))
+    return separator.join(result)
+
+
+def duration_unit(count, name, short_form, immutable=False):
+    if short_form:
+        if not immutable:
+            name = name[0]
+    else:
+        name = " %s%s" % (name, "" if immutable or count == 1 else "s")
+    return "%s%s" % (count, name)
+
+
+def duration_in_seconds(duration):
+    """
+    Args:
+        duration (int | float | datetime.date | datetime.datetime): Object to convert to seconds
+
+    Returns:
+        (float | int): Corresponding number of seconds
+    """
+    if isinstance(duration, datetime.date):
+        duration = datetime.datetime(duration.year, duration.month, duration.day)
+
+    if isinstance(duration, datetime.datetime):
+        duration = datetime.datetime.now() - duration
+
+    if isinstance(duration, datetime.timedelta):
+        return duration.total_seconds()
+
+    return duration
+
+
+DEFAULT_DURATION_SPAN = 2
+
+
+def represented_duration(duration, span=UNSET, separator=" "):
+    """
+    Args:
+        duration: Duration in seconds, or timedelta
+        span (int | None): If specified, return `span` most significant parts of the duration, specify <= 0 for short form
+                           > 0: N most significant long parts, example: 1 hour 5 seconds
+                           None: all parts, example: 1 hour 2 minutes 5 seconds 20 ms
+                           0: all parts, short form, example: 1h 2m 5s 20ms
+                           < 0: N most significant parts, short form, example: 1h 5s
+                           UNSET: use `DEFAULT_DURATION_SPAN` (which can set globally per app, for convenience)
+        separator (str): Separator to use between parts
+
+    Returns:
+        (str): Human friendly duration representation
+    """
+    if duration is None:
+        return ""
+
+    seconds = duration_in_seconds(duration)
+    if not isinstance(seconds, (int, float)):
+        return str(seconds)
+
+    if span is UNSET:
+        span = DEFAULT_DURATION_SPAN
+    short_form = span is not None and span <= 0
+    if span is not None:
+        span = abs(span)
+
+    seconds = abs(seconds)
+    microseconds = 0 if span and seconds > 10 else int(round((seconds - int(seconds)) * 1000000))
+    seconds = int(seconds)
+
+    result = []
+    # First, separate seconds and days
+    days = seconds // SECONDS_IN_ONE_DAY
+    seconds -= days * SECONDS_IN_ONE_DAY
+
+    # Break down days into years, weeks and days
+    years = days // 365
+    days -= years * 365
+    weeks = days // 7
+    days -= weeks * 7
+
+    # Break down seconds into hours, minutes and seconds
+    hours = seconds // SECONDS_IN_ONE_HOUR
+    seconds -= hours * SECONDS_IN_ONE_HOUR
+    minutes = seconds // SECONDS_IN_ONE_MINUTE
+    seconds -= minutes * SECONDS_IN_ONE_MINUTE
+
+    if years:
+        result.append(duration_unit(years, "year", short_form))
+    if weeks:
+        result.append(duration_unit(weeks, "week", short_form))
+    if days:
+        result.append(duration_unit(days, "day", short_form))
+
+    if hours:
+        result.append(duration_unit(hours, "hour", short_form))
+    if minutes:
+        result.append(duration_unit(minutes, "minute", short_form))
+    if seconds:
+        result.append(duration_unit(seconds, "second", short_form))
+
+    if microseconds:
+        milliseconds = microseconds // 1000
+        microseconds = microseconds % 1000
+        if milliseconds:
+            result.append(duration_unit(milliseconds, "ms", short_form, immutable=True))
+        if microseconds:
+            result.append(duration_unit(microseconds, "μs", short_form, immutable=True))
+
+    if not result:
+        result.append(duration_unit(seconds, "second", short_form))
+
+    if span:
+        result = result[:span]
+
     return separator.join(result)
 
 
