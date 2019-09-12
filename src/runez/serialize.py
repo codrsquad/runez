@@ -2,17 +2,57 @@
 Convenience methods for (de)serializing objects
 """
 
+import datetime
 import io
 import json
 import logging
 import os
 
-from runez.base import string_type
+from runez.base import decode, string_type
 from runez.convert import resolved_path, short
 from runez.path import ensure_folder
 from runez.system import abort, is_dryrun
 
 LOG = logging.getLogger(__name__)
+
+
+def json_sanitized(value, stringify=decode, dt=str):
+    """
+    Args:
+        value: Value to sanitize
+        stringify (callable | None): Function to use to stringify non-builtin types
+        dt (callable | None): Function to use to stringify dates
+
+    Returns:
+        An object that should be json serializable
+    """
+    if value is None or isinstance(value, (int, str, float)):
+        return value
+    if hasattr(value, "to_dict"):
+        value = value.to_dict()
+    if isinstance(value, set):
+        return [json_sanitized(v, stringify=stringify, dt=dt) for v in sorted(value)]
+    if isinstance(value, (tuple, list)):
+        return [json_sanitized(v, stringify=stringify, dt=dt) for v in value]
+    if isinstance(value, dict):
+        return dict((str(k), json_sanitized(v, stringify=stringify, dt=dt)) for k, v in value.items())
+    if isinstance(value, datetime.date):
+        if dt is None:
+            return value
+        return dt(value)
+    if stringify is None:
+        return value
+    return stringify(value)
+
+
+def same_type(t1, t2):
+    """
+    :return bool: True if 't1' and 't2' are of equivalent types
+    """
+    if isinstance(t1, string_type) and isinstance(t2, string_type):
+        return True
+
+    return type(t1) == type(t2)
 
 
 def type_name(value):
@@ -27,16 +67,6 @@ def type_name(value):
         return "str"
 
     return value.__class__.__name__
-
-
-def same_type(t1, t2):
-    """
-    :return bool: True if 't1' and 't2' are of equivalent types
-    """
-    if isinstance(t1, string_type) and isinstance(t2, string_type):
-        return True
-
-    return type(t1) == type(t2)
 
 
 class Serializable(object):
@@ -143,11 +173,14 @@ class Serializable(object):
 
 def read_json(path, default=None, fatal=True, logger=None):
     """
-    :param str|None path: Path to file to deserialize
-    :param dict|list|None default: Default if file is not present, or if it's not json
-    :param bool|None fatal: Abort execution on failure if True
-    :param callable|None logger: Logger to use
-    :return dict|list: Deserialized data from file
+    Args:
+        path (str | None): Path to file to deserialize
+        default (dict | list | str | None): Default if file is not present, or if it's not json
+        fatal (bool | None): Abort execution on failure if True
+        logger (callable | None): Logger to use
+
+    Returns:
+        (dict | list | str): Deserialized data from file
     """
     path = resolved_path(path)
     if not path or not os.path.exists(path):
@@ -178,7 +211,7 @@ def save_json(data, path, fatal=True, logger=None, sort_keys=True, indent=2, **k
         fatal (bool | None): Abort execution on failure if True
         logger (callable | None): Logger to use
         sort_keys (bool): Save json with sorted keys
-        indent (int): Indentation to use
+        indent (int | None): Indentation to use
         **kwargs: Passed through to `json.dump()`
 
     Returns:
@@ -194,9 +227,7 @@ def save_json(data, path, fatal=True, logger=None, sort_keys=True, indent=2, **k
             LOG.info("Would save %s", short(path))
             return 1
 
-        if hasattr(data, "to_dict"):
-            data = data.to_dict()
-
+        data = json_sanitized(data)
         if indent:
             kwargs.setdefault("separators", (",", ": "))
 

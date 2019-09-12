@@ -1,3 +1,4 @@
+import datetime
 import logging
 
 from mock import patch
@@ -103,3 +104,18 @@ def test_serialization(logged):
     assert str(j) == "/dev/null/not-there"
     j.save(fatal=False)
     assert "Couldn't save" in logged.pop()
+
+
+def test_sanitize():
+    assert runez.json_sanitized(None) is None
+    assert runez.json_sanitized({1, 2}) == [1, 2]
+
+    now = datetime.datetime.now()
+    assert runez.json_sanitized(now) == str(now)
+    assert runez.json_sanitized(now, dt=None) is now
+    assert runez.json_sanitized([now]) == [str(now)]
+    assert runez.json_sanitized([now], dt=None) == [now]
+
+    obj = object()
+    assert runez.json_sanitized(obj) == str(obj)
+    assert runez.json_sanitized(obj, stringify=None) is obj
