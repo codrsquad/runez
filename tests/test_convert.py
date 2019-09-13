@@ -1,7 +1,9 @@
 #  -*- encoding: utf-8 -*-
 
 import datetime
+import time
 
+import pytest
 from freezegun import freeze_time
 
 import runez
@@ -114,22 +116,53 @@ def test_quoted():
     assert runez.quoted('foo a="b"') == """'foo a="b"'"""
 
 
-REF_TIME1 = datetime.datetime(2019, 9, 2, microsecond=100)
-REF_TIME2 = datetime.datetime(2019, 9, 2, microsecond=200)
-
-
-@freeze_time("2019-09-01")
 def test_represented_duration():
     assert runez.represented_duration(None) == ""
     assert runez.represented_duration("foo") == "foo"
 
-    assert runez.represented_duration(datetime.date.today()) == "0 seconds"
-    assert runez.represented_duration(REF_TIME1) == "1 day"
-    assert runez.represented_duration(REF_TIME2 - REF_TIME1) == "100 μs"
-    assert runez.represented_duration(REF_TIME1 - REF_TIME2) == "100 μs"
+    with freeze_time("2019-09-01"):
+        epoch = time.time()
+        assert runez.represented_duration(epoch=epoch)  # Depends on timezone
+        assert runez.represented_duration(epoch_s=epoch)  # Depends on timezone
+        assert runez.represented_duration(epoch_ms=epoch)  # Depends on timezone
 
-    assert runez.represented_duration(None) == ""
-    assert runez.represented_duration("foo") == "foo"
+        # utc epoch in seconds variations
+        assert runez.represented_duration(utc=epoch) == "0 seconds"
+        assert runez.represented_duration(epoch_utc=epoch) == "0 seconds"
+        assert runez.represented_duration(utc_s=epoch) == "0 seconds"
+        assert runez.represented_duration(utc_ms=epoch) == "49 years 33 weeks"
+        assert runez.represented_duration(utc=epoch + 2) == "2 seconds"
+
+        # utc epoch in milliseconds variations
+        assert runez.represented_duration(utc=epoch * 1000) == "0 seconds"
+        assert runez.represented_duration(utc_ms=epoch * 1000) == "0 seconds"
+
+        assert runez.represented_duration(datetime.date.today()) == "0 seconds"
+
+        t1 = datetime.datetime(2019, 9, 2, microsecond=100)
+        t2 = datetime.datetime(2019, 9, 2, microsecond=200)
+        assert runez.represented_duration(t1) == "1 day"
+        assert runez.represented_duration(t2 - t1) == "100 μs"
+        assert runez.represented_duration(t1 - t2) == "100 μs"
+
+    # Bad args
+    with pytest.raises(Exception):
+        runez.represented_duration()
+
+    with pytest.raises(Exception):
+        runez.represented_duration(1, utc=1)
+
+    with pytest.raises(Exception):
+        runez.represented_duration(foo=1)
+
+    with pytest.raises(Exception):
+        runez.represented_duration(utc_ms_s=1)
+
+    with pytest.raises(Exception):
+        runez.represented_duration(utc_epoch=1)
+
+    with pytest.raises(ValueError):
+        runez.represented_duration(utc_s=15672960000000)
 
     assert runez.represented_duration(0) == "0 seconds"
     assert runez.represented_duration(1) == "1 second"

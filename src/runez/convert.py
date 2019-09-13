@@ -15,7 +15,6 @@ SYMBOLIC_TMP = "<tmp>"
 RE_FORMAT_MARKERS = re.compile(r"{([^}]*?)}")
 RE_WORDS = re.compile(r"[^\w]+")
 
-
 SANITIZED = 1
 SHELL = 2
 UNIQUE = 4
@@ -23,6 +22,9 @@ UNIQUE = 4
 SECONDS_IN_ONE_MINUTE = 60
 SECONDS_IN_ONE_HOUR = 60 * SECONDS_IN_ONE_MINUTE
 SECONDS_IN_ONE_DAY = 24 * SECONDS_IN_ONE_HOUR
+
+DEFAULT_DURATION_SPAN = 2
+EPOCH_MS_BREAK = 900000000000
 
 
 def flattened(value, split=None):
@@ -126,15 +128,64 @@ def duration_unit(count, name, short_form, immutable=False):
     return "%s%s" % (count, name)
 
 
-def duration_in_seconds(duration):
+def datetime_from_epoch(epoch, flavor=None):
     """
     Args:
-        duration (int | float | datetime.date | datetime.datetime): Object to convert to seconds
+        epoch (int | float): Unix epoch in seconds or milliseconds, utc or local (see `flavor`)
+        flavor (str | None): Default:
+                             '_' separated designation when specified, `utc`, `ms` or `s` accepted
+                             None or "" or "epoch": local auto-determined seconds vs milliseconds
+                             "utc_ms": epoch is considered utc, in milliseconds
+                             "epoch_s": epoch is considered local, explicitly in seconds
 
     Returns:
-        (float | int): Corresponding number of seconds
+        (datetime.datetime): Corresponding datetime object
     """
-    if isinstance(duration, datetime.date):
+    in_utc = None
+    in_ms = None
+    if flavor:
+        parts = flavor.split("_")
+        if parts[0] == "epoch":
+            parts = parts[1:]
+        if parts and parts[0] == "utc":
+            in_utc = True
+            parts = parts[1:]
+        if parts and parts[0] in ("ms", "s"):
+            in_ms = parts[0] == "ms"
+            parts = parts[1:]
+        if parts:
+            raise Exception("Invalid epoch flavor '%s'" % flavor)
+    if in_ms or (in_ms is None and epoch > EPOCH_MS_BREAK):
+        epoch = epoch / 1000
+    if in_utc:
+        return datetime.datetime.utcfromtimestamp(epoch)
+    return datetime.datetime.fromtimestamp(epoch)
+
+
+def duration_in_seconds(duration=UNSET, **kwargs):
+    """
+    Args:
+        duration (int | float | datetime.date | datetime.datetime | UNSET): Object to convert to seconds
+                          (UNSET): look for `epoch`, `utc`, `utc_ms` etc keyword argument, see `datetime_from_epoch`
+                          (int | float): number of seconds representing the duration
+                          (datetime | date): Compute duration between given datetime and now
+                          (timedelta): Take total seconds from time delta
+        kwargs: Optional combination of 'epoch', 'utc', `ms` or `s`, see `datetime_from_epoch`
+
+    Returns:
+        (float | int | None): Corresponding number of seconds
+    """
+    if duration is UNSET:
+        if not kwargs or len(kwargs) != 1:
+            raise Exception("Duration not provided")
+        flavor, value = list(kwargs.items())[0]
+        duration = datetime_from_epoch(value, flavor)
+        kwargs = None
+
+    if kwargs:
+        raise Exception("No keyword arguments expected, but got: %s" % kwargs)
+
+    if isinstance(duration, datetime.date) and not isinstance(duration, datetime.datetime):
         duration = datetime.datetime(duration.year, duration.month, duration.day)
 
     if isinstance(duration, datetime.datetime):
@@ -146,13 +197,10 @@ def duration_in_seconds(duration):
     return duration
 
 
-DEFAULT_DURATION_SPAN = 2
-
-
-def represented_duration(duration, span=UNSET, separator=" "):
+def represented_duration(duration=UNSET, span=UNSET, separator=" ", **kwargs):
     """
     Args:
-        duration: Duration in seconds, or timedelta
+        duration: Duration in seconds, or timedelta (see `duration_in_seconds`)
         span (int | None): If specified, return `span` most significant parts of the duration, specify <= 0 for short form
                            > 0: N most significant long parts, example: 1 hour 5 seconds
                            None: all parts, example: 1 hour 2 minutes 5 seconds 20 ms
@@ -164,12 +212,9 @@ def represented_duration(duration, span=UNSET, separator=" "):
     Returns:
         (str): Human friendly duration representation
     """
-    if duration is None:
-        return ""
-
-    seconds = duration_in_seconds(duration)
+    seconds = duration_in_seconds(duration=duration, **kwargs)
     if not isinstance(seconds, (int, float)):
-        return str(seconds)
+        return "" if seconds is None else str(seconds)
 
     if span is UNSET:
         span = DEFAULT_DURATION_SPAN
