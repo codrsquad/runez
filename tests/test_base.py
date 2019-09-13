@@ -4,40 +4,42 @@ import runez
 
 
 def test_descendants():
-    class A(object):
+    class Cat(object):
         _foo = None
 
-    class B(A):
+    class FastCat(Cat):
         pass
 
-    class C(B):
+    class LittleCatKitty(Cat):
         pass
 
-    d = runez.class_descendants(A)
-    assert len(d) == 2
-    assert d["B"] is B
-    assert d["C"] is C
+    class CatMeow(FastCat):
+        pass
 
-    d = runez.class_descendants(A, include_ancestor=True)
+    # By default, root ancestor is skipped, common prefix/suffix is removed, and name is lowercase-d
+    d = runez.class_descendants(Cat)
     assert len(d) == 3
-    assert d["A"] is A
+    assert d["fast"] is FastCat
+    assert d["littlecatkitty"] is LittleCatKitty
+    assert d["meow"] is CatMeow
 
-    d = runez.class_descendants(A, adjust=lambda x: x.__name__.lower())
-    assert len(d) == 2
-    assert d["b"] is B
-    assert d["c"] is C
+    # Keep names as-is, including root ancestor
+    d = runez.class_descendants(Cat, adjust=lambda x, r: x.__name__)
+    assert len(d) == 4
+    assert d["Cat"] is Cat
+    assert d["FastCat"] is FastCat
+    assert d["LittleCatKitty"] is LittleCatKitty
+    assert d["CatMeow"] is CatMeow
 
-    assert B._foo is None
+    assert FastCat._foo is None
 
-    def adjust(some_type):
-        some_type._foo = some_type.__name__.lower()
+    # The 'adjust' function can also be used to simply modify descendants (but not track them)
+    def adjust(cls, root):
+        cls._foo = cls.__name__.lower()
 
-    d = runez.class_descendants(A, adjust=adjust)
-    assert len(d) == 2
-    assert d["B"] is B
-    assert d["C"] is C
-
-    assert B._foo == "b"
+    d = runez.class_descendants(Cat, adjust=adjust)
+    assert len(d) == 0
+    assert FastCat._foo == "fastcat"
 
 
 def test_decode():

@@ -38,32 +38,40 @@ class Undefined(object):
 UNSET = Undefined()  # type: Undefined
 
 
-def class_name(cls):
-    return cls.__name__
+def simplified_class_name(cls, root):
+    """By default, root ancestor is ignored, common prefix/suffix is removed, and name is lowercase-d"""
+    if cls is not root:
+        name = cls.__name__
+        if name.startswith(root.__name__):
+            name = name[len(root.__name__):]
+        elif name.endswith(root.__name__):
+            name = name[:len(root.__name__) + 1]
+        return name.lower()
 
 
-def _walk_descendants(result, ancestor, adjust):
+def _walk_descendants(result, ancestor, adjust, root):
     for m in ancestor.__subclasses__():
-        name = adjust(m) or m.__name__
-        result[name] = m
-        _walk_descendants(result, m, adjust)
+        name = adjust(m, root)
+        if name is not None:
+            result[name] = m
+        _walk_descendants(result, m, adjust, root)
 
 
-def class_descendants(ancestor, adjust=class_name, include_ancestor=False):
+def class_descendants(ancestor, adjust=simplified_class_name):
     """
     Args:
-        ancestor (type): Class to return descendants of
-        adjust (callable): Function that can adapt each descendant, and/or return a massaged name to represent it
-        include_ancestor (bool): If True, include `ancestor` itself as well
+        ancestor (type): Class to track descendants of
+        adjust (callable): Function that can adapt each descendant, and return an optionally massaged name to represent it
+                           If function returns None for a given descendant, that descendant is ignored in the returned map
 
     Returns:
         (dict): Map of all descendants, by optionally adjusted name
     """
     result = {}
-    if include_ancestor:
-        name = adjust(ancestor) or ancestor.__name__
+    name = adjust(ancestor, ancestor)
+    if name is not None:
         result[name] = ancestor
-    _walk_descendants(result, ancestor, adjust)
+    _walk_descendants(result, ancestor, adjust, ancestor)
     return result
 
 
