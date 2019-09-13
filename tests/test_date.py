@@ -82,10 +82,12 @@ def test_timezone():
     assert runez.timezone_from_text("-00:00") == runez.UTC
 
     epoch = 1568348000
+    dt = runez.datetime_from_epoch(epoch)  # Depends on timezone
+    assert dt.year == 2019
+    assert dt.tzinfo is None
+
     tz = runez.timezone_from_text("-01:00")
-    check_date("2019-09-12 21:13:20", runez.datetime_from_epoch(epoch))
     check_date("2019-09-13 03:13:20 -01:00", runez.datetime_from_epoch(epoch, tz=tz))
 
     tz = runez.timezone_from_text("0200")
-    check_date("2019-09-12 21:13:20", runez.datetime_from_epoch(epoch))
     check_date("2019-09-13 06:13:20 +02:00", runez.datetime_from_epoch(epoch, tz=tz))
