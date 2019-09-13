@@ -3,6 +3,43 @@
 import runez
 
 
+def test_descendants():
+    class A(object):
+        _foo = None
+
+    class B(A):
+        pass
+
+    class C(B):
+        pass
+
+    d = runez.class_descendants(A)
+    assert len(d) == 2
+    assert d["B"] is B
+    assert d["C"] is C
+
+    d = runez.class_descendants(A, include_ancestor=True)
+    assert len(d) == 3
+    assert d["A"] is A
+
+    d = runez.class_descendants(A, adjust=lambda x: x.__name__.lower())
+    assert len(d) == 2
+    assert d["b"] is B
+    assert d["c"] is C
+
+    assert B._foo is None
+
+    def adjust(some_type):
+        some_type._foo = some_type.__name__.lower()
+
+    d = runez.class_descendants(A, adjust=adjust)
+    assert len(d) == 2
+    assert d["B"] is B
+    assert d["C"] is C
+
+    assert B._foo == "b"
+
+
 def test_decode():
     assert runez.decode(None) is None
 

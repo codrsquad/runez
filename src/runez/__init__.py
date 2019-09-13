@@ -18,7 +18,7 @@ DRYRUN mode:
 """
 
 from runez import click, config, heartbeat, program, serialize
-from runez.base import decode, PY2, Slotted, Undefined, UNSET
+from runez.base import class_descendants, decode, PY2, Slotted, Undefined, UNSET
 from runez.config import capped, from_json, to_boolean, to_bytesize, to_dict, to_int, to_number
 from runez.context import CaptureOutput, CurrentFolder, TempFolder, TrackedOutput, verify_abort
 from runez.convert import Anchored, flattened, formatted, quoted, represented_args, resolved_path, short, shortened
@@ -39,7 +39,7 @@ from runez.system import abort, get_platform, get_version, set_dryrun
 __all__ = [
     "DRYRUN",
     "click", "config", "heartbeat", "logsetup", "program", "serialize",
-    "decode", "PY2", "Slotted", "Undefined", "UNSET",
+    "class_descendants", "decode", "PY2", "Slotted", "Undefined", "UNSET",
     "capped", "from_json", "to_boolean", "to_bytesize", "to_dict", "to_int", "to_number",
     "CaptureOutput", "CurrentFolder", "TempFolder", "TrackedOutput", "verify_abort",
     "Anchored", "flattened", "formatted", "quoted", "represented_args", "resolved_path", "short", "shortened",

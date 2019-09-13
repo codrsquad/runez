@@ -38,6 +38,35 @@ class Undefined(object):
 UNSET = Undefined()  # type: Undefined
 
 
+def class_name(cls):
+    return cls.__name__
+
+
+def _walk_descendants(result, ancestor, adjust):
+    for m in ancestor.__subclasses__():
+        name = adjust(m) or m.__name__
+        result[name] = m
+        _walk_descendants(result, m, adjust)
+
+
+def class_descendants(ancestor, adjust=class_name, include_ancestor=False):
+    """
+    Args:
+        ancestor (type): Class to return descendants of
+        adjust (callable): Function that can adapt each descendant, and/or return a massaged name to represent it
+        include_ancestor (bool): If True, include `ancestor` itself as well
+
+    Returns:
+        (dict): Map of all descendants, by optionally adjusted name
+    """
+    result = {}
+    if include_ancestor:
+        name = adjust(ancestor) or ancestor.__name__
+        result[name] = ancestor
+    _walk_descendants(result, ancestor, adjust)
+    return result
+
+
 def decode(value, strip=False):
     """Python 2/3 friendly decoding of output.
 
