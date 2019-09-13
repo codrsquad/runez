@@ -1,5 +1,3 @@
-import time
-
 from mock import patch
 
 import runez
@@ -27,34 +25,6 @@ def test_abort(logged):
         assert runez.abort("oops", logger=None) == "1"
 
 
-def test_platform():
-    assert runez.get_platform()
-
-
-def test_timezone():
-    assert runez.get_timezone() == time.tzname[0]
-    with patch("runez.system.time") as runez_time:
-        runez_time.tzname = []
-        assert runez.get_timezone() == ""
-
-
-def test_version():
-    with runez.CaptureOutput() as logged:
-        expected = runez.get_version(runez)
-        assert expected
-        assert expected != "0.0.0"
-        assert expected == runez.get_version(runez.__name__)
-        assert expected == runez.get_version("runez")
-        assert expected == runez.get_version("runez.base")
-        assert not logged
-
-    with runez.CaptureOutput() as logged:
-        assert runez.get_version(None) == "0.0.0"
-        assert "Can't determine version" in logged.pop()
-        assert runez.get_version([]) == "0.0.0"
-        assert "Can't determine version" in logged.pop()
-
-
 def test_failed_version(logged):
     with patch("pkg_resources.get_distribution", side_effect=Exception("testing")):
         assert runez.get_version(runez) == "0.0.0"
@@ -73,3 +43,24 @@ def test_formatted_string():
     assert runez.system.formatted_string(None, "bar") is None
 
     assert runez.system.formatted_string("test", None) == "test"
+
+
+def test_platform():
+    assert runez.get_platform()
+
+
+def test_version():
+    with runez.CaptureOutput() as logged:
+        expected = runez.get_version(runez)
+        assert expected
+        assert expected != "0.0.0"
+        assert expected == runez.get_version(runez.__name__)
+        assert expected == runez.get_version("runez")
+        assert expected == runez.get_version("runez.base")
+        assert not logged
+
+    with runez.CaptureOutput() as logged:
+        assert runez.get_version(None) == "0.0.0"
+        assert "Can't determine version" in logged.pop()
+        assert runez.get_version([]) == "0.0.0"
+        assert "Can't determine version" in logged.pop()

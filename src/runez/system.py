@@ -1,6 +1,5 @@
 import logging
 import sys
-import time
 
 
 LOG = logging.getLogger(__name__)
@@ -84,18 +83,6 @@ def get_platform():
     return sys.platform
 
 
-def get_timezone():
-    """
-    Returns:
-        (str): Name of current timezone
-    """
-    try:
-        return time.tzname[0]
-
-    except (IndexError, TypeError):
-        return ""
-
-
 def get_version(mod, default="0.0.0", logger=LOG.warning):
     """
     Args:
@@ -113,8 +100,8 @@ def get_version(mod, default="0.0.0", logger=LOG.warning):
     try:
         import pkg_resources
 
-        mname = name.partition(".")[0]
-        return pkg_resources.get_distribution(mname).version
+        module_name = name.partition(".")[0]
+        return pkg_resources.get_distribution(module_name).version
 
     except Exception as e:
         if logger:

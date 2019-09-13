@@ -7,16 +7,17 @@ import shutil
 import sys
 import tempfile
 
-try:
-    import StringIO
-
-    StringIO = StringIO.StringIO
-
-except ImportError:
-    from io import StringIO
-
 import runez.convert
 import runez.system
+from runez.base import PY2
+
+
+if PY2:
+    import StringIO
+    StringIO = StringIO.StringIO
+
+else:
+    from io import StringIO
 
 
 _CAPTURE_STACK = []

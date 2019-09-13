@@ -17,12 +17,13 @@ try:
 except ImportError:
     faulthandler = None
 
-import runez.system
 from runez.base import Slotted, ThreadGlobalContext, UNSET
 from runez.config import to_bytesize, to_int
 from runez.convert import flattened, formatted, represented_args, SANITIZED, UNIQUE
+from runez.date import get_local_timezone
 from runez.path import basename as get_basename, ensure_folder
 from runez.program import get_dev_folder, get_program_path
+from runez.system import set_dryrun
 
 
 LOG = logging.getLogger(__name__)
@@ -186,7 +187,7 @@ class LogManager(object):
         locations=["{dev}/log/{basename}", "/logs/{appname}/{basename}", "/var/log/{basename}"],
         rotate=None,
         rotate_count=10,
-        timezone=runez.system.get_timezone(),
+        timezone=get_local_timezone(),
         tmp=None,
     )
 
@@ -263,7 +264,7 @@ class LogManager(object):
                     # Automatically turn debug on (if not explicitly specified) with dryrun,
                     # as many of the "Would ..." messages are at debug level
                     debug = True
-                runez.system.set_dryrun(dryrun)
+                set_dryrun(dryrun)
 
             if debug is not UNSET:
                 cls.debug = debug

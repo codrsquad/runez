@@ -1,15 +1,11 @@
-#  -*- encoding: utf-8 -*-
-
 """
 This is module should not import any other runez module, it's the lowest on the import chain
 """
 
-import datetime
 import os
 import re
 
 from runez.base import UNSET
-
 
 SYMBOLIC_TMP = "<tmp>"
 RE_FORMAT_MARKERS = re.compile(r"{([^}]*?)}")
@@ -18,13 +14,6 @@ RE_WORDS = re.compile(r"[^\w]+")
 SANITIZED = 1
 SHELL = 2
 UNIQUE = 4
-
-SECONDS_IN_ONE_MINUTE = 60
-SECONDS_IN_ONE_HOUR = 60 * SECONDS_IN_ONE_MINUTE
-SECONDS_IN_ONE_DAY = 24 * SECONDS_IN_ONE_HOUR
-
-DEFAULT_DURATION_SPAN = 2
-EPOCH_MS_BREAK = 900000000000
 
 
 def flattened(value, split=None):
@@ -116,161 +105,6 @@ def represented_args(args, separator=" "):
     if args:
         for text in args:
             result.append(quoted(short(text)))
-    return separator.join(result)
-
-
-def duration_unit(count, name, short_form, immutable=False):
-    if short_form:
-        if not immutable:
-            name = name[0]
-    else:
-        name = " %s%s" % (name, "" if immutable or count == 1 else "s")
-    return "%s%s" % (count, name)
-
-
-def datetime_from_epoch(epoch, flavor=None):
-    """
-    Args:
-        epoch (int | float): Unix epoch in seconds or milliseconds, utc or local (see `flavor`)
-        flavor (str | None): Default:
-                             '_' separated designation when specified, `utc`, `ms` or `s` accepted
-                             None or "" or "epoch": local auto-determined seconds vs milliseconds
-                             "utc_ms": epoch is considered utc, in milliseconds
-                             "epoch_s": epoch is considered local, explicitly in seconds
-
-    Returns:
-        (datetime.datetime): Corresponding datetime object
-    """
-    in_utc = None
-    in_ms = None
-    if flavor:
-        parts = flavor.split("_")
-        if parts[0] == "epoch":
-            parts = parts[1:]
-        if parts and parts[0] == "utc":
-            in_utc = True
-            parts = parts[1:]
-        if parts and parts[0] in ("ms", "s"):
-            in_ms = parts[0] == "ms"
-            parts = parts[1:]
-        if parts:
-            raise Exception("Invalid epoch flavor '%s'" % flavor)
-    if in_ms or (in_ms is None and epoch > EPOCH_MS_BREAK):
-        epoch = epoch / 1000
-    if in_utc:
-        return datetime.datetime.utcfromtimestamp(epoch)
-    return datetime.datetime.fromtimestamp(epoch)
-
-
-def duration_in_seconds(duration=UNSET, **kwargs):
-    """
-    Args:
-        duration (int | float | datetime.date | datetime.datetime | UNSET): Object to convert to seconds
-                          (UNSET): look for `epoch`, `utc`, `utc_ms` etc keyword argument, see `datetime_from_epoch`
-                          (int | float): number of seconds representing the duration
-                          (datetime | date): Compute duration between given datetime and now
-                          (timedelta): Take total seconds from time delta
-        kwargs: Optional combination of 'epoch', 'utc', `ms` or `s`, see `datetime_from_epoch`
-
-    Returns:
-        (float | int | None): Corresponding number of seconds
-    """
-    if duration is UNSET:
-        if not kwargs or len(kwargs) != 1:
-            raise Exception("Duration not provided")
-        flavor, value = list(kwargs.items())[0]
-        duration = datetime_from_epoch(value, flavor)
-        kwargs = None
-
-    if kwargs:
-        raise Exception("No keyword arguments expected, but got: %s" % kwargs)
-
-    if isinstance(duration, datetime.date) and not isinstance(duration, datetime.datetime):
-        duration = datetime.datetime(duration.year, duration.month, duration.day)
-
-    if isinstance(duration, datetime.datetime):
-        duration = datetime.datetime.now() - duration
-
-    if isinstance(duration, datetime.timedelta):
-        return duration.total_seconds()
-
-    return duration
-
-
-def represented_duration(duration=UNSET, span=UNSET, separator=" ", **kwargs):
-    """
-    Args:
-        duration: Duration in seconds, or timedelta (see `duration_in_seconds`)
-        span (int | None): If specified, return `span` most significant parts of the duration, specify <= 0 for short form
-                           > 0: N most significant long parts, example: 1 hour 5 seconds
-                           None: all parts, example: 1 hour 2 minutes 5 seconds 20 ms
-                           0: all parts, short form, example: 1h 2m 5s 20ms
-                           < 0: N most significant parts, short form, example: 1h 5s
-                           UNSET: use `DEFAULT_DURATION_SPAN` (which can set globally per app, for convenience)
-        separator (str): Separator to use between parts
-
-    Returns:
-        (str): Human friendly duration representation
-    """
-    seconds = duration_in_seconds(duration=duration, **kwargs)
-    if not isinstance(seconds, (int, float)):
-        return "" if seconds is None else str(seconds)
-
-    if span is UNSET:
-        span = DEFAULT_DURATION_SPAN
-    short_form = span is not None and span <= 0
-    if span is not None:
-        span = abs(span)
-
-    seconds = abs(seconds)
-    microseconds = 0 if span and seconds > 10 else int(round((seconds - int(seconds)) * 1000000))
-    seconds = int(seconds)
-
-    result = []
-    # First, separate seconds and days
-    days = seconds // SECONDS_IN_ONE_DAY
-    seconds -= days * SECONDS_IN_ONE_DAY
-
-    # Break down days into years, weeks and days
-    years = days // 365
-    days -= years * 365
-    weeks = days // 7
-    days -= weeks * 7
-
-    # Break down seconds into hours, minutes and seconds
-    hours = seconds // SECONDS_IN_ONE_HOUR
-    seconds -= hours * SECONDS_IN_ONE_HOUR
-    minutes = seconds // SECONDS_IN_ONE_MINUTE
-    seconds -= minutes * SECONDS_IN_ONE_MINUTE
-
-    if years:
-        result.append(duration_unit(years, "year", short_form))
-    if weeks:
-        result.append(duration_unit(weeks, "week", short_form))
-    if days:
-        result.append(duration_unit(days, "day", short_form))
-
-    if hours:
-        result.append(duration_unit(hours, "hour", short_form))
-    if minutes:
-        result.append(duration_unit(minutes, "minute", short_form))
-    if seconds:
-        result.append(duration_unit(seconds, "second", short_form))
-
-    if microseconds:
-        milliseconds = microseconds // 1000
-        microseconds = microseconds % 1000
-        if milliseconds:
-            result.append(duration_unit(milliseconds, "ms", short_form, immutable=True))
-        if microseconds:
-            result.append(duration_unit(microseconds, "μs", short_form, immutable=True))
-
-    if not result:
-        result.append(duration_unit(seconds, "second", short_form))
-
-    if span:
-        result = result[:span]
-
     return separator.join(result)
 
 

@@ -18,13 +18,14 @@ DRYRUN mode:
 """
 
 from runez import click, config, heartbeat, program, serialize
-from runez.base import decode, Slotted, Undefined, UNSET
+from runez.base import decode, PY2, Slotted, Undefined, UNSET
 from runez.config import capped, from_json, to_boolean, to_bytesize, to_dict, to_int, to_number
 from runez.context import CaptureOutput, CurrentFolder, TempFolder, TrackedOutput, verify_abort
 from runez.convert import Anchored, flattened, formatted, quoted, represented_args, resolved_path, short, shortened
-from runez.convert import datetime_from_epoch, duration_in_seconds, represented_duration
 from runez.convert import affixed, camel_cased, entitled, get_words, snakified, wordified  # noqa, import order not useful here
 from runez.convert import SANITIZED, SHELL, UNIQUE
+from runez.date import datetime_from_epoch, elapsed, get_local_timezone, represented_duration, timezone, timezone_from_text
+from runez.date import SECONDS_IN_ONE_DAY, SECONDS_IN_ONE_HOUR, SECONDS_IN_ONE_MINUTE, UTC
 from runez.file import copy, delete, first_line, get_conf, get_lines, move, symlink, touch, write
 from runez.heartbeat import Heartbeat
 from runez.logsetup import LogManager as log, LogSpec
@@ -33,18 +34,19 @@ from runez.program import check_pid, get_dev_folder, get_program_path, is_execut
 from runez.program import require_installed, run, which
 from runez.represent import header
 from runez.serialize import json_sanitized, read_json, save_json, Serializable
-from runez.system import abort, get_platform, get_timezone, get_version, set_dryrun
+from runez.system import abort, get_platform, get_version, set_dryrun
 
 __all__ = [
     "DRYRUN",
     "click", "config", "heartbeat", "logsetup", "program", "serialize",
-    "decode", "Slotted", "Undefined", "UNSET",
+    "decode", "PY2", "Slotted", "Undefined", "UNSET",
     "capped", "from_json", "to_boolean", "to_bytesize", "to_dict", "to_int", "to_number",
     "CaptureOutput", "CurrentFolder", "TempFolder", "TrackedOutput", "verify_abort",
     "Anchored", "flattened", "formatted", "quoted", "represented_args", "resolved_path", "short", "shortened",
-    "datetime_from_epoch", "duration_in_seconds", "represented_duration",
     "affixed", "camel_cased", "entitled", "get_words", "snakified", "wordified",
     "SANITIZED", "SHELL", "UNIQUE",
+    "datetime_from_epoch", "elapsed", "get_local_timezone", "represented_duration", "timezone", "timezone_from_text",
+    "SECONDS_IN_ONE_DAY", "SECONDS_IN_ONE_HOUR", "SECONDS_IN_ONE_MINUTE", "UTC",
     "copy", "delete", "first_line", "get_conf", "get_lines", "move", "symlink", "touch", "write",
     "Heartbeat",
     "log", "LogSpec",
@@ -53,7 +55,7 @@ __all__ = [
     "require_installed", "run", "which",
     "header",
     "json_sanitized", "read_json", "save_json", "Serializable",
-    "abort", "get_platform", "get_timezone", "get_version", "set_dryrun",
+    "abort", "get_platform", "get_version", "set_dryrun",
 ]
 
 DRYRUN = False

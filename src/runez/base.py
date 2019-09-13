@@ -9,10 +9,12 @@ import threading
 
 try:
     string_type = basestring  # noqa
+    PY2 = True
 
 except NameError:
     string_type = str
     unicode = str
+    PY2 = False
 
 
 class Undefined(object):
