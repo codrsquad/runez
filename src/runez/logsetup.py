@@ -23,7 +23,7 @@ from runez.convert import flattened, formatted, represented_args, SANITIZED, UNI
 from runez.date import get_local_timezone
 from runez.path import basename as get_basename, ensure_folder
 from runez.program import get_dev_folder, get_program_path
-from runez.system import set_dryrun
+from runez.system import is_dryrun, set_dryrun
 
 
 LOG = logging.getLogger(__name__)
@@ -212,6 +212,40 @@ class LogManager(object):
     _shortcuts_fixed = False
 
     @classmethod
+    def set_debug(cls, debug):
+        """Useful only as simple callback function, use rune.log.setup() for regular usage"""
+        if debug is None and is_dryrun():
+            debug = True
+        cls.set_debug_dryrun(debug=debug)
+
+    @classmethod
+    def set_dryrun(cls, dryrun):
+        """Useful only as simple callback function, use rune.log.setup() for regular usage"""
+        cls.set_debug_dryrun(dryrun=dryrun)
+
+    @classmethod
+    def set_file_location(cls, file_location):
+        """Useful only as simple callback function, use rune.log.setup() for regular usage"""
+        LogManager.override_spec(file_location=file_location)
+
+    @classmethod
+    def set_debug_dryrun(cls, debug=UNSET, dryrun=UNSET):
+        """
+        Args:
+            debug (bool): Enable debug level logging (overrides other specified levels)
+            dryrun (bool): Enable dryrun
+        """
+        if dryrun is not UNSET:
+            if dryrun and (debug is None or debug is UNSET):
+                # Automatically turn debug on (if not explicitly specified) with dryrun,
+                # as many of the "Would ..." messages are at debug level
+                debug = True
+            set_dryrun(dryrun)
+
+        if debug is not UNSET:
+            cls.debug = debug
+
+    @classmethod
     def setup(
             cls,
             debug=UNSET,
@@ -259,16 +293,7 @@ class LogManager(object):
             tmp (str | unicode | None): Optional temp folder to use (auto determined)
         """
         with cls._lock:
-            if dryrun is not UNSET:
-                if dryrun and (debug is None or debug is UNSET):
-                    # Automatically turn debug on (if not explicitly specified) with dryrun,
-                    # as many of the "Would ..." messages are at debug level
-                    debug = True
-                set_dryrun(dryrun)
-
-            if debug is not UNSET:
-                cls.debug = debug
-
+            cls.set_debug_dryrun(debug=debug, dryrun=dryrun)
             cls.spec.set(
                 appname=appname,
                 basename=basename,
@@ -544,31 +569,32 @@ class LogManager(object):
             return
         cls._shortcuts_fixed = True
 
-        def log(level, msg, *args, **kwargs):
-            """Wrapper to make logging.info() etc report the right module %(name)"""
-            name = sys._getframe(1).f_globals.get("__name__")
-            logger = logging.getLogger(name)
-            try:
-                logging.currentframe = lambda: sys._getframe(4)
-                logger.log(level, msg, *args, **kwargs)
-            finally:
-                logging.currentframe = ORIGINAL_CF
+        if hasattr(sys, "_getframe"):
+            def log(level, msg, *args, **kwargs):
+                """Wrapper to make logging.info() etc report the right module %(name)"""
+                name = sys._getframe(1).f_globals.get("__name__")
+                logger = logging.getLogger(name)
+                try:
+                    logging.currentframe = lambda: sys._getframe(4)
+                    logger.log(level, msg, *args, **kwargs)
+                finally:
+                    logging.currentframe = ORIGINAL_CF
 
-        def wrap(level, **kwargs):
-            """Wrap corresponding logging shortcut function"""
-            original = getattr(logging, logging.getLevelName(level).lower())
-            f = partial(log, level, **kwargs)
-            f.__doc__ = original.__doc__
-            return f
+            def wrap(level, **kwargs):
+                """Wrap corresponding logging shortcut function"""
+                original = getattr(logging, logging.getLevelName(level).lower())
+                f = partial(log, level, **kwargs)
+                f.__doc__ = original.__doc__
+                return f
 
-        logging.critical = wrap(logging.CRITICAL)
-        logging.fatal = logging.critical
-        logging.error = wrap(logging.ERROR)
-        logging.exception = partial(logging.error, exc_info=True)
-        logging.warning = wrap(logging.WARNING)
-        logging.info = wrap(logging.INFO)
-        logging.debug = wrap(logging.DEBUG)
-        logging.log = log
+            logging.critical = wrap(logging.CRITICAL)
+            logging.fatal = logging.critical
+            logging.error = wrap(logging.ERROR)
+            logging.exception = partial(logging.error, exc_info=True)
+            logging.warning = wrap(logging.WARNING)
+            logging.info = wrap(logging.INFO)
+            logging.debug = wrap(logging.DEBUG)
+            logging.log = log
 
 
 def _replace_and_pad(fmt, marker, replacement):

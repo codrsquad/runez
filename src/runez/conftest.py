@@ -18,11 +18,11 @@ import pytest
 
 import runez
 
-try:  # pragma: no cover, click used only if installed
+try:
     from click import BaseCommand as _ClickCommand
     from click.testing import CliRunner as _CliRunner
 
-except ImportError:
+except ImportError:  # pragma: no cover, click used only if installed
     _ClickCommand = None
     _CliRunner = None
 
@@ -102,12 +102,8 @@ def cli():
             # or more specifically
             assert "Usage:" in cli.logged.stdout
     """
-    if cli.context is None:
-        yield ClickRunner()  # pragma: no cover
-
-    else:
-        with cli.context() as context:
-            yield ClickRunner(context=context)
+    with cli.context() as context:
+        yield ClickRunner(context=context)
 
 
 # This just allows to get auto-complete to work in PyCharm
@@ -116,7 +112,7 @@ cli = cli  # type: ClickRunner
 # Comes in handy for click apps with only one main entry point
 cli.default_main = None
 
-# If specified, wrap cli run in given context
+# Can be customized by users, wraps cli (fixture) runs in given context
 cli.context = runez.TempFolder
 
 
@@ -231,7 +227,7 @@ class ClickWrapper(object):
         Returns:
             (ClickWrapper| click.testing.CliRunner): CliRunner if available
         """
-        if _ClickCommand is not None and isinstance(main, _ClickCommand):  # pragma: no cover, click used only if installed
+        if _ClickCommand is not None and isinstance(main, _ClickCommand):
             return _CliRunner()
 
         return cls()
@@ -271,6 +267,8 @@ class ClickRunner(object):
         with IsolatedLogSetup(adjust_tmp=False):
             with runez.CaptureOutput(dryrun=runez.DRYRUN) as logged:
                 self.logged = logged
+                if self.main is None:
+                    self.main = self.default_main
                 assert bool(self.main), "No main provided"
                 runner = ClickWrapper.get_runner(self.main)
                 result = runner.invoke(self.main, args=self.args)

@@ -78,6 +78,11 @@ class Configuration:
         for provider in providers:
             self.add(provider)
 
+    def provider_by_name(self, name):
+        for provider in self.providers:
+            if provider.name == name:
+                return provider
+
     def provider_id_slot(self, other):
         """
         Args:
@@ -112,7 +117,7 @@ class Configuration:
             name (str | unicode): Name of cli flag
             front (bool): If True, add provider to front of list
         """
-        if config:
+        if config is not None:
             provider = DictProvider(to_dict(config, prefix=prefix), name=name)
             self.add(provider, front=front)
 

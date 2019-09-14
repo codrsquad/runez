@@ -3,8 +3,11 @@ import os
 
 import pytest
 
-import runez
 from runez.conftest import cli, isolated_log_setup, IsolatedLogSetup, logged, temp_folder
+from runez.context import CaptureOutput
+from runez.convert import short
+from runez.file import get_lines
+from runez.logsetup import LogManager
 
 
 LOG = logging.getLogger(__name__)
@@ -26,19 +29,19 @@ class TempLog(object):
 
     @property
     def logfile(self):
-        if runez.log.file_handler:
-            return runez.short(runez.log.file_handler.baseFilename)
+        if LogManager.file_handler:
+            return short(LogManager.file_handler.baseFilename)
 
     def expect_logged(self, *expected):
         assert self.logfile, "Logging to a file was not setup"
         remaining = set(expected)
-        with open(runez.log.file_handler.baseFilename, "rt") as fh:
+        with open(LogManager.file_handler.baseFilename, "rt") as fh:
             for line in fh:
                 found = [msg for msg in remaining if msg in line]
                 remaining.difference_update(found)
         if remaining:
             LOG.info("File contents:")
-            LOG.info("\n".join(runez.get_lines(runez.log.file_handler.baseFilename)))
+            LOG.info("\n".join(get_lines(LogManager.file_handler.baseFilename)))
         assert not remaining
 
     def clear(self):
@@ -60,5 +63,5 @@ class TempLog(object):
 @pytest.fixture
 def temp_log():
     with IsolatedLogSetup():
-        with runez.CaptureOutput() as tracked:
+        with CaptureOutput() as tracked:
             yield TempLog(os.getcwd(), tracked)

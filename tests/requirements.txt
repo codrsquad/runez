@@ -1,3 +1,4 @@
+click
 freezegun
 mock
 pytest-cov

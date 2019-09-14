@@ -16,17 +16,20 @@ import sys
 try:
     import click
 
-except ImportError:
+except ImportError:  # pragma: no cover, click used only if installed
     click = None
 
+from runez.colors import activate_colors
+from runez.config import use_cli
 from runez.convert import flattened
+from runez.logsetup import LogManager
 from runez.system import get_version
 
 
 def command(epilog=None, help=None, width=140, **attrs):
     """Same as `@click.command()`, but with common settings (ie: "-h" for help, epilog, slightly larger help display)"""
     if epilog is None:
-        epilog = _get_caller_doc()
+        epilog = find_caller_frame(frame_doc)
     attrs = settings(epilog=epilog, help=help, width=width, **attrs)
     return click.command(**attrs)
 
@@ -34,15 +37,25 @@ def command(epilog=None, help=None, width=140, **attrs):
 def group(epilog=None, help=None, width=140, **attrs):
     """Same as `@click.group()`, but with common settings (ie: "-h" for help, epilog, slightly larger help display)"""
     if epilog is None:
-        epilog = _get_caller_doc()
+        epilog = find_caller_frame(frame_doc)
     attrs = settings(epilog=epilog, help=help, width=width, **attrs)
     return click.group(**attrs)
+
+
+def color(*args, **attrs):
+    """Use colors (on by default on ttys)"""
+    attrs.setdefault("is_flag", "negatable")
+    attrs.setdefault("default", None)
+    attrs.setdefault("expose_value", False)
+    auto_complete_callback(attrs, activate_colors)
+    return option(color, *args, **attrs)
 
 
 def config(*args, **attrs):
     """Override configuration"""
     attrs.setdefault("metavar", "KEY=VALUE")
     attrs.setdefault("multiple", True)
+    auto_complete_callback(attrs, use_cli)
     return option(config, *args, **attrs)
 
 
@@ -50,6 +63,7 @@ def debug(*args, **attrs):
     """Show debugging information."""
     attrs.setdefault("is_flag", True)
     attrs.setdefault("default", None)
+    auto_complete_callback(attrs, LogManager.set_debug)
     return option(debug, *args, **attrs)
 
 
@@ -57,6 +71,7 @@ def dryrun(*args, **attrs):
     """Perform a dryrun."""
     attrs.setdefault("is_flag", True)
     attrs.setdefault("default", None)
+    auto_complete_callback(attrs, LogManager.set_dryrun)
     return option(dryrun, *args, **attrs)
 
 
@@ -64,16 +79,18 @@ def log(*args, **attrs):
     """Override log file location."""
     attrs.setdefault("metavar", "PATH")
     attrs.setdefault("show_default", False)
+    auto_complete_callback(attrs, LogManager.set_file_location)
     return option(log, *args, **attrs)
 
 
 def version(*args, **attrs):
     """Show the version and exit."""
     if "version" not in attrs:
-        if hasattr(sys, "_getframe"):
-            package = attrs.pop("package", sys._getframe(1).f_globals.get("__package__"))
-            if package:
-                attrs.setdefault("version", get_version(package))
+        package = attrs.pop("package", None)
+        if not package:
+            package = find_caller_frame(frame_package)
+        if package:
+            attrs.setdefault("version", get_version(package))
     return click.version_option(*args, **attrs)
 
 
@@ -89,7 +106,7 @@ def settings(epilog=None, help=None, width=140, **attrs):
         dict: Dict passable to @click.command() or @click.group()
     """
     if epilog is None:
-        epilog = _get_caller_doc()
+        epilog = find_caller_frame(frame_doc)
 
     if help is None:
         help = ["-h", "--help"]
@@ -111,11 +128,12 @@ def option(func, *args, **attrs):
     Returns:
         function: Click decorator
     """
-    if click is None:
-        return func
-
     def decorator(f):
         name = attrs.pop("name", func.__name__.replace("_", "-"))
+        negatable = None
+        if attrs.get("is_flag") == "negatable":
+            attrs["is_flag"] = True
+            negatable = True
         attrs.setdefault("help", func.__doc__)
         attrs.setdefault("required", False)
         if not attrs.get("is_flag"):
@@ -123,16 +141,70 @@ def option(func, *args, **attrs):
             attrs.setdefault("metavar", name.replace("-", "_").upper())
             attrs.setdefault("type", str)
         if not name.startswith("-"):
-            name = "--%s" % name
+            if negatable:
+                name = "--%s/--no-%s" % (name, name)
+            else:
+                name = "--%s" % name
         return click.option(name, *args, **attrs)(f)
 
     return decorator
 
 
-def _get_caller_doc(caller_depth=2):
+def auto_complete_callback(attrs, func):
+    if attrs.get("expose_value") is False and attrs.get("callback") is None:
+        def _callback(ctx, param, value):
+            func(value)
+            return value
+        attrs.setdefault("callback", _callback)
+
+
+def frame_doc(depth, f):
+    """
+    Args:
+        depth (int): Depth at which `f` is into callstack
+        f (frame): Frame to inspect
+
+    Returns:
+        (str | None): Docstring, if any
+    """
+    g = f.f_globals
+    if g.get("__package__") != "runez":
+        doc = g.get("__doc__")
+        if doc:
+            return doc.strip()
+
+
+def frame_package(depth, f):
+    """
+    Args:
+        depth (int): Depth at which `f` is into callstack
+        f (frame): Frame to inspect
+
+    Returns:
+        (str | None): Package name, if any
+    """
+    package = f.f_globals.get("__package__")
+    if package and not package.startswith("_"):
+        return package
+
+
+def find_caller_frame(validator, depth=2, maximum=20):
+    """
+    Args:
+        validator (callable): Function that will decide whether a frame is suitable, and return value of interest from it
+        depth (int): Depth from top of stack where to start
+        maximum (int): Maximum depth to scan
+
+    Returns:
+        (frame): First frame found
+    """
     if hasattr(sys, "_getframe"):
-        caller = sys._getframe(caller_depth).f_globals
-        if caller.get("__package__") != "runez":
-            doc = caller.get("__doc__")
-            if doc:
-                return doc.strip()
+        while depth <= maximum:
+            try:
+                f = sys._getframe(depth)
+                value = validator(depth, f)
+                if value is not None:
+                    return value
+                depth = depth + 1
+            except ValueError:
+                return None

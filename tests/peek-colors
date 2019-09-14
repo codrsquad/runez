@@ -1,0 +1,57 @@
+#!/usr/bin/env python
+
+"""
+Take a peek at how colors look
+"""
+
+import os
+import subprocess
+import sys
+
+
+SCRIPT_PATH = os.path.abspath(__file__)
+TESTS_FOLDER = os.path.dirname(SCRIPT_PATH)
+PROJECT_FOLDER = os.path.dirname(TESTS_FOLDER)
+
+
+def try_venv(*paths):
+    """Conveniently rerun this script from a venv, if possible (otherwise complain)"""
+    for path in paths:
+        folder = os.path.join(PROJECT_FOLDER, path)
+        pyexe = os.path.join(folder, "bin", "python")
+        if os.path.isfile(pyexe):
+            args = [pyexe, SCRIPT_PATH] + sys.argv[1:]
+            r = subprocess.run(args)
+            sys.exit(r.returncode)
+    sys.exit("Please build a venv first in one of: %s" % ", ".join(paths))
+
+
+if not sys.exec_prefix.startswith(PROJECT_FOLDER):
+    try_venv(".venv", ".tox/py37", ".tox/py36", ".tox/py27")
+
+
+from runez import blue, red, yellow, dim, bold
+
+
+def sized(text):
+    return "%-14s" % text
+
+
+def show_colored(color):
+    if color is None:
+        color_name = ""
+        line = [sized("regular")]
+    else:
+        color_name = color.name
+        line = [color(sized(color_name))]
+    for mode in (dim, bold):
+        text = sized("%s %s" % (mode.name, color_name))
+        if color is None:
+            line.append(mode(text))
+        else:
+            line.append(mode(color(text)))
+    print("".join(line))
+
+
+for color in (None, blue, red, yellow):
+    show_colored(color)
