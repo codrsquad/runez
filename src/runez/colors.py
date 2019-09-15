@@ -10,6 +10,8 @@ Example usage:
 import os
 import sys
 
+from runez.base import stringified
+
 
 def activate_colors(enable):
     """
@@ -46,7 +48,7 @@ class Color(object):
         self.tty_fmt = "".join("\033[%dm" % c for c in tty_codes) + "%s\033[0m"  # codes + %s + reset
 
     def __call__(self, text, backend=None):
-        text = str(text)
+        text = stringified(text)
         if not text:
             return text
         if backend is None:
@@ -67,7 +69,7 @@ class PlainBackend(object):
         Returns:
             (str): Optionally colored text
         """
-        return text
+        return stringified(text)
 
 
 class TtyBackend(PlainBackend):

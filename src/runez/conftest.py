@@ -58,6 +58,10 @@ class IsolatedLogSetup(object):
         self.old_handlers = logging.root.handlers
         logging.root.handlers = []
 
+        # Isolate default color detection as well
+        self.old_tty = runez.colors.is_tty
+        runez.colors.is_tty = sys.stdout.isatty
+
         if self.adjust_tmp:
             # Adjust log.spec.tmp, and leave logging.root without any predefined handlers
             # intent: underlying wants to perform their own log.setup()
@@ -76,6 +80,7 @@ class IsolatedLogSetup(object):
         WrappedHandler.isolation -= 1
         runez.log.reset()
         logging.root.handlers = self.old_handlers
+        runez.colors.is_tty = self.old_tty
 
         if self.temp_folder:
             runez.log.spec.tmp = self.old_spec
@@ -192,7 +197,7 @@ class ClickWrapper(object):
                 return ClickWrapper(output=output, exit_code=0)
 
             except TypeError as e:
-                msg = str(e)
+                msg = runez.stringified(e)
                 if msg and msg.startswith(main.__name__) and "takes" in msg and "arguments" in msg:
                     # py2: TypeError: hard_exit_no_args() takes no arguments (1 given)
                     # py3: TypeError: hard_exit_no_args() takes 0 positional arguments but 1 was given
@@ -214,12 +219,12 @@ class ClickWrapper(object):
 
             else:
                 exit_code = 1
-                output = str(e)
+                output = runez.stringified(e)
 
             return ClickWrapper(output=output, exit_code=exit_code)
 
         except BaseException as e:
-            return ClickWrapper(str(e), exit_code=1, exception=e)
+            return ClickWrapper(runez.stringified(e), exit_code=1, exception=e)
 
     @classmethod
     def get_runner(cls, main):

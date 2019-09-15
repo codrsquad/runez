@@ -35,7 +35,7 @@ def json_sanitized(value, stringify=decode, dt=str):
     if isinstance(value, (tuple, list)):
         return [json_sanitized(v, stringify=stringify, dt=dt) for v in value]
     if isinstance(value, dict):
-        return dict((str(k), json_sanitized(v, stringify=stringify, dt=dt)) for k, v in value.items())
+        return dict((stringify(k), json_sanitized(v, stringify=stringify, dt=dt)) for k, v in value.items())
     if isinstance(value, datetime.date):
         if dt is None:
             return value

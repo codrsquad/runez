@@ -17,6 +17,21 @@ except NameError:
     PY2 = False
 
 
+def stringified(text):
+    """
+    Args:
+        text: Any object to turn into a string
+
+    Returns:
+        (str): Ensure `text` is a string if necessary (this is to avoid transforming string types in py2 as much as possible)
+    """
+    if isinstance(text, string_type):
+        return text
+
+    # Stringify using `unicode()`, which should be the general best outcome in py2 (doesn't matter in py3)
+    return unicode(text)
+
+
 class Undefined(object):
     """Provides base type for `UNSET` below (representing an undefined value)
 
@@ -90,8 +105,8 @@ def decode(value, strip=False):
     if isinstance(value, bytes) and not isinstance(value, unicode):
         value = value.decode("utf-8")
     if strip:
-        return unicode(value).strip()
-    return unicode(value)
+        return stringified(value).strip()
+    return stringified(value)
 
 
 class Slotted(object):

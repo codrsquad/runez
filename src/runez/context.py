@@ -9,7 +9,7 @@ import tempfile
 
 import runez.convert
 import runez.system
-from runez.base import PY2
+from runez.base import PY2, stringified
 
 
 if PY2:
@@ -30,7 +30,7 @@ class CapturedStream(object):
         self.name = name
         self.target = target
         self.buffer = StringIO()
-        self.capture_write = "_pytest" in str(self.target.__class__)
+        self.capture_write = "_pytest" in stringified(self.target.__class__)
         if self.capture_write and self.target.write.__name__ == self.captured_write.__name__:
             self.capture_write = False
 
@@ -268,4 +268,4 @@ def verify_abort(func, *args, **kwargs):
             assert False, "%s did not raise, but returned %s" % (func, value)
 
         except expected_exception:
-            return str(logged)
+            return stringified(logged)

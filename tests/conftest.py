@@ -3,6 +3,7 @@ import os
 
 import pytest
 
+from runez.base import stringified
 from runez.conftest import cli, isolated_log_setup, IsolatedLogSetup, logged, temp_folder
 from runez.context import CaptureOutput
 from runez.convert import short
@@ -48,7 +49,7 @@ class TempLog(object):
         self.tracked.clear()
 
     def __repr__(self):
-        return str(self.tracked)
+        return stringified(self.tracked)
 
     def __str__(self):
         return self.folder

@@ -5,7 +5,7 @@ This is module should not import any other runez module, it's the lowest on the 
 import os
 import re
 
-from runez.base import UNSET
+from runez.base import stringified, UNSET
 
 SYMBOLIC_TMP = "<tmp>"
 RE_FORMAT_MARKERS = re.compile(r"{([^}]*?)}")
@@ -69,7 +69,7 @@ def formatted(text, *args, **kwargs):
         val = _find_value(key, objects)
         if strict and val is None:
             return None
-        val = str(val) if val is not None else "{%s}" % key
+        val = stringified(val) if val is not None else "{%s}" % key
         markers.extend(m for m in RE_FORMAT_MARKERS.findall(val) if m not in definitions)
         definitions[key] = val
     if not max_depth or not isinstance(max_depth, int) or max_depth <= 0:
@@ -206,7 +206,7 @@ class Anchored(object):
         if path is None:
             return path
 
-        path = str(path)
+        path = stringified(path)
         if cls.paths:
             for p in cls.paths:
                 if p:

@@ -23,7 +23,7 @@ Usage example:
 import json
 import os
 
-from runez.base import decode
+from runez.base import decode, stringified
 from runez.convert import affixed, flattened, SANITIZED, snakified
 from runez.system import get_platform
 
@@ -57,7 +57,7 @@ class Configuration:
         if not self.providers:
             return "empty"
 
-        return ", ".join(str(p) for p in self.providers)
+        return ", ".join(stringified(p) for p in self.providers)
 
     def overview(self, separator=", "):
         """str: A short overview of current providers"""
@@ -203,7 +203,7 @@ class Configuration:
         value = self.get(key, default=default)
         if value is None:
             return None
-        return str(value)
+        return stringified(value)
 
     def get_int(self, key, default=None, minimum=None, maximum=None):
         """
@@ -318,7 +318,7 @@ class ConfigProvider:
 
     def overview(self):
         """str: A short overview of this provider"""
-        return str(self)
+        return stringified(self)
 
     def provider_id(self):
         """Id of this provider (there can only be one active at a time)"""
@@ -449,7 +449,7 @@ def to_boolean(value):
         (bool): Deduced boolean value
     """
     if value is not None:
-        if str(value).lower() in TRUE_TOKENS:
+        if stringified(value).lower() in TRUE_TOKENS:
             return True
 
         vfloat = to_number(float, value)
