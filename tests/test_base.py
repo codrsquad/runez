@@ -42,6 +42,10 @@ def test_descendants():
     assert FastCat._foo == "fastcat"
 
 
+def test_current_test():
+    assert "test_base" in runez.current_test()
+
+
 def test_decode():
     assert runez.decode(None) is None
 

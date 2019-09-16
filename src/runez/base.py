@@ -4,6 +4,7 @@ Base functionality used by other parts of `runez`.
 This class should not import any other `runez` class, to avoid circular deps.
 """
 
+import os
 import threading
 
 
@@ -15,6 +16,19 @@ except NameError:
     string_type = str
     unicode = str
     PY2 = False
+
+
+def current_test():
+    """
+    Returns:
+        (str): Not empty if we're currently running a test (such as via pytest), actual value format depends on test framework used
+    """
+    # Need to add more detection cases, currently detects only pytest
+    env_vars = "PYTEST_CURRENT_TEST"
+    for name in env_vars.split():
+        value = os.environ.get(name)
+        if value:
+            return value
 
 
 def stringified(text):

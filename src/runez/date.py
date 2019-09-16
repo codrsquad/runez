@@ -64,7 +64,7 @@ def datetime_from_epoch(epoch, tz=None, in_ms=None):
         (datetime.datetime): Corresponding datetime object
     """
     if in_ms or (in_ms is None and epoch > EPOCH_MS_BREAK):
-        epoch = epoch / 1000
+        epoch = float(epoch) / 1000
     return datetime.datetime.fromtimestamp(epoch, tz=tz)
 
 
