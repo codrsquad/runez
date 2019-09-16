@@ -11,8 +11,6 @@ Convenience commonly used click options:
 
 from __future__ import absolute_import
 
-import sys
-
 try:
     import click
 
@@ -23,7 +21,7 @@ from runez.colors import activate_colors
 from runez.config import use_cli
 from runez.convert import flattened
 from runez.logsetup import LogManager
-from runez.system import get_version
+from runez.system import find_caller_frame, get_version
 
 
 def command(epilog=None, help=None, width=140, **attrs):
@@ -186,25 +184,3 @@ def frame_package(depth, f):
     package = f.f_globals.get("__package__")
     if package and not package.startswith("_"):
         return package
-
-
-def find_caller_frame(validator, depth=2, maximum=20):
-    """
-    Args:
-        validator (callable): Function that will decide whether a frame is suitable, and return value of interest from it
-        depth (int): Depth from top of stack where to start
-        maximum (int): Maximum depth to scan
-
-    Returns:
-        (frame): First frame found
-    """
-    if hasattr(sys, "_getframe"):
-        while depth <= maximum:
-            try:
-                f = sys._getframe(depth)
-                value = validator(depth, f)
-                if value is not None:
-                    return value
-                depth = depth + 1
-            except ValueError:
-                return None

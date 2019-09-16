@@ -64,6 +64,47 @@ def abort(*args, **kwargs):
     return return_value
 
 
+def current_test():
+    """
+    Returns:
+        (str): Not empty if we're currently running a test (such as via pytest)
+               Actual value will be path to test_<name>.py file if user followed usual conventions,
+               otherwise path to first found test-framework module
+    """
+    import re
+    regex = re.compile(r"^(conftest|(test_|_pytest\.|unittest\.).+|.+_test)$")
+
+    def test_frame(depth, f):
+        name = f.f_globals.get("__name__").lower()
+        m = regex.match(name)
+        if m:
+            return f.f_globals.get("__file__")
+
+    return find_caller_frame(test_frame, depth=2)
+
+
+def find_caller_frame(validator, depth=2, maximum=20):
+    """
+    Args:
+        validator (callable): Function that will decide whether a frame is suitable, and return value of interest from it
+        depth (int): Depth from top of stack where to start
+        maximum (int): Maximum depth to scan
+
+    Returns:
+        (frame): First frame found
+    """
+    if hasattr(sys, "_getframe"):
+        while depth <= maximum:
+            try:
+                f = sys._getframe(depth)
+                value = validator(depth, f)
+                if value is not None:
+                    return value
+                depth = depth + 1
+            except ValueError:
+                return None
+
+
 def formatted_string(*args):
     if not args:
         return ""

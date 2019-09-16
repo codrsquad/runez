@@ -25,6 +25,10 @@ def test_abort(logged):
         assert runez.abort("oops", logger=None) == "1"
 
 
+def test_current_test():
+    assert "test_system.py" in runez.current_test()
+
+
 def test_failed_version(logged):
     with patch("pkg_resources.get_distribution", side_effect=Exception("testing")):
         assert runez.get_version(runez) == "0.0.0"
