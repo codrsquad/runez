@@ -181,7 +181,7 @@ class LogManager(object):
         console_stream=sys.stderr,
         context_format="[[%s]] ",
         dev=None,
-        file_format="%(asctime)s %(timezone)s %(context)s%(levelname)s - %(message)s",
+        file_format="%(asctime)s %(timezone)s [%(threadName)s] %(context)s%(levelname)s - %(message)s",
         file_level=logging.DEBUG,
         file_location=None,
         locations=["{dev}/log/{basename}", "/logs/{appname}/{basename}", "/var/log/{basename}"],
