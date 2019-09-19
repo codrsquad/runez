@@ -15,6 +15,12 @@ class SomeRecord(object):
 
 def test_json(temp_folder):
     assert runez.read_json(None, fatal=False) is None
+
+    assert runez.represented_json(None) == "null\n"
+    assert runez.represented_json([]) == "[]\n"
+    assert runez.represented_json({}) == "{}\n"
+    assert runez.represented_json("foo") == '"foo"\n'
+
     assert runez.save_json(None, None, fatal=False) == 0
 
     data = {"a": "b"}

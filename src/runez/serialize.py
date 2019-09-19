@@ -203,6 +203,21 @@ def read_json(path, default=None, fatal=True, logger=None):
         return abort("Couldn't read %s: %s", short(path), e, fatal=(fatal, default))
 
 
+def represented_json(data, sort_keys=True, indent=2, **kwargs):
+    """
+    Args:
+        data (object | None): Data to serialize
+        sort_keys (bool): Whether keys should be sorted
+        indent (int | None): Indentation to use
+        **kwargs: Passed through to `json.dumps()`
+
+    Returns:
+        (dict | list | str): Serialized `data`, with defaults that are usually desirable for a nice and clean looking json
+    """
+    data = json_sanitized(data)
+    return "%s\n" % json.dumps(data, sort_keys=sort_keys, indent=indent, **kwargs)
+
+
 def save_json(data, path, fatal=True, logger=None, sort_keys=True, indent=2, **kwargs):
     """
     Args:
