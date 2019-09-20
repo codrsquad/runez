@@ -17,10 +17,11 @@ except NameError:
     PY2 = False
 
 
-def stringified(text):
+def stringified(text, converter=None):
     """
     Args:
         text: Any object to turn into a string
+        converter (callable | None): Optional converter to use for non-string objects
 
     Returns:
         (str): Ensure `text` is a string if necessary (this is to avoid transforming string types in py2 as much as possible)
@@ -28,8 +29,10 @@ def stringified(text):
     if isinstance(text, string_type):
         return text
 
-    # Stringify using `unicode()`, which should be the general best outcome in py2 (doesn't matter in py3)
-    return unicode(text)
+    if converter:
+        return converter(text)
+
+    return "%s" % text
 
 
 class Undefined(object):

@@ -1,11 +1,23 @@
+import datetime
+
 import runez
 
 
 def test_shortened():
+    assert runez.shortened(None) == "None"
     assert runez.shortened("") == ""
+    assert runez.shortened(5) == "5"
     assert runez.shortened(" some text ") == "some text"
-    assert runez.shortened("some long text", size=9) == "some l..."
-    assert runez.shortened("some long text", size=8) == "some..."
+    assert runez.shortened(" \n  some \n  long text", size=9) == "some l..."
+    assert runez.shortened(" \n  some \n  long text", size=8) == "some ..."
+    assert runez.shortened(" a \n\n  \n  b ") == "a b"
+
+    assert runez.shortened([1, "b"]) == "[1, b]"
+    assert runez.shortened((1, {"b": ["c", {"d", "e"}]})) == "(1, {b: [c, {d, e}]})"
+
+    complex = {"a \n b": [1, None, "foo \n ,", {"a2": runez.abort, "c": runez.Anchored}], None: datetime.date(2019, 1, 1)}
+    assert runez.shortened(complex) == "{None: 2019-01-01, a b: [1, None, foo ,, {a2: function 'abort', c: class runez.convert.Anchored}]}"
+    assert runez.shortened(complex, size=32) == "{None: 2019-01-01, a b: [1, N..."
 
 
 def test_flattened():

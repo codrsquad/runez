@@ -10,6 +10,7 @@ from runez.base import stringified, UNSET
 SYMBOLIC_TMP = "<tmp>"
 RE_FORMAT_MARKERS = re.compile(r"{([^}]*?)}")
 RE_WORDS = re.compile(r"[^\w]+")
+RE_SPACES = re.compile(r"[\s\n]+", re.MULTILINE)
 
 SANITIZED = 1
 SHELL = 2
@@ -92,6 +93,40 @@ def quoted(text):
     return text
 
 
+def prettified(value):
+    """
+    Args:
+        value: Value to represent in a prettified way
+
+    Returns:
+        (str): Best-effort prettified textual representation
+    """
+    if value is None:
+        return "None"
+
+    if isinstance(value, list):
+        return "[%s]" % ", ".join(stringified(s, converter=prettified) for s in value)
+
+    if isinstance(value, tuple):
+        return "(%s)" % ", ".join(stringified(s, converter=prettified) for s in value)
+
+    if isinstance(value, dict):
+        keys = sorted(value, key=lambda x: "%s" % x)
+        pairs = ("%s: %s" % (stringified(k, converter=prettified), stringified(value[k], converter=prettified)) for k in keys)
+        return "{%s}" % ", ".join(pairs)
+
+    if isinstance(value, set):
+        return "{%s}" % ", ".join(stringified(s, converter=prettified) for s in sorted(value, key=lambda x: "%s" % x))
+
+    if value.__class__ is type:
+        return "class %s.%s" % (value.__module__, value.__name__)
+
+    if callable(value):
+        return "function '%s'" % value.__name__
+
+    return "%s" % value
+
+
 def represented_args(args, separator=" "):
     """
     Args:
@@ -134,16 +169,16 @@ def short(path):
 def shortened(text, size=120):
     """
     Args:
-        text (str | unicode): Text to shorten
+        text: Text to shorten (stringified if necessary)
         size (int): Max chars
 
     Returns:
         (str): Leading part of 'text' with at most 'size' chars
     """
-    if text:
-        text = text.strip()
-        if len(text) > size:
-            return "%s..." % text[:size - 3].strip()
+    text = stringified(text, converter=prettified).strip()
+    text = RE_SPACES.sub(" ", text)
+    if len(text) > size:
+        return "%s..." % text[:size - 3]
     return text
 
 
