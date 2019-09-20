@@ -17,24 +17,6 @@ except NameError:
     PY2 = False
 
 
-def stringified(text, converter=None):
-    """
-    Args:
-        text: Any object to turn into a string
-        converter (callable | None): Optional converter to use for non-string objects
-
-    Returns:
-        (str): Ensure `text` is a string if necessary (this is to avoid transforming string types in py2 as much as possible)
-    """
-    if isinstance(text, string_type):
-        return text
-
-    if converter:
-        return converter(text)
-
-    return "%s" % text
-
-
 class Undefined(object):
     """Provides base type for `UNSET` below (representing an undefined value)
 
@@ -60,25 +42,19 @@ def simplified_class_name(cls, root):
     """By default, root ancestor is ignored, common prefix/suffix is removed, and name is lowercase-d"""
     if cls is not root:
         name = cls.__name__
-        if name.startswith(root.__name__):
-            name = name[len(root.__name__):]
-        elif name.endswith(root.__name__):
-            name = name[:len(root.__name__) + 1]
+        root = getattr(root, "__name__", root)
+        if name.startswith(root):
+            name = name[len(root):]
+        elif name.endswith(root):
+            name = name[:len(root) + 1]
         return name.lower()
 
 
-def _walk_descendants(result, ancestor, adjust, root):
-    for m in ancestor.__subclasses__():
-        name = adjust(m, root)
-        if name is not None:
-            result[name] = m
-        _walk_descendants(result, m, adjust, root)
-
-
-def class_descendants(ancestor, adjust=simplified_class_name):
+def class_descendants(ancestor, adjust=simplified_class_name, root=None):
     """
     Args:
         ancestor (type): Class to track descendants of
+        root (type | str | None): Root ancestor, or ancestor name (defaults to `ancestor`), passed through to `adjust`
         adjust (callable): Function that can adapt each descendant, and return an optionally massaged name to represent it
                            If function returns None for a given descendant, that descendant is ignored in the returned map
 
@@ -86,10 +62,12 @@ def class_descendants(ancestor, adjust=simplified_class_name):
         (dict): Map of all descendants, by optionally adjusted name
     """
     result = {}
-    name = adjust(ancestor, ancestor)
+    if root is None:
+        root = ancestor
+    name = adjust(ancestor, root)
     if name is not None:
         result[name] = ancestor
-    _walk_descendants(result, ancestor, adjust, ancestor)
+    _walk_descendants(result, ancestor, adjust, root)
     return result
 
 
@@ -190,6 +168,24 @@ class Slotted(object):
             if val is not UNSET:
                 result[name] = val
         return result
+
+
+def stringified(text, converter=None):
+    """
+    Args:
+        text: Any object to turn into a string
+        converter (callable | None): Optional converter to use for non-string objects
+
+    Returns:
+        (str): Ensure `text` is a string if necessary (this is to avoid transforming string types in py2 as much as possible)
+    """
+    if isinstance(text, string_type):
+        return text
+
+    if converter:
+        return converter(text)
+
+    return "%s" % text
 
 
 class ThreadGlobalContext(object):
@@ -315,3 +311,11 @@ class ThreadGlobalContext(object):
         """
         if self._gpayload is None:
             self._gpayload = values or {}
+
+
+def _walk_descendants(result, ancestor, adjust, root):
+    for m in ancestor.__subclasses__():
+        name = adjust(m, root)
+        if name is not None:
+            result[name] = m
+        _walk_descendants(result, m, adjust, root)
