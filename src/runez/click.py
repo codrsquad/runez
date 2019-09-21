@@ -24,19 +24,15 @@ from runez.logsetup import LogManager
 from runez.system import find_caller_frame, get_version
 
 
-def command(epilog=None, help=None, width=140, **attrs):
-    """Same as `@click.command()`, but with common settings (ie: "-h" for help, epilog, slightly larger help display)"""
-    if epilog is None:
-        epilog = find_caller_frame(frame_doc)
-    attrs = settings(epilog=epilog, help=help, width=width, **attrs)
+def command(help=None, width=140, **attrs):
+    """Same as `@click.command()`, but with common settings (ie: "-h" for help, slightly larger help display)"""
+    attrs = settings(help=help, width=width, **attrs)
     return click.command(**attrs)
 
 
-def group(epilog=None, help=None, width=140, **attrs):
-    """Same as `@click.group()`, but with common settings (ie: "-h" for help, epilog, slightly larger help display)"""
-    if epilog is None:
-        epilog = find_caller_frame(frame_doc)
-    attrs = settings(epilog=epilog, help=help, width=width, **attrs)
+def group(help=None, width=140, **attrs):
+    """Same as `@click.group()`, but with common settings (ie: "-h" for help, slightly larger help display)"""
+    attrs = settings(help=help, width=width, **attrs)
     return click.group(**attrs)
 
 
@@ -92,10 +88,9 @@ def version(*args, **attrs):
     return click.version_option(*args, **attrs)
 
 
-def settings(epilog=None, help=None, width=140, **attrs):
+def settings(help=None, width=140, **attrs):
     """
     Args:
-        epilog (str | unicode | None): Help epilog, defaults to __doc__ of caller module
         help (list[str | unicode] | str | unicode | None): List of flags to show help, default: -h and --help
         width (int): Constrain help to
         **attrs:
@@ -103,9 +98,6 @@ def settings(epilog=None, help=None, width=140, **attrs):
     Returns:
         dict: Dict passable to @click.command() or @click.group()
     """
-    if epilog is None:
-        epilog = find_caller_frame(frame_doc)
-
     if help is None:
         help = ["-h", "--help"]
 
@@ -113,7 +105,7 @@ def settings(epilog=None, help=None, width=140, **attrs):
     context_settings["help_option_names"] = flattened(help, split=" ")
     context_settings["max_content_width"] = width
 
-    return dict(epilog=epilog, context_settings=context_settings, **attrs)
+    return dict(context_settings=context_settings, **attrs)
 
 
 def option(func, *args, **attrs):
@@ -154,22 +146,6 @@ def auto_complete_callback(attrs, func):
             func(value)
             return value
         attrs.setdefault("callback", _callback)
-
-
-def frame_doc(depth, f):
-    """
-    Args:
-        depth (int): Depth at which `f` is into callstack
-        f (frame): Frame to inspect
-
-    Returns:
-        (str | None): Docstring, if any
-    """
-    g = f.f_globals
-    if g.get("__package__") != "runez":
-        doc = g.get("__doc__")
-        if doc:
-            return doc.strip()
 
 
 def frame_package(depth, f):

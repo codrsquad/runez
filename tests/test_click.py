@@ -44,9 +44,9 @@ def say_hello(color, config, debug, dryrun, log):
 
 
 def test_settings():
-    s = runez.click.settings(foo="bar")
+    s = runez.click.settings(foo="bar", epilog="some epilog")
     assert len(s) == 3
-    assert s["epilog"] == "Test click related methods"
+    assert s["epilog"] == "some epilog"
     assert s["foo"] == "bar"
     assert s["context_settings"] == dict(help_option_names=["-h", "--help"], max_content_width=140)
 
@@ -89,8 +89,5 @@ def test_command(cli):
 
 
 def test_edge_cases():
-    # Ensure we skip runez' own docstrings (here we find docstring of this very file)
-    assert runez.click.find_caller_frame(runez.click.frame_doc, depth=1) == "Test click related methods"
-
     # Ensure we stop once callstack is exhausted
     assert runez.click.find_caller_frame(lambda d, f: None, maximum=1000) is None
