@@ -83,18 +83,18 @@ def current_test():
     return find_caller_frame(test_frame, depth=2)
 
 
-def find_caller_frame(validator, depth=2, maximum=20):
+def find_caller_frame(validator, depth=2, maximum=None):
     """
     Args:
         validator (callable): Function that will decide whether a frame is suitable, and return value of interest from it
         depth (int): Depth from top of stack where to start
-        maximum (int): Maximum depth to scan
+        maximum (int | None): Maximum depth to scan
 
     Returns:
         (frame): First frame found
     """
     if hasattr(sys, "_getframe"):
-        while depth <= maximum:
+        while not maximum or depth <= maximum:
             try:
                 f = sys._getframe(depth)
                 value = validator(depth, f)
