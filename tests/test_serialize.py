@@ -1,6 +1,7 @@
 import datetime
 import logging
 
+import pytest
 from mock import patch
 
 import runez
@@ -11,6 +12,31 @@ class SomeRecord(object):
 
     name = "my record"
     some_int = 5
+
+
+class SomeSerializable(runez.Serializable):
+
+    name = "my name"
+    some_int = 7
+    some_value = None
+
+    def set_some_int(self, value):
+        self.some_int = value
+
+
+def test_equality():
+    data = {"name": "some name", "some_int": 15}
+    obj = SomeSerializable.from_dict(data)
+    obj2 = SomeSerializable()
+    assert obj != obj2
+
+    obj2.name = "some name"
+    obj2.some_int = 15
+    assert obj == obj2
+
+    assert len(runez.attributes(SomeSerializable)) == 3
+    assert len(runez.attributes(obj)) == 3
+    assert len(runez.attributes(obj2)) == 3
 
 
 def test_json(temp_folder):
@@ -83,32 +109,40 @@ def test_types():
 
 
 def test_serialization(logged):
-    j = runez.Serializable()
-    assert str(j) == "no source"
-    j.save()  # no-op
-    j.set_from_dict({}, source="test")
-    j.some_list = []
-    j.some_string = ""
+    obj = runez.Serializable()
+    assert str(obj) == "no source"
+    assert runez.attributes(obj) is None
 
-    j.set_from_dict({"some_key": "bar", "some-list": "some-value", "some-string": "some-value"}, source="test")
+    obj.save()  # no-op
+    obj.set_from_dict({}, source="test")  # no-op
+
+    with pytest.raises(TypeError):
+        obj.set_from_dict({"some_key": "bar"})
+
+    obj = SomeSerializable()
+    obj.set_from_dict({"some_key": "bar", "name": 1, "some_value": ["foo"]}, source="test")
     assert "some_key is not an attribute" in logged
-    assert "Wrong type 'str' for Serializable.some_list in test, expecting 'list'" in logged.pop()
+    assert "Wrong type 'int' for SomeSerializable.name in test, expecting 'str'" in logged.pop()
 
-    assert str(j) == "test"
-    assert not j.some_list
-    assert not hasattr(j, "some_key")
-    assert j.some_string == "some-value"
-    assert j.to_dict() == {"some-list": [], "some-string": "some-value"}
+    assert str(obj) == "test"
+    assert not hasattr(obj, "some_key")
+    assert obj.name == "my name"
+    assert obj.to_dict() == {"name": "my name", "some_int": 7, "some_value": ["foo"]}
 
-    j.reset()
-    assert not j.some_string
+    obj2 = SomeSerializable.from_json("")
+    assert str(obj2) == "no source"
+    assert obj != obj2
 
-    j = runez.Serializable.from_json("")
-    assert str(j) == "no source"
+    obj.reset()
+    assert obj.name == ""
+    assert obj.some_int == 0
+    assert obj.some_value is None
+    assert obj == obj2
 
-    j = runez.Serializable.from_json("/dev/null/not-there", fatal=False)
-    assert str(j) == "/dev/null/not-there"
-    j.save(fatal=False)
+    obj3 = SomeSerializable.from_json("/dev/null/not-there", fatal=False)
+    assert obj == obj3
+    assert str(obj3) == "/dev/null/not-there"
+    obj3.save(fatal=False)
     assert "Couldn't save" in logged.pop()
 
 

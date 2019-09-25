@@ -3,6 +3,7 @@ Convenience methods for (de)serializing objects
 """
 
 import datetime
+import inspect
 import io
 import json
 import logging
@@ -69,6 +70,41 @@ def type_name(value):
     return value.__class__.__name__
 
 
+def attributes(obj):
+    """
+    Args:
+        obj: Object or class to determine attributes of
+
+    Returns:
+        (dict): Attributes found (cached in `._attributes` on corresponding class)
+    """
+    if obj.__class__ is type:
+        cls = obj
+
+    else:
+        cls = obj.__class__
+
+    if cls is Serializable:
+        # Don't cache Serializable class itself, only descendants
+        return None
+
+    attrs = getattr(cls, "_attributes", None)
+    if attrs is not None:
+        return attrs
+
+    attrs = cls._attributes = {}
+    for name in cls.__dict__:
+        if not name.startswith("_"):
+            value = getattr(cls, name)
+            if value is None or not (inspect.ismethod(value) or inspect.isfunction(value)):
+                if value is None:
+                    attrs[name] = None
+                else:
+                    attrs[name] = value.__class__
+
+    return attrs
+
+
 class Serializable(object):
     """
     Serializable object
@@ -76,6 +112,14 @@ class Serializable(object):
 
     def __repr__(self):
         return getattr(self, "_source", "no source")
+
+    def __eq__(self, other):
+        if other is not None and other.__class__ is self.__class__:
+            for name in attributes(self):
+                if not hasattr(other, name) or getattr(self, name) != getattr(other, name):
+                    return False
+
+            return True
 
     @classmethod
     def from_json(cls, path, fatal=True, logger=None):
@@ -89,6 +133,19 @@ class Serializable(object):
         result.load(path, fatal=fatal, logger=logger)
         return result
 
+    @classmethod
+    def from_dict(cls, data):
+        """
+        Args:
+            data (dict):
+
+        Returns:
+            Deserialized object
+        """
+        result = cls()
+        result.set_from_dict(data)
+        return result
+
     def set_from_dict(self, data, source=None):
         """
         :param dict data: Set this object from deserialized 'dict'
@@ -100,44 +157,40 @@ class Serializable(object):
         if not data:
             return
 
+        attrs = attributes(self)
         for key, value in data.items():
-            key = key.replace("-", "_")
-            if not hasattr(self, key):
+            if key not in attrs:
                 LOG.debug("%s is not an attribute of %s", key, self.__class__.__name__)
                 continue
 
-            attr = getattr(self, key)
-            if attr is not None and not same_type(value, attr):
+            vtype = attrs[key]
+            if vtype is not None and value is not None and value.__class__ is not vtype:
                 source = getattr(self, "_source", None)
                 origin = " in %s" % source if source else ""
-                LOG.debug("Wrong type '%s' for %s.%s%s, expecting '%s'", type_name(value), type_name(self), key, origin, type_name(attr))
+                LOG.debug("Wrong type '%s' for %s.%s%s, expecting '%s'", type_name(value), type_name(self), key, origin, vtype.__name__)
                 continue
 
-            setattr(self, key, value)
+            setter = getattr(self, "set_%s" % key, None)
+            if setter is not None and value is not None:
+                setter(value)
+            else:
+                setattr(self, key, value)
 
     def reset(self):
         """
         Reset all fields of this object to class defaults
         """
-        for name in self.__dict__:
-            if name.startswith("_"):
-                continue
-
-            attr = getattr(self, name)
-            setattr(self, name, attr and attr.__class__())
+        for name, vtype in attributes(self).items():
+            setattr(self, name, vtype and vtype())
 
     def to_dict(self):
         """
         :return dict: This object serialized to a dict
         """
         result = {}
-        for name in self.__dict__:
-            if name.startswith("_"):
-                continue
-
-            key = name.replace("_", "-")
-            attr = getattr(self, name)
-            result[key] = attr.to_dict() if hasattr(attr, "to_dict") else attr
+        for name in attributes(self):
+            value = getattr(self, name)
+            result[name] = value.to_dict() if hasattr(value, "to_dict") else value
 
         return result
 
