@@ -81,7 +81,7 @@ def test_json(temp_folder):
         assert "Read " in logged.pop()
 
 
-def test_meta():
+def test_meta(logged):
     custom = runez.serialize.ClassDescription(SomeRecord)
     assert len(custom.attributes) == 2
     assert len(custom.properties) == 0
@@ -99,6 +99,8 @@ def test_meta():
     assert len(SomeSerializable._meta.properties) == 1
     assert len(obj._meta.attributes) == 3
     assert len(obj._meta.properties) == 1
+
+    assert not logged
 
 
 def test_types():

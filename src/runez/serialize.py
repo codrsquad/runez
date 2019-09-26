@@ -50,10 +50,19 @@ def same_type(t1, t2):
     """
     :return bool: True if 't1' and 't2' are of equivalent types
     """
-    if isinstance(t1, string_type) and isinstance(t2, string_type):
+    if t1 is None or t2 is None:
+        return t1 is t2
+
+    if t1.__class__ is not type:
+        t1 = t1.__class__
+
+    if t2.__class__ is not type:
+        t2 = t2.__class__
+
+    if issubclass(t1, string_type) and issubclass(t2, string_type):
         return True
 
-    return type(t1) == type(t2)
+    return t1 == t2
 
 
 def type_name(value):
@@ -175,7 +184,7 @@ class Serializable(with_meta_injector(ClassDescription)):
                 continue
 
             vtype = attrs[key]
-            if vtype is not None and value is not None and value.__class__ is not vtype:
+            if vtype is not None and value is not None and not same_type(value.__class__, vtype):
                 source = getattr(self, "_source", None)
                 origin = " in %s" % source if source else ""
                 LOG.debug("Wrong type '%s' for %s.%s%s, expecting '%s'", type_name(value), type_name(self), key, origin, vtype.__name__)
