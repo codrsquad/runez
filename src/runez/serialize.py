@@ -17,26 +17,27 @@ from runez.system import abort, is_dryrun
 LOG = logging.getLogger(__name__)
 
 
-def json_sanitized(value, stringify=decode, dt=str):
+def json_sanitized(value, stringify=decode, dt=str, keep_none=False):
     """
     Args:
         value: Value to sanitize
         stringify (callable | None): Function to use to stringify non-builtin types
         dt (callable | None): Function to use to stringify dates
+        keep_none (bool): If False, don't include None values
 
     Returns:
         An object that should be json serializable
     """
-    if value is None or isinstance(value, (int, str, float)):
+    if value is None or isinstance(value, (int, float, string_type)):
         return value
     if hasattr(value, "to_dict"):
         value = value.to_dict()
     if isinstance(value, set):
-        return [json_sanitized(v, stringify=stringify, dt=dt) for v in sorted(value)]
+        return [json_sanitized(v, stringify=stringify, dt=dt) for v in sorted(value) if keep_none or v is not None]
     if isinstance(value, (tuple, list)):
-        return [json_sanitized(v, stringify=stringify, dt=dt) for v in value]
+        return [json_sanitized(v, stringify=stringify, dt=dt) for v in value if keep_none or v is not None]
     if isinstance(value, dict):
-        return dict((stringify(k), json_sanitized(v, stringify=stringify, dt=dt)) for k, v in value.items())
+        return dict((stringify(k), json_sanitized(v, stringify=stringify, dt=dt)) for k, v in value.items() if keep_none or v is not None)
     if isinstance(value, datetime.date):
         if dt is None:
             return value
@@ -93,6 +94,9 @@ class ClassDescription(object):
             if not key.startswith("_"):
                 if value is None:
                     self.attributes[key] = None
+
+                elif value.__class__ is type:
+                    self.attributes[key] = value
 
                 elif "property" in value.__class__.__name__:
                     self.properties.append(key)
@@ -203,16 +207,12 @@ class Serializable(with_meta_injector(ClassDescription)):
         for name, vtype in self._meta.attributes.items():
             setattr(self, name, vtype and vtype())
 
-    def to_dict(self):
+    def to_dict(self, keep_none=False):
         """
+        :param (bool) keep_none: If False, don't include None values
         :return dict: This object serialized to a dict
         """
-        result = {}
-        for name in self._meta.attributes:
-            value = getattr(self, name)
-            result[name] = value.to_dict() if hasattr(value, "to_dict") else value
-
-        return result
+        return json_sanitized(dict((name, getattr(self, name)) for name in self._meta.attributes), keep_none=keep_none)
 
     def load(self, path=None, fatal=True, logger=None):
         """
@@ -276,22 +276,23 @@ def read_json(path, default=None, fatal=True, logger=None):
         return abort("Couldn't read %s: %s", short(path), e, fatal=(fatal, default))
 
 
-def represented_json(data, sort_keys=True, indent=2, **kwargs):
+def represented_json(data, sort_keys=True, indent=2, keep_none=False, **kwargs):
     """
     Args:
         data (object | None): Data to serialize
         sort_keys (bool): Whether keys should be sorted
         indent (int | None): Indentation to use
+        keep_none (bool): If False, don't include None values
         **kwargs: Passed through to `json.dumps()`
 
     Returns:
         (dict | list | str): Serialized `data`, with defaults that are usually desirable for a nice and clean looking json
     """
-    data = json_sanitized(data)
+    data = json_sanitized(data, keep_none=keep_none)
     return "%s\n" % json.dumps(data, sort_keys=sort_keys, indent=indent, **kwargs)
 
 
-def save_json(data, path, fatal=True, logger=None, sort_keys=True, indent=2, **kwargs):
+def save_json(data, path, fatal=True, logger=None, sort_keys=True, indent=2, keep_none=False, **kwargs):
     """
     Args:
         data (object | None): Data to serialize and save
@@ -300,6 +301,7 @@ def save_json(data, path, fatal=True, logger=None, sort_keys=True, indent=2, **k
         logger (callable | None): Logger to use
         sort_keys (bool): Save json with sorted keys
         indent (int | None): Indentation to use
+        keep_none (bool): If False, don't include None values
         **kwargs: Passed through to `json.dump()`
 
     Returns:
@@ -315,7 +317,7 @@ def save_json(data, path, fatal=True, logger=None, sort_keys=True, indent=2, **k
             LOG.info("Would save %s", short(path))
             return 1
 
-        data = json_sanitized(data)
+        data = json_sanitized(data, keep_none=keep_none)
         if indent:
             kwargs.setdefault("separators", (",", ": "))
 

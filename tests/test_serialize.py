@@ -17,7 +17,8 @@ class SomeSerializable(runez.Serializable):
 
     name = "my name"
     some_int = 7
-    some_value = None
+    some_value = list
+    another = None
 
     @property
     def int_prod(self):
@@ -95,10 +96,9 @@ def test_meta(logged):
     obj2.some_int = 15
     assert obj == obj2
 
-    assert len(SomeSerializable._meta.attributes) == 3
+    assert len(SomeSerializable._meta.attributes) == 4
     assert len(SomeSerializable._meta.properties) == 1
-    assert len(obj._meta.attributes) == 3
-    assert len(obj._meta.properties) == 1
+    assert obj._meta is SomeSerializable._meta
 
     assert not logged
 
@@ -144,7 +144,7 @@ def test_serialization(logged):
     obj.reset()
     assert obj.name == ""
     assert obj.some_int == 0
-    assert obj.some_value is None
+    assert obj.some_value == []
     assert obj == obj2
 
     obj3 = SomeSerializable.from_json("/dev/null/not-there", fatal=False)
