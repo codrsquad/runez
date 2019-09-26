@@ -30,20 +30,35 @@ def json_sanitized(value, stringify=decode, dt=str, keep_none=False):
     """
     if value is None or isinstance(value, (int, float, string_type)):
         return value
+
     if hasattr(value, "to_dict"):
         value = value.to_dict()
-    if isinstance(value, set):
-        return [json_sanitized(v, stringify=stringify, dt=dt) for v in sorted(value) if keep_none or v is not None]
+
+    elif isinstance(value, set):
+        value = sorted(value)
+
     if isinstance(value, (tuple, list)):
-        return [json_sanitized(v, stringify=stringify, dt=dt) for v in value if keep_none or v is not None]
+        return [json_sanitized(v, stringify=stringify, dt=dt, keep_none=keep_none) for v in value if keep_none or v is not None]
+
     if isinstance(value, dict):
-        return dict((stringify(k), json_sanitized(v, stringify=stringify, dt=dt)) for k, v in value.items() if keep_none or v is not None)
+        return dict(
+            (
+                json_sanitized(k, stringify=stringify, dt=dt, keep_none=keep_none),
+                json_sanitized(v, stringify=stringify, dt=dt, keep_none=keep_none),
+            )
+            for k, v in value.items()
+            if keep_none or v is not None
+        )
+
     if isinstance(value, datetime.date):
         if dt is None:
             return value
+
         return dt(value)
+
     if stringify is None:
         return value
+
     return stringify(value)
 
 
@@ -107,8 +122,8 @@ class ClassDescription(object):
 
 def with_metaclass(meta, *bases):
     """Create a base class with a metaclass (taken from https://pypi.org/project/six/)"""
-    class metaclass(type):
 
+    class metaclass(type):
         def __new__(cls, name, this_bases, dct):
             return meta(name, bases, dct)
 
@@ -121,12 +136,13 @@ def with_metaclass(meta, *bases):
 
 def with_meta_injector(meta_type):
     """A metaclass that injects a `._meta` class attribute using given `meta_type` class"""
-    class simple_injector(type):
+
+    class meta_injector(type):
         def __init__(cls, name, bases, dct):
-            super(simple_injector, cls).__init__(name, bases, dct)
+            super(meta_injector, cls).__init__(name, bases, dct)
             cls._meta = meta_type(cls, dct)
 
-    return with_metaclass(simple_injector)
+    return with_metaclass(meta_injector)
 
 
 class Serializable(with_meta_injector(ClassDescription)):
