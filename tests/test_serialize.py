@@ -1,6 +1,7 @@
 import datetime
 import logging
 
+import pytest
 from mock import patch
 
 import runez
@@ -120,25 +121,25 @@ def test_types():
 
 def test_serialization(logged):
     obj = runez.Serializable()
-    assert str(obj) == "no source"
     assert not obj._meta.attributes
     assert not obj._meta.properties
 
-    obj.save()  # no-op
     obj.set_from_dict({}, source="test")  # no-op
 
     obj = SomeSerializable()
     obj.set_from_dict({"some_key": "bar", "name": 1, "some_value": ["foo"]}, source="test")
-    assert "some_key is not an attribute" in logged
     assert "Wrong type 'int' for SomeSerializable.name in test, expecting 'str'" in logged.pop()
 
-    assert str(obj) == "test"
-    assert not hasattr(obj, "some_key")
+    assert not hasattr(obj, "some_key")  # We ignore any non-declared keys
     assert obj.name == "my name"
-    assert obj.to_dict() == {"name": "my name", "some_int": 7, "some_value": ["foo"]}
 
-    obj2 = SomeSerializable.from_json("")
-    assert str(obj2) == "no source"
+    # "some_int" was not in data, so it gets a default value
+    assert obj.to_dict() == {"name": "my name", "some_int": 0, "some_value": ["foo"]}
+
+    with pytest.raises(Exception):
+        obj2 = SomeSerializable.from_json("")
+
+    obj2 = SomeSerializable.from_json("", default={})
     assert obj != obj2
 
     obj.reset()
@@ -147,11 +148,22 @@ def test_serialization(logged):
     assert obj.some_value == []
     assert obj == obj2
 
-    obj3 = SomeSerializable.from_json("/dev/null/not-there", fatal=False)
+    path = "/dev/null/not-there"
+    obj3 = SomeSerializable.from_json(path, fatal=False)
     assert obj == obj3
-    assert str(obj3) == "/dev/null/not-there"
-    obj3.save(fatal=False)
+
+    obj3.save(path, fatal=False)
     assert "Couldn't save" in logged.pop()
+
+    with pytest.raises(runez.system.AbortException):
+        obj.load(path, fatal=True)
+
+    assert "No file /dev/null/not-there" in logged.pop()
+
+    obj.load(path, default={"name": "some name"})
+    assert obj.name == "some name"
+
+    assert not logged
 
 
 def test_sanitize():

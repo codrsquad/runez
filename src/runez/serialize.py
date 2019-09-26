@@ -112,6 +112,7 @@ class ClassDescription(object):
 
                 elif value.__class__ is type:
                     self.attributes[key] = value
+                    setattr(cls, key, value())
 
                 elif "property" in value.__class__.__name__:
                     self.properties.append(key)
@@ -150,9 +151,6 @@ class Serializable(with_meta_injector(ClassDescription)):
 
     _meta = None  # type: ClassDescription  # This describes fields and properties of descendant classes, populated via metaclass
 
-    def __repr__(self):
-        return getattr(self, "_source", "no source")
-
     def __eq__(self, other):
         if other is not None and other.__class__ is self.__class__:
             for name in self._meta.attributes:
@@ -162,59 +160,62 @@ class Serializable(with_meta_injector(ClassDescription)):
             return True
 
     @classmethod
-    def from_json(cls, path, fatal=True, logger=None):
+    def from_json(cls, path, default=None, fatal=True, logger=None):
         """
-        :param str path: Path to json file
-        :param bool|None fatal: Abort execution on failure if True
-        :param callable|None logger: Logger to use
-        :return: Deserialized object
+        Args:
+            path (str): Path to json file
+            default (dict | None): Default if file is not present, or if it's not json
+            fatal (bool | None): Abort execution on failure if True
+            logger (callable | None): Logger to use
+
+        Returns:
+            (cls): Deserialized object
         """
         result = cls()
-        result.load(path, fatal=fatal, logger=logger)
+        data = read_json(path, default=default, fatal=fatal, logger=logger)
+        result.set_from_dict(data, source=short(path))
         return result
 
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, data, source=None):
         """
         Args:
-            data (dict):
+            data (dict): Raw data, coming for example from a json file
+            source (str | None): Optional, description of source where 'data' came from
 
         Returns:
-            Deserialized object
+            (cls): Deserialized object
         """
         result = cls()
-        result.set_from_dict(data)
+        result.set_from_dict(data, source=source)
         return result
 
     def set_from_dict(self, data, source=None):
         """
-        :param dict data: Set this object from deserialized 'dict'
-        :param source: Source where 'data' came from (optional)
+        Args:
+            data (dict): Raw data, coming for example from a json file
+            source (str | None): Optional, description of source where 'data' came from
         """
-        if source:
-            self._source = source
+        if data is None:
+            data = {}
 
-        if not data:
-            return
-
-        attrs = self._meta.attributes
-        for key, value in data.items():
-            if key not in attrs:
-                LOG.debug("%s is not an attribute of %s", key, self.__class__.__name__)
-                continue
-
-            vtype = attrs[key]
-            if vtype is not None and value is not None and not same_type(value.__class__, vtype):
-                source = getattr(self, "_source", None)
+        for name, vtype in self._meta.attributes.items():
+            value = data.get(name, vtype and vtype())
+            if vtype is not None and value is not None and not same_type(vtype, value):
                 origin = " in %s" % source if source else ""
-                LOG.debug("Wrong type '%s' for %s.%s%s, expecting '%s'", type_name(value), type_name(self), key, origin, vtype.__name__)
+                LOG.debug("Wrong type '%s' for %s.%s%s, expecting '%s'", type_name(value), type_name(self), name, origin, vtype.__name__)
                 continue
 
-            setter = getattr(self, "set_%s" % key, None)
-            if setter is not None and value is not None:
-                setter(value)
+            if value is None:
+                setattr(self, name, None)
+
             else:
-                setattr(self, key, value)
+                setter = getattr(self, "set_%s" % name, None)
+                if setter is None:
+                    setattr(self, name, value)
+
+                else:
+                    setter(value)
 
     def reset(self):
         """
@@ -230,34 +231,30 @@ class Serializable(with_meta_injector(ClassDescription)):
         """
         return json_sanitized(dict((name, getattr(self, name)) for name in self._meta.attributes), keep_none=keep_none)
 
-    def load(self, path=None, fatal=True, logger=None):
+    def load(self, path, default=None, fatal=True, logger=None):
         """
-        :param str|None path: Load this object from file with 'path' (default: self._path)
-        :param bool|None fatal: Abort execution on failure if True
-        :param callable|None logger: Logger to use
+        Args:
+            path (str): Path to json file
+            default (dict | None): Default if file is not present, or if it's not json
+            fatal (bool | None): Abort execution on failure if True
+            logger (callable | None): Logger to use
         """
-        self.reset()
-        if path:
-            self._path = path
-            self._source = short(path)
+        data = read_json(path, default=default, fatal=fatal, logger=logger)
+        self.set_from_dict(data, source=short(path))
 
-        else:
-            path = getattr(self, "_path", None)
-
-        if path:
-            self.set_from_dict(read_json(path, default={}, fatal=fatal, logger=logger))
-
-    def save(self, path=None, fatal=True, logger=None, sort_keys=True, indent=2):
+    def save(self, path, fatal=True, logger=None, sort_keys=True, indent=2):
         """
-        :param str|None path: Save this serializable to file with 'path' (default: self._path)
-        :param bool|None fatal: Abort execution on failure if True
-        :param callable|None logger: Logger to use
-        :param bool sort_keys: Sort keys
-        :param int indent: Indentation to use
+        Args:
+            path (str): Path where to save this serializable to
+            fatal (bool | None): Raise runez.system.AbortException on failure if True
+            logger (callable | None): Logger to use
+            sort_keys (bool): Sort keys
+            indent (int): Indentation to use
+
+        Returns:
+            (int): Applicable only if `fatal` is not True, -1 on failure, 0 on no-op, 1 on success
         """
-        path = path or getattr(self, "_path", None)
-        if path:
-            return save_json(self.to_dict(), path, fatal=fatal, logger=logger, sort_keys=sort_keys, indent=indent)
+        return save_json(self.to_dict(), path, fatal=fatal, logger=logger, sort_keys=sort_keys, indent=indent)
 
 
 def read_json(path, default=None, fatal=True, logger=None):
