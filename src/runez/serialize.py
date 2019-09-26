@@ -70,52 +70,63 @@ def type_name(value):
     return value.__class__.__name__
 
 
-def attributes(obj):
-    """
-    Args:
-        obj: Object or class to determine attributes of
+class ClassDescription(object):
+    """Info on class attributes and properties"""
 
-    Returns:
-        (dict): Attributes found (cached in `._attributes` on corresponding class)
-    """
-    if obj.__class__ is type:
-        cls = obj
+    def __init__(self, cls, dct=None):
+        self.cls = cls
+        self.attributes = {}
+        self.properties = []
+        if dct is None:
+            dct = cls.__dict__
 
-    else:
-        cls = obj.__class__
-
-    if cls is Serializable:
-        # Don't cache Serializable class itself, only descendants
-        return None
-
-    attrs = getattr(cls, "_attributes", None)
-    if attrs is not None:
-        return attrs
-
-    attrs = cls._attributes = {}
-    for name in cls.__dict__:
-        if not name.startswith("_"):
-            value = getattr(cls, name)
-            if value is None or not (inspect.ismethod(value) or inspect.isfunction(value)):
+        for key, value in dct.items():
+            if not key.startswith("_"):
                 if value is None:
-                    attrs[name] = None
-                else:
-                    attrs[name] = value.__class__
+                    self.attributes[key] = None
 
-    return attrs
+                elif "property" in value.__class__.__name__:
+                    self.properties.append(key)
+
+                elif not inspect.isroutine(value):
+                    self.attributes[key] = value.__class__
 
 
-class Serializable(object):
-    """
-    Serializable object
-    """
+def with_metaclass(meta, *bases):
+    """Create a base class with a metaclass (taken from https://pypi.org/project/six/)"""
+    class metaclass(type):
+
+        def __new__(cls, name, this_bases, dct):
+            return meta(name, bases, dct)
+
+        @classmethod
+        def __prepare__(cls, name, this_bases):
+            return meta.__prepare__(name, bases)
+
+    return type.__new__(metaclass, "temporary_class", (), {})
+
+
+def with_meta_injector(meta_type):
+    """A metaclass that injects a `._meta` class attribute using given `meta_type` class"""
+    class simple_injector(type):
+        def __init__(cls, name, bases, dct):
+            super(simple_injector, cls).__init__(name, bases, dct)
+            cls._meta = meta_type(cls, dct)
+
+    return with_metaclass(simple_injector)
+
+
+class Serializable(with_meta_injector(ClassDescription)):
+    """Serializable object"""
+
+    _meta = None  # type: ClassDescription  # This describes fields and properties of descendant classes, populated via metaclass
 
     def __repr__(self):
         return getattr(self, "_source", "no source")
 
     def __eq__(self, other):
         if other is not None and other.__class__ is self.__class__:
-            for name in attributes(self):
+            for name in self._meta.attributes:
                 if not hasattr(other, name) or getattr(self, name) != getattr(other, name):
                     return False
 
@@ -157,7 +168,7 @@ class Serializable(object):
         if not data:
             return
 
-        attrs = attributes(self)
+        attrs = self._meta.attributes
         for key, value in data.items():
             if key not in attrs:
                 LOG.debug("%s is not an attribute of %s", key, self.__class__.__name__)
@@ -180,7 +191,7 @@ class Serializable(object):
         """
         Reset all fields of this object to class defaults
         """
-        for name, vtype in attributes(self).items():
+        for name, vtype in self._meta.attributes.items():
             setattr(self, name, vtype and vtype())
 
     def to_dict(self):
@@ -188,7 +199,7 @@ class Serializable(object):
         :return dict: This object serialized to a dict
         """
         result = {}
-        for name in attributes(self):
+        for name in self._meta.attributes:
             value = getattr(self, name)
             result[name] = value.to_dict() if hasattr(value, "to_dict") else value
 

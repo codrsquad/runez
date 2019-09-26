@@ -1,7 +1,6 @@
 import datetime
 import logging
 
-import pytest
 from mock import patch
 
 import runez
@@ -20,23 +19,12 @@ class SomeSerializable(runez.Serializable):
     some_int = 7
     some_value = None
 
+    @property
+    def int_prod(self):
+        return self.some_int
+
     def set_some_int(self, value):
         self.some_int = value
-
-
-def test_equality():
-    data = {"name": "some name", "some_int": 15}
-    obj = SomeSerializable.from_dict(data)
-    obj2 = SomeSerializable()
-    assert obj != obj2
-
-    obj2.name = "some name"
-    obj2.some_int = 15
-    assert obj == obj2
-
-    assert len(runez.attributes(SomeSerializable)) == 3
-    assert len(runez.attributes(obj)) == 3
-    assert len(runez.attributes(obj2)) == 3
 
 
 def test_json(temp_folder):
@@ -93,6 +81,26 @@ def test_json(temp_folder):
         assert "Read " in logged.pop()
 
 
+def test_meta():
+    custom = runez.serialize.ClassDescription(SomeRecord)
+    assert len(custom.attributes) == 2
+    assert len(custom.properties) == 0
+
+    data = {"name": "some name", "some_int": 15}
+    obj = SomeSerializable.from_dict(data)
+    obj2 = SomeSerializable()
+    assert obj != obj2
+
+    obj2.name = "some name"
+    obj2.some_int = 15
+    assert obj == obj2
+
+    assert len(SomeSerializable._meta.attributes) == 3
+    assert len(SomeSerializable._meta.properties) == 1
+    assert len(obj._meta.attributes) == 3
+    assert len(obj._meta.properties) == 1
+
+
 def test_types():
     assert type_name(None) == "None"
     assert type_name("some-string") == "str"
@@ -111,13 +119,11 @@ def test_types():
 def test_serialization(logged):
     obj = runez.Serializable()
     assert str(obj) == "no source"
-    assert runez.attributes(obj) is None
+    assert not obj._meta.attributes
+    assert not obj._meta.properties
 
     obj.save()  # no-op
     obj.set_from_dict({}, source="test")  # no-op
-
-    with pytest.raises(TypeError):
-        obj.set_from_dict({"some_key": "bar"})
 
     obj = SomeSerializable()
     obj.set_from_dict({"some_key": "bar", "name": 1, "some_value": ["foo"]}, source="test")

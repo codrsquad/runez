@@ -34,7 +34,7 @@ from runez.path import basename, ensure_folder, parent_folder
 from runez.program import check_pid, get_dev_folder, get_program_path, is_executable, is_younger, make_executable
 from runez.program import require_installed, run, which
 from runez.represent import header
-from runez.serialize import attributes, json_sanitized, read_json, represented_json, save_json, Serializable
+from runez.serialize import json_sanitized, read_json, represented_json, save_json, Serializable
 from runez.system import abort, current_test, get_platform, get_version, set_dryrun
 
 __all__ = [
@@ -56,7 +56,7 @@ __all__ = [
     "check_pid", "get_dev_folder", "get_program_path", "is_executable", "is_younger", "make_executable",
     "require_installed", "run", "which",
     "header",
-    "attributes", "json_sanitized", "read_json", "represented_json", "save_json", "Serializable",
+    "json_sanitized", "read_json", "represented_json", "save_json", "Serializable",
     "abort", "current_test", "get_platform", "get_version", "set_dryrun",
 ]
 
