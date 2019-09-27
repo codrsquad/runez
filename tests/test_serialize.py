@@ -8,25 +8,15 @@ import runez
 from runez.serialize import same_type, type_name
 
 
-class SomeRecord(object):
+@runez.serialize.add_meta(runez.serialize.ClassDescription)
+class SlottedExample(object):
+    __slots__ = "name"
 
-    name = "my record"
-    some_int = 5
 
-
-class SomeSerializable(runez.Serializable):
-
-    name = "my name"
-    some_int = 7
-    some_value = list
-    another = None
-
-    @property
-    def int_prod(self):
-        return self.some_int
-
-    def set_some_int(self, value):
-        self.some_int = value
+def test_slotted():
+    assert isinstance(SlottedExample._meta, runez.serialize.ClassDescription)
+    assert len(SlottedExample._meta.attributes) == 1
+    assert not SlottedExample._meta.properties
 
 
 def test_json(temp_folder):
@@ -71,16 +61,19 @@ def test_json(temp_folder):
         assert runez.read_json("sample.json", default=[], fatal=False) == []
         assert "Wrong type" in logged.pop()
 
-    with runez.CaptureOutput() as logged:
-        # Try with an object that isn't directly serializable, but has a to_dict() function
-        obj = SomeRecord()
-        obj.to_dict = lambda *_: data
 
-        assert runez.save_json(obj, "sample2.json", logger=logging.debug) == 1
-        assert "Saved " in logged.pop()
+class SomeSerializable(runez.Serializable):
+    name = "my name"
+    some_int = 7
+    some_value = list
+    another = None
 
-        assert runez.read_json("sample2.json", logger=logging.debug) == data
-        assert "Read " in logged.pop()
+    @property
+    def int_prod(self):
+        return self.some_int
+
+    def set_some_int(self, value):
+        self.some_int = value
 
 
 def test_meta(logged):
@@ -102,6 +95,25 @@ def test_meta(logged):
     assert obj._meta is SomeSerializable._meta
 
     assert not logged
+
+
+class SomeRecord(object):
+    name = "my record"
+    some_int = 5
+
+
+def test_to_dict(temp_folder):
+    with runez.CaptureOutput() as logged:
+        # Try with an object that isn't directly serializable, but has a to_dict() function
+        data = {"a": "b"}
+        obj = SomeRecord()
+        obj.to_dict = lambda *_: data
+
+        assert runez.save_json(obj, "sample2.json", logger=logging.debug) == 1
+        assert "Saved " in logged.pop()
+
+        assert runez.read_json("sample2.json", logger=logging.debug) == data
+        assert "Read " in logged.pop()
 
 
 def test_types():
@@ -127,20 +139,41 @@ def test_serialization(logged):
     obj.set_from_dict({}, source="test")  # no-op
 
     obj = SomeSerializable()
-    obj.set_from_dict({"some_key": "bar", "name": 1, "some_value": ["foo"]}, source="test")
+
+    # Unknown field
+    with pytest.raises(runez.system.AbortException):
+        obj.set_from_dict({"foo": 1})
+    assert "Extra content given for SomeSerializable: foo" in logged.pop()
+
+    obj2 = SomeSerializable.from_dict({"foo": 1, "bar": 2}, ignore=False)
+    assert obj == obj2
+    assert "Extra content given for SomeSerializable: foo, bar" in logged.pop()
+
+    obj2 = SomeSerializable.from_dict({"foo": 1, "bar": 2}, ignore=["foo", "bar", "baz"])
+    assert obj == obj2
+    assert not logged
+
+    with pytest.raises(runez.system.AbortException):
+        SomeSerializable.from_dict({"foo": 1, "bar": 2}, ignore=["foo"])
+    assert "Extra content given for SomeSerializable: bar" in logged.pop()
+
+    with pytest.raises(runez.system.AbortException):
+        obj.set_from_dict({"name": 1}, source="test", ignore=False)
+    assert "Wrong type 'int' for SomeSerializable.name in test, expecting 'str'" in logged.pop()
+
+    obj.set_from_dict({"some_key": "bar", "name": 1, "some_value": ["foo"]}, source="test", ignore=True)
     assert "Wrong type 'int' for SomeSerializable.name in test, expecting 'str'" in logged.pop()
 
     assert not hasattr(obj, "some_key")  # We ignore any non-declared keys
-    assert obj.name == "my name"
+    assert obj.name == 1
 
     # "some_int" was not in data, so it gets a default value
-    assert obj.to_dict() == {"name": "my name", "some_int": 0, "some_value": ["foo"]}
-
-    with pytest.raises(Exception):
-        obj2 = SomeSerializable.from_json("")
+    assert obj.to_dict() == {"name": 1, "some_int": 0, "some_value": ["foo"]}
+    assert not logged
 
     obj2 = SomeSerializable.from_json("", default={})
     assert obj != obj2
+    assert not logged
 
     obj.reset()
     assert obj.name == ""
@@ -150,20 +183,9 @@ def test_serialization(logged):
 
     path = "/dev/null/not-there"
     obj3 = SomeSerializable.from_json(path, fatal=False)
-    assert obj == obj3
-
-    obj3.save(path, fatal=False)
-    assert "Couldn't save" in logged.pop()
-
-    with pytest.raises(runez.system.AbortException):
-        obj.load(path, fatal=True)
-
     assert "No file /dev/null/not-there" in logged.pop()
 
-    obj.load(path, default={"name": "some name"})
-    assert obj.name == "some name"
-
-    assert not logged
+    assert obj == obj3
 
 
 def test_sanitize():

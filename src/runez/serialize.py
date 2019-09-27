@@ -98,14 +98,11 @@ def type_name(value):
 class ClassDescription(object):
     """Info on class attributes and properties"""
 
-    def __init__(self, cls, dct=None):
+    def __init__(self, cls):
         self.cls = cls
         self.attributes = {}
         self.properties = []
-        if dct is None:
-            dct = cls.__dict__
-
-        for key, value in dct.items():
+        for key, value in cls.__dict__.items():
             if not key.startswith("_"):
                 if value is None:
                     self.attributes[key] = None
@@ -121,32 +118,36 @@ class ClassDescription(object):
                     self.attributes[key] = value.__class__
 
 
-def with_metaclass(meta, *bases):
-    """Create a base class with a metaclass (taken from https://pypi.org/project/six/)"""
+def add_metaclass(metaclass):
+    """Class decorator for creating a class with a metaclass (taken from https://pypi.org/project/six/)."""
+    def wrapper(cls):
+        orig_vars = cls.__dict__.copy()
+        slots = orig_vars.get("__slots__")
+        if slots is not None:
+            if isinstance(slots, str):
+                slots = [slots]
+            for slots_var in slots:
+                orig_vars.pop(slots_var)
+        orig_vars.pop("__dict__", None)
+        orig_vars.pop("__weakref__", None)
+        if hasattr(cls, "__qualname__"):
+            orig_vars["__qualname__"] = cls.__qualname__
+        return metaclass(cls.__name__, cls.__bases__, orig_vars)
+    return wrapper
 
-    class metaclass(type):
-        def __new__(cls, name, this_bases, dct):
-            return meta(name, bases, dct)
 
-        @classmethod
-        def __prepare__(cls, name, this_bases):
-            return meta.__prepare__(name, bases)
-
-    return type.__new__(metaclass, "temporary_class", (), {})
-
-
-def with_meta_injector(meta_type):
-    """A metaclass that injects a `._meta` class attribute using given `meta_type` class"""
-
+def add_meta(meta_type):
+    """A simplified metaclass that simply injects a `._meta` field of given type `meta_type`"""
     class meta_injector(type):
         def __init__(cls, name, bases, dct):
             super(meta_injector, cls).__init__(name, bases, dct)
-            cls._meta = meta_type(cls, dct)
+            cls._meta = meta_type(cls)
 
-    return with_metaclass(meta_injector)
+    return add_metaclass(meta_injector)
 
 
-class Serializable(with_meta_injector(ClassDescription)):
+@add_meta(ClassDescription)
+class Serializable(object):
     """Serializable object"""
 
     _meta = None  # type: ClassDescription  # This describes fields and properties of descendant classes, populated via metaclass
@@ -177,34 +178,48 @@ class Serializable(with_meta_injector(ClassDescription)):
         return result
 
     @classmethod
-    def from_dict(cls, data, source=None):
+    def from_dict(cls, data, source=None, ignore=None):
         """
         Args:
             data (dict): Raw data, coming for example from a json file
             source (str | None): Optional, description of source where 'data' came from
+            ignore (bool | list | None): True: ignore any and all mismatches (including type mismatch)
+                                         False: ignore extra content in `data` (but fail on type mismatch)
+                                         None: strict mode, raise exception if `data` does not fully comply to `._meta` schema
+                                         list: ignore specified extra given names (but fail on type mismatch)
 
         Returns:
             (cls): Deserialized object
         """
         result = cls()
-        result.set_from_dict(data, source=source)
+        result.set_from_dict(data, source=source, ignore=ignore)
         return result
 
-    def set_from_dict(self, data, source=None):
+    def set_from_dict(self, data, source=None, ignore=None):
         """
         Args:
             data (dict): Raw data, coming for example from a json file
             source (str | None): Optional, description of source where 'data' came from
+            ignore (bool | list | None): True: ignore any and all mismatches (including type mismatch)
+                                         False: ignore extra content in `data` (but fail on type mismatch)
+                                         None: strict mode, raise exception if `data` does not fully comply to `._meta` schema
+                                         list: ignore specified extra given names (but fail on type mismatch)
         """
         if data is None:
-            data = {}
+            given = {}
+
+        else:
+            given = data.copy()
 
         for name, vtype in self._meta.attributes.items():
-            value = data.get(name, vtype and vtype())
+            value = given.pop(name, vtype and vtype())
             if vtype is not None and value is not None and not same_type(vtype, value):
-                origin = " in %s" % source if source else ""
-                LOG.debug("Wrong type '%s' for %s.%s%s, expecting '%s'", type_name(value), type_name(self), name, origin, vtype.__name__)
-                continue
+                msg = " in %s" % source if source else ""
+                msg = "Wrong type '%s' for %s.%s%s, expecting '%s'" % (type_name(value), type_name(self), name, msg, vtype.__name__)
+                if ignore is not True:
+                    abort(msg)
+
+                LOG.debug(msg)
 
             if value is None:
                 setattr(self, name, None)
@@ -216,6 +231,18 @@ class Serializable(with_meta_injector(ClassDescription)):
 
                 else:
                     setter(value)
+
+        if isinstance(ignore, list):
+            for x in ignore:
+                given.pop(x, None)
+
+        if given:
+            # We have more stuff in `data` than described in `._meta`
+            msg = "Extra content given for %s: %s" % (type_name(self), ", ".join(given))
+            if not isinstance(ignore, bool):
+                abort(msg)
+
+            LOG.debug(msg)
 
     def reset(self):
         """
@@ -229,32 +256,8 @@ class Serializable(with_meta_injector(ClassDescription)):
         :param (bool) keep_none: If False, don't include None values
         :return dict: This object serialized to a dict
         """
-        return json_sanitized(dict((name, getattr(self, name)) for name in self._meta.attributes), keep_none=keep_none)
-
-    def load(self, path, default=None, fatal=True, logger=None):
-        """
-        Args:
-            path (str): Path to json file
-            default (dict | None): Default if file is not present, or if it's not json
-            fatal (bool | None): Abort execution on failure if True
-            logger (callable | None): Logger to use
-        """
-        data = read_json(path, default=default, fatal=fatal, logger=logger)
-        self.set_from_dict(data, source=short(path))
-
-    def save(self, path, fatal=True, logger=None, sort_keys=True, indent=2):
-        """
-        Args:
-            path (str): Path where to save this serializable to
-            fatal (bool | None): Raise runez.system.AbortException on failure if True
-            logger (callable | None): Logger to use
-            sort_keys (bool): Sort keys
-            indent (int): Indentation to use
-
-        Returns:
-            (int): Applicable only if `fatal` is not True, -1 on failure, 0 on no-op, 1 on success
-        """
-        return save_json(self.to_dict(), path, fatal=fatal, logger=logger, sort_keys=sort_keys, indent=indent)
+        raw = dict((name, getattr(self, name)) for name in self._meta.attributes)
+        return json_sanitized(raw, keep_none=keep_none)
 
 
 def read_json(path, default=None, fatal=True, logger=None):
