@@ -16,7 +16,14 @@ from runez.base import string_type
 
 
 class Any(object):
+    """Indicates that any value is accepted"""
+
     def __init__(self, default=None, name=None):
+        """
+        Args:
+            default: Default to use (when no value is provided)
+            name (str | None): Name for this constraint (default: lowercase of implementation class)
+        """
         self.default = default
         self.name = name or self.__class__.__name__.lower()
 
@@ -27,29 +34,52 @@ class Any(object):
         return "%s (default: %s)" % (self.representation(), self.default)
 
     def representation(self):
+        """
+        Returns:
+            (str): Textual representation for this type constraint
+        """
         return self.name
 
     def problem(self, value, ignore):
+        """
+        Args:
+            value: Value to inspect
+            ignore (bool | list | None): See runes.Serializable.set_from_dict()
+
+        Returns:
+            (str | None): Explanation of compliance issue, if there is any
+        """
         if value is None:
             return None
 
         return self._problem(value, ignore)
 
     def _problem(self, value, ignore):
-        """To be re-defined by descendants"""
+        """To be re-defined by descendants, `value` is never `None`"""
         return None
 
     def converted(self, value, ignore):
+        """
+        Args:
+            value: Value to inspect
+            ignore (bool | list | None): See runes.Serializable.set_from_dict()
+
+        Returns:
+            Converted value complying to this type
+        """
         if value is None:
             return None
 
         return self._converted(value, ignore)
 
     def _converted(self, value, ignore):
+        """To be re-defined by descendants, `value` is never `None`"""
         return value
 
 
 class Serializable(Any):
+    """Represents a descendant of `runez.Serializable`"""
+
     def __init__(self, serializable):
         self.serializable = serializable  # type: runez.Serializable.__class__ # noqa
         super(Serializable, self).__init__(default=None, name=serializable.__name__)
@@ -65,7 +95,16 @@ class Serializable(Any):
 
 
 class Dict(Any):
+    """Dict with optionally key/value constrained as well"""
+
     def __init__(self, key=None, value=None, default=None, name=None):
+        """
+        Args:
+            key: Optional constraint for keys
+            value: Optional constraint for values
+            default: Default to use when no value was provided
+            name (str | None): Name for this constraint (default: dict)
+        """
         if isinstance(key, type):
             key = key()
         if isinstance(value, type):
@@ -95,6 +134,8 @@ class Dict(Any):
 
 
 class Integer(Any):
+    """Represents integer type"""
+
     def _problem(self, value, ignore):
         try:
             int(value)
@@ -108,7 +149,15 @@ class Integer(Any):
 
 
 class List(Any):
+    """List with optionally values constrained as well"""
+
     def __init__(self, subtype=None, default=None, name=None):
+        """
+        Args:
+            subtype: Optional constraint for values
+            default: Default to use when no value was provided
+            name (str | None): Name for this constraint (default: list)
+        """
         if isinstance(subtype, type):
             subtype = subtype()
         self.subtype = subtype  # type: Any
@@ -131,6 +180,8 @@ class List(Any):
 
 
 class String(Any):
+    """Represents string type"""
+
     def _problem(self, value, ignore):
         if not isinstance(value, string_type):
             return "expecting string, got '%s'" % value
