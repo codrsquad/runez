@@ -238,7 +238,7 @@ class Serializable(object):
 
         if given:
             # We have more stuff in `data` than described in `._meta`
-            msg = "Extra content given for %s: %s" % (type_name(self), ", ".join(given))
+            msg = "Extra content given for %s: %s" % (type_name(self), ", ".join(sorted(given)))
             if not isinstance(ignore, bool):
                 abort(msg)
 

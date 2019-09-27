@@ -147,7 +147,7 @@ def test_serialization(logged):
 
     obj2 = SomeSerializable.from_dict({"foo": 1, "bar": 2}, ignore=False)
     assert obj == obj2
-    assert "Extra content given for SomeSerializable: foo, bar" in logged.pop()
+    assert "Extra content given for SomeSerializable: bar, foo" in logged.pop()
 
     obj2 = SomeSerializable.from_dict({"foo": 1, "bar": 2}, ignore=["foo", "bar", "baz"])
     assert obj == obj2
