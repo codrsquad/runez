@@ -17,7 +17,7 @@ DRYRUN mode:
     It's recommended to set DRYRUN only once at the start of your run via: runez.log.setup(dryrun=...)
 """
 
-from runez import click, colors, config, heartbeat, program, serialize
+from runez import click, colors, config, heartbeat, program, schema, serialize
 from runez.base import class_descendants, decode, PY2, Slotted, stringified, Undefined, UNSET
 from runez.colors import activate_colors, blue, bold, dim, is_coloring, is_tty, plural, red, yellow
 from runez.config import capped, from_json, to_boolean, to_bytesize, to_dict, to_int, to_number
@@ -39,7 +39,7 @@ from runez.system import abort, current_test, get_platform, get_version, set_dry
 
 __all__ = [
     "DRYRUN",
-    "click", "colors", "config", "heartbeat", "logsetup", "program", "serialize",
+    "click", "colors", "config", "heartbeat", "logsetup", "program", "schema", "serialize",
     "class_descendants", "decode", "PY2", "Slotted", "stringified", "Undefined", "UNSET",
     "activate_colors", "blue", "bold", "dim", "is_coloring", "is_tty", "plural", "red", "yellow",
     "capped", "from_json", "to_boolean", "to_bytesize", "to_dict", "to_int", "to_number",

@@ -118,7 +118,7 @@ def prettified(value):
     if isinstance(value, set):
         return "{%s}" % ", ".join(stringified(s, converter=prettified) for s in sorted(value, key=lambda x: "%s" % x))
 
-    if value.__class__ is type:
+    if isinstance(value, type):
         return "class %s.%s" % (value.__module__, value.__name__)
 
     if callable(value):

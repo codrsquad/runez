@@ -9,13 +9,22 @@ import json
 import logging
 import os
 
-from runez.base import decode, string_type
+from runez.base import decode, string_type, UNSET
 from runez.convert import resolved_path, short
 from runez.path import ensure_folder
+from runez.schema import Any, Dict, Integer, List, Serializable as SchemaSerializable, String
 from runez.system import abort, is_dryrun
 
 
 LOG = logging.getLogger(__name__)
+TYPE_MAP = {
+    dict: Dict,
+    int: Integer,
+    list: List,
+    set: List,
+    string_type: String,
+    tuple: List,
+}
 
 
 def json_sanitized(value, stringify=decode, dt=str, keep_none=False):
@@ -70,10 +79,10 @@ def same_type(t1, t2):
     if t1 is None or t2 is None:
         return t1 is t2
 
-    if t1.__class__ is not type:
+    if not isinstance(t1, type):
         t1 = t1.__class__
 
-    if t2.__class__ is not type:
+    if not isinstance(t2, type):
         t2 = t2.__class__
 
     if issubclass(t1, string_type) and issubclass(t2, string_type):
@@ -84,8 +93,11 @@ def same_type(t1, t2):
 
 def type_name(value):
     """
-    :param value: Some object, class, or None
-    :return str: Class name implementing 'value'
+    Args:
+        value: Some object, class, or None
+
+    Returns:
+        (str): Class name implementing 'value'
     """
     if value is None:
         return "None"
@@ -93,10 +105,54 @@ def type_name(value):
     if isinstance(value, string_type):
         return "str"
 
-    if value.__class__ is type:
+    if isinstance(value, type):
         return value.__name__
 
     return value.__class__.__name__
+
+
+def get_descriptor(value):
+    """
+    Args:
+        value: Value given by user (as class attribute to describe their runez.Serializable schema)
+
+    Returns:
+        (Any | None): Descriptor if one is applicable
+    """
+    if value is None:
+        return Any()  # Used used None as value, no more info to be had
+
+    if isinstance(value, Any):
+        return value  # User specified their schema properly
+
+    if inspect.isroutine(value):
+        return None  # Routine, not a descriptor
+
+    if inspect.ismemberdescriptor(value):
+        return Any()  # Member descriptor (such as slot), not type as runez.Serializable goes
+
+    if isinstance(value, string_type):
+        return String(default=value)  # User gave a string as value, assume they mean string type, and use value as default
+
+    mapped = TYPE_MAP.get(value.__class__)
+    if mapped is not None:
+        return mapped(default=value)
+
+    if not isinstance(value, type):
+        value = value.__class__
+
+    if issubclass(value, string_type):
+        return String()
+
+    if issubclass(value, Serializable):
+        return SchemaSerializable(value)
+
+    if issubclass(value, Any):
+        return value()
+
+    mapped = TYPE_MAP.get(value)
+    if mapped is not None:
+        return mapped()
 
 
 class ClassDescription(object):
@@ -108,18 +164,37 @@ class ClassDescription(object):
         self.properties = []
         for key, value in cls.__dict__.items():
             if not key.startswith("_"):
-                if value is None:
-                    self.attributes[key] = None
-
-                elif value.__class__ is type:
-                    self.attributes[key] = value
-                    setattr(cls, key, value())
-
-                elif "property" in value.__class__.__name__:
+                if value is not None and "property" in value.__class__.__name__:
                     self.properties.append(key)
+                    continue
 
-                elif not inspect.isroutine(value):
-                    self.attributes[key] = value.__class__
+                descriptor = get_descriptor(value)
+                if descriptor is not None:
+                    self.attributes[key] = descriptor
+                    setattr(cls, key, descriptor.default)
+
+    def __repr__(self):
+        return "%s (%s attributes, %s properties)" % (type_name(self.cls), len(self.attributes), len(self.properties))
+
+    def problem(self, value, ignore):
+        """
+        Args:
+            value: Value to verify compliance of
+            ignore (bool | list | None): See Serializable.set_from_dict()
+
+        Returns:
+            (str | None): Explanation of compliance issue, if there is any
+        """
+        for name, descriptor in self.attributes.items():
+            problem = descriptor.problem(value.get(name), ignore)
+            if problem is not None:
+                return problem
+
+        if ignore is None or isinstance(ignore, list):
+            for key in value:
+                if key not in self.attributes:
+                    if ignore is None or key not in ignore:
+                        return "%s is not an attribute" % key
 
 
 def add_metaclass(metaclass):
@@ -155,6 +230,7 @@ class Serializable(object):
     """Serializable object"""
 
     _meta = None  # type: ClassDescription  # This describes fields and properties of descendant classes, populated via metaclass
+    _ignore = None  # type: list # Default to use as `ignore` for `set_from_dict()`
 
     def __eq__(self, other):
         if other is not None and other.__class__ is self.__class__:
@@ -182,15 +258,12 @@ class Serializable(object):
         return result
 
     @classmethod
-    def from_dict(cls, data, source=None, ignore=None):
+    def from_dict(cls, data, source=None, ignore=UNSET):
         """
         Args:
             data (dict): Raw data, coming for example from a json file
             source (str | None): Optional, description of source where 'data' came from
-            ignore (bool | list | None): True: ignore any and all mismatches (including type mismatch)
-                                         False: ignore extra content in `data` (but fail on type mismatch)
-                                         None: strict mode, raise exception if `data` does not fully comply to `._meta` schema
-                                         list: ignore specified extra given names (but fail on type mismatch)
+            ignore (bool | list | None): See Serializable.set_from_dict()
 
         Returns:
             (cls): Deserialized object
@@ -199,7 +272,7 @@ class Serializable(object):
         result.set_from_dict(data, source=source, ignore=ignore)
         return result
 
-    def set_from_dict(self, data, source=None, ignore=None):
+    def set_from_dict(self, data, source=None, ignore=UNSET):
         """
         Args:
             data (dict): Raw data, coming for example from a json file
@@ -209,17 +282,24 @@ class Serializable(object):
                                          None: strict mode, raise exception if `data` does not fully comply to `._meta` schema
                                          list: ignore specified extra given names (but fail on type mismatch)
         """
+        if ignore is UNSET:
+            ignore = self._ignore
+
         if data is None:
             given = {}
 
         else:
             given = data.copy()
 
-        for name, vtype in self._meta.attributes.items():
-            value = given.pop(name, vtype and vtype())
-            if vtype is not None and value is not None and not same_type(vtype, value):
-                msg = " in %s" % source if source else ""
-                msg = "Wrong type '%s' for %s.%s%s, expecting '%s'" % (type_name(value), type_name(self), name, msg, vtype.__name__)
+        for name, descriptor in self._meta.attributes.items():
+            value = given.pop(name, descriptor.default)
+            problem = descriptor.problem(value, ignore)
+            if problem is None:
+                value = descriptor.converted(value, ignore)
+
+            else:
+                msg = " from %s" % source if source else ""
+                msg = "Can't deserialize %s.%s%s: %s" % (type_name(self), name, msg, problem)
                 if ignore is not True:
                     abort(msg)
 
@@ -252,8 +332,8 @@ class Serializable(object):
         """
         Reset all fields of this object to class defaults
         """
-        for name, vtype in self._meta.attributes.items():
-            setattr(self, name, vtype and vtype())
+        for name, descriptor in self._meta.attributes.items():
+            setattr(self, name, descriptor.default)
 
     def to_dict(self, keep_none=False):
         """
