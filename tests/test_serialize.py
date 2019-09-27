@@ -119,12 +119,15 @@ def test_to_dict(temp_folder):
 def test_types():
     assert type_name(None) == "None"
     assert type_name("some-string") == "str"
+    assert type_name(u"some-string") == "str"
     assert type_name({}) == "dict"
+    assert type_name(dict) == "dict"
     assert type_name([]) == "list"
     assert type_name(1) == "int"
 
     assert same_type(None, None)
     assert not same_type(None, "")
+    assert not same_type("", None)
     assert same_type("some-string", "some-other-string")
     assert same_type("some-string", u"some-unicode")
     assert same_type(["some-string"], [u"some-unicode"])

@@ -14,6 +14,7 @@ from runez.convert import resolved_path, short
 from runez.path import ensure_folder
 from runez.system import abort, is_dryrun
 
+
 LOG = logging.getLogger(__name__)
 
 
@@ -83,7 +84,7 @@ def same_type(t1, t2):
 
 def type_name(value):
     """
-    :param value: Some object, or None
+    :param value: Some object, class, or None
     :return str: Class name implementing 'value'
     """
     if value is None:
@@ -91,6 +92,9 @@ def type_name(value):
 
     if isinstance(value, string_type):
         return "str"
+
+    if value.__class__ is type:
+        return value.__name__
 
     return value.__class__.__name__
 
