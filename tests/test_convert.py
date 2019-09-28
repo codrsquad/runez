@@ -166,7 +166,7 @@ def test_to_int():
 
     assert runez.to_int("0o10") == 8
     assert runez.to_int("0x10") == 16
-    if sys.version_info[:1] != (3, 5):  # 3.5 has the same quirk as 2.7, not worth adding an edge case for it (3.5 is not much used)
+    if sys.version_info[:2] != (3, 5):  # 3.5 has the same quirk as 2.7, not worth adding an edge case for it (3.5 is not much used)
         assert runez.to_int("0o1_0") == 8
         assert runez.to_int("0x1_0") == 16
 
