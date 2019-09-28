@@ -7,6 +7,7 @@ import time
 from runez.base import UNSET
 
 
+DEFAULT_TIMEZONE = None
 SECONDS_IN_ONE_MINUTE = 60
 SECONDS_IN_ONE_HOUR = 60 * SECONDS_IN_ONE_MINUTE
 SECONDS_IN_ONE_DAY = 24 * SECONDS_IN_ONE_HOUR
@@ -37,6 +38,9 @@ class timezone(datetime.tzinfo):
                 name = "{:+03d}:{:02d}".format(hours, minutes)
             self.name = name
 
+    def __repr__(self):
+        return self.name
+
     def utcoffset(self, dt):
         return self.offset
 
@@ -53,7 +57,7 @@ RE_TZ = re.compile(r"([+-]?[0-9][0-9]):?([0-9][0-9])")
 DEFAULT_DURATION_SPAN = 2
 
 
-def datetime_from_epoch(epoch, tz=None, in_ms=None):
+def datetime_from_epoch(epoch, tz=UNSET, in_ms=None):
     """
     Args:
         epoch (int | float): Unix epoch in seconds or milliseconds, utc or local
@@ -63,8 +67,12 @@ def datetime_from_epoch(epoch, tz=None, in_ms=None):
     Returns:
         (datetime.datetime): Corresponding datetime object
     """
+    if tz is UNSET:
+        tz = DEFAULT_TIMEZONE
+
     if in_ms or (in_ms is None and epoch > EPOCH_MS_BREAK):
         epoch = float(epoch) / 1000
+
     return datetime.datetime.fromtimestamp(epoch, tz=tz)
 
 
@@ -192,7 +200,7 @@ def timezone_from_text(text):
         (datetime.tzinfo | None):
     """
     if text is None:
-        return None
+        return DEFAULT_TIMEZONE
 
     if text in ("Z", "UTC"):
         return UTC
@@ -202,3 +210,5 @@ def timezone_from_text(text):
         hours = int(m.group(1))
         minutes = int(m.group(2))
         return timezone(datetime.timedelta(hours=int(hours), minutes=int(minutes)))
+
+    return DEFAULT_TIMEZONE

@@ -25,7 +25,7 @@ def test_elapsed():
     assert runez.elapsed(d1, ended=d2) == 86400
     assert runez.elapsed(d2, ended=dt1) == -86400
 
-    dt = runez.datetime_from_epoch(1567296012)  # Depends on timezone
+    dt = runez.datetime_from_epoch(1567296012, tz=None)  # Naive date will depend on timezone (ie: where this test runs)
     assert dt.year == 2019
     assert dt.tzinfo is None
 
@@ -73,8 +73,8 @@ def test_timezone():
         runez_time.tzname = []
         assert runez.get_local_timezone() == ""
 
-    assert runez.timezone_from_text(None) is None
-    assert runez.timezone_from_text("foo") is None
+    assert runez.timezone_from_text(None) is runez.date.DEFAULT_TIMEZONE
+    assert runez.timezone_from_text("foo") is runez.date.DEFAULT_TIMEZONE
     assert runez.timezone_from_text("Z") == runez.UTC
     assert runez.timezone_from_text("UTC") == runez.UTC
     assert runez.timezone_from_text("0000") == runez.UTC
@@ -82,9 +82,7 @@ def test_timezone():
     assert runez.timezone_from_text("-00:00") == runez.UTC
 
     epoch = 1568348000
-    dt = runez.datetime_from_epoch(epoch)  # Depends on timezone
-    assert dt.year == 2019
-    assert dt.tzinfo is None
+    check_date("2019-09-13 04:13:20 UTC", runez.datetime_from_epoch(epoch))
 
     tz = runez.timezone_from_text("-01:00")
     check_date("2019-09-13 03:13:20 -01:00", runez.datetime_from_epoch(epoch, tz=tz))

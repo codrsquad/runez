@@ -170,22 +170,27 @@ class Slotted(object):
         return result
 
 
-def stringified(text, converter=None):
+def stringified(value, converter=None):
     """
     Args:
-        text: Any object to turn into a string
+        value: Any object to turn into a string
         converter (callable | None): Optional converter to use for non-string objects
 
     Returns:
         (str): Ensure `text` is a string if necessary (this is to avoid transforming string types in py2 as much as possible)
     """
-    if isinstance(text, string_type):
-        return text
+    if isinstance(value, string_type):
+        return value
 
-    if converter:
-        return converter(text)
+    if converter is not None:
+        converted = converter(value)
+        if isinstance(converted, string_type):
+            return converted
 
-    return "%s" % text
+        if converted is not None:
+            value = converted
+
+    return "%s" % value
 
 
 class ThreadGlobalContext(object):

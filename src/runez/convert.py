@@ -116,40 +116,6 @@ def quoted(text):
     return text
 
 
-def prettified(value):
-    """
-    Args:
-        value: Value to represent in a prettified way
-
-    Returns:
-        (str): Best-effort prettified textual representation
-    """
-    if value is None:
-        return "None"
-
-    if isinstance(value, list):
-        return "[%s]" % ", ".join(stringified(s, converter=prettified) for s in value)
-
-    if isinstance(value, tuple):
-        return "(%s)" % ", ".join(stringified(s, converter=prettified) for s in value)
-
-    if isinstance(value, dict):
-        keys = sorted(value, key=lambda x: "%s" % x)
-        pairs = ("%s: %s" % (stringified(k, converter=prettified), stringified(value[k], converter=prettified)) for k in keys)
-        return "{%s}" % ", ".join(pairs)
-
-    if isinstance(value, set):
-        return "{%s}" % ", ".join(stringified(s, converter=prettified) for s in sorted(value, key=lambda x: "%s" % x))
-
-    if isinstance(value, type):
-        return "class %s.%s" % (value.__module__, value.__name__)
-
-    if callable(value):
-        return "function '%s'" % value.__name__
-
-    return "%s" % value
-
-
 def represented_args(args, separator=" "):
     """
     Args:
@@ -186,19 +152,26 @@ def resolved_path(path, base=None):
 
 
 def short(path):
+    """
+    Args:
+        path (str): Path to textually represent in a shortened (yet meaningful) form
+
+    Returns:
+        (str): Shorter version of `path` (relative to one of the current anchor folders)
+    """
     return Anchored.short(path)
 
 
-def shortened(text, size=120):
+def shortened(value, size=120):
     """
     Args:
-        text: Text to shorten (stringified if necessary)
+        value: Value to textually represent within `size` characters (stringified if necessary)
         size (int): Max chars
 
     Returns:
         (str): Leading part of 'text' with at most 'size' chars
     """
-    text = stringified(text, converter=prettified).strip()
+    text = stringified(value, converter=_prettified).strip()
     text = RE_SPACES.sub(" ", text)
     if len(text) > size:
         return "%s..." % text[:size - 3]
@@ -578,3 +551,25 @@ def _float_from_text(text, lenient=True, default=None):
                 pass
 
     return default
+
+
+def _prettified(value):
+    if isinstance(value, list):
+        return "[%s]" % ", ".join(stringified(s, converter=_prettified) for s in value)
+
+    if isinstance(value, tuple):
+        return "(%s)" % ", ".join(stringified(s, converter=_prettified) for s in value)
+
+    if isinstance(value, dict):
+        keys = sorted(value, key=lambda x: "%s" % x)
+        pairs = ("%s: %s" % (stringified(k, converter=_prettified), stringified(value[k], converter=_prettified)) for k in keys)
+        return "{%s}" % ", ".join(pairs)
+
+    if isinstance(value, set):
+        return "{%s}" % ", ".join(stringified(s, converter=_prettified) for s in sorted(value, key=lambda x: "%s" % x))
+
+    if isinstance(value, type):
+        return "class %s.%s" % (value.__module__, value.__name__)
+
+    if callable(value):
+        return "function '%s'" % value.__name__

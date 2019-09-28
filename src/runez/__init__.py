@@ -22,7 +22,7 @@ from runez.base import class_descendants, decode, PY2, Slotted, stringified, Und
 from runez.colors import activate_colors, blue, bold, dim, is_coloring, is_tty, plural, red, yellow
 from runez.config import from_json, parsed_bytesize
 from runez.context import CaptureOutput, CurrentFolder, TempFolder, TrackedOutput, verify_abort
-from runez.convert import Anchored, capped, flattened, formatted, prettified, quoted, represented_args, resolved_path, short, shortened
+from runez.convert import Anchored, capped, flattened, formatted, quoted, represented_args, resolved_path, short, shortened
 from runez.convert import affixed, camel_cased, entitled, get_words, snakified, wordified  # noqa, import order not useful here
 from runez.convert import SANITIZED, SHELL, to_float, to_int, UNIQUE, unitized
 from runez.date import datetime_from_epoch, elapsed, get_local_timezone, represented_duration, timezone, timezone_from_text
@@ -44,7 +44,7 @@ __all__ = [
     "activate_colors", "blue", "bold", "dim", "is_coloring", "is_tty", "plural", "red", "yellow",
     "from_json", "parsed_bytesize",
     "CaptureOutput", "CurrentFolder", "TempFolder", "TrackedOutput", "verify_abort",
-    "Anchored", "capped", "flattened", "formatted", "prettified", "quoted", "represented_args", "resolved_path", "short", "shortened",
+    "Anchored", "capped", "flattened", "formatted", "quoted", "represented_args", "resolved_path", "short", "shortened",
     "affixed", "camel_cased", "entitled", "get_words", "snakified", "wordified",
     "SANITIZED", "SHELL", "to_float", "to_int", "UNIQUE", "unitized",
     "datetime_from_epoch", "elapsed", "get_local_timezone", "represented_duration", "timezone", "timezone_from_text",
