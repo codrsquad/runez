@@ -5,16 +5,39 @@ This is module should not import any other runez module, it's the lowest on the 
 import os
 import re
 
-from runez.base import stringified, UNSET
+from runez.base import PY2, string_type, stringified, UNSET
 
-SYMBOLIC_TMP = "<tmp>"
+
+DEFAULT_BASE = 1000
+DEFAULT_UNITS = "kmgt"
 RE_FORMAT_MARKERS = re.compile(r"{([^}]*?)}")
 RE_WORDS = re.compile(r"[^\w]+")
 RE_SPACES = re.compile(r"[\s\n]+", re.MULTILINE)
+SYMBOLIC_TMP = "<tmp>"
 
 SANITIZED = 1
 SHELL = 2
 UNIQUE = 4
+
+
+def capped(value, minimum=None, maximum=None):
+    """
+    Args:
+        value: Value to cap
+        minimum: If specified, value should not be lower than this minimum
+        maximum: If specified, value should not be higher than this maximum
+
+    Returns:
+        `value` capped to `minimum` and `maximum` (if it is outside of those bounds)
+    """
+    if value is not None:
+        if minimum is not None and value < minimum:
+            return minimum
+
+        if maximum is not None and value > maximum:
+            return maximum
+
+    return value
 
 
 def flattened(value, split=None):
@@ -180,6 +203,64 @@ def shortened(text, size=120):
     if len(text) > size:
         return "%s..." % text[:size - 3]
     return text
+
+
+def to_float(value, lenient=False, default=None):
+    """
+    Args:
+        value: Value to convert to float
+        lenient (bool): If True, returned number is returned as an `int` if possible first, float otherwise
+        default: Default to return when value can't be converted
+
+    Returns:
+        (float | int | None): Extracted float if possible, otherwise `None`
+    """
+    if isinstance(value, string_type):
+        return _float_from_text(value, lenient=lenient, default=default)
+
+    if lenient:
+        try:
+            return int(value)
+
+        except (TypeError, ValueError):
+            pass
+
+    try:
+        return float(value)
+
+    except (TypeError, ValueError):
+        return default
+
+
+def to_int(value, default=None):
+    """
+    Args:
+        value: Value to convert to int
+        default: Default to return when value can't be converted
+
+    Returns:
+        (int | None): Extracted int if possible, otherwise `None`
+    """
+    if isinstance(value, string_type):
+        return _int_from_text(value, default=default)
+
+    try:
+        return int(value)
+
+    except (TypeError, ValueError):
+        return default
+
+
+def to_number(value, default=None):
+    """
+    Args:
+        value: Value to convert to number
+        default: Default to return when value can't be converted
+
+    Returns:
+        (int | float | None): Extracted number if possible, otherwise `None`
+    """
+    return to_float(value, lenient=True, default=default)
 
 
 class Anchored(object):
@@ -349,6 +430,30 @@ def wordified(text, separator="_", normalize=None):
     return separator.join(get_words(text, normalize=normalize))
 
 
+def unitized(value, unit, base=DEFAULT_BASE, unitseq=DEFAULT_UNITS):
+    """
+    Args:
+        value (int | float): Value to expand
+        unit (str | unicode): Given unit
+        base (int): Base to use (usually 1024)
+        unitseq (str): Sequence of 1-letter representation for each exponent level
+
+    Returns:
+        Deduced value (example: "1k" becomes 1000)
+    """
+    exponent = _get_unit_exponent(unit, unitseq)
+    if exponent is not None:
+        return int(value * (base ** exponent))
+
+
+def _get_unit_exponent(unit, unitseq, default=None):
+    try:
+        return 0 if not unit else unitseq.index(unit) + 1
+
+    except ValueError:
+        return default
+
+
 def _rformat(key, value, definitions, max_depth):
     if max_depth > 1 and value and "{" in value:
         value = value.format(**definitions)
@@ -414,3 +519,62 @@ def _find_value(key, *args):
         v = _get_value(arg, key)
         if v is not None:
             return v
+
+
+def _int_from_text(text, base=None, default=None):
+    """
+    Args:
+        text (str): Text to convert to int
+        base (int | None): Base to use (managed internally, no need to specify)
+        default: Default to return when value can't be converted
+
+    Returns:
+        (int | None): Extracted int if possible, otherwise `None`
+    """
+    if PY2:
+        text = text.replace("_", "")
+
+    try:
+        if base is None:
+            return int(text)
+
+        return int(text, base=base)
+
+    except ValueError:
+        if base is None and len(text) >= 3:
+            if text[0] == "0":
+                if text[1] == "o":
+                    return _int_from_text(text, base=8, default=default)
+
+                if text[1] == "x":
+                    return _int_from_text(text, base=16, default=default)
+
+    return default
+
+
+def _float_from_text(text, lenient=True, default=None):
+    """
+    Args:
+        text (str): Text to convert to float (yaml-like form ".inf" also accepted)
+        lenient (bool): If True, returned number is returned as an `int` if possible first, float otherwise
+        default: Default to return when value can't be converted
+
+    Returns:
+        (float | None): Extracted float if possible, otherwise `None`
+    """
+    value = _int_from_text(text, default=default)  # Allows to also support hex/octal numbers
+    if value is not None:
+        return value if lenient else float(value)
+
+    try:
+        return float(text)
+
+    except ValueError:
+        if len(text) >= 3 and text[-1] in "fF" and (text[0] == "." or text[1] == "."):
+            try:
+                return float(text.replace(".", "", 1))  # Edge case: "[+-]?.inf"
+
+            except ValueError:
+                pass
+
+    return default

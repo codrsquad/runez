@@ -2,7 +2,6 @@ from __future__ import print_function
 
 import os
 
-import pytest
 from mock import patch
 
 import runez
@@ -199,42 +198,19 @@ def test_samples():
         assert config.get_json("some-string", default='{"a": "b"}') == {"a": "b"}
 
 
-def test_capped():
-    assert runez.config.to_number(int, "123", minimum=200) == 200
-    assert runez.config.to_number(int, "123", maximum=100) == 100
-    assert runez.config.to_number(int, "123", minimum=100, maximum=200) == 123
-    assert runez.config.to_number(int, "123", minimum=100, maximum=110) == 110
-
-
-def test_numbers():
-    assert runez.config.to_number(int, None) is None
-    assert runez.config.to_number(int, "") is None
-    assert runez.config.to_number(int, "foo") is None
-    assert runez.config.to_number(int, "1foo") is None
-    assert runez.config.to_number(int, "1.foo") is None
-
-    assert runez.config.to_number(int, "123") == 123
-    assert runez.config.to_number(int, "  123  ") == 123
-    assert runez.config.to_number(int, "1.23") is None
-
-    assert runez.config.to_number(float, "1.23") == 1.23
-    assert runez.config.to_number(float, "  1.23  ") == 1.23
-    assert runez.config.to_number(float, "1.2.3") is None
-
-
 def test_boolean():
-    assert runez.config.to_boolean(None) is False
-    assert runez.config.to_boolean("") is False
-    assert runez.config.to_boolean("t") is False
-    assert runez.config.to_boolean("0") is False
-    assert runez.config.to_boolean("0.0") is False
-    assert runez.config.to_boolean("1.0.0") is False
+    assert runez.config.parsed_boolean(None) is False
+    assert runez.config.parsed_boolean("") is False
+    assert runez.config.parsed_boolean("t") is False
+    assert runez.config.parsed_boolean("0") is False
+    assert runez.config.parsed_boolean("0.0") is False
+    assert runez.config.parsed_boolean("1.0.0") is False
 
-    assert runez.config.to_boolean("True") is True
-    assert runez.config.to_boolean("yes") is True
-    assert runez.config.to_boolean("ON") is True
-    assert runez.config.to_boolean("5") is True
-    assert runez.config.to_boolean("16.1") is True
+    assert runez.config.parsed_boolean("True") is True
+    assert runez.config.parsed_boolean("yes") is True
+    assert runez.config.parsed_boolean("ON") is True
+    assert runez.config.parsed_boolean("5") is True
+    assert runez.config.parsed_boolean("16.1") is True
 
 
 def test_bytesize():
@@ -268,42 +244,28 @@ def test_bytesize():
     assert config.get_bytesize("some-string", default=5, default_unit="k") == 5 * 1024
     assert config.get_bytesize("some-string", default="5m", default_unit="k") == 5 * 1024 * 1024
 
-    assert runez.config.to_bytesize(10) == 10
-    assert runez.config.to_bytesize(None) is None
-    assert runez.config.to_bytesize("") is None
-    assert runez.config.to_bytesize("1a") is None
+    assert runez.config.parsed_bytesize(10) == 10
+    assert runez.config.parsed_bytesize(None) is None
+    assert runez.config.parsed_bytesize("") is None
+    assert runez.config.parsed_bytesize("1a") is None
 
-    assert runez.config.to_bytesize(10, default_unit="k", base=1024) == 10 * 1024
-    assert runez.config.to_bytesize(10, default_unit="k", base=1000) == 10000
-    assert runez.config.to_bytesize("10", default_unit="k", base=1000) == 10000
-    assert runez.config.to_bytesize("10m", default_unit="k", base=1000) == 10000000
+    assert runez.config.parsed_bytesize(10, default_unit="k", base=1024) == 10 * 1024
+    assert runez.config.parsed_bytesize(10, default_unit="k", base=1000) == 10000
+    assert runez.config.parsed_bytesize("10", default_unit="k", base=1000) == 10000
+    assert runez.config.parsed_bytesize("10m", default_unit="k", base=1000) == 10000000
 
-    with pytest.raises(ValueError):
-        # Bogus default_unit
-        runez.config.to_bytesize(10, default_unit="a", base=1000)
+    assert runez.config.parsed_bytesize(10, default_unit="a", base=1000) is None  # Bogus default_unit
 
 
-def test_to_dict():
-    assert runez.to_dict(None) == {}
-    assert runez.to_dict("") == {}
+def test_parsed_dict():
+    assert runez.config.parsed_dict(None) == {}
+    assert runez.config.parsed_dict("") == {}
 
-    assert runez.to_dict("a=b,pref.c=d") == {"a": "b", "pref.c": "d"}
-    assert runez.to_dict("a=b,pref.c=d", prefix="pref") == {"pref.a": "b", "pref.c": "d"}
+    assert runez.config.parsed_dict("a=b,pref.c=d") == {"a": "b", "pref.c": "d"}
+    assert runez.config.parsed_dict("a=b,pref.c=d", prefix="pref") == {"pref.a": "b", "pref.c": "d"}
 
-    assert runez.to_dict("a=b,pref.c=d", prefix="pref", separators=":+") == {"pref.a=b,pref.c=d": ""}
-    assert runez.to_dict("a:b+pref.c:d", prefix="pref", separators=":+") == {"pref.a": "b", "pref.c": "d"}
-
-
-def test_to_int():
-    # bogus
-    assert runez.to_int(None) is None
-    assert runez.to_int(None, default=0) == 0
-    assert runez.to_int("foo", default=1) == 1
-    assert runez.to_int("6.1", default=2) == 2
-
-    # valid
-    assert runez.to_int(5, default=3) == 5
-    assert runez.to_int("5", default=3) == 5
+    assert runez.config.parsed_dict("a=b,pref.c=d", prefix="pref", separators=":+") == {"pref.a=b,pref.c=d": ""}
+    assert runez.config.parsed_dict("a:b+pref.c:d", prefix="pref", separators=":+") == {"pref.a": "b", "pref.c": "d"}
 
 
 def test_props_front():

@@ -3,6 +3,13 @@ import datetime
 import runez
 
 
+def test_capped():
+    assert runez.capped(123, minimum=200) == 200
+    assert runez.capped(123, maximum=100) == 100
+    assert runez.capped(123, minimum=100, maximum=200) == 123
+    assert runez.capped(123, minimum=100, maximum=110) == 110
+
+
 def test_shortened():
     assert runez.shortened(None) == "None"
     assert runez.shortened("") == ""
@@ -117,6 +124,27 @@ def test_quoted():
     assert runez.quoted("a b") == '"a b"'
     assert runez.quoted('a="b"') == 'a="b"'
     assert runez.quoted('foo a="b"') == """'foo a="b"'"""
+
+
+def test_to_int():
+    assert runez.to_int(None) is None
+    assert runez.to_int("foo") is None
+    assert runez.to_int(["foo"]) is None
+    assert runez.to_int("5.0") is None
+
+    assert runez.to_int("0") == 0
+    assert runez.to_int("-5") == -5
+    assert runez.to_int("15") == 15
+
+
+def test_to_float():
+    assert runez.to_float(None) is None
+    assert runez.to_float("foo") is None
+    assert runez.to_float(["foo"]) is None
+
+    assert runez.to_float("0") == 0.0
+    assert runez.to_float("-5") == -5.0
+    assert runez.to_float("15") == 15.0
 
 
 def test_wordification():

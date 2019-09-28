@@ -94,6 +94,10 @@ class Serializable(Any):
         return self.serializable.from_dict(value, ignore=ignore)
 
 
+class Date(Any):
+    pass
+
+
 class Dict(Any):
     """Dict with optionally key/value constrained as well"""
 

@@ -24,13 +24,12 @@ import json
 import os
 
 from runez.base import decode, stringified
-from runez.convert import affixed, flattened, SANITIZED, snakified
+from runez.convert import affixed, capped, flattened, SANITIZED, snakified, to_float, to_int, to_number, unitized
 from runez.system import get_platform
 
 
-DEFAULT_BASE = 1024
+BYTESIZE_BASE = 1024
 TRUE_TOKENS = {"true", "yes", "on"}
-UNITS = "kmgt"
 
 
 class Configuration:
@@ -118,7 +117,7 @@ class Configuration:
             front (bool): If True, add provider to front of list
         """
         if config is not None:
-            provider = DictProvider(to_dict(config, prefix=prefix), name=name)
+            provider = DictProvider(parsed_dict(config, prefix=prefix), name=name)
             self.add(provider, front=front)
 
     def use_env_vars(self, prefix=None, suffix=None, normalizer=snakified, name=None, front=True):
@@ -216,7 +215,7 @@ class Configuration:
         Returns:
             (int | None): Value of key, if defined
         """
-        return to_number(int, self.get_str(key), default=default, minimum=minimum, maximum=maximum)
+        return capped(to_int(self.get(key), default=default), minimum=minimum, maximum=maximum)
 
     def get_float(self, key, default=None, minimum=None, maximum=None):
         """
@@ -229,7 +228,7 @@ class Configuration:
         Returns:
             (float | None): Value of key, if defined
         """
-        return to_number(float, self.get_str(key), default=default, minimum=minimum, maximum=maximum)
+        return capped(to_float(self.get(key), default=default), minimum=minimum, maximum=maximum)
 
     def get_bool(self, key, default=None):
         """
@@ -243,11 +242,11 @@ class Configuration:
         """
         value = self.get_str(key)
         if value is not None:
-            return to_boolean(value)
+            return parsed_boolean(value)
 
         return default
 
-    def get_bytesize(self, key, default=None, minimum=None, maximum=None, default_unit=None, base=DEFAULT_BASE):
+    def get_bytesize(self, key, default=None, minimum=None, maximum=None, default_unit=None, base=BYTESIZE_BASE):
         """Size in bytes expressed by value configured under 'key'
 
         Args:
@@ -255,16 +254,17 @@ class Configuration:
             default (int | str | unicode | None): Default to use if key is not configured
             minimum (int | str | unicode | None): If specified, result can't be below this minimum
             maximum (int | str | unicode | None): If specified, result can't be above this maximum
-            default_unit (str | unicode | None): Default unit for unqualified values (see UNITS)
+            default_unit (str | unicode | None): Default unit for unqualified values
             base (int): Base to use (usually 1024)
 
         Returns:
             (int): Size in bytes
         """
-        value = to_bytesize(self.get_str(key), default_unit, base)
+        value = parsed_bytesize(self.get_str(key), default_unit, base)
         if value is None:
-            return to_bytesize(default, default_unit, base)
-        return capped(value, to_bytesize(minimum, default_unit, base), to_bytesize(maximum, default_unit, base))
+            return parsed_bytesize(default, default_unit, base)
+
+        return capped(value, parsed_bytesize(minimum, default_unit, base), parsed_bytesize(maximum, default_unit, base))
 
     def get_json(self, key, default=None):
         """
@@ -406,25 +406,6 @@ class DictProvider(ConfigProvider):
         return self.values.get(key)
 
 
-def capped(value, minimum=None, maximum=None):
-    """
-    Args:
-        value: Value to cap
-        minimum: If specified, value should not be lower than this minimum
-        maximum: If specified, value should not be higher than this maximum
-
-    Returns:
-        `value` capped to `minimum` and `maximum` (if it is outside of those bounds)
-    """
-    if minimum is not None and value < minimum:
-        return minimum
-
-    if maximum is not None and value > maximum:
-        return maximum
-
-    return value
-
-
 def from_json(value):
     """
     Args:
@@ -440,7 +421,7 @@ def from_json(value):
         return None
 
 
-def to_boolean(value):
+def parsed_boolean(value):
     """
     Args:
         value (str | unicode | None): Value to convert to bool
@@ -452,52 +433,51 @@ def to_boolean(value):
         if stringified(value).lower() in TRUE_TOKENS:
             return True
 
-        vfloat = to_number(float, value)
-        if vfloat is not None:
-            return bool(vfloat)
+        number = to_number(value)
+        if number is not None:
+            return bool(number)
 
     return False
 
 
-def to_bytesize(value, default_unit=None, base=DEFAULT_BASE):
+def parsed_bytesize(value, default_unit=None, base=BYTESIZE_BASE):
     """Convert `value` to bytes, accepts notations such as "4k" to mean 4096 bytes
 
     Args:
-        value (str | unicode | int | None): Number of bytes optionally suffixed by a char from UNITS
+        value (str | unicode | int | None): Number of bytes optionally suffixed by 1 or 2 chars designating unit (ie: "m" or "kb" etc)
         default_unit (str | unicode | None): Default unit to use for unqualified values
         base (int): Base to use (usually 1024)
 
     Returns:
         (int | None): Deduced bytesize value, if possible
     """
-    if isinstance(value, (int, float)):
-        return unitized(value, default_unit, base)
+    if value is not None:
+        v = to_number(value)
+        if v is not None:
+            return unitized(v, default_unit, base)
 
-    if value is None:
-        return None
+        try:
+            if value[-1].lower() == "b":
+                # Accept notations such as "1mb", as they get used out of habit
+                value = value[:-1]
 
-    try:
-        if value[-1].lower() == "b":
-            # Accept notations such as "1mb", as they get used out of habit
-            value = value[:-1]
+            unit = value[-1:].lower()
+            if unit.isdigit():
+                unit = default_unit
 
-        unit = value[-1:].lower()
-        if unit.isdigit():
-            unit = default_unit
+            else:
+                value = value[:-1]
 
-        else:
-            value = value[:-1]
+            return unitized(to_number(value), unit, base)
 
-        return unitized(to_number(float, value), unit, base)
-
-    except (IndexError, TypeError, ValueError):
-        return None
+        except (AttributeError, IndexError, KeyError, TypeError, ValueError):
+            return None
 
 
-def to_dict(value, prefix=None, separators="=,"):
+def parsed_dict(value, prefix=None, separators="=,"):
     """
     Args:
-        value: Value to turn into a dict
+        value (str | None): Text with key/value pairs to parse into a dict
         prefix (str | unicode | None): Optional prefix for keys (if provided, `prefix.` is added to all keys)
         separators (str | unicode): 2 chars: 1st is assignment separator, 2nd is key-value pair separator
 
@@ -524,21 +504,7 @@ def to_dict(value, prefix=None, separators="=,"):
     return result
 
 
-def to_int(value, default=None, minimum=None, maximum=None):
-    """
-    Args:
-        value: Value to convert
-        default (int | None): Default to use `value` can't be turned into an int
-        minimum (int | None): If specified, result can't be below this minimum
-        maximum (int | None): If specified, result can't be above this maximum
-
-    Returns:
-        (int | None): Corresponding numeric value
-    """
-    return to_number(int, value, default=default, minimum=minimum, maximum=maximum)
-
-
-def to_number(result_type, value, default=None, minimum=None, maximum=None):
+def as_number(result_type, value, default=None, minimum=None, maximum=None):
     """Cast `value` to numeric `result_type` if possible
 
     Args:
@@ -556,17 +522,3 @@ def to_number(result_type, value, default=None, minimum=None, maximum=None):
 
     except (TypeError, ValueError):
         return default
-
-
-def unitized(value, unit, base=DEFAULT_BASE):
-    """
-    Args:
-        value (int | float): Value to expand
-        unit (str | unicode): Given unit (see UNITS)
-        base (int): Base to use (usually 1024)
-
-    Returns:
-        Deduced value (example: "1k" becomes 1000)
-    """
-    exponent = 0 if not unit else UNITS.index(unit) + 1
-    return int(value * (base ** exponent))

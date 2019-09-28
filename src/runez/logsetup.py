@@ -18,8 +18,8 @@ except ImportError:
     faulthandler = None
 
 from runez.base import Slotted, ThreadGlobalContext, UNSET
-from runez.config import to_bytesize, to_int
-from runez.convert import flattened, formatted, represented_args, SANITIZED, UNIQUE
+from runez.config import parsed_bytesize
+from runez.convert import flattened, formatted, represented_args, SANITIZED, to_int, UNIQUE
 from runez.date import get_local_timezone
 from runez.path import basename as get_basename, ensure_folder
 from runez.program import get_dev_folder, get_program_path
@@ -668,7 +668,7 @@ def _get_file_handler(location, rotate, rotate_count):
         return TimedRotatingFileHandler(location, when=mode[-1], interval=interval, backupCount=rotate_count)
 
     if kind == "size":
-        size = to_bytesize(mode)
+        size = parsed_bytesize(mode)
         if size is None:
             raise ValueError("Invalid 'rotate' (size not a bytesize): %s" % rotate)
 
