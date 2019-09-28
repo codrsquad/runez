@@ -13,6 +13,7 @@ Example:
 """
 
 from runez.base import string_type
+from runez.date import to_date
 
 
 class Any(object):
@@ -95,7 +96,14 @@ class Serializable(Any):
 
 
 class Date(Any):
-    pass
+    """Represents date/datetime type"""
+
+    def _problem(self, value, ignore):
+        if to_date(value) is None:
+            return "expecting date, got '%s'" % value
+
+    def _converted(self, value, ignore):
+        return to_date(value)
 
 
 class Dict(Any):

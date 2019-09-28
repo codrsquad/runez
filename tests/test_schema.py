@@ -1,7 +1,7 @@
 import pytest
 
 import runez
-from runez.schema import Any, Dict, Integer, List, Serializable, String
+from runez.schema import Any, Date, Dict, Integer, List, Serializable, String
 
 
 def test_any():
@@ -74,11 +74,11 @@ class Car(runez.Serializable):
 
 
 class Hat(runez.Serializable):
-    size = Integer
+    size = Integer(default=1)
 
 
 class Person(runez.Serializable):
-    age = Integer(default=15)
+    age = Date
     first_name = String(default="joe")
     last_name = String(default="smith")
 
@@ -90,7 +90,7 @@ def test_serializable(logged):
     assert str(Person._meta) == "Person (5 attributes, 0 properties)"
 
     pp = Person()
-    assert pp.age == 15
+    assert pp.age is None
     assert pp.first_name == "joe"
     assert pp.last_name == "smith"
     assert pp.car is None
@@ -103,11 +103,15 @@ def test_serializable(logged):
         Person.from_dict({"hat": {"size": "foo"}})
     assert "Can't deserialize Person.hat: 'foo' is not an integer" in logged.pop()
 
-    pp = Person.from_dict({"age": 20, "car": {"make": "Honda", "year": 2010}})
-    assert pp.age == 20
+    pp = Person.from_dict({"age": "2019-01-01", "car": {"make": "Honda", "year": 2010}})
+    assert pp.age.year == 2019
     assert pp.car.make == "Honda"
     assert pp.car.year == 2010
-    assert pp.to_dict() == {"age": 20, "car": {"make": "Honda", "year": 2010}, "first_name": "joe", "last_name": "smith"}
+    assert pp.to_dict() == {"age": "2019-01-01", "car": {"make": "Honda", "year": 2010}, "first_name": "joe", "last_name": "smith"}
+
+    pp = Person.from_dict({"age": 1567296012})
+    assert pp.age.year == 2019
+    assert pp.to_dict() == {"age": "2019-09-01 00:00:12+00:00", "first_name": "joe", "last_name": "smith"}
 
     pp = Person.from_dict({"car": {"make": "Honda", "foo": "bar"}}, ignore=False)
     assert pp.car.make == "Honda"
@@ -116,3 +120,7 @@ def test_serializable(logged):
     with pytest.raises(runez.system.AbortException):
         Person.from_dict({"car": {"make": "Honda", "foo": "bar"}}, ignore=None)
     assert "Can't deserialize Person.car: foo is not an attribute" in logged.pop()
+
+    with pytest.raises(runez.system.AbortException):
+        Person.from_dict({"age": "foo"})
+    assert "Can't deserialize Person.age: expecting date, got 'foo'" in logged.pop()

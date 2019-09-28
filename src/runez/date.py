@@ -225,6 +225,12 @@ def to_date(value):
     Returns:
         (datetime.date | datetime.datetime | None): Extracted date or datetime if possible, otherwise `None`
     """
+    if isinstance(value, (int, float)):
+        return datetime_from_epoch(value)
+
+    if isinstance(value, (datetime.date, datetime.datetime)):
+        return value
+
     if isinstance(value, string_type):
         return _date_from_text(value)
 

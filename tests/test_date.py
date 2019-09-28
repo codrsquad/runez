@@ -28,6 +28,7 @@ def test_elapsed():
     dt = runez.datetime_from_epoch(1567296012, tz=None)  # Naive date will depend on timezone (ie: where this test runs)
     assert dt.year == 2019
     assert dt.tzinfo is None
+    assert runez.to_date(dt) is dt
 
     check_date("2019-09-01 02:00:12 +02:00", runez.datetime_from_epoch(1567296012, tz=runez.timezone_from_text("0200")))
     check_date("2019-09-01 00:00:12 UTC", runez.datetime_from_epoch(1567296012, tz=runez.UTC))
