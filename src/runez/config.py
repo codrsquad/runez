@@ -29,7 +29,7 @@ from runez.system import get_platform
 
 
 BYTESIZE_BASE = 1024
-TRUE_TOKENS = {"true", "yes", "on"}
+TRUE_TOKENS = {"on", "true", "y", "yes"}
 
 
 class Configuration:
@@ -502,23 +502,3 @@ def parsed_dict(value, prefix=None, separators="=,"):
                 result[k] = v
 
     return result
-
-
-def as_number(result_type, value, default=None, minimum=None, maximum=None):
-    """Cast `value` to numeric `result_type` if possible
-
-    Args:
-        result_type (type): Numerical type to convert to (one of: int, float, ...)
-        value (str | unicode): Value to convert
-        default (result_type.__class__ | None): Default to use `value` can't be turned into an int
-        minimum (result_type.__class__ | None): If specified, result can't be below this minimum
-        maximum (result_type.__class__ | None): If specified, result can't be above this maximum
-
-    Returns:
-        Corresponding numeric value
-    """
-    try:
-        return capped(result_type(value), minimum, maximum)
-
-    except (TypeError, ValueError):
-        return default

@@ -13,6 +13,7 @@ DEFAULT_UNITS = "kmgt"
 RE_FORMAT_MARKERS = re.compile(r"{([^}]*?)}")
 RE_WORDS = re.compile(r"[^\w]+")
 RE_SPACES = re.compile(r"[\s\n]+", re.MULTILINE)
+RE_UNDERSCORED_NUMBERS = re.compile(r"([0-9])_([0-9])")  # py2 does not parse numbers with underscores like "1_000"
 SYMBOLIC_TMP = "<tmp>"
 
 SANITIZED = 1
@@ -504,9 +505,6 @@ def _int_from_text(text, base=None, default=None):
     Returns:
         (int | None): Extracted int if possible, otherwise `None`
     """
-    if PY2:
-        text = text.replace("_", "")
-
     try:
         if base is None:
             return int(text)
@@ -514,8 +512,16 @@ def _int_from_text(text, base=None, default=None):
         return int(text, base=base)
 
     except ValueError:
-        if base is None and len(text) >= 3:
-            if text[0] == "0":
+        if base is None:
+            if PY2:
+                text = RE_UNDERSCORED_NUMBERS.sub(r"\1\2", text)
+                try:
+                    return int(text)
+
+                except ValueError:
+                    pass
+
+            if len(text) >= 3 and text[0] == "0":
                 if text[1] == "o":
                     return _int_from_text(text, base=8, default=default)
 

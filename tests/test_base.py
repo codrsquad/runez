@@ -99,3 +99,9 @@ def test_slotted():
 
     s2.set(other=s1a)
     assert s2.other == s1a
+
+
+def test_stringified():
+    # Edge cases with test_stringified()
+    assert runez.stringified(5, converter=lambda x: None) == "5"
+    assert runez.stringified(5, converter=lambda x: x) == "5"

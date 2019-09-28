@@ -207,8 +207,9 @@ def test_boolean():
     assert runez.config.parsed_boolean("1.0.0") is False
 
     assert runez.config.parsed_boolean("True") is True
+    assert runez.config.parsed_boolean("Y") is True
     assert runez.config.parsed_boolean("yes") is True
-    assert runez.config.parsed_boolean("ON") is True
+    assert runez.config.parsed_boolean("On") is True
     assert runez.config.parsed_boolean("5") is True
     assert runez.config.parsed_boolean("16.1") is True
 

@@ -1,4 +1,5 @@
 import datetime
+import math
 
 import runez
 
@@ -126,25 +127,50 @@ def test_quoted():
     assert runez.quoted('foo a="b"') == """'foo a="b"'"""
 
 
+def test_to_float():
+    assert runez.to_float(None) is None
+    assert runez.to_float("foo") is None
+    assert runez.to_float("-.if") is None
+    assert runez.to_float(["foo"], lenient=True) is None
+
+    assert runez.to_float("0") == 0.0
+    assert runez.to_float("-5") == -5.0
+    assert runez.to_float("15") == 15.0
+    assert runez.to_float("+135.057E+4") == 1350570.0
+    assert runez.to_float("-135000.5e-3") == -135.0005
+
+    assert math.isnan(runez.to_float("nan"))
+    assert math.isinf(runez.to_float("inf"))
+    assert math.isinf(runez.to_float(".inf"))
+    assert math.isinf(runez.to_float("-.inf"))
+
+    assert isinstance(runez.to_float("15"), float)
+    assert isinstance(runez.to_float("15", lenient=True), int)
+
+
 def test_to_int():
     assert runez.to_int(None) is None
     assert runez.to_int("foo") is None
     assert runez.to_int(["foo"]) is None
     assert runez.to_int("5.0") is None
+    assert runez.to_int("_5_") is None
+    assert runez.to_int("_5") is None
+    assert runez.to_int("5_") is None
+    assert runez.to_int("1__5") is None
+    assert runez.to_int("1_ 5") is None
 
     assert runez.to_int("0") == 0
     assert runez.to_int("-5") == -5
     assert runez.to_int("15") == 15
 
+    assert runez.to_int("0o10") == 8
+    assert runez.to_int("0o1_0") == 8
+    assert runez.to_int("0x10") == 16
+    assert runez.to_int("0x1_0") == 16
 
-def test_to_float():
-    assert runez.to_float(None) is None
-    assert runez.to_float("foo") is None
-    assert runez.to_float(["foo"]) is None
-
-    assert runez.to_float("0") == 0.0
-    assert runez.to_float("-5") == -5.0
-    assert runez.to_float("15") == 15.0
+    assert runez.to_int(" 1_500 ") == 1500
+    assert runez.to_int("1_5 ") == 15
+    assert runez.to_int("1_500_001 ") == 1500001
 
 
 def test_wordification():

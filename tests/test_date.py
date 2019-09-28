@@ -85,7 +85,40 @@ def test_timezone():
     check_date("2019-09-13 04:13:20 UTC", runez.datetime_from_epoch(epoch))
 
     tz = runez.timezone_from_text("-01:00")
+    assert str(tz) == "-01:00"
     check_date("2019-09-13 03:13:20 -01:00", runez.datetime_from_epoch(epoch, tz=tz))
 
     tz = runez.timezone_from_text("0200")
+    assert str(tz) == "+02:00"
     check_date("2019-09-13 06:13:20 +02:00", runez.datetime_from_epoch(epoch, tz=tz))
+
+
+def dt(*args, **kwargs):
+    if len(args) == 3:
+        return datetime.date(*args)
+
+    kwargs.setdefault("tzinfo", runez.date.DEFAULT_TIMEZONE)
+    return datetime.datetime(*args, **kwargs)
+
+
+def test_to_date():
+    d0 = runez.to_date("2019-01-02 03:04:05 UTC")
+    d1 = runez.to_date("2019-01-02 03:04:05 -00:00")
+    d2 = runez.to_date("2019-01-02 04:04:05 +01:00")
+    assert d0 == d2
+    assert d1 == d2
+
+    assert runez.to_date(None) is None
+    assert runez.to_date("foo") is None
+    assert runez.to_date(["foo"]) is None
+
+    assert runez.to_date("2019-01-02") == dt(2019, 1, 2)
+
+    sample_date = dt(2019, 1, 2, 3, 4, 5, microsecond=678900)
+    assert runez.to_date("2019-01-02T03:04:05.6789") == sample_date
+    assert runez.to_date("2019-01-02 03:04:05.6789 Z") == sample_date
+    assert runez.to_date("2019-01-02 03:04:05.6789 UTC") == sample_date
+    assert runez.to_date("2019-01-02 03:04:05.6789 -00:00") == sample_date
+    assert runez.to_date("2019-01-02 04:04:05.6789 +01:00") == sample_date
+
+    assert runez.to_date("1500620000") == dt(2017, 7, 21, 6, 53, 20)

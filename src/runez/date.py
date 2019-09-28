@@ -4,13 +4,21 @@ import datetime
 import re
 import time
 
-from runez.base import UNSET
+from runez.base import string_type, UNSET
+from runez.convert import _float_from_text
 
 
 DEFAULT_TIMEZONE = None
 SECONDS_IN_ONE_MINUTE = 60
 SECONDS_IN_ONE_HOUR = 60 * SECONDS_IN_ONE_MINUTE
 SECONDS_IN_ONE_DAY = 24 * SECONDS_IN_ONE_HOUR
+
+RE_BASE_NUMBER = r"([-+]?[0-9_]*\.?[0-9_]*([eE][-+]?[0-9_]+)?|[-+]?\.inf|[-+]?\.Inf|[-+]?\.INF|\.nan|\.NaN|\.NAN|0o[0-7]+|0x[0-9a-fA-F]+)"
+RE_BASE_DATE = r"(([0-9]{4})-([0-9][0-9]?)-([0-9][0-9]?)" \
+            r"([Tt \t]([0-9][0-9]?):([0-9][0-9]?):([0-9][0-9]?)(\.[0-9]*)?" \
+            r"([ \t]*(Z|[A-Z]{3}|[+-][0-9][0-9]?(:([0-9][0-9]?))?))?)?)"
+
+RE_DATE = re.compile("^(%s)$" % "|".join((RE_BASE_NUMBER, RE_BASE_DATE)))
 
 
 class timezone(datetime.tzinfo):
@@ -22,6 +30,7 @@ class timezone(datetime.tzinfo):
         if existing is None:
             existing = super(timezone, cls).__new__(cls, offset, name=name)
             cls.__singletons[offset] = existing
+
         return existing
 
     def __init__(self, offset, name=None):
@@ -35,7 +44,9 @@ class timezone(datetime.tzinfo):
                 minutes = seconds // SECONDS_IN_ONE_MINUTE
                 if total_seconds < 0:
                     hours = - hours
+
                 name = "{:+03d}:{:02d}".format(hours, minutes)
+
             self.name = name
 
     def __repr__(self):
@@ -90,6 +101,7 @@ def elapsed(started, ended=None):
 
     if ended is None:
         ended = datetime.datetime.now(tz=started.tzinfo)
+
     elif not isinstance(ended, datetime.datetime):
         ended = datetime.datetime(ended.year, ended.month, ended.day)
 
@@ -107,15 +119,6 @@ def get_local_timezone():
 
     except (IndexError, TypeError):
         return ""
-
-
-def _duration_span(count, name, short_form, immutable=False):
-    if short_form:
-        if not immutable:
-            name = name[0]
-    else:
-        name = " %s%s" % (name, "" if immutable or count == 1 else "s")
-    return "%s%s" % (count, name)
 
 
 def represented_duration(seconds, span=UNSET, separator=" "):
@@ -212,3 +215,63 @@ def timezone_from_text(text):
         return timezone(datetime.timedelta(hours=int(hours), minutes=int(minutes)))
 
     return DEFAULT_TIMEZONE
+
+
+def to_date(value):
+    """
+    Args:
+        value: Value to convert to date
+
+    Returns:
+        (datetime.date | datetime.datetime | None): Extracted date or datetime if possible, otherwise `None`
+    """
+    if isinstance(value, string_type):
+        return _date_from_text(value)
+
+
+def _date_from_components(components):
+    y, m, d, _, hh = components[:5]
+
+    y = int(y)
+    m = int(m)
+    d = int(d)
+    if hh is None:
+        return datetime.date(y, m, d)
+
+    mm, ss, sf, _, tz = components[5:10]
+    hh = int(hh)
+    mm = int(mm)
+    ss = int(ss)
+    sf = int(round(float(sf or 0) * 1000000))
+    return datetime.datetime(y, m, d, hh, mm, ss, sf, timezone_from_text(tz))
+
+
+def _date_from_text(text):
+    """
+    Args:
+        text (str): Value to turn into date or datetime
+
+    Returns:
+        (datetime.date | datetime.datetime | None): Extracted date, if possible
+    """
+    match = RE_DATE.match(text)
+    if match is None:
+        return None
+
+    # _, number, _, _, y, m, d, _, hh, mm, ss, sf, _, tz, _, _ = match.groups()
+    components = match.groups()
+    if components[1]:
+        return datetime_from_epoch(_float_from_text(components[1], lenient=True))
+
+    return _date_from_components(components[4:14])
+
+
+def _duration_span(count, name, short_form, immutable=False):
+    if short_form:
+        if not immutable:
+            name = name[0]
+
+    else:
+        name = " %s%s" % (name, "" if immutable or count == 1 else "s")
+
+    return "%s%s" % (count, name)
