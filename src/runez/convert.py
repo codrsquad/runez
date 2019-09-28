@@ -4,8 +4,9 @@ This is module should not import any other runez module, it's the lowest on the 
 
 import os
 import re
+import sys
 
-from runez.base import PY2, string_type, stringified, UNSET
+from runez.base import string_type, stringified, UNSET
 
 
 DEFAULT_BASE = 1000
@@ -513,7 +514,8 @@ def _int_from_text(text, base=None, default=None):
 
     except ValueError:
         if base is None:
-            if PY2:
+            if sys.version_info[:2] <= (3, 5):
+                # 3.5 has the same quirk as 2.7
                 text = RE_UNDERSCORED_NUMBERS.sub(r"\1\2", text)
                 try:
                     return int(text)
