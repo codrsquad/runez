@@ -9,10 +9,10 @@ import json
 import logging
 import os
 
-from runez.base import decode, string_type, UNSET
+from runez.base import decode, string_type
 from runez.convert import resolved_path, short
 from runez.path import ensure_folder
-from runez.schema import Any, Dict, Integer, List, Serializable as SchemaSerializable, String
+from runez.schema import Any, Dict, Integer, List, MetaSerializable, String
 from runez.system import abort, is_dryrun
 
 
@@ -145,7 +145,7 @@ def get_descriptor(value):
         return String()
 
     if issubclass(value, Serializable):
-        return SchemaSerializable(value)
+        return MetaSerializable(value._meta)
 
     if issubclass(value, Any):
         return value()
@@ -155,13 +155,24 @@ def get_descriptor(value):
         return mapped()
 
 
-class ClassDescription(object):
+class ClassMetaDescription(object):
     """Info on class attributes and properties"""
 
     def __init__(self, cls):
+        self.name = type_name(cls)
         self.cls = cls
         self.attributes = {}
         self.properties = []
+        self.ignore = None
+
+        """
+        ignore:  True: ignore any and all mismatches (including type mismatch)
+                 False: ignore extra content in `data` (but fail on type mismatch)
+                 None: strict mode, raise exception if `data` does not fully comply to `._meta` schema
+                 list: ignore specified extra given names (but fail on type mismatch)
+
+        """
+
         for key, value in cls.__dict__.items():
             if not key.startswith("_"):
                 if value is not None and "property" in value.__class__.__name__:
@@ -176,24 +187,86 @@ class ClassDescription(object):
     def __repr__(self):
         return "%s (%s attributes, %s properties)" % (type_name(self.cls), len(self.attributes), len(self.properties))
 
-    def problem(self, value, ignore):
+    def from_dict(self, data, source=None):
+        """
+        Args:
+            data (dict): Raw data, coming for example from a json file
+            source (str | None): Optional, description of source where 'data' came from
+
+        Returns:
+            (cls): Deserialized object
+        """
+        result = self.cls()
+        self.set_from_dict(result, data, source=source)
+        return result
+
+    def set_from_dict(self, obj, data, source=None):
+        """
+        Args:
+            obj (Serializable): Object to populate
+            data (dict): Raw data, coming for example from a json file
+            source (str | None): Optional, description of source where 'data' came from
+        """
+        if data is None:
+            given = {}
+
+        else:
+            given = data.copy()
+
+        for name, descriptor in self.attributes.items():
+            value = given.pop(name, descriptor.default)
+            problem = descriptor.problem(value)
+            if problem is None:
+                value = descriptor.converted(value)
+
+            else:
+                msg = " from %s" % source if source else ""
+                msg = "Can't deserialize %s.%s%s: %s" % (self.name, name, msg, problem)
+                if not isinstance(self.ignore, bool):
+                    abort(msg)
+
+                LOG.debug(msg)
+
+            if value is None:
+                setattr(obj, name, None)
+
+            else:
+                setter = getattr(obj, "set_%s" % name, None)
+                if setter is None:
+                    setattr(obj, name, value)
+
+                else:
+                    setter(value)
+
+        if isinstance(self.ignore, list):
+            for x in self.ignore:
+                given.pop(x, None)
+
+        if given:
+            # We have more stuff in `data` than described in `._meta`
+            msg = "Extra content given for %s: %s" % (self.name, ", ".join(sorted(given)))
+            if not isinstance(self.ignore, bool):
+                abort(msg)
+
+            LOG.debug(msg)
+
+    def problem(self, value):
         """
         Args:
             value: Value to verify compliance of
-            ignore (bool | list | None): See Serializable.set_from_dict()
 
         Returns:
             (str | None): Explanation of compliance issue, if there is any
         """
         for name, descriptor in self.attributes.items():
-            problem = descriptor.problem(value.get(name), ignore)
+            problem = descriptor.problem(value.get(name))
             if problem is not None:
                 return problem
 
-        if ignore is None or isinstance(ignore, list):
+        if self.ignore is None or isinstance(self.ignore, list):
             for key in value:
                 if key not in self.attributes:
-                    if ignore is None or key not in ignore:
+                    if self.ignore is None or key not in self.ignore:
                         return "%s is not an attribute" % key
 
 
@@ -225,12 +298,11 @@ def add_meta(meta_type):
     return add_metaclass(meta_injector)
 
 
-@add_meta(ClassDescription)
+@add_meta(ClassMetaDescription)
 class Serializable(object):
     """Serializable object"""
 
-    _meta = None  # type: ClassDescription  # This describes fields and properties of descendant classes, populated via metaclass
-    _ignore = None  # type: list # Default to use as `ignore` for `set_from_dict()`
+    _meta = None  # type: ClassMetaDescription  # This describes fields and properties of descendant classes, populated via metaclass
 
     def __eq__(self, other):
         if other is not None and other.__class__ is self.__class__:
@@ -258,75 +330,24 @@ class Serializable(object):
         return result
 
     @classmethod
-    def from_dict(cls, data, source=None, ignore=UNSET):
+    def from_dict(cls, data, source=None):
         """
         Args:
             data (dict): Raw data, coming for example from a json file
             source (str | None): Optional, description of source where 'data' came from
-            ignore (bool | list | None): See Serializable.set_from_dict()
 
         Returns:
             (cls): Deserialized object
         """
-        result = cls()
-        result.set_from_dict(data, source=source, ignore=ignore)
-        return result
+        return cls._meta.from_dict(data, source=source)
 
-    def set_from_dict(self, data, source=None, ignore=UNSET):
+    def set_from_dict(self, data, source=None):
         """
         Args:
             data (dict): Raw data, coming for example from a json file
             source (str | None): Optional, description of source where 'data' came from
-            ignore (bool | list | None): True: ignore any and all mismatches (including type mismatch)
-                                         False: ignore extra content in `data` (but fail on type mismatch)
-                                         None: strict mode, raise exception if `data` does not fully comply to `._meta` schema
-                                         list: ignore specified extra given names (but fail on type mismatch)
         """
-        if ignore is UNSET:
-            ignore = self._ignore
-
-        if data is None:
-            given = {}
-
-        else:
-            given = data.copy()
-
-        for name, descriptor in self._meta.attributes.items():
-            value = given.pop(name, descriptor.default)
-            problem = descriptor.problem(value, ignore)
-            if problem is None:
-                value = descriptor.converted(value, ignore)
-
-            else:
-                msg = " from %s" % source if source else ""
-                msg = "Can't deserialize %s.%s%s: %s" % (type_name(self), name, msg, problem)
-                if ignore is not True:
-                    abort(msg)
-
-                LOG.debug(msg)
-
-            if value is None:
-                setattr(self, name, None)
-
-            else:
-                setter = getattr(self, "set_%s" % name, None)
-                if setter is None:
-                    setattr(self, name, value)
-
-                else:
-                    setter(value)
-
-        if isinstance(ignore, list):
-            for x in ignore:
-                given.pop(x, None)
-
-        if given:
-            # We have more stuff in `data` than described in `._meta`
-            msg = "Extra content given for %s: %s" % (type_name(self), ", ".join(sorted(given)))
-            if not isinstance(ignore, bool):
-                abort(msg)
-
-            LOG.debug(msg)
+        self._meta.set_from_dict(self, data, source=source)
 
     def reset(self):
         """
