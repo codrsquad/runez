@@ -335,7 +335,7 @@ class ClassMetaDescription(object):
             if v1 != v2:
                 result.append((key, v1, v2))
 
-        return result
+        return sorted(result)
 
     def from_dict(self, data, source=None):
         """
