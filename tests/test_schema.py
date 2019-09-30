@@ -91,7 +91,7 @@ class Hat(Serializable, with_behavior(extras=False)):
     size = Integer(default=1)
 
 
-class Person(Serializable, with_behavior(strict=logging.error)):
+class Person(Serializable, with_behavior(strict=logging.error, hook=logging.info)):
     age = Date
     first_name = String(default="joe")
     last_name = String(default="smith")
@@ -104,7 +104,7 @@ def test_serializable(logged):
     assert str(Person._meta) == "Person (5 attributes, 0 properties)"
     assert str(Car._meta.behavior) == "extras: function 'info', ignored extras: [foo, bar]"
     assert str(Hat._meta.behavior) == "lenient"
-    assert str(Person._meta.behavior) == "strict: function 'error', extras: function 'debug'"
+    assert str(Person._meta.behavior) == "strict: function 'error', extras: function 'debug', hook: function 'info'"
 
     Car.from_dict({"foo": 1, "baz": 2})
     assert "foo" not in logged

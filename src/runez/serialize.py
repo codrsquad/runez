@@ -36,7 +36,7 @@ class ValidationException(Exception):
         self.message = message
 
 
-def with_behavior(strict=UNSET, extras=UNSET):
+def with_behavior(strict=UNSET, extras=UNSET, hook=UNSET):
     """
     Args:
         strict (bool | callable): False: don't check, True: raise ValidationException on type mismatch, Exception: raise given exception
@@ -44,11 +44,12 @@ def with_behavior(strict=UNSET, extras=UNSET):
                                                     True: use LOG.debug() to notify
                                                     callable: use callable(str) to notify
                                                     (callable, list): use callable(str) to notify, but not for extras mentioned in list
+        hook (callable): Called if provided at the end of ClassMetaDescription initialization
 
     Returns:
         (type): Internal temp class (compatible with `Serializable` metaclass) indicating how to handle Serializable type checking
     """
-    return BaseMetaInjector("_MBehavior", tuple(), {"behavior": DefaultBehavior(strict=strict, extras=extras)})
+    return BaseMetaInjector("_MBehavior", tuple(), {"behavior": DefaultBehavior(strict=strict, extras=extras, hook=hook)})
 
 
 class DefaultBehavior(object):
@@ -62,18 +63,23 @@ class DefaultBehavior(object):
     strict = False  # type: callable # Original default: don't strictly enforce type compatibility
     extras = False  # type: callable  # Original default: don't notify
     ignored_extras = None
+    hook = None  # type: callable  # Called if provided at the end of ClassMetaDescription initialization
 
-    def __init__(self, strict=UNSET, extras=UNSET):
+    def __init__(self, strict=UNSET, extras=UNSET, hook=UNSET):
         """
         Args:
             strict (bool | callable): False: don't check, True: raise ValidationException on type mismatch, Exception: raise given exception
             extras (bool | callable | (callable, list)): See `with_behavior()`
+            hook (callable): Called if provided at the end of ClassMetaDescription initialization
         """
         if strict is UNSET:
             strict = self.strict
 
         if extras is UNSET:
             extras = self.extras
+
+        if hook is not UNSET:
+            self.hook = hook
 
         self.strict = self.to_callable(strict, ValidationException)
         if isinstance(extras, tuple) and len(extras) == 2:
@@ -96,6 +102,9 @@ class DefaultBehavior(object):
 
         if self.ignored_extras:
             result.append("ignored extras: %s" % shortened(self.ignored_extras))
+
+        if self.hook:
+            result.append("hook: %s" % shortened(self.hook))
 
         if result:
             return ", ".join(result)
@@ -299,6 +308,9 @@ class ClassMetaDescription(object):
                 if descriptor is not None:
                     self.attributes[key] = descriptor
                     setattr(cls, key, descriptor.default)
+
+        if self.behavior.hook:
+            self.behavior.hook(self)
 
     def __repr__(self):
         return "%s (%s attributes, %s properties)" % (type_name(self.cls), len(self.attributes), len(self.properties))
