@@ -78,6 +78,8 @@ class DefaultBehavior(object):
         self.strict = self.to_callable(strict, ValidationException)
         if isinstance(extras, tuple) and len(extras) == 2:
             extras, self.ignored_extras = extras
+            if hasattr(self.ignored_extras, "split"):
+                self.ignored_extras = self.ignored_extras.split()
 
         else:
             self.ignored_extras = None

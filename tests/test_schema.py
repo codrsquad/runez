@@ -82,7 +82,7 @@ def test_number():
     assert ff.converted("0o10") == 8.0
 
 
-class Car(Serializable, with_behavior(extras=(logging.info, ["foo"]))):
+class Car(Serializable, with_behavior(extras=(logging.info, "foo bar"))):
     make = String
     year = Integer
 
@@ -102,9 +102,13 @@ class Person(Serializable, with_behavior(strict=logging.error)):
 
 def test_serializable(logged):
     assert str(Person._meta) == "Person (5 attributes, 0 properties)"
-    assert str(Car._meta.behavior) == "extras: function 'info', ignored extras: [foo]"
+    assert str(Car._meta.behavior) == "extras: function 'info', ignored extras: [foo, bar]"
     assert str(Hat._meta.behavior) == "lenient"
     assert str(Person._meta.behavior) == "strict: function 'error', extras: function 'debug'"
+
+    Car.from_dict({"foo": 1, "baz": 2})
+    assert "foo" not in logged
+    assert "Extra content given for Car: baz" in logged.pop()
 
     pp = Person()
     assert pp.age is None
