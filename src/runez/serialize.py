@@ -9,8 +9,8 @@ import json
 import logging
 import os
 
-from runez.base import decode, string_type
-from runez.convert import resolved_path, short
+from runez.base import decode, string_type, UNSET
+from runez.convert import resolved_path, short, shortened
 from runez.path import ensure_folder
 from runez.schema import Any, Dict, Integer, List, MetaSerializable, String
 from runez.system import abort, is_dryrun
@@ -25,6 +25,129 @@ TYPE_MAP = {
     string_type: String,
     tuple: List,
 }
+
+
+class ValidationException(Exception):
+    """
+    Thrown when type mismatch found during deserialization (and strict mode enabled)
+    """
+
+    def __init__(self, message):
+        self.message = message
+
+
+def with_behavior(strict=UNSET, extras=UNSET):
+    """
+    Args:
+        strict (bool | callable): False: don't check, True: raise ValidationException on type mismatch, Exception: raise given exception
+        extras (bool | callable | (callable, list)): False: don't notify when there are extra fields in deserialized data
+                                                    True: use LOG.debug() to notify
+                                                    callable: use callable(str) to notify
+                                                    (callable, list): use callable(str) to notify, but not for extras mentioned in list
+
+    Returns:
+        (type): Internal temp class (compatible with `Serializable` metaclass) indicating how to handle Serializable type checking
+    """
+    return BaseMetaInjector("_MBehavior", tuple(), {"behavior": DefaultBehavior(strict=strict, extras=extras)})
+
+
+class DefaultBehavior(object):
+    """
+    Defines how to handle type mismatches and extra data in `Serializable`
+
+    Can be changed globally at the start of your app, for example:
+
+        runez.serializable.DefaultBehavior.strict = True
+    """
+    strict = False  # type: callable # Original default: don't strictly enforce type compatibility
+    extras = False  # type: callable  # Original default: don't notify
+    ignored_extras = None
+
+    def __init__(self, strict=UNSET, extras=UNSET):
+        """
+        Args:
+            strict (bool | callable): False: don't check, True: raise ValidationException on type mismatch, Exception: raise given exception
+            extras (bool | callable | (callable, list)): See `with_behavior()`
+        """
+        if strict is UNSET:
+            strict = self.strict
+
+        if extras is UNSET:
+            extras = self.extras
+
+        self.strict = self.to_callable(strict, ValidationException)
+        if isinstance(extras, tuple) and len(extras) == 2:
+            extras, self.ignored_extras = extras
+
+        else:
+            self.ignored_extras = None
+
+        self.extras = self.to_callable(extras, LOG.debug)
+
+    def __repr__(self):
+        result = []
+        if self.strict:
+            result.append("strict: %s" % shortened(self.strict))
+
+        if self.extras:
+            result.append("extras: %s" % shortened(self.extras))
+
+        if self.ignored_extras:
+            result.append("ignored extras: %s" % shortened(self.ignored_extras))
+
+        if result:
+            return ", ".join(result)
+
+        return "lenient"
+
+    @staticmethod
+    def get_behavior(bases):
+        for base in bases:
+            if isinstance(base, type) and base.__name__ == "_MBehavior":
+                behavior = getattr(base, "behavior", None)
+                if behavior is not None:
+                    return behavior
+
+        return DefaultBehavior()
+
+    @staticmethod
+    def to_callable(value, default):
+        if not value:
+            return None
+
+        if callable(value):
+            return value
+
+        return default
+
+    def handle_mismatch(self, class_name, field_name, problem, source):
+        if self.strict:
+            msg = " from %s" % source if source else ""
+            msg = "Can't deserialize %s.%s%s: %s" % (class_name, field_name, msg, problem)
+            if isinstance(self.strict, type) and issubclass(self.strict, Exception):
+                raise self.strict(msg)
+
+            self.strict(msg)
+
+    def do_notify(self, message):
+        if self.extras:
+            if isinstance(self.extras, type) and issubclass(self.extras, Exception):
+                raise self.extras(message)
+
+            self.extras(message)
+
+    def handle_extra(self, class_name, field_name):
+        self.do_notify("'%s' is not an attribute of %s" % (field_name, class_name))
+
+    def handle_extras(self, class_name, extras):
+        if self.extras:
+            if self.ignored_extras:
+                for x in self.ignored_extras:
+                    extras.pop(x, None)
+
+            if extras:
+                # We have more stuff in `data` than described in corresponding `._meta`
+                self.do_notify("Extra content given for %s: %s" % (class_name, ", ".join(sorted(extras))))
 
 
 def json_sanitized(value, stringify=decode, dt=str, keep_none=False):
@@ -163,16 +286,7 @@ class ClassMetaDescription(object):
         self.cls = cls
         self.attributes = {}
         self.properties = []
-        self.ignore = None
-
-        """
-        ignore:  True: ignore any and all mismatches (including type mismatch)
-                 False: ignore extra content in `data` (but fail on type mismatch)
-                 None: strict mode, raise exception if `data` does not fully comply to `._meta` schema
-                 list: ignore specified extra given names (but fail on type mismatch)
-
-        """
-
+        self.behavior = DefaultBehavior.get_behavior(cls.__bases__)
         for key, value in cls.__dict__.items():
             if not key.startswith("_"):
                 if value is not None and "property" in value.__class__.__name__:
@@ -220,12 +334,7 @@ class ClassMetaDescription(object):
                 value = descriptor.converted(value)
 
             else:
-                msg = " from %s" % source if source else ""
-                msg = "Can't deserialize %s.%s%s: %s" % (self.name, name, msg, problem)
-                if not isinstance(self.ignore, bool):
-                    abort(msg)
-
-                LOG.debug(msg)
+                self.behavior.handle_mismatch(self.name, name, problem, source)
 
             if value is None:
                 setattr(obj, name, None)
@@ -238,17 +347,7 @@ class ClassMetaDescription(object):
                 else:
                     setter(value)
 
-        if isinstance(self.ignore, list):
-            for x in self.ignore:
-                given.pop(x, None)
-
-        if given:
-            # We have more stuff in `data` than described in `._meta`
-            msg = "Extra content given for %s: %s" % (self.name, ", ".join(sorted(given)))
-            if not isinstance(self.ignore, bool):
-                abort(msg)
-
-            LOG.debug(msg)
+        self.behavior.handle_extras(self.name, given)
 
     def problem(self, value):
         """
@@ -263,11 +362,14 @@ class ClassMetaDescription(object):
             if problem is not None:
                 return problem
 
-        if self.ignore is None or isinstance(self.ignore, list):
+        if self.behavior.extras:
             for key in value:
                 if key not in self.attributes:
-                    if self.ignore is None or key not in self.ignore:
-                        return "%s is not an attribute" % key
+                    self.behavior.handle_extra(self.name, key)
+
+
+class BaseMetaInjector(type):
+    """Used solely to provide common ancestor for `MetaInjector` and internal types returned by `with_behavior`"""
 
 
 def add_metaclass(metaclass):
@@ -290,12 +392,12 @@ def add_metaclass(metaclass):
 
 def add_meta(meta_type):
     """A simplified metaclass that simply injects a `._meta` field of given type `meta_type`"""
-    class meta_injector(type):
+    class MetaInjector(BaseMetaInjector):
         def __init__(cls, name, bases, dct):
-            super(meta_injector, cls).__init__(name, bases, dct)
+            super(MetaInjector, cls).__init__(name, bases, dct)
             cls._meta = meta_type(cls)
 
-    return add_metaclass(meta_injector)
+    return add_metaclass(MetaInjector)
 
 
 @add_meta(ClassMetaDescription)

@@ -6,18 +6,34 @@ from mock import patch
 
 import runez
 from runez.schema import Dict, Integer, List, String
-from runez.serialize import get_descriptor, same_type, type_name
+from runez.serialize import add_meta, ClassMetaDescription, get_descriptor, same_type, type_name, ValidationException, with_behavior
 
 
-@runez.serialize.add_meta(runez.serialize.ClassMetaDescription)
-class SlottedExample(object):
+@add_meta(ClassMetaDescription)
+class MetaSlotted(object):
     __slots__ = "name"
 
 
-def test_slotted():
-    assert isinstance(SlottedExample._meta, runez.serialize.ClassMetaDescription)
+class SlottedExample(runez.Serializable, with_behavior(strict=True, extras=Exception)):
+    __slots__ = ["name"]
+
+
+def test_slotted(logged):
+    assert isinstance(MetaSlotted._meta, ClassMetaDescription)
+    assert len(MetaSlotted._meta.attributes) == 1
+    assert not MetaSlotted._meta.properties
+
+    assert isinstance(SlottedExample._meta, ClassMetaDescription)
     assert len(SlottedExample._meta.attributes) == 1
     assert not SlottedExample._meta.properties
+
+    se = SlottedExample.from_dict({"name": "foo"})
+    assert se.name == "foo"
+    assert se.to_dict() == {"name": "foo"}
+
+    with pytest.raises(Exception) as e:
+        SlottedExample.from_dict({"foo": "bar"})
+    assert str(e.value) == "Extra content given for SlottedExample: foo"
 
 
 def test_get_descriptor():
@@ -82,7 +98,7 @@ def test_json(temp_folder):
         assert "Wrong type" in logged.pop()
 
 
-class SomeSerializable(runez.Serializable):
+class SomeSerializable(runez.Serializable, with_behavior(strict=True)):
     name = "my name"
     some_int = 7
     some_value = List(Integer)
@@ -102,9 +118,13 @@ class SomeRecord(object):
 
 
 def test_meta(logged):
-    custom = runez.serialize.ClassMetaDescription(SomeRecord)
+    custom = ClassMetaDescription(SomeRecord)
     assert len(custom.attributes) == 2
     assert len(custom.properties) == 0
+
+    with pytest.raises(ValidationException) as e:
+        SomeSerializable.from_dict({"some_int": "foo"})
+    assert e.value.message == "Can't deserialize SomeSerializable.some_int: expecting int, got 'foo'"
 
     data = {"name": "some name", "some_int": 15}
     obj = SomeSerializable.from_dict(data)
@@ -142,51 +162,27 @@ def test_serialization(logged):
     assert not obj._meta.attributes
     assert not obj._meta.properties
 
-    obj.set_from_dict({}, source="test")  # no-op
-
-    obj = SomeSerializable()
-
-    # Unknown field
-    with pytest.raises(runez.system.AbortException):
-        obj.set_from_dict({"foo": 1})
-    assert "Extra content given for SomeSerializable: foo" in logged.pop()
-
-    # obj2 = SomeSerializable.from_dict({"foo": 1, "bar": 2}, ignore=False)
-    # assert obj == obj2
-    # assert "Extra content given for SomeSerializable: bar, foo" in logged.pop()
-
-    # obj2 = SomeSerializable.from_dict({"foo": 1, "bar": 2}, ignore=["foo", "bar", "baz"])
-    # assert obj == obj2
-    # assert not logged
-
-    # with pytest.raises(runez.system.AbortException):
-    #     SomeSerializable.from_dict({"foo": 1, "bar": 2}, ignore=["foo"])
-    # assert "Extra content given for SomeSerializable: bar" in logged.pop()
-
-    # with pytest.raises(runez.system.AbortException):
-    #     obj.set_from_dict({"name": 1}, source="test", ignore=False)
-    # assert "Can't deserialize SomeSerializable.name from test: expecting string, got '1'" in logged.pop()
-
-    with pytest.raises(runez.system.AbortException):
-        obj.set_from_dict({"some_value": ["foo"]}, source="test")
-    assert "Can't deserialize SomeSerializable.some_value from test: expecting int, got 'foo'" in logged.pop()
-
-    # obj.set_from_dict({"some_key": "bar", "name": 1, "some_value": [1, 2]}, source="test", ignore=True)
-    # assert obj.name == 1
-    # assert "Can't deserialize SomeSerializable.name from test: expecting string, got '1'" in logged
-    # assert "Extra content given for SomeSerializable: some_key" in logged.pop()
-
-    assert not hasattr(obj, "some_key")  # We ignore any non-declared keys
-    # assert obj.name == 1
-
-    # Fields not in data get their default value
-    # assert obj.to_dict() == {"name": 1, "some_int": 7, "some_value": [1, 2]}
+    obj.set_from_dict({}, source="testing")  # no-op
     assert not logged
+
+    obj.set_from_dict({"foo": 0}, source="testing")  # no-op
+    assert not logged
+
+    obj = SomeSerializable.from_dict({}, source="testing")
+    assert obj.to_dict() == {"name": "my name", "some_int": 7}
+
+    # Unknown fields
+    obj2 = SomeSerializable.from_dict({"foo": 1, "bar": 2})
+    assert not hasattr(obj2, "foo")  # non-declared keys are ignored
+    assert obj2.some_int == 7  # Fields not in data still get their default value
+    assert obj == obj2
+    assert "Extra content given for SomeSerializable: bar, foo" in logged.pop()
 
     obj2 = SomeSerializable.from_json("", default={})
-    # assert obj != obj2
+    assert obj == obj2
     assert not logged
 
+    obj.some_int = 5
     obj.reset()
     assert obj.name == "my name"
     assert obj.some_int == 7
