@@ -118,6 +118,9 @@ class DefaultBehavior(object):
                 behavior = getattr(base, "behavior", None)
                 if behavior is not None:
                     return behavior
+            meta = getattr(base, "_meta", None)
+            if isinstance(meta, ClassMetaDescription) and meta.name != "Serializable" and meta.behavior:
+                return meta.behavior
 
         return DefaultBehavior()
 
@@ -325,7 +328,8 @@ class ClassMetaDescription(object):
             (cls): Deserialized object
         """
         result = self.cls()
-        self.set_from_dict(result, data, source=source)
+        # Call objects' own set_from_dict() to allow descendants to fine-tune its behavior if needed
+        result.set_from_dict(data, source=source)
         return result
 
     def set_from_dict(self, obj, data, source=None):

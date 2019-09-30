@@ -100,11 +100,16 @@ class Person(Serializable, with_behavior(strict=logging.error, hook=logging.info
     hat = MetaSerializable(Hat)
 
 
+class SpecializedPerson(Person):
+    """Used to test that ._meta.behavior is passed on to descendants as well"""
+
+
 def test_serializable(logged):
     assert str(Person._meta) == "Person (5 attributes, 0 properties)"
     assert str(Car._meta.behavior) == "extras: function 'info', ignored extras: [foo, bar]"
     assert str(Hat._meta.behavior) == "lenient"
     assert str(Person._meta.behavior) == "strict: function 'error', extras: function 'debug', hook: function 'info'"
+    assert str(SpecializedPerson._meta.behavior) == "strict: function 'error', extras: function 'debug', hook: function 'info'"
 
     Car.from_dict({"foo": 1, "baz": 2})
     assert "foo" not in logged
