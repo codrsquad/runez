@@ -2,6 +2,7 @@
 Convenience methods for (de)serializing objects
 """
 
+import collections
 import datetime
 import inspect
 import io
@@ -52,6 +53,19 @@ def with_behavior(strict=UNSET, extras=UNSET, hook=UNSET):
     return BaseMetaInjector("_MBehavior", tuple(), {"behavior": DefaultBehavior(strict=strict, extras=extras, hook=hook)})
 
 
+def is_serializable_descendant(base):
+    """
+    Args:
+        base (type): Base class to examine
+
+    Returns:
+        (bool): True if `base` is a descendant of `Serializable` (but not `Serializable` itself)
+    """
+    # Using globals() because class `Serializable` is not yet available when itself is being decorated here
+    s = globals().get("Serializable")
+    return s is not None and base is not s and issubclass(base, s)
+
+
 class DefaultBehavior(object):
     """
     Defines how to handle type mismatches and extra data in `Serializable`
@@ -78,10 +92,9 @@ class DefaultBehavior(object):
         if extras is UNSET:
             extras = self.extras
 
-        if hook is not UNSET:
-            self.hook = hook
-
         self.strict = self.to_callable(strict, ValidationException)
+        self.hook = self.to_callable(hook, None)
+
         if isinstance(extras, tuple) and len(extras) == 2:
             extras, self.ignored_extras = extras
             if hasattr(self.ignored_extras, "split"):
@@ -113,16 +126,22 @@ class DefaultBehavior(object):
 
     @staticmethod
     def get_behavior(bases):
-        for base in bases:
+        """Determine behavior from given `bases` (base classes)"""
+        strict = hook = UNSET
+        for base in reversed(bases):
             if isinstance(base, type) and base.__name__ == "_MBehavior":
+                # Behavior given explicitly via `with_behavior()`
                 behavior = getattr(base, "behavior", None)
                 if behavior is not None:
                     return behavior
-            meta = getattr(base, "_meta", None)
-            if isinstance(meta, ClassMetaDescription) and meta.name != "Serializable" and meta.behavior:
-                return meta.behavior
 
-        return DefaultBehavior()
+            meta = getattr(base, "_meta", None)
+            if isinstance(meta, ClassMetaDescription) and meta.behavior is not None and is_serializable_descendant(base):
+                # Let `strict` and `hook` be inherited from parent classes
+                strict = meta.behavior.strict
+                hook = meta.behavior.hook
+
+        return DefaultBehavior(strict=strict, hook=hook)
 
     @staticmethod
     def to_callable(value, default):
@@ -292,6 +311,28 @@ def get_descriptor(value):
         return mapped()
 
 
+def applicable_bases(cls):
+    yield cls
+    for base in cls.__bases__:
+        if is_serializable_descendant(base):
+            yield base
+
+
+def scan_attributes(cls):
+    for key, value in cls.__dict__.items():
+        if not key.startswith("_"):
+            yield key, value
+
+
+def scan_all_attributes(cls):
+    seen = set()
+    for base in applicable_bases(cls):
+        for key, value in scan_attributes(base):
+            if key not in seen:
+                seen.add(key)
+                yield key, value
+
+
 class ClassMetaDescription(object):
     """Info on class attributes and properties"""
 
@@ -300,8 +341,9 @@ class ClassMetaDescription(object):
         self.cls = cls
         self.attributes = {}
         self.properties = []
+        self.by_type = collections.defaultdict(list)
         self.behavior = DefaultBehavior.get_behavior(cls.__bases__)
-        for key, value in cls.__dict__.items():
+        for key, value in scan_all_attributes(cls):
             if not key.startswith("_"):
                 if value is not None and "property" in value.__class__.__name__:
                     self.properties.append(key)
@@ -310,32 +352,13 @@ class ClassMetaDescription(object):
                 descriptor = get_descriptor(value)
                 if descriptor is not None:
                     self.attributes[key] = descriptor
-                    setattr(cls, key, descriptor.default)
+                    self.by_type[descriptor.name].append(key)
 
         if self.behavior.hook:
             self.behavior.hook(self)
 
     def __repr__(self):
         return "%s (%s attributes, %s properties)" % (type_name(self.cls), len(self.attributes), len(self.properties))
-
-    def changed_attributes(self, obj1, obj2):
-        """
-        Args:
-            obj1 (Serializable): First object to inspect
-            obj2 (Serializable): 2nd object to inspect
-
-        Returns:
-            (list): Tuple of attribute names and values for which values differ between `obj1` and `obj2`
-        """
-        assert obj1._meta is self and obj2._meta is self
-        result = []
-        for key in self.attributes:
-            v1 = getattr(obj1, key)
-            v2 = getattr(obj2, key)
-            if v1 != v2:
-                result.append((key, v1, v2))
-
-        return sorted(result)
 
     def from_dict(self, data, source=None):
         """
@@ -404,6 +427,25 @@ class ClassMetaDescription(object):
                 if key not in self.attributes:
                     self.behavior.handle_extra(self.name, key)
 
+    def changed_attributes(self, obj1, obj2):
+        """
+        Args:
+            obj1 (Serializable): First object to inspect
+            obj2 (Serializable): 2nd object to inspect
+
+        Returns:
+            (list): Tuple of attribute names and values for which values differ between `obj1` and `obj2`
+        """
+        assert obj1._meta is self and obj2._meta is self
+        result = []
+        for key in self.attributes:
+            v1 = getattr(obj1, key)
+            v2 = getattr(obj2, key)
+            if v1 != v2:
+                result.append((key, v1, v2))
+
+        return sorted(result)
+
 
 class BaseMetaInjector(type):
     """Used solely to provide common ancestor for `MetaInjector` and internal types returned by `with_behavior`"""
@@ -430,6 +472,10 @@ def add_metaclass(metaclass):
 def add_meta(meta_type):
     """A simplified metaclass that simply injects a `._meta` field of given type `meta_type`"""
     class MetaInjector(BaseMetaInjector):
+        def __new__(cls, *args, **kwargs):
+            s = super(MetaInjector, cls).__new__(cls, *args, **kwargs)
+            return s
+
         def __init__(cls, name, bases, dct):
             super(MetaInjector, cls).__init__(name, bases, dct)
             cls._meta = meta_type(cls)
@@ -442,6 +488,11 @@ class Serializable(object):
     """Serializable object"""
 
     _meta = None  # type: ClassMetaDescription  # This describes fields and properties of descendant classes, populated via metaclass
+
+    def __new__(cls, *args, **kwargs):
+        obj = super(Serializable, cls).__new__(cls, *args, **kwargs)
+        obj.reset()
+        return obj
 
     def __eq__(self, other):
         if other is not None and other.__class__ is self.__class__:

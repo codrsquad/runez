@@ -87,6 +87,10 @@ class Car(Serializable, with_behavior(extras=(logging.info, "foo bar"))):
     year = Integer
 
 
+class SpecializedCar(Car):
+    """Used to test that ._meta.behavior is passed on properly to descendants"""
+
+
 class Hat(Serializable, with_behavior(extras=False)):
     size = Integer(default=1)
 
@@ -101,14 +105,23 @@ class Person(Serializable, with_behavior(strict=logging.error, hook=logging.info
 
 
 class SpecializedPerson(Person):
-    """Used to test that ._meta.behavior is passed on to descendants as well"""
+    """Used to test that ._meta.behavior is passed on properly to descendants"""
 
 
 def test_serializable(logged):
-    assert str(Person._meta) == "Person (5 attributes, 0 properties)"
+    assert str(Serializable._meta.behavior) == "lenient"
+    assert not Serializable._meta.by_type
+
     assert str(Car._meta.behavior) == "extras: function 'info', ignored extras: [foo, bar]"
+    assert str(SpecializedCar._meta.behavior) == "extras: function 'debug'"  # extras are NOT inherited
+    assert Car._meta.by_type == {"string": ["make"], "integer": ["year"]}
+    assert Car._meta.by_type == SpecializedCar._meta.by_type
+
     assert str(Hat._meta.behavior) == "lenient"
+
+    assert str(Person._meta) == "Person (5 attributes, 0 properties)"
     assert str(Person._meta.behavior) == "strict: function 'error', extras: function 'debug', hook: function 'info'"
+    # `hook` is inherited
     assert str(SpecializedPerson._meta.behavior) == "strict: function 'error', extras: function 'debug', hook: function 'info'"
 
     Car.from_dict({"foo": 1, "baz": 2})
