@@ -318,6 +318,25 @@ class ClassMetaDescription(object):
     def __repr__(self):
         return "%s (%s attributes, %s properties)" % (type_name(self.cls), len(self.attributes), len(self.properties))
 
+    def changed_attributes(self, obj1, obj2):
+        """
+        Args:
+            obj1 (Serializable): First object to inspect
+            obj2 (Serializable): 2nd object to inspect
+
+        Returns:
+            (list): Tuple of attribute names and values for which values differ between `obj1` and `obj2`
+        """
+        assert obj1._meta is self and obj2._meta is self
+        result = []
+        for key in self.attributes:
+            v1 = getattr(obj1, key)
+            v2 = getattr(obj2, key)
+            if v1 != v2:
+                result.append((key, v1, v2))
+
+        return result
+
     def from_dict(self, data, source=None):
         """
         Args:

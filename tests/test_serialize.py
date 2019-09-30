@@ -130,6 +130,7 @@ def test_meta(logged):
     obj = SomeSerializable.from_dict(data)
     obj2 = SomeSerializable()
     assert obj != obj2
+    assert SomeSerializable._meta.changed_attributes(obj, obj2) == [('name', 'some name', 'my name'), ('some_int', 15, 7)]
 
     obj2.name = "some name"
     obj2.some_int = 15
