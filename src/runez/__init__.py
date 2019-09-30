@@ -17,7 +17,7 @@ DRYRUN mode:
     It's recommended to set DRYRUN only once at the start of your run via: runez.log.setup(dryrun=...)
 """
 
-from runez import click, colors, config, heartbeat, program, schema, serialize
+from runez import click, colors, config, heartbeat, program, schema, serialize, thread
 from runez.base import class_descendants, decode, PY2, Slotted, stringified, Undefined, UNSET
 from runez.colors import activate_colors, blue, bold, dim, is_coloring, is_tty, plural, red, yellow
 from runez.config import from_json, parsed_bytesize
@@ -36,10 +36,11 @@ from runez.program import require_installed, run, which
 from runez.represent import header
 from runez.serialize import json_sanitized, read_json, represented_json, save_json, Serializable
 from runez.system import abort, current_test, get_platform, get_version, set_dryrun
+from runez.thread import thread_local_property, ThreadLocalSingleton
 
 __all__ = [
     "DRYRUN",
-    "click", "colors", "config", "heartbeat", "logsetup", "program", "schema", "serialize",
+    "click", "colors", "config", "heartbeat", "logsetup", "program", "schema", "serialize", "thread",
     "class_descendants", "decode", "PY2", "Slotted", "stringified", "Undefined", "UNSET",
     "activate_colors", "blue", "bold", "dim", "is_coloring", "is_tty", "plural", "red", "yellow",
     "from_json", "parsed_bytesize",
@@ -58,6 +59,7 @@ __all__ = [
     "header",
     "json_sanitized", "read_json", "represented_json", "save_json", "Serializable",
     "abort", "current_test", "get_platform", "get_version", "set_dryrun",
+    "thread_local_property", "ThreadLocalSingleton",
 ]
 
 DRYRUN = False
