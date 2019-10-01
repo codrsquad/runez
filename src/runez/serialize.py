@@ -56,6 +56,9 @@ def is_serializable_descendant(base):
 
 def set_default_behavior(strict=UNSET, extras=UNSET):
     """
+    Use this to change defaults globally at the start of your app (or in your conftest), for example:
+        runez.serializable.set_default_behavior(strict=True)
+
     Args:
         strict (bool | Exception | callable): False: don't perform any schema validation
                                               True: raise ValidationException when schema is not respected
@@ -76,14 +79,14 @@ def set_default_behavior(strict=UNSET, extras=UNSET):
 
 class DefaultBehavior(object):
     """
-    Defines how to handle type mismatches and extra data in `Serializable`
+    Defines how to handle type mismatches and extra data in `Serializable`.
+    Default behavior will be used only if no specific with_behavior() is used in Serializable descendant definition.
 
-    Can be changed globally at the start of your app, for example:
-
-        runez.serializable.DefaultBehavior.strict = True
+    Also carries an optional `hook` to call at the end of each Serializable descendant registration
+    (global default for that does not make sense).
     """
     strict = False  # type: callable # Original default: don't strictly enforce type compatibility
-    extras = False  # type: callable  # Original default: don't notify
+    extras = False  # type: callable  # Original default: don't report extra fields seen in deserialized data (ie: ignore them)
 
     def __init__(self, strict=UNSET, extras=UNSET, hook=UNSET):
         """
