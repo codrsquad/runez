@@ -14,6 +14,16 @@ def check_date(expected, dt):
     assert actual == expected
 
 
+def test_date_formats():
+    ref = dt(2019, 1, 16)
+    assert runez.to_date("2019-01-16") == ref
+    assert runez.to_date("2019/01/16") == ref
+    assert runez.to_date("01/16/2019") == ref
+
+    assert runez.to_date("16/01/2019") is None
+    assert runez.to_date("2019/01/2019") is None
+
+
 def test_elapsed():
     d1 = datetime.date(2019, 9, 1)
     dt27 = datetime.datetime(2019, 9, 1, second=27)

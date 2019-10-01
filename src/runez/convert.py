@@ -16,6 +16,7 @@ RE_WORDS = re.compile(r"[^\w]+")
 RE_SPACES = re.compile(r"[\s\n]+", re.MULTILINE)
 RE_UNDERSCORED_NUMBERS = re.compile(r"([0-9])_([0-9])")  # py2 does not parse numbers with underscores like "1_000"
 SYMBOLIC_TMP = "<tmp>"
+TRUE_TOKENS = {"on", "true", "y", "yes"}
 
 SANITIZED = 1
 SHELL = 2

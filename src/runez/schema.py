@@ -13,7 +13,7 @@ Example:
 """
 
 from runez.base import string_type
-from runez.convert import to_float, to_int
+from runez.convert import to_float, to_int, TRUE_TOKENS
 from runez.date import to_date
 
 
@@ -92,6 +92,16 @@ class MetaSerializable(Any):
 
     def _converted(self, value):
         return self.meta.from_dict(value)
+
+
+class Boolean(Any):
+    """Represents boolean type"""
+
+    def _converted(self, value):
+        if isinstance(value, string_type):
+            return value.lower() in TRUE_TOKENS
+
+        return bool(value)
 
 
 class Date(Any):

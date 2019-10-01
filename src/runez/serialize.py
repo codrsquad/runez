@@ -465,20 +465,32 @@ def add_metaclass(metaclass):
     return wrapper
 
 
+def filtered_bases(bases):
+    fb = []
+    mbehavior = None
+    for base in bases:
+        if base.__name__ == "_MBehavior":
+            mbehavior = base
+
+        else:
+            fb.append(base)
+
+    if mbehavior is None:
+        return None, bases
+
+    return mbehavior, tuple(fb)
+
+
 def add_meta(meta_type):
     """A simplified metaclass that simply injects a `._meta` field of given type `meta_type`"""
     class MetaInjector(BaseMetaInjector):
+        def __new__(cls, name, bases, dct):
+            _, fb = filtered_bases(bases)
+            return super(MetaInjector, cls).__new__(cls, name, fb, dct)
+
         def __init__(cls, name, bases, dct):
-            filtered_bases = []
-            mbehavior = None
-            for base in bases:
-                if base.__name__ == "_MBehavior":
-                    mbehavior = base
-
-                else:
-                    filtered_bases.append(base)
-
-            super(MetaInjector, cls).__init__(name, tuple(filtered_bases), dct)
+            mbehavior, fb = filtered_bases(bases)
+            super(MetaInjector, cls).__init__(name, fb, dct)
             cls._meta = meta_type(cls, mbehavior)
 
     return add_metaclass(MetaInjector)

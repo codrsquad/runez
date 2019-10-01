@@ -14,7 +14,7 @@ SECONDS_IN_ONE_HOUR = 60 * SECONDS_IN_ONE_MINUTE
 SECONDS_IN_ONE_DAY = 24 * SECONDS_IN_ONE_HOUR
 
 RE_BASE_NUMBER = r"([-+]?[0-9_]*\.?[0-9_]*([eE][-+]?[0-9_]+)?|[-+]?\.inf|[-+]?\.Inf|[-+]?\.INF|\.nan|\.NaN|\.NAN|0o[0-7]+|0x[0-9a-fA-F]+)"
-RE_BASE_DATE = r"(([0-9]{4})-([0-9][0-9]?)-([0-9][0-9]?)" \
+RE_BASE_DATE = r"(([0-9]{1,4})[-/]([0-9][0-9]?)[-/]([0-9]{1,4})" \
             r"([Tt \t]([0-9][0-9]?):([0-9][0-9]?):([0-9][0-9]?)(\.[0-9]*)?" \
             r"([ \t]*(Z|[A-Z]{3}|[+-][0-9][0-9]?(:([0-9][0-9]?))?))?)?)"
 
@@ -238,18 +238,27 @@ def to_date(value):
 def _date_from_components(components):
     y, m, d, _, hh = components[:5]
 
-    y = int(y)
-    m = int(m)
-    d = int(d)
-    if hh is None:
-        return datetime.date(y, m, d)
+    try:
+        y = int(y)
+        m = int(m)
+        d = int(d)
+        if d > 100 and y < 100:
+            # Best effort: allow for european-style notation month/day/year
+            m, d, y = y, m, d
 
-    mm, ss, sf, _, tz = components[5:10]
-    hh = int(hh)
-    mm = int(mm)
-    ss = int(ss)
-    sf = int(round(float(sf or 0) * 1000000))
-    return datetime.datetime(y, m, d, hh, mm, ss, sf, timezone_from_text(tz))
+        if hh is None:
+            return datetime.date(y, m, d)
+
+        mm, ss, sf, _, tz = components[5:10]
+        hh = int(hh)
+        mm = int(mm)
+        ss = int(ss)
+        sf = int(round(float(sf or 0) * 1000000))
+        return datetime.datetime(y, m, d, hh, mm, ss, sf, timezone_from_text(tz))
+
+    except ValueError:
+        # Funky date style, ignore
+        return None
 
 
 def _date_from_text(text):

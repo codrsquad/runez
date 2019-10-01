@@ -24,12 +24,11 @@ import json
 import os
 
 from runez.base import decode, stringified
-from runez.convert import affixed, capped, flattened, SANITIZED, snakified, to_float, to_int, to_number, unitized
+from runez.convert import affixed, capped, flattened, SANITIZED, snakified, to_float, to_int, to_number, TRUE_TOKENS, unitized
 from runez.system import get_platform
 
 
 BYTESIZE_BASE = 1024
-TRUE_TOKENS = {"on", "true", "y", "yes"}
 
 
 class Configuration:

@@ -1,6 +1,6 @@
 import logging
 
-from runez.schema import Any, Date, Dict, Float, Integer, List, MetaSerializable, String
+from runez.schema import Any, Boolean, Date, Dict, Float, Integer, List, MetaSerializable, String
 from runez.serialize import Serializable, with_behavior
 
 
@@ -11,6 +11,33 @@ def test_any():
     assert any.problem(4) is None
     assert any.problem([1, 2]) is None
     assert any.problem(object()) is None
+
+
+def test_boolean():
+    b = Boolean()
+    assert b.problem(None) is None
+    assert b.problem("a") is None
+    assert b.problem(4) is None
+    assert b.problem([1, 2]) is None
+    assert b.problem(object()) is None
+
+    assert b.converted(None) is None
+
+    assert b.converted(True) is True
+    assert b.converted(False) is False
+
+    assert b.converted("a") is False
+    assert b.converted("False") is False
+    assert b.converted("true") is True
+    assert b.converted("yes") is True
+
+    assert b.converted(0) is False
+    assert b.converted(4) is True
+
+    assert b.converted([]) is False
+    assert b.converted([1, 2]) is True
+
+    assert b.converted(object()) is True
 
 
 def test_dict():
