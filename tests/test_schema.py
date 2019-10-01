@@ -103,6 +103,9 @@ class Person(Serializable, with_behavior(strict=logging.error, hook=logging.info
     car = Car
     hat = MetaSerializable(Hat)
 
+    def __init__(self, first_name=None):
+        self.first_name = first_name
+
 
 class GPerson(Person):
     """Used to test that ._meta.behavior is passed on properly to descendants"""
@@ -137,7 +140,7 @@ def test_serializable(logged):
 
     pp = Person()
     assert pp.age is None
-    assert pp.first_name == "joe"
+    assert pp.first_name is None  # overriden by Person.__init__()
     assert pp.last_name == "smith"
     assert pp.car is None
 
@@ -153,6 +156,7 @@ def test_serializable(logged):
     assert pp.car.year == 2010
     assert pp.to_dict() == {"age": "2019-01-01", "car": {"make": "Honda", "year": 2010}, "first_name": "joe", "last_name": "smith"}
 
+    # Default `first_name` from schema is respected, because we didn't call Person.__init__() explicitly
     pp = Person.from_dict({"age": 1567296012})
     assert pp.age.year == 2019
     assert pp.to_dict() == {"age": "2019-09-01 00:00:12+00:00", "first_name": "joe", "last_name": "smith"}

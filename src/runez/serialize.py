@@ -468,10 +468,6 @@ def add_metaclass(metaclass):
 def add_meta(meta_type):
     """A simplified metaclass that simply injects a `._meta` field of given type `meta_type`"""
     class MetaInjector(BaseMetaInjector):
-        def __new__(cls, *args, **kwargs):
-            s = super(MetaInjector, cls).__new__(cls, *args, **kwargs)
-            return s
-
         def __init__(cls, name, bases, dct):
             filtered_bases = []
             mbehavior = None
@@ -495,7 +491,8 @@ class Serializable(object):
     _meta = None  # type: ClassMetaDescription  # This describes fields and properties of descendant classes, populated via metaclass
 
     def __new__(cls, *args, **kwargs):
-        obj = super(Serializable, cls).__new__(cls, *args, **kwargs)
+        """Args passed to __new__() is deprecated in py3"""
+        obj = super(Serializable, cls).__new__(cls)
         obj.reset()
         return obj
 
