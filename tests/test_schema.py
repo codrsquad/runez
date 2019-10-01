@@ -104,8 +104,11 @@ class Person(Serializable, with_behavior(strict=logging.error, hook=logging.info
     hat = MetaSerializable(Hat)
 
 
-class SpecializedPerson(Person):
+class GPerson(Person):
     """Used to test that ._meta.behavior is passed on properly to descendants"""
+
+    age = Integer  # Change type on purpose
+    group = Integer
 
 
 def test_serializable(logged):
@@ -122,7 +125,11 @@ def test_serializable(logged):
     assert str(Person._meta) == "Person (5 attributes, 0 properties)"
     assert str(Person._meta.behavior) == "strict: function 'error', extras: function 'debug', hook: function 'info'"
     # `hook` is inherited
-    assert str(SpecializedPerson._meta.behavior) == "strict: function 'error', extras: function 'debug', hook: function 'info'"
+    assert str(GPerson._meta.behavior) == "strict: function 'error', extras: function 'debug', hook: function 'info'"
+
+    # Verify that most specific type wins (GPerson -> age)
+    assert Person._meta.by_type == {"Car": ["car"], "Hat": ["hat"], "date": ["age"], "string": ["first_name", "last_name"]}
+    assert GPerson._meta.by_type == {"Car": ["car"], "Hat": ["hat"], "integer": ["age", "group"], "string": ["first_name", "last_name"]}
 
     Car.from_dict({"foo": 1, "baz": 2})
     assert "foo" not in logged

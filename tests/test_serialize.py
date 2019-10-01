@@ -118,9 +118,13 @@ class SomeRecord(object):
 
 
 def test_meta(logged):
-    custom = ClassMetaDescription(SomeRecord)
+    custom = ClassMetaDescription(SomeRecord, None)
     assert len(custom.attributes) == 2
     assert len(custom.properties) == 0
+    assert custom.by_type == {"string": ["name"], "integer": ["some_int"]}
+    assert custom.attributes["name"].default == "my record"
+    assert custom.attributes["some_int"].default == 5
+    assert str(custom.behavior) == "extras: function 'debug'"
 
     with pytest.raises(ValidationException) as e:
         SomeSerializable.from_dict({"some_int": "foo"})

@@ -129,15 +129,9 @@ class DefaultBehavior(object):
         """Determine behavior from given `bases` (base classes)"""
         strict = hook = UNSET
         for base in reversed(bases):
-            if isinstance(base, type) and base.__name__ == "_MBehavior":
-                # Behavior given explicitly via `with_behavior()`
-                behavior = getattr(base, "behavior", None)
-                if behavior is not None:
-                    return behavior
-
             meta = getattr(base, "_meta", None)
             if isinstance(meta, ClassMetaDescription) and meta.behavior is not None and is_serializable_descendant(base):
-                # Let `strict` and `hook` be inherited from parent classes
+                # Let `strict` and `hook` be inherited from parent classes (but not `Serializable` itself)
                 strict = meta.behavior.strict
                 hook = meta.behavior.hook
 
@@ -336,13 +330,14 @@ def scan_all_attributes(cls):
 class ClassMetaDescription(object):
     """Info on class attributes and properties"""
 
-    def __init__(self, cls):
+    def __init__(self, cls, mbehavior):
         self.name = type_name(cls)
         self.cls = cls
         self.attributes = {}
         self.properties = []
-        self.by_type = collections.defaultdict(list)
-        self.behavior = DefaultBehavior.get_behavior(cls.__bases__)
+        self.behavior = mbehavior.behavior if mbehavior is not None else DefaultBehavior.get_behavior(cls.__bases__)
+
+        by_type = collections.defaultdict(list)
         for key, value in scan_all_attributes(cls):
             if not key.startswith("_"):
                 if value is not None and "property" in value.__class__.__name__:
@@ -352,8 +347,9 @@ class ClassMetaDescription(object):
                 descriptor = get_descriptor(value)
                 if descriptor is not None:
                     self.attributes[key] = descriptor
-                    self.by_type[descriptor.name].append(key)
+                    by_type[descriptor.name].append(key)
 
+        self.by_type = dict((k, sorted(v)) for k, v in by_type.items())  # Sorted to make testing py2/py3 deterministic
         if self.behavior.hook:
             self.behavior.hook(self)
 
@@ -477,8 +473,17 @@ def add_meta(meta_type):
             return s
 
         def __init__(cls, name, bases, dct):
-            super(MetaInjector, cls).__init__(name, bases, dct)
-            cls._meta = meta_type(cls)
+            filtered_bases = []
+            mbehavior = None
+            for base in bases:
+                if base.__name__ == "_MBehavior":
+                    mbehavior = base
+
+                else:
+                    filtered_bases.append(base)
+
+            super(MetaInjector, cls).__init__(name, tuple(filtered_bases), dct)
+            cls._meta = meta_type(cls, mbehavior)
 
     return add_metaclass(MetaInjector)
 
