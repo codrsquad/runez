@@ -14,7 +14,7 @@ from runez.logsetup import LogManager
 
 LOG = logging.getLogger(__name__)
 runez.date.DEFAULT_TIMEZONE = runez.date.UTC
-runez.serialize.DefaultBehavior.extras = True
+runez.serialize.set_default_behavior(strict=False, extras=True)
 
 
 # This is here only to satisfy flake8, mentioning the imported fixtures so they're not declared "unused"

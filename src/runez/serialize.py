@@ -23,12 +23,19 @@ Serializable = None  # type: type # Set to runez.Serializable class once parsing
 def with_behavior(strict=UNSET, extras=UNSET, hook=UNSET):
     """
     Args:
-        strict (bool | callable): False: don't check, True: raise ValidationException on type mismatch, Exception: raise given exception
-        extras (bool | callable | (callable, list)): False: don't notify when there are extra fields in deserialized data
-                                                    True: use LOG.debug() to notify
-                                                    callable: use callable(str) to notify
-                                                    (callable, list): use callable(str) to notify, but not for extras mentioned in list
-        hook (callable): Called if provided at the end of ClassMetaDescription initialization
+        strict (bool | Exception | callable): False: don't perform any schema validation
+                                              True: raise ValidationException when schema is not respected
+                                              Exception: raise given exception when schema is not respected
+                                              callable: call callable(reason) when schema is not respected
+
+        extras (bool | Exception | callable | (callable, list)):
+            False: don't do anything when there are extra fields in deserialized data
+            True: call LOG.debug(reason) to report extra (not in schema) fields seen in data
+            Exception: raise given Exception(reason) when extra fields are seen in data
+            callable: call callable(reason) when extra fields are seen in data
+            (callable, list): call callable(reason), except for extras mentioned in list
+
+        hook (callable): If provided, call callable(meta: ClassMetaDescription) at the end of ClassMetaDescription initialization
 
     Returns:
         (type): Internal temp class (compatible with `Serializable` metaclass) indicating how to handle Serializable type checking
@@ -47,6 +54,26 @@ def is_serializable_descendant(base):
     return Serializable is not None and base is not Serializable and issubclass(base, Serializable)
 
 
+def set_default_behavior(strict=UNSET, extras=UNSET):
+    """
+    Args:
+        strict (bool | Exception | callable): False: don't perform any schema validation
+                                              True: raise ValidationException when schema is not respected
+                                              Exception: raise given exception when schema is not respected
+                                              callable: call callable(reason) when schema is not respected
+
+        extras (bool | Exception | callable): False: don't do anything when there are extra fields in deserialized data
+                                              True: call LOG.debug(reason) to report extra (not in schema) fields seen in data
+                                              Exception: raise given Exception(reason) when extra fields are seen in data
+                                              callable: call callable(reason) when extra fields are seen in data
+    """
+    if strict is not UNSET:
+        DefaultBehavior.strict = strict
+
+    if extras is not UNSET:
+        DefaultBehavior.extras = extras
+
+
 class DefaultBehavior(object):
     """
     Defines how to handle type mismatches and extra data in `Serializable`
@@ -57,8 +84,6 @@ class DefaultBehavior(object):
     """
     strict = False  # type: callable # Original default: don't strictly enforce type compatibility
     extras = False  # type: callable  # Original default: don't notify
-    ignored_extras = None
-    hook = None  # type: callable  # Called if provided at the end of ClassMetaDescription initialization
 
     def __init__(self, strict=UNSET, extras=UNSET, hook=UNSET):
         """
@@ -74,7 +99,8 @@ class DefaultBehavior(object):
             extras = self.extras
 
         self.strict = self.to_callable(strict, runez.schema.ValidationException)
-        self.hook = self.to_callable(hook, None)
+        self.hook = self.to_callable(hook, None)  # type: callable # Called if provided at the end of ClassMetaDescription initialization
+        self.ignored_extras = None  # Internal, populated if given `extras` is a `tuple(callable, list)`
 
         if isinstance(extras, tuple) and len(extras) == 2:
             extras, self.ignored_extras = extras
