@@ -482,6 +482,12 @@ class Serializable(object):
 
             return True
 
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __copy__(self):
+        return self.__class__.from_dict(self.to_dict())
+
     @classmethod
     def from_json(cls, path, default=None, fatal=True, logger=None):
         """
@@ -511,12 +517,18 @@ class Serializable(object):
         """
         return cls._meta.from_dict(data, source=source)
 
-    def set_from_dict(self, data, source=None):
+    def set_from_dict(self, data, source=None, merge=False):
         """
         Args:
             data (dict): Raw data, coming for example from a json file
             source (str | None): Optional, description of source where 'data' came from
+            merge (bool): If True, add `data` to existing fields
         """
+        if merge:
+            merged = self.to_dict()
+            merged.update(data)
+            data = merged
+
         self._meta.set_from_dict(self, data, source=source)
 
     def reset(self):

@@ -1,5 +1,6 @@
 import datetime
 import logging
+from copy import copy
 
 import pytest
 from mock import patch
@@ -134,6 +135,9 @@ def test_meta(logged):
 
     data = {"name": "some name", "some_int": 15}
     obj = SomeSerializable.from_dict(data)
+    assert copy(obj) is not obj
+    assert copy(obj) == obj
+
     obj2 = SomeSerializable()
     assert obj != obj2
     assert SomeSerializable._meta.changed_attributes(obj, obj2) == [('name', 'some name', 'my name'), ('some_int', 15, 7)]
@@ -147,6 +151,16 @@ def test_meta(logged):
     assert obj._meta is SomeSerializable._meta
 
     assert not logged
+
+    obj = SomeSerializable.from_dict({"name": "foo", "some_int": 1})
+    obj.set_from_dict({"name": "foo"})
+    assert obj.name == "foo"
+    assert obj.some_int == 7  # Value reset to object's default
+
+    obj = SomeSerializable.from_dict({"name": "foo", "some_int": 1})
+    obj.set_from_dict({"name": "foo"}, merge=True)
+    assert obj.name == "foo"
+    assert obj.some_int == 1  # Value NOT reset to default
 
 
 def test_sanitize():
