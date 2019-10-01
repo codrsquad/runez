@@ -5,8 +5,8 @@ import pytest
 from mock import patch
 
 import runez
-from runez.schema import Dict, Integer, List, String
-from runez.serialize import add_meta, ClassMetaDescription, get_descriptor, same_type, type_name, ValidationException, with_behavior
+from runez.schema import Dict, get_descriptor, Integer, List, String, ValidationException
+from runez.serialize import add_meta, ClassMetaDescription, same_type, type_name, with_behavior
 
 
 @add_meta(ClassMetaDescription)
@@ -43,16 +43,18 @@ def test_get_descriptor():
 
     assert str(get_descriptor(str)) == "string"
     assert str(get_descriptor(int)) == "integer"
-    assert str(get_descriptor(dict)) == "dict[*, *]"
-    assert str(get_descriptor(list)) == "list[*]"
-    assert str(get_descriptor(set)) == "list[*]"
-    assert str(get_descriptor(tuple)) == "list[*]"
+    assert str(get_descriptor(dict)) == "dict[any, any]"
+    assert str(get_descriptor(list)) == "list[any]"
+    assert str(get_descriptor(set)) == "list[any]"
+    assert str(get_descriptor(tuple)) == "list[any]"
 
-    assert str(get_descriptor(List)) == "list[*]"
+    assert str(get_descriptor(List)) == "list[any]"
     assert str(get_descriptor(List(Integer))) == "list[integer]"
     assert str(get_descriptor(Dict(String, List(Integer)))) == "dict[string, list[integer]]"
 
-    assert get_descriptor(object()) is None
+    with pytest.raises(ValidationException) as e:
+        get_descriptor(object())
+    assert "Invalid schema definition" in e.value.message
 
 
 def test_json(temp_folder):

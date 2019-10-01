@@ -12,9 +12,75 @@ Example:
         map = Dict(String, Integer)  # No default value (ie: None), deserialization will ensure proper type is used
 """
 
+import inspect
+
 from runez.base import string_type
 from runez.convert import to_float, to_int, TRUE_TOKENS
 from runez.date import to_date
+
+
+Serializable = None  # type: type # Set to runez.Serializable class once parsing of runez.serialize.py is past that class definition
+
+
+class ValidationException(Exception):
+    """
+    Thrown when type mismatch found during deserialization (and strict mode enabled)
+    """
+
+    def __init__(self, message):
+        self.message = message
+
+
+def get_descriptor(value, required=True):
+    """
+    Args:
+        value: Value given by user (as class attribute to describe their runez.Serializable schema)
+        required (bool): If True, raise ValidationException() is no descriptor could be found
+
+    Returns:
+        (Any | None): Descriptor if one is applicable
+    """
+    descriptor = _get_descriptor(value)
+    if required and descriptor is None:
+        raise ValidationException("Invalid schema definition '%s'" % value)
+    return descriptor
+
+
+def _get_descriptor(value):
+    if value is None:
+        return Any()  # Used used None as value, no more info to be had
+
+    if isinstance(value, Any):
+        return value  # User specified their schema properly
+
+    if inspect.isroutine(value):
+        return None  # Routine, not a descriptor
+
+    if inspect.ismemberdescriptor(value):
+        return Any()  # Member descriptor (such as slot), not type as runez.Serializable goes
+
+    if isinstance(value, string_type):
+        return String(default=value)  # User gave a string as value, assume they mean string type, and use value as default
+
+    mapped = TYPE_MAP.get(value.__class__)
+    if mapped is not None:
+        return mapped(default=value)
+
+    if not isinstance(value, type):
+        value = value.__class__
+
+    if issubclass(value, string_type):
+        return String()
+
+    if Serializable and issubclass(value, Serializable):
+        return MetaSerializable(value._meta)
+
+    if issubclass(value, Any):
+        return value()
+
+    mapped = TYPE_MAP.get(value)
+    if mapped is not None:
+        return mapped()
 
 
 class Any(object):
@@ -126,32 +192,28 @@ class Dict(Any):
             default: Default to use when no value was provided
             name (str | None): Name for this constraint (default: dict)
         """
-        if isinstance(key, type):
-            key = key()
-        if isinstance(value, type):
-            value = value()
-        self.key = key  # type: Any
-        self.value = value  # type: Any
+        self.key = get_descriptor(key)  # type: Any
+        self.value = get_descriptor(value)  # type: Any
         super(Dict, self).__init__(default=default, name=name)
 
     def representation(self):
-        return "%s[%s, %s]" % (self.name, subtype_representation(self.key), subtype_representation(self.value))
+        return "%s[%s, %s]" % (self.name, self.key, self.value)
 
     def _problem(self, value):
         if not isinstance(value, dict):
             return "expecting dict, got '%s'" % value
 
         for k, v in value.items():
-            problem = subtype_problem(self.key, k)
+            problem = self.key.problem(k)
             if problem is not None:
                 return "key: %s" % problem
 
-            problem = subtype_problem(self.value, v)
+            problem = self.value.problem(v)
             if problem is not None:
                 return "value: %s" % problem
 
     def _converted(self, value):
-        return dict((subtype_converted(self.key, k), subtype_converted(self.value, v)) for k, v in value.items())
+        return dict((self.key.converted(k), self.value.converted(v)) for k, v in value.items())
 
 
 class Integer(Any):
@@ -186,25 +248,23 @@ class List(Any):
             default: Default to use when no value was provided
             name (str | None): Name for this constraint (default: list)
         """
-        if isinstance(subtype, type):
-            subtype = subtype()
-        self.subtype = subtype  # type: Any
+        self.subtype = get_descriptor(subtype)  # type: Any
         super(List, self).__init__(default=default, name=name)
 
     def representation(self):
-        return "%s[%s]" % (self.name, subtype_representation(self.subtype))
+        return "%s[%s]" % (self.name, self.subtype)
 
     def _problem(self, value):
         if not isinstance(value, (list, set, tuple)):
             return "expecting list, got '%s'" % value
 
         for v in value:
-            problem = subtype_problem(self.subtype, v)
+            problem = self.subtype.problem(v)
             if problem is not None:
                 return problem
 
     def _converted(self, value):
-        return [subtype_converted(self.subtype, v) for v in value]
+        return [self.subtype.converted(v) for v in value]
 
 
 class String(Any):
@@ -215,42 +275,11 @@ class String(Any):
             return "expecting string, got '%s'" % value
 
 
-def subtype_representation(subtype):
-    """
-    Args:
-        subtype (Any | None): Subtype to return representation of
-
-    Returns:
-        (str): Appropriate representation
-    """
-    return "*" if subtype is None else subtype.representation()
-
-
-def subtype_problem(subtype, value):
-    """
-    Args:
-        subtype (Any | None): Subtype to use
-        value: Value to verify compliance of
-
-    Returns:
-        (str | None): Explanation of compliance issue, if there is any
-    """
-    if subtype is None:
-        return None
-
-    return subtype.problem(value)
-
-
-def subtype_converted(subtype, value):
-    """
-    Args:
-        subtype (Any | None): Subtype to use
-        value: Value to convert
-
-    Returns:
-        Appropriately converted value
-    """
-    if subtype is None:
-        return value
-
-    return subtype.converted(value)
+TYPE_MAP = {
+    dict: Dict,
+    int: Integer,
+    list: List,
+    set: List,
+    string_type: String,
+    tuple: List,
+}

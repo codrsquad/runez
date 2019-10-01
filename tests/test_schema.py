@@ -42,13 +42,13 @@ def test_boolean():
 
 def test_dict():
     dd = Dict()
-    assert str(dd) == "dict[*, *]"
+    assert str(dd) == "dict[any, any]"
     assert dd.problem({}) is None
     assert dd.problem({1: "a"}) is None
     assert dd.problem({"a": 1}) is None
 
     dd = Dict(String)
-    assert str(dd) == "dict[string, *]"
+    assert str(dd) == "dict[string, any]"
     assert dd.problem({}) is None
     assert dd.problem({1: "a"}) == "key: expecting string, got '1'"
     assert dd.problem({"a": 1}) is None
@@ -74,7 +74,7 @@ def test_dict():
 
 def test_list():
     ll = List()
-    assert str(ll) == "list[*]"
+    assert str(ll) == "list[any]"
     assert ll.problem([]) is None
     assert ll.problem(["a"]) is None
     assert ll.problem([1, 2]) is None
@@ -114,12 +114,14 @@ class Car(Serializable, with_behavior(extras=(logging.info, "foo bar"))):
     year = Integer
 
 
+class Hat(Serializable, with_behavior(extras=False)):
+    size = Integer(default=1)
+
+
 class SpecializedCar(Car):
     """Used to test that ._meta.behavior is passed on properly to descendants"""
 
-
-class Hat(Serializable, with_behavior(extras=False)):
-    size = Integer(default=1)
+    hats = List(Hat)  # Test list of serializables
 
 
 class Person(Serializable, with_behavior(strict=logging.error, hook=logging.info)):
@@ -148,7 +150,7 @@ def test_serializable(logged):
     assert str(Car._meta.behavior) == "extras: function 'info', ignored extras: [foo, bar]"
     assert str(SpecializedCar._meta.behavior) == "extras: function 'debug'"  # extras are NOT inherited
     assert Car._meta.by_type == {"string": ["make"], "integer": ["year"]}
-    assert Car._meta.by_type == SpecializedCar._meta.by_type
+    assert SpecializedCar._meta.by_type == {"integer": ["year"], "list": ["hats"], "string": ["make"]}
 
     assert str(Hat._meta.behavior) == "lenient"
 

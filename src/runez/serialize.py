@@ -4,37 +4,20 @@ Convenience methods for (de)serializing objects
 
 import collections
 import datetime
-import inspect
 import io
 import json
 import logging
 import os
 
+import runez.schema
 from runez.base import decode, string_type, UNSET
 from runez.convert import resolved_path, short, shortened
 from runez.path import ensure_folder
-from runez.schema import Any, Dict, Integer, List, MetaSerializable, String
 from runez.system import abort, is_dryrun
 
 
 LOG = logging.getLogger(__name__)
-TYPE_MAP = {
-    dict: Dict,
-    int: Integer,
-    list: List,
-    set: List,
-    string_type: String,
-    tuple: List,
-}
-
-
-class ValidationException(Exception):
-    """
-    Thrown when type mismatch found during deserialization (and strict mode enabled)
-    """
-
-    def __init__(self, message):
-        self.message = message
+Serializable = None  # type: type # Set to runez.Serializable class once parsing of runez.serialize.py is past that class definition
 
 
 def with_behavior(strict=UNSET, extras=UNSET, hook=UNSET):
@@ -61,9 +44,7 @@ def is_serializable_descendant(base):
     Returns:
         (bool): True if `base` is a descendant of `Serializable` (but not `Serializable` itself)
     """
-    # Using globals() because class `Serializable` is not yet available when itself is being decorated here
-    s = globals().get("Serializable")
-    return s is not None and base is not s and issubclass(base, s)
+    return Serializable is not None and base is not Serializable and issubclass(base, Serializable)
 
 
 class DefaultBehavior(object):
@@ -92,7 +73,7 @@ class DefaultBehavior(object):
         if extras is UNSET:
             extras = self.extras
 
-        self.strict = self.to_callable(strict, ValidationException)
+        self.strict = self.to_callable(strict, runez.schema.ValidationException)
         self.hook = self.to_callable(hook, None)
 
         if isinstance(extras, tuple) and len(extras) == 2:
@@ -261,50 +242,6 @@ def type_name(value):
     return value.__class__.__name__
 
 
-def get_descriptor(value):
-    """
-    Args:
-        value: Value given by user (as class attribute to describe their runez.Serializable schema)
-
-    Returns:
-        (Any | None): Descriptor if one is applicable
-    """
-    if value is None:
-        return Any()  # Used used None as value, no more info to be had
-
-    if isinstance(value, Any):
-        return value  # User specified their schema properly
-
-    if inspect.isroutine(value):
-        return None  # Routine, not a descriptor
-
-    if inspect.ismemberdescriptor(value):
-        return Any()  # Member descriptor (such as slot), not type as runez.Serializable goes
-
-    if isinstance(value, string_type):
-        return String(default=value)  # User gave a string as value, assume they mean string type, and use value as default
-
-    mapped = TYPE_MAP.get(value.__class__)
-    if mapped is not None:
-        return mapped(default=value)
-
-    if not isinstance(value, type):
-        value = value.__class__
-
-    if issubclass(value, string_type):
-        return String()
-
-    if issubclass(value, Serializable):
-        return MetaSerializable(value._meta)
-
-    if issubclass(value, Any):
-        return value()
-
-    mapped = TYPE_MAP.get(value)
-    if mapped is not None:
-        return mapped()
-
-
 def applicable_bases(cls):
     yield cls
     for base in cls.__bases__:
@@ -344,7 +281,7 @@ class ClassMetaDescription(object):
                     self.properties.append(key)
                     continue
 
-                descriptor = get_descriptor(value)
+                descriptor = runez.schema.get_descriptor(value, required=False)
                 if descriptor is not None:
                     self.attributes[key] = descriptor
                     by_type[descriptor.name].append(key)
@@ -567,6 +504,9 @@ class Serializable(object):
         """
         raw = dict((name, getattr(self, name)) for name in self._meta.attributes)
         return json_sanitized(raw, keep_none=keep_none)
+
+
+runez.schema.Serializable = Serializable
 
 
 def read_json(path, default=None, fatal=True, logger=None):
