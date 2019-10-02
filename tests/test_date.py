@@ -49,6 +49,17 @@ def test_elapsed():
         assert runez.elapsed(datetime.datetime(2019, 9, 1)) == 12
 
 
+def test_epoch():
+    assert runez.to_epoch(None) is None
+
+    d = datetime.date(2019, 9, 1)
+    dt27 = datetime.datetime(2019, 9, 1, second=27)
+    assert runez.to_epoch(d) == 1567321200
+    assert runez.to_epoch(d, in_ms=True) == 1567321200000
+    assert runez.to_epoch(dt27) == 1567321227
+    assert runez.to_epoch_ms(dt27) == 1567321227000
+
+
 def test_represented_duration():
     assert runez.represented_duration(0) == "0 seconds"
     assert runez.represented_duration(1) == "1 second"

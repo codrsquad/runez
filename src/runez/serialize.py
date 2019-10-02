@@ -538,13 +538,18 @@ class Serializable(object):
         for name, descriptor in self._meta.attributes.items():
             setattr(self, name, descriptor.default)
 
-    def to_dict(self, keep_none=False):
+    def to_dict(self, stringify=decode, dt=str, keep_none=False):
         """
-        :param (bool) keep_none: If False, don't include None values
-        :return dict: This object serialized to a dict
+        Args:
+            stringify (callable | None): Function to use to stringify non-builtin types
+            dt (callable | None): Function to use to stringify dates
+            keep_none (bool): If False, don't include None values
+
+        Returns:
+            (dict): This object serialized to a dict
         """
         raw = dict((name, getattr(self, name)) for name in self._meta.attributes)
-        return json_sanitized(raw, keep_none=keep_none)
+        return json_sanitized(raw, stringify=stringify, dt=dt, keep_none=keep_none)
 
 
 runez.schema.Serializable = Serializable

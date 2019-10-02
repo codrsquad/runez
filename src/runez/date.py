@@ -235,6 +235,34 @@ def to_date(value):
         return _date_from_text(value)
 
 
+def to_epoch(date, in_ms=False):
+    """
+    Args:
+        date (datetime.date | datetime.datetime): Date to convert to epoch
+        in_ms (bool): If True, return epoch in milliseconds
+
+    Returns:
+        (int): Epoch in seconds
+    """
+    if date:
+        ep = int(date.strftime("%s"))
+        if in_ms:
+            return ep * 1000
+
+        return ep
+
+
+def to_epoch_ms(date):
+    """
+    Args:
+        date (datetime.date | datetime.datetime): Date to convert to epoch
+
+    Returns:
+        (int): Epoch in seconds
+    """
+    return to_epoch(date, in_ms=True)
+
+
 def _date_from_components(components):
     y, m, d, _, hh = components[:5]
 
