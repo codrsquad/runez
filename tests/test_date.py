@@ -53,11 +53,11 @@ def test_epoch():
     assert runez.to_epoch(None) is None
 
     d = datetime.date(2019, 9, 1)
-    dt27 = datetime.datetime(2019, 9, 1, second=27)
-    assert runez.to_epoch(d) == 1567321200
-    assert runez.to_epoch(d, in_ms=True) == 1567321200000
-    assert runez.to_epoch(dt27) == 1567321227
-    assert runez.to_epoch_ms(dt27) == 1567321227000
+    dt27 = datetime.datetime(2019, 9, 1, second=27, tzinfo=runez.UTC)
+    assert runez.to_epoch(d) >= 1560000000  # depends on timezone...
+    assert runez.to_epoch(d, in_ms=True) >= 1560000000000
+    assert runez.to_epoch(dt27) == 1567324827
+    assert runez.to_epoch_ms(dt27) == 1567324827000
 
 
 def test_represented_duration():
