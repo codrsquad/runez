@@ -238,9 +238,9 @@ def to_date(value):
 def to_epoch(date, in_ms=False, tz=UTC):
     """
     Args:
-        date (datetime.date | datetime.datetime): Date to convert to epoch
+        date (datetime.date | datetime.datetime | None): Date to convert to epoch
         in_ms (bool): If True, return epoch in milliseconds
-        tz (timezone): Timezone to use for non-datetime `date`-s received
+        tz (timezone | None): Timezone to use for non-datetime `date`-s received
 
     Returns:
         (int): Epoch in seconds

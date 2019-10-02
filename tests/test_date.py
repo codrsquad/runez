@@ -54,7 +54,7 @@ def test_epoch():
 
     d = datetime.date(2019, 9, 1)
     dt27 = datetime.datetime(2019, 9, 1, second=27, tzinfo=runez.UTC)
-    assert runez.to_epoch(d) == 1567296000  # depends on timezone...
+    assert runez.to_epoch(d) == 1567296000
     assert runez.to_epoch(d, in_ms=True) == 1567296000000
     assert runez.to_epoch(dt27) == 1567296027
     assert runez.to_epoch_ms(dt27) == 1567296027000
