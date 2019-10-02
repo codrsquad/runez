@@ -16,7 +16,7 @@ import inspect
 
 from runez.base import string_type
 from runez.convert import to_float, to_int, TRUE_TOKENS
-from runez.date import to_date
+from runez.date import to_date, UTC
 
 
 Serializable = None  # type: type # Set to runez.Serializable class once parsing of runez.serialize.py is past that class definition
@@ -147,7 +147,7 @@ class MetaSerializable(Any):
     """Represents a descendant of `runez.Serializable`"""
 
     def __init__(self, meta):
-        self.meta = getattr(meta, "_meta", meta)  # type: runez.ClassMetaDescription.__class__ # noqa
+        self.meta = getattr(meta, "_meta", meta)
         super(MetaSerializable, self).__init__(default=None, name=self.meta.cls.__name__)
 
     def _problem(self, value):
@@ -173,12 +173,22 @@ class Boolean(Any):
 class Date(Any):
     """Represents date/datetime type"""
 
+    def __init__(self, default=None, name=None, tz=UTC):
+        """
+        Args:
+            default: Default to use when no value was provided
+            name (str | None): Name for this constraint (default: dict)
+            tz (datetime.tzinfo | None): Timezone info used as default if could not be determined from converted value
+        """
+        self.tz = tz
+        super(Date, self).__init__(default=default, name=name)
+
     def _problem(self, value):
         if to_date(value) is None:
             return "expecting date, got '%s'" % value
 
     def _converted(self, value):
-        return to_date(value)
+        return to_date(value, tz=self.tz)
 
 
 class Dict(Any):

@@ -106,6 +106,14 @@ def test_timezone():
     epoch = 1568348000
     check_date("2019-09-13 04:13:20 UTC", runez.datetime_from_epoch(epoch))
 
+    tz1 = runez.timezone(datetime.timedelta(seconds=12 * 60))
+    dtutc = runez.datetime_from_epoch(epoch, tz=runez.UTC)
+    dt1 = runez.datetime_from_epoch(epoch, tz=tz1)
+    eutc = runez.to_epoch(dtutc)
+    et1 = runez.to_epoch(dt1)
+    assert et1 - eutc == 720
+    assert dtutc == dt1
+
     tz = runez.timezone_from_text("-01:00")
     assert str(tz) == "-01:00"
     check_date("2019-09-13 03:13:20 -01:00", runez.datetime_from_epoch(epoch, tz=tz))
@@ -124,6 +132,12 @@ def dt(*args, **kwargs):
 
 
 def test_to_date():
+    tz1 = runez.timezone(datetime.timedelta(seconds=12 * 60))
+    assert runez.to_date("2019-01-02 03:04:05").tzinfo is runez.date.DEFAULT_TIMEZONE
+    assert runez.to_date("2019-01-02 03:04:05", tz=tz1).tzinfo is tz1
+    assert runez.to_date("2019-01-02 03:04:05 -00:12").tzinfo == tz1
+    assert runez.to_date("2019-01-02 03:04:05 UTC").tzinfo is runez.UTC
+
     d0 = runez.to_date("2019-01-02 03:04:05 UTC")
     d1 = runez.to_date("2019-01-02 03:04:05 -00:00")
     d2 = runez.to_date("2019-01-02 04:04:05 +01:00")
