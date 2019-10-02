@@ -235,17 +235,21 @@ def to_date(value):
         return _date_from_text(value)
 
 
-def to_epoch(date, in_ms=False):
+def to_epoch(date, in_ms=False, tz=UTC):
     """
     Args:
         date (datetime.date | datetime.datetime): Date to convert to epoch
         in_ms (bool): If True, return epoch in milliseconds
+        tz (timezone): Timezone to use for non-datetime `date`-s received
 
     Returns:
         (int): Epoch in seconds
     """
     if date:
-        ep = int(date.strftime("%s"))
+        if not isinstance(date, datetime.datetime):
+            date = datetime.datetime(date.year, date.month, date.day, tzinfo=tz)
+
+        ep = (date - datetime.datetime(1970, 1, 1, tzinfo=date.tzinfo)).total_seconds()
         if in_ms:
             return ep * 1000
 
