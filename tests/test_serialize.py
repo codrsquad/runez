@@ -66,13 +66,11 @@ def test_json(temp_folder):
     assert runez.represented_json({}) == "{}\n"
     assert runez.represented_json("foo") == '"foo"\n'
 
-    sample = {"a": "x", "b": "y"}
-    assert runez.represented_json(sample) == '{\n  "a": "x",\n  "b": "y"\n}\n'
-    assert runez.represented_json(sample, indent=None) == '{"a": "x", "b": "y"}'
+    data = {"a": "x", "b": "y"}
+    assert runez.represented_json(data) == '{\n  "a": "x",\n  "b": "y"\n}\n'
+    assert runez.represented_json(data, indent=None) == '{"a": "x", "b": "y"}'
 
     assert runez.save_json(None, None, fatal=False) == 0
-
-    data = {"a": "b"}
 
     assert not runez.DRYRUN
     with runez.CaptureOutput(dryrun=True) as logged:
