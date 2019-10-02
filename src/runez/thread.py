@@ -1,6 +1,5 @@
 import threading
 
-_THREAD_LOCAL_LOCK = threading.RLock()
 _THREAD_LOCAL = threading.local()
 
 
@@ -16,17 +15,16 @@ class thread_local_property(object):
         self.__doc__ = getattr(func, "__doc__")
         self.name = func.__name__
         self.func = func
-        self.lock = threading.RLock()
         self.thread_local = threading.local()
 
     def __get__(self, obj, cls):
         if obj is None:
             return self
 
-        with self.lock:
-            if not hasattr(self.thread_local, self.name):
-                setattr(self.thread_local, self.name, self.func(obj))
-            return getattr(self.thread_local, self.name)
+        if not hasattr(self.thread_local, self.name):
+            setattr(self.thread_local, self.name, self.func(obj))
+
+        return getattr(self.thread_local, self.name)
 
 
 class ThreadLocalSingleton(object):
@@ -44,10 +42,10 @@ class ThreadLocalSingleton(object):
         # Not sure if there's a good use case for this (one where gotcha-factor is much lower than added value)
         assert not args and not kwargs, "Current limitation: only classes that can be created without args are supported for now"
 
-        with _THREAD_LOCAL_LOCK:
-            existing = getattr(_THREAD_LOCAL, cls.__name__, None)
-            if existing is None:
-                existing = super(ThreadLocalSingleton, cls).__new__(cls, *args, **kwargs)
-                setattr(_THREAD_LOCAL, cls.__name__, existing)
+        key = "singleton %s.%s" % (cls.__module__, cls.__name__)
+        existing = getattr(_THREAD_LOCAL, key, None)
+        if existing is None:
+            existing = super(ThreadLocalSingleton, cls).__new__(cls, *args, **kwargs)
+            setattr(_THREAD_LOCAL, key, existing)
 
-            return existing
+        return existing
