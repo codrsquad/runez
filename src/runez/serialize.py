@@ -592,7 +592,7 @@ def represented_json(data, sort_keys=True, indent=2, keep_none=False, **kwargs):
     Args:
         data (object | None): Data to serialize
         sort_keys (bool): Whether keys should be sorted
-        indent (int | None): Indentation to use
+        indent (int | None): Indentation to use, if None: use compact (one line) mode
         keep_none (bool): If False, don't include None values
         **kwargs: Passed through to `json.dumps()`
 
@@ -600,7 +600,17 @@ def represented_json(data, sort_keys=True, indent=2, keep_none=False, **kwargs):
         (dict | list | str): Serialized `data`, with defaults that are usually desirable for a nice and clean looking json
     """
     data = json_sanitized(data, keep_none=keep_none)
-    return "%s\n" % json.dumps(data, sort_keys=sort_keys, indent=indent, **kwargs)
+    if indent is None:
+        kwargs.setdefault("separators", (", ", ": "))
+
+    else:
+        kwargs.setdefault("separators", (",", ": "))
+
+    rep = json.dumps(data, sort_keys=sort_keys, indent=indent, **kwargs)
+    if indent is None:
+        return rep
+
+    return "%s\n" % rep
 
 
 def save_json(data, path, fatal=True, logger=None, sort_keys=True, indent=2, keep_none=False, **kwargs):
