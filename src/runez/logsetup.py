@@ -13,6 +13,7 @@ from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 try:
     # faulthandler is only available in python 3.3+
     import faulthandler
+    from typing import List, Optional
 
 except ImportError:
     faulthandler = None
@@ -201,11 +202,11 @@ class LogManager(object):
 
     # Below fields should be read-only for outside users, do not modify these
     debug = None
-    console_handler = None  # type: logging.StreamHandler | None
-    file_handler = None  # type: logging.FileHandler | None # File we're currently logging to (if any)
-    handlers = None  # type: list[logging.Handler] | None
-    used_formats = None  # type: str | None
-    faulthandler_signum = None  # type: int | None
+    console_handler = None  # type: Optional[logging.StreamHandler]
+    file_handler = None  # type: Optional[logging.FileHandler] # File we're currently logging to (if any)
+    handlers = None  # type: Optional[List[logging.Handler]]
+    used_formats = None  # type: Optional[str]
+    faulthandler_signum = None  # type: Optional[int]
 
     _lock = threading.RLock()
     _logging_snapshot = LoggingSnapshot()

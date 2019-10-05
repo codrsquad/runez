@@ -1,6 +1,5 @@
 import datetime
 import logging
-from copy import copy
 
 import pytest
 from mock import patch
@@ -137,8 +136,9 @@ def test_meta(logged):
 
     data = {"name": "some name", "some_int": 15}
     obj = SomeSerializable.from_dict(data)
-    assert copy(obj) is not obj
-    assert copy(obj) == obj
+    assert isinstance(obj, SomeSerializable)
+    assert obj.copy() is not obj
+    assert obj.copy() == obj
 
     obj2 = SomeSerializable()
     assert obj != obj2

@@ -250,7 +250,7 @@ class ClickRunner(object):
         """
         self.context = context
         self.main = cli.default_main
-        self.args = None  # type: list[str] # Arguments used in last run() invocation
+        self.args = None  # type: list # Arguments used in last run() invocation
         self.logged = None  # type: runez.TrackedOutput
         self.exit_code = None  # type: int
 

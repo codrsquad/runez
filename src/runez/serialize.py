@@ -8,6 +8,7 @@ import io
 import json
 import logging
 import os
+from copy import copy
 
 import runez.schema
 from runez.base import decode, string_type, UNSET
@@ -487,6 +488,13 @@ class Serializable(object):
 
     def __copy__(self):
         return self.__class__.from_dict(self.to_dict())
+
+    def copy(self):
+        """
+        Returns:
+            (self.__class__): Copy of this object
+        """
+        return copy(self)
 
     @classmethod
     def from_json(cls, path, default=None, fatal=True, logger=None):

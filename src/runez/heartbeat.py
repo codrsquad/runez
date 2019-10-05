@@ -71,7 +71,7 @@ class Heartbeat(object):
     - refreshing data from a remote server
     """
 
-    tasks = []  # type: list[Task] # List of functions to be periodically called
+    tasks = []  # type: list # of task, to be periodically called
 
     _lock = threading.Lock()
     _thread = None  # Background daemon thread used to periodically execute the tasks
