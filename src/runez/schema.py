@@ -86,14 +86,13 @@ def _get_descriptor(value):
 class Any(object):
     """Indicates that any value is accepted"""
 
-    def __init__(self, default=None, name=None):
+    def __init__(self, default=None):
         """
         Args:
             default: Default to use (when no value is provided)
-            name (str | None): Name for this constraint (default: lowercase of implementation class)
         """
         self.default = default
-        self.name = name or self.__class__.__name__.lower()
+        self.name = self.__class__.__name__.lower()
 
     def __repr__(self):
         if self.default is None:
@@ -146,9 +145,15 @@ class Any(object):
 class MetaSerializable(Any):
     """Represents a descendant of `runez.Serializable`"""
 
-    def __init__(self, meta):
+    def __init__(self, meta, default=None):
+        """
+        Args:
+            meta: A runez.Serializable object, or its ._meta attribute
+            default: Default to use (when no value is provided)
+        """
         self.meta = getattr(meta, "_meta", meta)
-        super(MetaSerializable, self).__init__(default=None, name=self.meta.cls.__name__)
+        super(MetaSerializable, self).__init__(default=default)
+        self.name = self.meta.cls.__name__
 
     def _problem(self, value):
         if not isinstance(value, dict):
@@ -173,15 +178,14 @@ class Boolean(Any):
 class Date(Any):
     """Represents date/datetime type"""
 
-    def __init__(self, default=None, name=None, tz=UTC):
+    def __init__(self, default=None, tz=UTC):
         """
         Args:
             default: Default to use when no value was provided
-            name (str | None): Name for this constraint (default: dict)
             tz (datetime.tzinfo | None): Timezone info used as default if could not be determined from converted value
         """
         self.tz = tz
-        super(Date, self).__init__(default=default, name=name)
+        super(Date, self).__init__(default=default)
 
     def _problem(self, value):
         if to_date(value) is None:
@@ -194,17 +198,16 @@ class Date(Any):
 class Dict(Any):
     """Dict with optionally key/value constrained as well"""
 
-    def __init__(self, key=None, value=None, default=None, name=None):
+    def __init__(self, key=None, value=None, default=None):
         """
         Args:
             key: Optional constraint for keys
             value: Optional constraint for values
             default: Default to use when no value was provided
-            name (str | None): Name for this constraint (default: dict)
         """
         self.key = get_descriptor(key)  # type: Any
         self.value = get_descriptor(value)  # type: Any
-        super(Dict, self).__init__(default=default, name=name)
+        super(Dict, self).__init__(default=default)
 
     def representation(self):
         return "%s[%s, %s]" % (self.name, self.key, self.value)
@@ -229,17 +232,16 @@ class Dict(Any):
 class Enum(Any):
     """Represents an enum, given values should be a simple hashable type like str, or int"""
 
-    def __init__(self, values, default=None, name=None):
+    def __init__(self, values, default=None):
         """
         Args:
             tz (str | list | tuple): Accepted values (space-separated if given as string)
             default: Default to use when no value was provided
-            name (str | None): Name for this constraint (default: dict)
         """
         if hasattr(values, "split"):
             values = values.split()
         self.values = set(values)
-        super(Enum, self).__init__(default=default, name=name)
+        super(Enum, self).__init__(default=default)
 
     def representation(self):
         return "%s[%s]" % (self.name, ", ".join(sorted(self.values)))
@@ -274,15 +276,14 @@ class Float(Any):
 class List(Any):
     """List with optionally values constrained as well"""
 
-    def __init__(self, subtype=None, default=None, name=None):
+    def __init__(self, subtype=None, default=None):
         """
         Args:
             subtype: Optional constraint for values
             default: Default to use when no value was provided
-            name (str | None): Name for this constraint (default: list)
         """
         self.subtype = get_descriptor(subtype)  # type: Any
-        super(List, self).__init__(default=default, name=name)
+        super(List, self).__init__(default=default)
 
     def representation(self):
         return "%s[%s]" % (self.name, self.subtype)
