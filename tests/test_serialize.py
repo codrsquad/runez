@@ -140,6 +140,18 @@ def test_meta(logged):
     assert obj.copy() is not obj
     assert obj.copy() == obj
 
+    obj2 = SomeSerializable.copy_of(None)
+    assert isinstance(obj2, SomeSerializable)
+    assert obj2.another is None
+    assert obj2.name == "my name"  # Default values
+    assert obj2.some_int == 7
+    assert obj2.some_value is None
+
+    obj2 = SomeSerializable.copy_of(obj)
+    assert isinstance(obj2, SomeSerializable)
+    assert obj2 is not obj
+    assert obj2 == obj
+
     obj2 = SomeSerializable()
     assert obj != obj2
     assert SomeSerializable._meta.changed_attributes(obj, obj2) == [('name', 'some name', 'my name'), ('some_int', 15, 7)]

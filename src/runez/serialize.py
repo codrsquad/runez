@@ -489,6 +489,20 @@ class Serializable(object):
     def __copy__(self):
         return self.__class__.from_dict(self.to_dict())
 
+    @classmethod
+    def copy_of(cls, obj):
+        """
+        Args:
+            obj (self.__class__ | None): Object to copy
+
+        Returns:
+            (self.__class__): Copy of `obj`, or brand new object if it was None
+        """
+        if obj is None:
+            return cls()
+
+        return obj.__copy__()
+
     def copy(self):
         """
         Returns:
