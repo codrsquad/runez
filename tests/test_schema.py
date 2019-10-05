@@ -1,6 +1,6 @@
 import logging
 
-from runez.schema import Any, Boolean, Date, Dict, Float, Integer, List, MetaSerializable, String
+from runez.schema import Any, Boolean, Date, Dict, Enum, Float, Integer, List, MetaSerializable, String
 from runez.serialize import Serializable, with_behavior
 
 
@@ -70,6 +70,15 @@ def test_dict():
     assert dd.problem({"a": "b"}) == "value: expecting list, got 'b'"
     assert dd.problem({"a": ["1"]}) is None
     assert dd.problem({"a": ["b"]}) == "value: expecting int, got 'b'"
+
+
+def test_enum():
+    ee = Enum("foo bar")
+    assert str(ee) == "enum[bar, foo]"
+    assert ee.problem(None) is None
+    assert ee.problem("foo") is None
+    assert ee.problem("x") == "'x' is not one of enum[bar, foo]"
+    assert ee.problem(1) == "'1' is not one of enum[bar, foo]"
 
 
 def test_list():
@@ -199,3 +208,16 @@ def test_serializable(logged):
     pp = Person.from_dict({"car": {"make": "Honda", "foo": "bar"}})
     assert pp.car.make == "Honda"
     assert "'foo' is not an attribute of Car" in logged.pop()
+
+
+def test_string():
+    ss = String()
+    assert str(ss) == "string"
+    assert ss.problem(None) is None
+    assert ss.problem("foo") is None
+    assert ss.problem(1) == "expecting string, got '1'"
+
+    assert ss.converted(None) is None
+    assert ss.converted("foo") == "foo"
+    assert ss.converted(1) == "1"
+    assert ss.converted([1, 2]) == "[1, 2]"

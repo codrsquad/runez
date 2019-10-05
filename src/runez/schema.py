@@ -14,7 +14,7 @@ Example:
 
 import inspect
 
-from runez.base import string_type
+from runez.base import string_type, stringified
 from runez.convert import to_float, to_int, TRUE_TOKENS
 from runez.date import to_date, UTC
 
@@ -226,6 +226,29 @@ class Dict(Any):
         return dict((self.key.converted(k), self.value.converted(v)) for k, v in value.items())
 
 
+class Enum(Any):
+    """Represents an enum, given values should be a simple hashable type like str, or int"""
+
+    def __init__(self, values, default=None, name=None):
+        """
+        Args:
+            tz (str | list | tuple): Accepted values (space-separated if given as string)
+            default: Default to use when no value was provided
+            name (str | None): Name for this constraint (default: dict)
+        """
+        if hasattr(values, "split"):
+            values = values.split()
+        self.values = set(values)
+        super(Enum, self).__init__(default=default, name=name)
+
+    def representation(self):
+        return "%s[%s]" % (self.name, ", ".join(sorted(self.values)))
+
+    def _problem(self, value):
+        if value not in self.values:
+            return "'%s' is not one of %s" % (value, self.representation())
+
+
 class Integer(Any):
     """Represents integer type"""
 
@@ -283,6 +306,9 @@ class String(Any):
     def _problem(self, value):
         if not isinstance(value, string_type):
             return "expecting string, got '%s'" % value
+
+    def _converted(self, value):
+        return stringified(value)
 
 
 TYPE_MAP = {
