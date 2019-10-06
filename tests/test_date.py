@@ -109,6 +109,7 @@ def test_timezone():
 
     epoch = 1568332800
     assert runez.to_date(epoch) == dt(2019, 9, 13)
+    assert runez.to_date(epoch) == runez.to_date(epoch * 1000)
     assert runez.to_datetime(epoch) == dt(2019, 9, 13, 0, 0, 0)
 
     epoch = 1568348000

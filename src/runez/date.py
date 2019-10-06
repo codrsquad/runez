@@ -74,14 +74,18 @@ RE_TZ = re.compile(r"([+-]?[0-9][0-9]):?([0-9][0-9])")
 DEFAULT_DURATION_SPAN = 2
 
 
-def date_from_epoch(epoch):
+def date_from_epoch(epoch, in_ms=None):
     """
     Args:
         epoch (int | float): Unix epoch in seconds or milliseconds, utc or local
+        in_ms (bool | None): In milliseconds if True, auto-determined if None
 
     Returns:
         (datetime.date): Corresponding datetime object
     """
+    if in_ms or (in_ms is None and epoch > EPOCH_MS_BREAK):
+        epoch = epoch / 1000
+
     return datetime.datetime.utcfromtimestamp(epoch).date()
 
 
