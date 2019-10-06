@@ -106,6 +106,7 @@ def test_timezone():
     assert runez.timezone_from_text("0000") == runez.UTC
     assert runez.timezone_from_text("+0000") == runez.UTC
     assert runez.timezone_from_text("-00:00") == runez.UTC
+    assert runez.timezone_from_text("+0100") != runez.UTC
 
     epoch = 1568332800
     assert runez.to_date(epoch) == dt(2019, 9, 13)

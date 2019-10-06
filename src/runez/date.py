@@ -59,6 +59,10 @@ class timezone(datetime.tzinfo):
     def __repr__(self):
         return self.name
 
+    def __eq__(self, other):
+        if isinstance(other, datetime.tzinfo):
+            return self.offset == other.utcoffset(datetime.datetime.now(tz=UTC))
+
     def utcoffset(self, dt):
         return self.offset
 
