@@ -74,6 +74,17 @@ RE_TZ = re.compile(r"([+-]?[0-9][0-9]):?([0-9][0-9])")
 DEFAULT_DURATION_SPAN = 2
 
 
+def date_from_epoch(epoch):
+    """
+    Args:
+        epoch (int | float): Unix epoch in seconds or milliseconds, utc or local
+
+    Returns:
+        (datetime.date): Corresponding datetime object
+    """
+    return datetime.datetime.utcfromtimestamp(epoch).date()
+
+
 def datetime_from_epoch(epoch, tz=UNSET, in_ms=None):
     """
     Args:
@@ -208,11 +219,11 @@ def timezone_from_text(value):
     Returns:
         (datetime.tzinfo | None):
     """
-    if not value:
-        return DEFAULT_TIMEZONE
-
     if isinstance(value, timezone):
         return value
+
+    if not value:
+        return DEFAULT_TIMEZONE
 
     if value in ("Z", "UTC"):
         return UTC
@@ -226,23 +237,48 @@ def timezone_from_text(value):
     return DEFAULT_TIMEZONE
 
 
-def to_date(value, tz=UNSET):
+def to_date(value):
     """
     Args:
         value: Value to convert to date
         tz (datetime.tzinfo | None): Optional timezone info, used as default if could not be determined from `value`
 
     Returns:
-        (datetime.date | datetime.datetime | None): Extracted date or datetime if possible, otherwise `None`
+        (datetime.date | None): Extracted date if possible, otherwise `None`
+    """
+    if isinstance(value, (int, float)):
+        return date_from_epoch(value)
+
+    if isinstance(value, string_type):
+        value = _date_from_text(value, date_from_epoch)
+
+    if isinstance(value, datetime.datetime):
+        return value.date()
+
+    if isinstance(value, datetime.date):
+        return value
+
+
+def to_datetime(value, tz=UNSET):
+    """
+    Args:
+        value: Value to convert to date
+        tz (datetime.tzinfo | None): Optional timezone info, used as default if could not be determined from `value`
+
+    Returns:
+        (datetime.datetime | None): Extracted date or datetime if possible, otherwise `None`
     """
     if isinstance(value, (int, float)):
         return datetime_from_epoch(value, tz=tz)
 
-    if isinstance(value, (datetime.date, datetime.datetime)):
+    if isinstance(value, string_type):
+        value = _date_from_text(value, datetime_from_epoch, tz=tz)
+
+    if isinstance(value, datetime.datetime):
         return value
 
-    if isinstance(value, string_type):
-        return _date_from_text(value, tz=tz)
+    if isinstance(value, datetime.date):
+        return datetime.datetime(value.year, value.month, value.day, tzinfo=timezone_from_text(tz))
 
 
 def to_epoch(date, in_ms=False, tz=UTC):
@@ -312,11 +348,11 @@ def _date_from_components(components, tz=UNSET):
         return None
 
 
-def _date_from_text(text, tz=UNSET):
+def _date_from_text(text, epocher, **kwargs):
     """
     Args:
         text (str): Value to turn into date or datetime
-        tz (datetime.tzinfo | None): Optional timezone info, used as default if could not be determined from `text`
+        epocher (callable): Function to use to transform int to date or datetime
 
     Returns:
         (datetime.date | datetime.datetime | None): Extracted date, if possible
@@ -328,9 +364,9 @@ def _date_from_text(text, tz=UNSET):
     # _, number, _, _, y, m, d, _, hh, mm, ss, sf, _, tz, _, _ = match.groups()
     components = match.groups()
     if components[1]:
-        return datetime_from_epoch(_float_from_text(components[1], lenient=True), tz=tz)
+        return epocher(_float_from_text(components[1], lenient=True), **kwargs)
 
-    return _date_from_components(components[4:14], tz=tz)
+    return _date_from_components(components[4:14], **kwargs)
 
 
 def _duration_span(count, name, short_form, immutable=False):

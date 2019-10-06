@@ -21,12 +21,16 @@ def test_date_formats():
     assert runez.to_date("01/16/2019") == ref
 
     assert runez.to_date("16/01/2019") is None
-    assert runez.to_date("2019/01/2019") is None
+    assert runez.to_datetime("2019/01/2019") is None
 
 
 def test_elapsed():
     d1 = datetime.date(2019, 9, 1)
     dt27 = datetime.datetime(2019, 9, 1, second=27)
+
+    assert runez.to_date(d1) is d1
+    assert runez.to_datetime(dt27) is dt27
+
     assert runez.elapsed(d1, ended=dt27) == 27
     assert runez.elapsed(dt27, ended=d1) == -27
 
@@ -38,7 +42,7 @@ def test_elapsed():
     dt = runez.datetime_from_epoch(1567296012, tz=None)  # Naive date will depend on timezone (ie: where this test runs)
     assert dt.year == 2019
     assert dt.tzinfo is None
-    assert runez.to_date(dt) is dt
+    assert runez.to_datetime(dt) is dt
 
     check_date("2019-09-01 02:00:12 +02:00", runez.datetime_from_epoch(1567296012, tz=runez.timezone_from_text("0200")))
     check_date("2019-09-01 00:00:12 UTC", runez.datetime_from_epoch(1567296012, tz=runez.UTC))
@@ -103,8 +107,15 @@ def test_timezone():
     assert runez.timezone_from_text("+0000") == runez.UTC
     assert runez.timezone_from_text("-00:00") == runez.UTC
 
+    epoch = 1568332800
+    assert runez.to_date(epoch) == dt(2019, 9, 13)
+    assert runez.to_datetime(epoch) == dt(2019, 9, 13, 0, 0, 0)
+
     epoch = 1568348000
     check_date("2019-09-13 04:13:20 UTC", runez.datetime_from_epoch(epoch))
+
+    assert runez.to_date(epoch) == dt(2019, 9, 13)
+    assert runez.to_datetime(epoch) == dt(2019, 9, 13, 4, 13, 20)
 
     tz1 = runez.timezone(datetime.timedelta(seconds=12 * 60))
     dtutc = runez.datetime_from_epoch(epoch, tz=runez.UTC)
@@ -133,28 +144,33 @@ def dt(*args, **kwargs):
 
 def test_to_date():
     tz1 = runez.timezone(datetime.timedelta(seconds=12 * 60))
-    assert runez.to_date("2019-01-02 03:04:05").tzinfo is runez.date.DEFAULT_TIMEZONE
-    assert runez.to_date("2019-01-02 03:04:05", tz=tz1).tzinfo is tz1
-    assert runez.to_date("2019-01-02 03:04:05 -00:12").tzinfo == tz1
-    assert runez.to_date("2019-01-02 03:04:05 UTC").tzinfo is runez.UTC
+    assert runez.to_datetime("2019-01-02 03:04:05").tzinfo is runez.date.DEFAULT_TIMEZONE
+    assert runez.to_datetime("2019-01-02 03:04:05", tz=tz1).tzinfo is tz1
+    assert runez.to_datetime("2019-01-02 03:04:05 -00:12").tzinfo == tz1
+    assert runez.to_datetime("2019-01-02 03:04:05 UTC").tzinfo is runez.UTC
 
-    d0 = runez.to_date("2019-01-02 03:04:05 UTC")
-    d1 = runez.to_date("2019-01-02 03:04:05 -00:00")
-    d2 = runez.to_date("2019-01-02 04:04:05 +01:00")
+    d0 = runez.to_datetime("2019-01-02 03:04:05 UTC")
+    d1 = runez.to_datetime("2019-01-02 03:04:05 -00:00")
+    d2 = runez.to_datetime("2019-01-02 04:04:05 +01:00")
     assert d0 == d2
     assert d1 == d2
 
-    assert runez.to_date(None) is None
-    assert runez.to_date("foo") is None
-    assert runez.to_date(["foo"]) is None
+    assert runez.to_date(d0) == dt(2019, 1, 2)
+
+    assert runez.to_datetime(None) is None
+    assert runez.to_datetime("foo") is None
+    assert runez.to_datetime(["foo"]) is None
 
     assert runez.to_date("2019-01-02") == dt(2019, 1, 2)
+    assert runez.to_date("2019-01-02 00:01:00 UTC") == dt(2019, 1, 2)
+    assert runez.to_datetime("2019-01-02") == dt(2019, 1, 2, 0, 0, 0)
+    assert runez.to_datetime("2019-01-02 00:01:00 UTC") == dt(2019, 1, 2, 0, 1, 0)
 
     sample_date = dt(2019, 1, 2, 3, 4, 5, microsecond=678900)
-    assert runez.to_date("2019-01-02T03:04:05.6789") == sample_date
-    assert runez.to_date("2019-01-02 03:04:05.6789 Z") == sample_date
-    assert runez.to_date("2019-01-02 03:04:05.6789 UTC") == sample_date
-    assert runez.to_date("2019-01-02 03:04:05.6789 -00:00") == sample_date
-    assert runez.to_date("2019-01-02 04:04:05.6789 +01:00") == sample_date
+    assert runez.to_datetime("2019-01-02T03:04:05.6789") == sample_date
+    assert runez.to_datetime("2019-01-02 03:04:05.6789 Z") == sample_date
+    assert runez.to_datetime("2019-01-02 03:04:05.6789 UTC") == sample_date
+    assert runez.to_datetime("2019-01-02 03:04:05.6789 -00:00") == sample_date
+    assert runez.to_datetime("2019-01-02 04:04:05.6789 +01:00") == sample_date
 
-    assert runez.to_date("1500620000") == dt(2017, 7, 21, 6, 53, 20)
+    assert runez.to_datetime("1500620000") == dt(2017, 7, 21, 6, 53, 20)

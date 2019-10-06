@@ -1,6 +1,8 @@
+import datetime
 import logging
 
-from runez.schema import Any, Boolean, Date, Dict, Enum, Float, Integer, List, MetaSerializable, String
+import runez
+from runez.schema import Any, Boolean, Date, Datetime, Dict, Enum, Float, Integer, List, MetaSerializable, String
 from runez.serialize import Serializable, with_behavior
 
 
@@ -38,6 +40,24 @@ def test_boolean():
     assert b.converted([1, 2]) is True
 
     assert b.converted(object()) is True
+
+
+def test_date():
+    dd = Date()
+    assert str(dd) == "date"
+    assert dd.problem(None) is None
+    assert dd.problem({}) == "expecting date, got '{}'"
+    assert dd.converted(0) == datetime.date(1970, 1, 1)
+    assert dd.converted("2019-09-02") == datetime.date(2019, 9, 2)
+    assert dd.converted("2019-09-02 01:02:03") == datetime.date(2019, 9, 2)
+
+    dd = Datetime()
+    assert str(dd) == "datetime"
+    assert dd.problem(None) is None
+    assert dd.problem({}) == "expecting datetime, got '{}'"
+    assert dd.converted(0) == datetime.datetime(1970, 1, 1, tzinfo=runez.UTC)
+    assert dd.converted("2019-09-02") == datetime.datetime(2019, 9, 2, tzinfo=runez.UTC)
+    assert dd.converted("2019-09-02 01:02:03") == datetime.datetime(2019, 9, 2, 1, 2, 3, tzinfo=runez.UTC)
 
 
 def test_dict():
@@ -197,7 +217,7 @@ def test_serializable(logged):
     # Default `first_name` from schema is respected, because we didn't call Person.__init__() explicitly
     pp = Person.from_dict({"age": 1567296012})
     assert pp.age.year == 2019
-    assert pp.to_dict() == {"age": "2019-09-01 00:00:12+00:00", "first_name": "joe", "last_name": "smith"}
+    assert pp.to_dict() == {"age": "2019-09-01", "first_name": "joe", "last_name": "smith"}
 
     Person.from_dict({"car": {"make": "Honda", "foo": "bar"}})
     assert "'foo' is not an attribute of Car" in logged.pop()

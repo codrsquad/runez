@@ -16,7 +16,7 @@ import inspect
 
 from runez.base import string_type, stringified
 from runez.convert import to_float, to_int, TRUE_TOKENS
-from runez.date import to_date, UTC
+from runez.date import to_date, to_datetime, UTC
 
 
 Serializable = None  # type: type # Set to runez.Serializable class once parsing of runez.serialize.py is past that class definition
@@ -176,7 +176,18 @@ class Boolean(Any):
 
 
 class Date(Any):
-    """Represents date/datetime type"""
+    """Represents datetime type"""
+
+    def _problem(self, value):
+        if to_date(value) is None:
+            return "expecting date, got '%s'" % value
+
+    def _converted(self, value):
+        return to_date(value)
+
+
+class Datetime(Any):
+    """Represents datetime type"""
 
     def __init__(self, default=None, tz=UTC):
         """
@@ -185,14 +196,14 @@ class Date(Any):
             tz (datetime.tzinfo | None): Timezone info used as default if could not be determined from converted value
         """
         self.tz = tz
-        super(Date, self).__init__(default=default)
+        super(Datetime, self).__init__(default=default)
 
     def _problem(self, value):
-        if to_date(value) is None:
-            return "expecting date, got '%s'" % value
+        if to_datetime(value) is None:
+            return "expecting datetime, got '%s'" % value
 
     def _converted(self, value):
-        return to_date(value, tz=self.tz)
+        return to_datetime(value, tz=self.tz)
 
 
 class Dict(Any):
