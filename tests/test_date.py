@@ -175,3 +175,24 @@ def test_to_date():
     assert runez.to_datetime("2019-01-02 04:04:05.6789 +01:00") == sample_date
 
     assert runez.to_datetime("1500620000") == dt(2017, 7, 21, 6, 53, 20)
+
+
+def test_to_seconds():
+    assert runez.to_seconds(None) is None
+    assert runez.to_seconds("foo") is None
+    assert runez.to_seconds("1k") is None
+    assert runez.to_seconds("1 m") is None
+    assert runez.to_seconds("1 m2s") is None
+    assert runez.to_seconds("1m 2") is None
+    assert runez.to_seconds("1month") is None
+    assert runez.to_seconds([1]) is None
+
+    assert runez.to_seconds("") == 0
+    assert runez.to_seconds(5) == 5
+    assert runez.to_seconds("1d1h5s") == 90005
+    assert runez.to_seconds("1h  2s") == 3602
+    assert runez.to_seconds(" 1h 2s ") == 3602
+    assert runez.to_seconds(" 1m ") == 60
+    assert datetime.timedelta(seconds=runez.to_seconds("1d1h5s")) == datetime.timedelta(days=1, seconds=3605)
+    assert datetime.timedelta(seconds=runez.to_seconds("1w5s")) == datetime.timedelta(days=7, seconds=5)
+    assert datetime.timedelta(seconds=runez.to_seconds(" 1w 1s ")) == datetime.timedelta(days=7, seconds=1)

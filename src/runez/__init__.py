@@ -27,7 +27,7 @@ from runez.convert import affixed, camel_cased, entitled, get_words, snakified, 
 from runez.convert import SANITIZED, SHELL, to_float, to_int, UNIQUE, unitized
 from runez.date import date_from_epoch, datetime_from_epoch, elapsed, get_local_timezone, represented_duration, \
     timezone, timezone_from_text, \
-    to_date, to_datetime, to_epoch, to_epoch_ms
+    to_date, to_datetime, to_epoch, to_epoch_ms, to_seconds
 from runez.date import SECONDS_IN_ONE_DAY, SECONDS_IN_ONE_HOUR, SECONDS_IN_ONE_MINUTE, UTC
 from runez.file import copy, delete, first_line, get_conf, get_lines, move, symlink, touch, write
 from runez.heartbeat import Heartbeat
@@ -52,7 +52,7 @@ __all__ = [
     "SANITIZED", "SHELL", "to_float", "to_int", "UNIQUE", "unitized",
     "date_from_epoch", "datetime_from_epoch", "elapsed", "get_local_timezone", "represented_duration",
     "timezone", "timezone_from_text",
-    "to_date", "to_datetime", "to_epoch", "to_epoch_ms",
+    "to_date", "to_datetime", "to_epoch", "to_epoch_ms", "to_seconds",
     "SECONDS_IN_ONE_DAY", "SECONDS_IN_ONE_HOUR", "SECONDS_IN_ONE_MINUTE", "UTC",
     "copy", "delete", "first_line", "get_conf", "get_lines", "move", "symlink", "touch", "write",
     "Heartbeat",

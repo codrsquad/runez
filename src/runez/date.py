@@ -13,6 +13,7 @@ SECONDS_IN_ONE_MINUTE = 60
 SECONDS_IN_ONE_HOUR = 60 * SECONDS_IN_ONE_MINUTE
 SECONDS_IN_ONE_DAY = 24 * SECONDS_IN_ONE_HOUR
 
+RE_DURATION = re.compile(r"^([0-9]+[wdhms]\s*)+$")
 RE_BASE_NUMBER = r"([-+]?[0-9_]*\.?[0-9_]*([eE][-+]?[0-9_]+)?|[-+]?\.inf|[-+]?\.Inf|[-+]?\.INF|\.nan|\.NaN|\.NAN|0o[0-7]+|0x[0-9a-fA-F]+)"
 RE_BASE_DATE = r"(([0-9]{1,4})[-/]([0-9][0-9]?)[-/]([0-9]{1,4})" \
             r"([Tt \t]([0-9][0-9]?):([0-9][0-9]?):([0-9][0-9]?)(\.[0-9]*)?" \
@@ -316,6 +317,52 @@ def to_epoch_ms(date, tz=UTC):
         (int): Epoch in seconds
     """
     return to_epoch(date, in_ms=True, tz=tz)
+
+
+def to_seconds(duration):
+    """
+    Args:
+        duration (str | int | None): Text representing duration, like 30m or 1h or 1h30m
+                                     Accepted input if of the form <number><unit>, N times
+                                     Possible units are: w: weeks, d: days, h: hours, m: minutes, s: seconds
+
+    Returns:
+        (int | None): Duration in seconds
+    """
+    if isinstance(duration, (int, float)):
+        return duration
+
+    if not isinstance(duration, string_type):
+        return None
+
+    duration = duration.strip()
+    if not duration:
+        return 0
+
+    m = RE_DURATION.match(duration)
+    if not m:
+        return None
+
+    v = m.group(1)
+    seconds = to_seconds(duration.replace(v, ""))
+
+    # v = v.strip()
+    if v.endswith("w"):
+        seconds += int(v[:-1], 0) * SECONDS_IN_ONE_DAY * 7
+
+    elif v.endswith("d"):
+        seconds += int(v[:-1], 0) * SECONDS_IN_ONE_DAY
+
+    elif v.endswith("h"):
+        seconds += int(v[:-1]) * SECONDS_IN_ONE_HOUR
+
+    elif v.endswith("m"):
+        seconds += int(v[:-1]) * SECONDS_IN_ONE_MINUTE
+
+    else:
+        seconds += int(v[:-1])
+
+    return seconds
 
 
 def _date_from_components(components, tz=UNSET):
