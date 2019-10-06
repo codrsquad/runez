@@ -196,3 +196,7 @@ def test_to_seconds():
     assert datetime.timedelta(seconds=runez.to_seconds("1d1h5s")) == datetime.timedelta(days=1, seconds=3605)
     assert datetime.timedelta(seconds=runez.to_seconds("1w5s")) == datetime.timedelta(days=7, seconds=5)
     assert datetime.timedelta(seconds=runez.to_seconds(" 1w 1s ")) == datetime.timedelta(days=7, seconds=1)
+
+    assert runez.to_seconds(datetime.timedelta(minutes=60)) == 3600
+    assert runez.to_seconds(runez.UTC.offset) == 0
+    assert runez.to_seconds(runez.timezone_from_text("+0100").offset) == 3600

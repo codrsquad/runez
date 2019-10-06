@@ -322,15 +322,18 @@ def to_epoch_ms(date, tz=UTC):
 def to_seconds(duration):
     """
     Args:
-        duration (str | int | None): Text representing duration, like 30m or 1h or 1h30m
-                                     Accepted input if of the form <number><unit>, N times
-                                     Possible units are: w: weeks, d: days, h: hours, m: minutes, s: seconds
+        duration (str | int | datetime.timedelta | None): Text representing duration, like 30m or 1h or 1h30m
+            Accepted input if of the form <number><unit>, N times
+            Possible units are: w: weeks, d: days, h: hours, m: minutes, s: seconds
 
     Returns:
         (int | None): Duration in seconds
     """
     if isinstance(duration, (int, float)):
         return duration
+
+    if isinstance(duration, datetime.timedelta):
+        return duration.total_seconds()
 
     if not isinstance(duration, string_type):
         return None
