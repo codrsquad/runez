@@ -6,7 +6,7 @@ from mock import patch
 
 import runez
 from runez.schema import Dict, get_descriptor, Integer, List, String, ValidationException
-from runez.serialize import add_meta, ClassMetaDescription, same_type, type_name, with_behavior
+from runez.serialize import add_meta, ClassMetaDescription, same_type, SerializableDescendants, type_name, with_behavior
 
 
 @add_meta(ClassMetaDescription)
@@ -108,6 +108,15 @@ class SomeSerializable(runez.Serializable, with_behavior(strict=True)):
     some_value = List(Integer)
     another = None
 
+    _called = None
+
+    @classmethod
+    def do_something_on_class(cls, value):
+        cls._called = value
+
+    def do_something_on_instance(cls, value):
+        cls._called = value
+
     @property
     def int_prod(self):
         return self.some_int
@@ -129,6 +138,17 @@ def test_meta(logged):
     assert custom.attributes["name"].default == "my record"
     assert custom.attributes["some_int"].default == 5
     assert str(custom.behavior) == "extras: function 'debug'"
+
+    assert SerializableDescendants.get_meta("NoSuchDescendant") is None
+    assert SerializableDescendants.get_meta("SomeSerializable") is SomeSerializable._meta
+    assert SerializableDescendants.get_meta("test_serialize.SomeSerializable") is SomeSerializable._meta
+
+    assert SomeSerializable._called is None
+    SerializableDescendants.call("do_something_on_class", "testing")
+    assert SomeSerializable._called == "testing"
+
+    with pytest.raises(TypeError):
+        SerializableDescendants.call("do_something_on_instance", "testing")
 
     with pytest.raises(ValidationException) as e:
         SomeSerializable.from_dict({"some_int": "foo"})

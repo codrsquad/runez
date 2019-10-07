@@ -48,7 +48,7 @@ def get_descriptor(value, required=True):
 
 def _get_descriptor(value):
     if value is None:
-        return Any()  # Used used None as value, no more info to be had
+        return Any()  # User used None as value, no more info to be had
 
     if isinstance(value, Any):
         return value  # User specified their schema properly

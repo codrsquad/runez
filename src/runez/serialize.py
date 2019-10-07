@@ -294,11 +294,52 @@ def scan_all_attributes(cls):
                 yield key, value
 
 
+class SerializableDescendants(object):
+    """Tracks all descendants of Serializable, with at least one attribute defined"""
+
+    by_name = {}  # Tracks by class name only, last imported class wins
+    by_qualified_name = {}  # Tracks by full qualified name (won't be any conflicts)
+
+    @classmethod
+    def get_meta(cls, name):
+        """
+        Args:
+            name (str): Short name or fully qualified name of Serializable descendant
+
+        Returns:
+            (ClassMetaDescription | None): Meta of corresponding Serializable class, if any
+        """
+        descendant = cls.by_qualified_name.get(name)
+        if descendant is None:
+            descendant = cls.by_name.get(name)
+
+        return descendant
+
+    @classmethod
+    def register(cls, meta):
+        cls.by_name[meta.name] = meta
+        cls.by_qualified_name[meta.qualified_name] = meta
+
+    @classmethod
+    def call(cls, func_name, *args, **kwargs):
+        """
+        Args:
+            func_name (str): Name of function to call on each registered descendant, if it has it (as a classmethod)
+            *args: Passed-through to invoked function
+            **kwargs: Passed-through to invoked function
+        """
+        for descendant in cls.by_qualified_name.values():
+            func = getattr(descendant.cls, func_name, None)
+            if func is not None:
+                func(*args, **kwargs)
+
+
 class ClassMetaDescription(object):
     """Info on class attributes and properties"""
 
     def __init__(self, cls, mbehavior):
-        self.name = type_name(cls)
+        self.name = cls.__name__
+        self.qualified_name = "%s.%s" % (cls.__module__, cls.__name__)
         self.cls = cls
         self.attributes = {}
         self.properties = []
@@ -317,6 +358,9 @@ class ClassMetaDescription(object):
                     by_type[descriptor.name].append(key)
 
         self.by_type = dict((k, sorted(v)) for k, v in by_type.items())  # Sorted to make testing py2/py3 deterministic
+        if self.attributes:
+            SerializableDescendants.register(self)
+
         if self.behavior.hook:
             self.behavior.hook(self)
 
