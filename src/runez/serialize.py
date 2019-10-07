@@ -321,6 +321,19 @@ class SerializableDescendants(object):
         cls.by_qualified_name[meta.qualified_name] = meta
 
     @classmethod
+    def children(cls, base):
+        """
+        Args:
+            base (Serializable.__class__): Yields metas of all descendants inheriting given 'base' class
+
+        Yields:
+            (ClassMetaDescription): ._meta of each descendant
+        """
+        for meta in cls.by_qualified_name.values():
+            if issubclass(meta.cls, base):
+                yield meta
+
+    @classmethod
     def call(cls, func_name, *args, **kwargs):
         """
         Args:

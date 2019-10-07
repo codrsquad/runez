@@ -3,7 +3,7 @@ import logging
 
 import runez
 from runez.schema import Any, Boolean, Date, Datetime, Dict, Enum, Float, Integer, List, MetaSerializable, String
-from runez.serialize import Serializable, with_behavior
+from runez.serialize import Serializable, SerializableDescendants, with_behavior
 
 
 def test_any():
@@ -173,6 +173,10 @@ class GPerson(Person):
 
 
 def test_serializable(logged):
+    assert len(list(SerializableDescendants.children(Car))) == 2
+    assert len(list(SerializableDescendants.children(Person))) == 2
+    assert len(list(SerializableDescendants.children(SpecializedCar))) == 1
+
     assert str(Serializable._meta.behavior) == "lenient"
     assert not Serializable._meta.by_type
 
