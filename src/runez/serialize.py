@@ -357,6 +357,7 @@ class ClassMetaDescription(object):
         self.attributes = {}
         self.properties = []
         self.behavior = mbehavior.behavior if mbehavior is not None else DefaultBehavior.get_behavior(cls.__bases__)
+        self.unique_identifier = None
 
         by_type = collections.defaultdict(list)
         for key, value in scan_all_attributes(cls):
@@ -367,6 +368,14 @@ class ClassMetaDescription(object):
 
                 descriptor = runez.schema.get_descriptor(value, required=False)
                 if descriptor is not None:
+                    if isinstance(descriptor, runez.schema.UniqueIdentifier):
+                        if self.unique_identifier:
+                            raise runez.schema.ValidationException("Multiple unique ids specified for %s: %s and %s" % (
+                                    self.qualified_name, self.unique_identifier, descriptor
+                            ))
+                        self.unique_identifier = key
+                        descriptor = descriptor.subtype
+
                     self.attributes[key] = descriptor
                     by_type[descriptor.name].append(key)
 

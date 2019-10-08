@@ -2,7 +2,7 @@ import datetime
 import logging
 
 import runez
-from runez.schema import Any, Boolean, Date, Datetime, Dict, Enum, Float, Integer, List, MetaSerializable, String
+from runez.schema import Any, Boolean, Date, Datetime, Dict, Enum, Float, Integer, List, MetaSerializable, String, UniqueIdentifier
 from runez.serialize import Serializable, SerializableDescendants, with_behavior
 
 
@@ -140,6 +140,7 @@ def test_number():
 
 class Car(Serializable, with_behavior(extras=(logging.info, "foo bar"))):
     make = String
+    serial = UniqueIdentifier
     year = Integer
 
 
@@ -155,14 +156,14 @@ class SpecializedCar(Car):
 
 class Person(Serializable, with_behavior(strict=logging.error, hook=logging.info)):
     age = Date
-    first_name = String(default="joe")
-    last_name = String(default="smith")
+    fingerprint = UniqueIdentifier(Integer)
+    name = String(default="joe")
 
     car = Car
     hat = MetaSerializable(Hat)
 
-    def __init__(self, first_name=None):
-        self.first_name = first_name
+    def __init__(self, name=None):
+        self.name = name
 
 
 class GPerson(Person):
@@ -182,8 +183,8 @@ def test_serializable(logged):
 
     assert str(Car._meta.behavior) == "extras: function 'info', ignored extras: [foo, bar]"
     assert str(SpecializedCar._meta.behavior) == "extras: function 'debug'"  # extras are NOT inherited
-    assert Car._meta.by_type == {"string": ["make"], "integer": ["year"]}
-    assert SpecializedCar._meta.by_type == {"integer": ["year"], "list": ["hats"], "string": ["make"]}
+    assert Car._meta.by_type == {"string": ["make", "serial"], "integer": ["year"]}
+    assert SpecializedCar._meta.by_type == {"integer": ["year"], "list": ["hats"], "string": ["make", "serial"]}
 
     assert str(Hat._meta.behavior) == "lenient"
 
@@ -193,35 +194,39 @@ def test_serializable(logged):
     assert str(GPerson._meta.behavior) == "strict: function 'error', extras: function 'debug', hook: function 'info'"
 
     # Verify that most specific type wins (GPerson -> age)
-    assert Person._meta.by_type == {"Car": ["car"], "Hat": ["hat"], "date": ["age"], "string": ["first_name", "last_name"]}
-    assert GPerson._meta.by_type == {"Car": ["car"], "Hat": ["hat"], "integer": ["age", "group"], "string": ["first_name", "last_name"]}
+    assert Person._meta.by_type == {"Car": ["car"], "Hat": ["hat"], "date": ["age"], "integer": ["fingerprint"], "string": ["name"]}
+    assert GPerson._meta.by_type == {"Car": ["car"], "Hat": ["hat"], "integer": ["age", "fingerprint", "group"], "string": ["name"]}
 
-    Car.from_dict({"foo": 1, "baz": 2})
+    car = Car.from_dict({"foo": 1, "baz": 2, "serial": "bar"})
+    assert car.serial == "bar"
     assert "foo" not in logged
     assert "Extra content given for Car: baz" in logged.pop()
 
     pp = Person()
     assert pp.age is None
-    assert pp.first_name is None  # overriden by Person.__init__()
-    assert pp.last_name == "smith"
+    assert pp.fingerprint is None
+    assert pp.name is None  # overriden by Person.__init__()
     assert pp.car is None
 
-    Person.from_dict({"car": "foo"})
-    assert "Can't deserialize Person.car: expecting compliant dict, got 'foo'" in logged.pop()
+    pp = Person.from_dict({"car": "foo", "fingerprint": "foo"})
+    assert pp.fingerprint == "foo"  # Bogus value still used because 'strict' setting does not raise an exception
+    assert "Can't deserialize Person.car: expecting compliant dict, got 'foo'" in logged
+    assert "Can't deserialize Person.fingerprint: expecting int, got 'foo'" in logged.pop()
 
     Person.from_dict({"hat": {"size": "foo"}})
     assert "Can't deserialize Person.hat: expecting int, got 'foo'" in logged.pop()
 
-    pp = Person.from_dict({"age": "2019-01-01", "car": {"make": "Honda", "year": 2010}})
+    pp = Person.from_dict({"age": "2019-01-01", "car": {"make": "Honda", "year": 2010}, "fingerprint": 5})
     assert pp.age.year == 2019
     assert pp.car.make == "Honda"
     assert pp.car.year == 2010
-    assert pp.to_dict() == {"age": "2019-01-01", "car": {"make": "Honda", "year": 2010}, "first_name": "joe", "last_name": "smith"}
+    assert pp.fingerprint == 5
+    assert pp.to_dict() == {"age": "2019-01-01", "car": {"make": "Honda", "year": 2010}, "fingerprint": 5, "name": "joe"}
 
-    # Default `first_name` from schema is respected, because we didn't call Person.__init__() explicitly
+    # Default `name` from schema is respected, because we didn't call Person.__init__() explicitly
     pp = Person.from_dict({"age": 1567296012})
     assert pp.age.year == 2019
-    assert pp.to_dict() == {"age": "2019-09-01", "first_name": "joe", "last_name": "smith"}
+    assert pp.to_dict() == {"age": "2019-09-01", "name": "joe"}
 
     Person.from_dict({"car": {"make": "Honda", "foo": "bar"}})
     assert "'foo' is not an attribute of Car" in logged.pop()

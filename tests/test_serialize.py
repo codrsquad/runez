@@ -5,7 +5,7 @@ import pytest
 from mock import patch
 
 import runez
-from runez.schema import Dict, get_descriptor, Integer, List, String, ValidationException
+from runez.schema import Dict, get_descriptor, Integer, List, String, UniqueIdentifier, ValidationException
 from runez.serialize import add_meta, ClassMetaDescription, same_type, SerializableDescendants, type_name, with_behavior
 
 
@@ -34,6 +34,14 @@ def test_slotted(logged):
     with pytest.raises(Exception) as e:
         SlottedExample.from_dict({"foo": "bar"})
     assert str(e.value) == "Extra content given for SlottedExample: foo"
+
+
+def test_bogus_class():
+    with pytest.raises(ValidationException):
+        class Bogus(runez.Serializable):
+            """This class shouldn't have to unique identifiers"""
+            id1 = UniqueIdentifier
+            id2 = UniqueIdentifier
 
 
 def test_get_descriptor():

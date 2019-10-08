@@ -323,6 +323,18 @@ class String(Any):
         return stringified(value)
 
 
+class UniqueIdentifier(Any):
+    """Can be used to state that an attribute is an identifier (at most one per descendant)"""
+
+    def __init__(self, subtype=None):
+        """
+        Args:
+            subtype: Optional type constraint for this identifier (defaults to `String`)
+        """
+        self.subtype = get_descriptor(subtype or String)  # type: Any
+        super(UniqueIdentifier, self).__init__(default=None)
+
+
 TYPE_MAP = {
     dict: Dict,
     int: Integer,
