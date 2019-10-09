@@ -65,6 +65,10 @@ def test_epoch():
 
 
 def test_represented_duration():
+    assert runez.represented_duration(None) == "None"
+    assert runez.represented_duration("foo") == "foo"
+    assert runez.represented_duration(runez.UNSET) == "UNSET"
+
     assert runez.represented_duration(0) == "0 seconds"
     assert runez.represented_duration(1) == "1 second"
     assert runez.represented_duration(-1.00001) == "1 second 10 μs"

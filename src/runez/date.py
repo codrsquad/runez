@@ -4,7 +4,7 @@ import datetime
 import re
 import time
 
-from runez.base import string_type, UNSET
+from runez.base import string_type, stringified, UNSET
 from runez.convert import _float_from_text
 
 
@@ -150,7 +150,7 @@ def get_local_timezone():
 def represented_duration(seconds, span=UNSET, separator=" "):
     """
     Args:
-        seconds (int | float): Duration in seconds
+        seconds (int | float | None): Duration in seconds
         span (int | None): If specified, return `span` most significant parts of the duration, specify <= 0 for short form
                            > 0: N most significant long parts, example: 1 hour 5 seconds
                            None: all parts, example: 1 hour 2 minutes 5 seconds 20 ms
@@ -162,8 +162,12 @@ def represented_duration(seconds, span=UNSET, separator=" "):
     Returns:
         (str): Human friendly duration representation
     """
+    if not isinstance(seconds, (int, float)):
+        return stringified(seconds)
+
     if span is UNSET:
         span = DEFAULT_DURATION_SPAN
+
     short_form = span is not None and span <= 0
     if span is not None:
         span = abs(span)
