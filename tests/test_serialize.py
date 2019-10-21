@@ -62,7 +62,7 @@ def test_get_descriptor():
 
     with pytest.raises(ValidationException) as e:
         get_descriptor(object())
-    assert "Invalid schema definition" in e.value.message
+    assert "Invalid schema definition" in str(e.value)
 
 
 def test_json(temp_folder):
@@ -160,7 +160,7 @@ def test_meta(logged):
 
     with pytest.raises(ValidationException) as e:
         SomeSerializable.from_dict({"some_int": "foo"})
-    assert e.value.message == "Can't deserialize SomeSerializable.some_int: expecting int, got 'foo'"
+    assert str(e.value) == "Can't deserialize SomeSerializable.some_int: expecting int, got 'foo'"
 
     data = {"name": "some name", "some_int": 15}
     obj = SomeSerializable.from_dict(data)
