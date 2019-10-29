@@ -12,8 +12,9 @@ DEFAULT_TIMEZONE = None
 SECONDS_IN_ONE_MINUTE = 60
 SECONDS_IN_ONE_HOUR = 60 * SECONDS_IN_ONE_MINUTE
 SECONDS_IN_ONE_DAY = 24 * SECONDS_IN_ONE_HOUR
+SECONDS_IN_ONE_YEAR = 365.2425 * SECONDS_IN_ONE_DAY
 
-RE_DURATION = re.compile(r"^([0-9]+[wdhms]\s*)+$")
+RE_DURATION = re.compile(r"^([0-9]+[ywdhms]\s*)+$")
 RE_BASE_NUMBER = r"([-+]?[0-9_]*\.?[0-9_]*([eE][-+]?[0-9_]+)?|[-+]?\.inf|[-+]?\.Inf|[-+]?\.INF|\.nan|\.NaN|\.NAN|0o[0-7]+|0x[0-9a-fA-F]+)"
 RE_BASE_DATE = r"(([0-9]{1,4})[-/]([0-9][0-9]?)[-/]([0-9]{1,4})" \
             r"([Tt \t]([0-9][0-9]?):([0-9][0-9]?):([0-9][0-9]?)(\.[0-9]*)?" \
@@ -369,6 +370,9 @@ def to_seconds(duration):
 
     elif v.endswith("m"):
         seconds += int(v[:-1]) * SECONDS_IN_ONE_MINUTE
+
+    elif v.endswith("y"):
+        seconds += int(v[:-1]) * SECONDS_IN_ONE_YEAR
 
     else:
         seconds += int(v[:-1])

@@ -28,7 +28,7 @@ from runez.convert import SANITIZED, SHELL, to_float, to_int, UNIQUE, unitized
 from runez.date import date_from_epoch, datetime_from_epoch, elapsed, get_local_timezone, represented_duration, \
     timezone, timezone_from_text, \
     to_date, to_datetime, to_epoch, to_epoch_ms, to_seconds
-from runez.date import SECONDS_IN_ONE_DAY, SECONDS_IN_ONE_HOUR, SECONDS_IN_ONE_MINUTE, UTC
+from runez.date import SECONDS_IN_ONE_DAY, SECONDS_IN_ONE_HOUR, SECONDS_IN_ONE_MINUTE, SECONDS_IN_ONE_YEAR, UTC
 from runez.file import copy, delete, first_line, get_conf, get_lines, move, symlink, touch, write
 from runez.heartbeat import Heartbeat
 from runez.logsetup import LogManager as log, LogSpec
@@ -53,7 +53,7 @@ __all__ = [
     "date_from_epoch", "datetime_from_epoch", "elapsed", "get_local_timezone", "represented_duration",
     "timezone", "timezone_from_text",
     "to_date", "to_datetime", "to_epoch", "to_epoch_ms", "to_seconds",
-    "SECONDS_IN_ONE_DAY", "SECONDS_IN_ONE_HOUR", "SECONDS_IN_ONE_MINUTE", "UTC",
+    "SECONDS_IN_ONE_DAY", "SECONDS_IN_ONE_HOUR", "SECONDS_IN_ONE_MINUTE", "SECONDS_IN_ONE_YEAR", "UTC",
     "copy", "delete", "first_line", "get_conf", "get_lines", "move", "symlink", "touch", "write",
     "Heartbeat",
     "log", "LogSpec",

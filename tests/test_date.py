@@ -198,6 +198,7 @@ def test_to_seconds():
     assert runez.to_seconds("1h  2s") == 3602
     assert runez.to_seconds(" 1h 2s ") == 3602
     assert runez.to_seconds(" 1m ") == 60
+    assert runez.to_seconds("1y") == 31556952
     assert datetime.timedelta(seconds=runez.to_seconds("1d1h5s")) == datetime.timedelta(days=1, seconds=3605)
     assert datetime.timedelta(seconds=runez.to_seconds("1w5s")) == datetime.timedelta(days=7, seconds=5)
     assert datetime.timedelta(seconds=runez.to_seconds(" 1w 1s ")) == datetime.timedelta(days=7, seconds=1)
