@@ -252,11 +252,12 @@ def test_serialization(logged):
     assert obj.some_value is None
     assert obj == obj2
 
-    path = "/dev/null/not-there"
-    obj3 = SomeSerializable.from_json(path, fatal=False)
-    assert "No file /dev/null/not-there" in logged.pop()
+    if not runez.WINDOWS:
+        path = "/dev/null/not-there"
+        obj3 = SomeSerializable.from_json(path, fatal=False)
+        assert "No file /dev/null/not-there" in logged.pop()
 
-    assert obj == obj3
+        assert obj == obj3
 
 
 def test_to_dict(temp_folder):

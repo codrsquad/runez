@@ -221,8 +221,9 @@ def test_failure(*_):
         assert runez.copy("some-file", "bar", fatal=False) == -1
         assert "Can't copy" in logged.pop()
 
-        assert runez.make_executable("some-file", fatal=False) == -1
-        assert "Can't chmod" in logged.pop()
+        if not runez.WINDOWS:
+            assert runez.make_executable("some-file", fatal=False) == -1
+            assert "Can't chmod" in logged.pop()
 
 
 def test_temp():
