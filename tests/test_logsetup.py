@@ -7,6 +7,7 @@ import pytest
 from mock import patch
 
 import runez
+import runez.conftest
 
 
 LOG = logging.getLogger(__name__)
@@ -19,7 +20,7 @@ def test_logspec(isolated_log_setup):
     assert s1.appname == "pytest"
     assert s1.timezone == "UTC"
     assert s1.should_log_to_file
-    assert s1.usable_location() == "/tmp/pytest.log"
+    assert s1.usable_location() == os.path.join(runez.conftest.TMP, "pytest.log")
 
     # No basename -> can't determine a usable location anymore
     s1.basename = None
@@ -29,7 +30,7 @@ def test_logspec(isolated_log_setup):
     s1.set(basename="testing.log", timezone=None, locations=[s1.tmp])
     assert s1.basename == "testing.log"
     assert s1.timezone is None
-    assert s1.usable_location() == "/tmp/testing.log"
+    assert s1.usable_location() == os.path.join(runez.conftest.TMP, "testing.log")
     assert s1 != s2
 
     # Empty string custom location just disables file logging
@@ -39,17 +40,14 @@ def test_logspec(isolated_log_setup):
 
     # No basename, and custom location points to folder -> not usable
     s1.basename = None
-    s1.file_location = "/tmp"
+    s1.file_location = runez.conftest.TMP
     assert s1.should_log_to_file
     assert s1.usable_location() is None
 
     # Location referring to env var
-    s1.set(file_location=None, locations=["./{FOO}/bar"])
+    s1.set(file_location=None, locations=[os.path.join(".", "{FOO}", "bar")])
     with patch.dict(os.environ, {"FOO": "foo"}, clear=True):
-        assert s1.usable_location() == "./foo/bar"
-
-    with patch.dict(os.environ, {"FOO": ""}, clear=True):
-        assert s1.usable_location() == ".//bar"
+        assert s1.usable_location() == os.path.join(".", "foo", "bar")
 
     with patch.dict(os.environ, {}, clear=True):
         assert s1.usable_location() is None
@@ -296,6 +294,7 @@ def test_auto_location_not_writable(temp_log):
         assert runez.log.file_handler is None
 
 
+@pytest.mark.skipif(runez.WINDOWS, reason="No /dev/null on Windows")
 def test_file_location_not_writable(temp_log):
     runez.log.setup(
         greetings="Logging to: {location}",

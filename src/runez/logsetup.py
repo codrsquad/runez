@@ -24,7 +24,7 @@ from runez.convert import flattened, formatted, represented_args, SANITIZED, to_
 from runez.date import get_local_timezone
 from runez.path import basename as get_basename, ensure_folder
 from runez.program import get_dev_folder, get_program_path
-from runez.system import is_dryrun, set_dryrun
+from runez.system import is_dryrun, set_dryrun, WINDOWS
 
 
 LOG = logging.getLogger(__name__)
@@ -166,6 +166,13 @@ class _ContextFilter(logging.Filter):
         return True
 
 
+def get_default_log_locations():
+    if WINDOWS:  # pragma: no cover
+        return [os.path.join("{dev}", "log", "{basename}")]
+
+    return ["{dev}/log/{basename}", "/logs/{appname}/{basename}", "/var/log/{basename}"]
+
+
 class LogManager(object):
     """
     Global logging context managed by runez.
@@ -185,7 +192,7 @@ class LogManager(object):
         file_format="%(asctime)s %(timezone)s [%(threadName)s] %(context)s%(levelname)s - %(message)s",
         file_level=logging.DEBUG,
         file_location=None,
-        locations=["{dev}/log/{basename}", "/logs/{appname}/{basename}", "/var/log/{basename}"],
+        locations=get_default_log_locations(),
         rotate=None,
         rotate_count=10,
         timezone=get_local_timezone(),

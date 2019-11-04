@@ -9,9 +9,9 @@ Example:
 from __future__ import absolute_import
 
 import logging
-import os
 import re
 import sys
+import tempfile
 
 import _pytest.logging
 import pytest
@@ -28,6 +28,7 @@ except ImportError:  # pragma: no cover, click used only if installed
 
 
 LOG = logging.getLogger(__name__)
+TMP = tempfile.gettempdir()
 
 # Set DEBUG logging level when running tests, makes sure LOG.debug() calls get captured (for inspection in tests)
 logging.root.setLevel(logging.DEBUG)
@@ -39,7 +40,7 @@ if sys.argv and "pycharm" in sys.argv[0].lower():  # pragma: no cover
         sys.argv[0] = pt
 
 # Set logsetup defaults to stable/meaningful for pytest runs
-runez.log.override_spec(timezone="UTC", tmp=os.path.join("/", "tmp"), locations=["{tmp}/{basename}"])
+runez.log.override_spec(timezone="UTC", tmp=TMP, locations=["{tmp}/{basename}"])
 
 
 class IsolatedLogSetup(object):
