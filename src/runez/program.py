@@ -10,7 +10,7 @@ import time
 
 from runez.base import decode
 from runez.convert import flattened, represented_args, SHELL, short
-from runez.system import abort, AbortException, get_platform, is_dryrun
+from runez.system import abort, AbortException, get_platform, is_dryrun, WINDOWS
 
 
 LOG = logging.getLogger(__name__)
@@ -26,6 +26,18 @@ def check_pid(pid):
     :param int pid: Pid to examine
     :return bool: True if process with pid exists
     """
+    if WINDOWS:  # pragma: no cover
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32
+        SYNCHRONIZE = 0x100000
+        process = kernel32.OpenProcess(SYNCHRONIZE, 0, pid)
+        if process:
+            kernel32.CloseHandle(process)
+            return True
+
+        return False
+
     try:
         os.kill(pid, 0)
         return True
@@ -56,11 +68,25 @@ def get_program_path(path=None):
     return which(path) or path
 
 
+def windows_exe(path):  # pragma: no cover
+    if path:
+        for extension in (".exe", ".bat"):
+            fpath = path
+            if not fpath.lower().endswith(extension):
+                fpath += extension
+
+            if os.path.isfile(fpath):
+                return fpath
+
+
 def is_executable(path):
     """
     :param str|None path: Path to file
     :return bool: True if file exists and is executable
     """
+    if WINDOWS:  # pragma: no cover
+        return windows_exe(path)
+
     return path and os.path.isfile(path) and os.access(path, os.X_OK)
 
 
@@ -188,15 +214,25 @@ def which(program, ignore_own_venv=False):
     """
     if not program:
         return None
+
     if os.path.isabs(program):
+        if WINDOWS:  # pragma: no cover
+            return windows_exe(program)
+
         return program if is_executable(program) else None
-    for p in os.environ.get("PATH", "").split(":"):
+
+    for p in os.environ.get("PATH", "").split(os.path.pathsep):
         fp = os.path.join(p, program)
-        if (not ignore_own_venv or not fp.startswith(sys.prefix)) and is_executable(fp):
+        if WINDOWS:  # pragma: no cover
+            fp = windows_exe(fp)
+
+        if fp and (not ignore_own_venv or not fp.startswith(sys.prefix)) and is_executable(fp):
             return fp
+
     program = os.path.join(os.getcwd(), program)
     if is_executable(program):
         return program
+
     return None
 
 
