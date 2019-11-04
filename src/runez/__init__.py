@@ -37,7 +37,7 @@ from runez.program import check_pid, get_dev_folder, get_program_path, is_execut
 from runez.program import require_installed, run, which
 from runez.represent import header
 from runez.serialize import json_sanitized, read_json, represented_json, save_json, Serializable
-from runez.system import abort, current_test, get_platform, get_version, set_dryrun
+from runez.system import abort, current_test, get_platform, get_version, set_dryrun, WINDOWS
 from runez.thread import thread_local_property, ThreadLocalSingleton
 
 __all__ = [
@@ -62,7 +62,7 @@ __all__ = [
     "require_installed", "run", "which",
     "header",
     "json_sanitized", "read_json", "represented_json", "save_json", "Serializable",
-    "abort", "current_test", "get_platform", "get_version", "set_dryrun",
+    "abort", "current_test", "get_platform", "get_version", "set_dryrun", "WINDOWS",
     "thread_local_property", "ThreadLocalSingleton",
 ]
 

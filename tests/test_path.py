@@ -35,11 +35,11 @@ def test_anchored():
     current_path = runez.resolved_path("./some-folder/bar")
 
     assert user_path != "~/some-folder/bar"
-    assert runez.short(user_path) == "~/some-folder/bar"
-    assert runez.short(current_path) != "some-folder/bar"
+    assert runez.short(user_path) == os.path.join("~", "some-folder", "bar")
+    assert runez.short(current_path) != os.path.join("some-folder", "bar")
 
     with runez.Anchored(os.getcwd()):
-        assert runez.short(current_path) == "some-folder/bar"
+        assert runez.short(current_path) == os.path.join("some-folder", "bar")
 
 
 def test_basename():
@@ -58,15 +58,12 @@ def test_paths(temp_folder):
 
     assert runez.short(None) is None
     assert runez.short("") == ""
-    assert runez.short(temp_folder) == temp_folder
-
-    assert runez.short(temp_folder + "/some-file") == "some-file"
-    assert runez.short(temp_folder + "/some-file") == "some-file"
+    assert runez.short(os.path.join(temp_folder, "some-file")) == "some-file"
 
     assert runez.parent_folder(None) is None
-    assert runez.parent_folder(temp_folder + "/some-file") == temp_folder
+    assert runez.parent_folder(os.path.join(temp_folder, "some-file")) == temp_folder
 
-    assert runez.represented_args(["ls", temp_folder + "/some-file bar", "-a"]) == 'ls "some-file bar" -a'
+    assert runez.represented_args(["ls", os.path.join(temp_folder, "some-file") + " bar", "-a"]) == 'ls "some-file bar" -a'
 
     # Don't crash for no-ops
     assert runez.ensure_folder(None) == 0
@@ -125,7 +122,7 @@ def test_paths(temp_folder):
         cwd = os.getcwd()
         sample = os.path.join(temp_folder, "sample")
         assert cwd == sample
-        assert runez.short(os.path.join(cwd, "some-file")) == "sample/some-file"
+        assert runez.short(os.path.join(cwd, "some-file")) == os.path.join("sample", "some-file")
 
     with runez.CurrentFolder("sample", anchor=True):
         cwd = os.getcwd()
@@ -143,7 +140,7 @@ def test_paths(temp_folder):
 
         assert runez.write("sample", "".join(content), fatal=False, logger=logging.debug) == 1
         assert runez.get_lines("sample") == content
-        assert "Writing 13 bytes" in logged.pop()
+        assert "bytes to sample" in logged.pop()  # Writing 13 bytes on linux... but 14 on windows...
 
         assert runez.first_line("sample") == "Fred"
         assert runez.is_younger("sample", age=10)

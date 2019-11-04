@@ -302,7 +302,7 @@ class Anchored(object):
         if cls.paths:
             for p in cls.paths:
                 if p:
-                    path = path.replace(p + "/", "")
+                    path = path.replace(p + os.path.sep, "")
 
         path = path.replace(cls.home, "~")
         return path

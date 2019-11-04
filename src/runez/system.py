@@ -124,6 +124,9 @@ def get_platform():
     return sys.platform
 
 
+WINDOWS = get_platform().startswith("win")
+
+
 def get_version(mod, default="0.0.0", logger=LOG.warning):
     """
     Args:
