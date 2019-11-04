@@ -9,6 +9,7 @@ Example:
 from __future__ import absolute_import
 
 import logging
+import os
 import re
 import sys
 import tempfile
@@ -40,7 +41,7 @@ if sys.argv and "pycharm" in sys.argv[0].lower():  # pragma: no cover
         sys.argv[0] = pt
 
 # Set logsetup defaults to stable/meaningful for pytest runs
-runez.log.override_spec(timezone="UTC", tmp=TMP, locations=["{tmp}/{basename}"])
+runez.log.override_spec(timezone="UTC", tmp=TMP, locations=[os.path.join("{tmp}", "{basename}")])
 
 
 class IsolatedLogSetup(object):

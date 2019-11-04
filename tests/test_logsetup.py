@@ -82,12 +82,13 @@ def test_setup(temp_log):
     assert runez.log.is_using_format("%(context)s %(lineno)d", fmt) is True
     assert runez.log.is_using_format("%(context)s", "") is False
 
-    # signum=None is equivalent to disabling faulthandler
-    runez.log.enable_faulthandler(signum=None)
-    assert runez.log.faulthandler_signum is None
-    # We didn't call setup, so enabling faulthandler will do nothing
-    runez.log.enable_faulthandler()
-    assert runez.log.faulthandler_signum is None
+    if not runez.WINDOWS:
+        # signum=None is equivalent to disabling faulthandler
+        runez.log.enable_faulthandler(signum=None)
+        assert runez.log.faulthandler_signum is None
+        # We didn't call setup, so enabling faulthandler will do nothing
+        runez.log.enable_faulthandler()
+        assert runez.log.faulthandler_signum is None
 
     cwd = os.getcwd()
     assert not runez.DRYRUN
@@ -132,7 +133,7 @@ def test_setup(temp_log):
         assert "INFO - hello" in temp_log.stdout.pop()
         assert not temp_log.stderr
 
-        if runez.logsetup.faulthandler:
+        if not runez.WINDOWS and runez.logsetup.faulthandler:
             # Available only in python3
             runez.log.enable_faulthandler()
             assert runez.log.faulthandler_signum
