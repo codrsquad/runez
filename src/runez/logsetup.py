@@ -418,7 +418,7 @@ class LogManager(object):
         return any(marker in used_formats for marker in flattened(markers, split=(" ", UNIQUE)))
 
     @classmethod
-    def enable_faulthandler(cls, signum=signal.SIGUSR1):
+    def enable_faulthandler(cls, signum=getattr(signal, "SIGUSR1", None)):
         """
         Enable dumping thread stack traces when specified signals are received, similar to java's handling of SIGQUIT
 
