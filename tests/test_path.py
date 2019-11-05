@@ -63,6 +63,12 @@ def test_paths(temp_folder):
     assert runez.parent_folder(None) is None
     assert runez.parent_folder(os.path.join(temp_folder, "some-file")) == temp_folder
 
+    if not runez.WINDOWS:
+        parent = runez.parent_folder("/logs/foo")
+        assert parent == "/logs"
+        assert runez.parent_folder(parent) == "/"
+        assert runez.parent_folder("/") == "/"
+
     assert runez.represented_args(["ls", os.path.join(temp_folder, "some-file") + " bar", "-a"]) == 'ls "some-file bar" -a'
 
     # Don't crash for no-ops

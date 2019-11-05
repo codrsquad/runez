@@ -22,7 +22,7 @@ from runez.base import Slotted, ThreadGlobalContext, UNSET
 from runez.config import parsed_bytesize
 from runez.convert import flattened, formatted, represented_args, SANITIZED, to_int, UNIQUE
 from runez.date import get_local_timezone
-from runez.path import basename as get_basename, ensure_folder
+from runez.path import basename as get_basename, ensure_folder, parent_folder
 from runez.program import get_dev_folder, get_program_path
 from runez.system import is_dryrun, set_dryrun, WINDOWS
 
@@ -131,9 +131,14 @@ class LogSpec(Slotted):
                 filename = formatted(self.basename, self)
                 if not filename:
                     return None
+
                 path = os.path.join(path, filename)
-            if path and ensure_folder(path, fatal=False, logger=LOG.debug, dryrun=False) >= 0:
-                return path
+
+            folder = parent_folder(parent_folder(path))
+            if folder and os.path.exists(folder):
+                # Try to auto-create log folder only if "grand parent" folder exists
+                if ensure_folder(path, fatal=False, logger=LOG.debug, dryrun=False) >= 0:
+                    return path
 
 
 class _ContextFilter(logging.Filter):
