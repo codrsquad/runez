@@ -135,7 +135,7 @@ def represented_args(args, separator=" "):
     return separator.join(result)
 
 
-def represented_bytes(size, unit="B", separator=" "):
+def represented_bytesize(size, unit="B", separator=" "):
     """
     Args:
         size (int | float): Size to represent
