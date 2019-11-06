@@ -10,7 +10,7 @@ from runez.base import string_type, stringified, UNSET
 
 
 DEFAULT_BASE = 1000
-DEFAULT_UNITS = "kmgt"
+DEFAULT_UNITS = "KMGTP"
 RE_FORMAT_MARKERS = re.compile(r"{([^}]*?)}")
 RE_WORDS = re.compile(r"[^\w]+")
 RE_SPACES = re.compile(r"[\s\n]+", re.MULTILINE)
@@ -133,6 +133,50 @@ def represented_args(args, separator=" "):
         for text in args:
             result.append(quoted(short(text)))
     return separator.join(result)
+
+
+def represented_bytes(size, unit="B", separator=" "):
+    """
+    Args:
+        size (int | float): Size to represent
+        unit (str): Unit symbol
+        separator (str): Separator to use between number and units
+
+    Returns:
+        (str): Human friendly byte size representation
+    """
+    return represented_with_units(size, base=1024, unit=unit, separator=separator)
+
+
+def represented_with_units(size, base=1000, unit="", prefixes=DEFAULT_UNITS, exponent=0, separator=" "):
+    """
+    Args:
+        size (int | float): Size to represent
+        base (int): Base to represent it in (typically 1024 for bytes, 1000 for bits)
+        unit (str): Unit symbol
+        prefixes (str): Prefixes to use per power (kilo, mega, giga, tera, peta, ...)
+        exponent (int): Exponent 'size' is expressed in (callers don't need to worry about this, it's used internally for recursion)
+        separator (str): Separator to use between number and units
+
+    Returns:
+        (str): Human friendly representation with units, avoids having to read/parse visually large numbers
+    """
+    if size >= base and exponent < len(prefixes):
+        size = float(size) / base
+        return represented_with_units(size, base=base, unit=unit, prefixes=prefixes, exponent=exponent + 1, separator=separator)
+
+    if exponent == 0:
+        if unit:
+            return "%s%s%s" % (size, separator, unit)
+
+        return "%s" % size
+
+    fmt = "%.{precision}f".format(precision=0 if size > 9 else 1)
+    represented_size = fmt % size
+    if "." in represented_size:
+        represented_size = represented_size.strip("0").strip(".")
+
+    return "%s%s%s%s" % (represented_size, separator, prefixes[exponent - 1], unit)
 
 
 def resolved_path(path, base=None):
@@ -424,7 +468,7 @@ def unitized(value, unit, base=DEFAULT_BASE, unitseq=DEFAULT_UNITS):
 
 def _get_unit_exponent(unit, unitseq, default=None):
     try:
-        return 0 if not unit else unitseq.index(unit) + 1
+        return 0 if not unit else unitseq.upper().index(unit.upper()) + 1
 
     except ValueError:
         return default

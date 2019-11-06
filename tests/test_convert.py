@@ -76,10 +76,23 @@ def test_flattened():
     assert runez.flattened(["a b", None, ["a b c"], "a"], split=(" ", runez.UNIQUE)) == ["a", "b", None, "c"]
     assert runez.flattened(["a b", None, ["a b c"], "a"], split=(" ", runez.SANITIZED | runez.UNIQUE)) == ["a", "b", "c"]
 
+
+def test_representation():
     assert runez.represented_args(None) == ""
     assert runez.represented_args([]) == ""
     assert runez.represented_args([0, 1, 2], separator="+") == "0+1+2"
     assert runez.represented_args(["foo", {}, 0, [1, 2], {3: 4}, 5]) == 'foo {} 0 "[1, 2]" "{3: 4}" 5'
+
+    assert runez.represented_bytes(20) == "20 B"
+    assert runez.represented_bytes(20, unit="") == "20"
+    assert runez.represented_bytes(9000) == "8.8 KB"
+    assert runez.represented_bytes(20000) == "20 KB"
+    assert runez.represented_bytes(20000, unit="") == "20 K"
+    assert runez.represented_bytes(20000000) == "19 MB"
+    assert runez.represented_bytes(20000000000) == "19 GB"
+    assert runez.represented_bytes(20000000000000) == "18 TB"
+    assert runez.represented_bytes(20000000000000000) == "18 PB"
+    assert runez.represented_bytes(20000000000000000000) == "17764 PB"
 
 
 def test_formatted():

@@ -89,6 +89,7 @@ def test_missing():
     assert runez.config.get_bool("foo", default=False) is False
     assert runez.config.get_bytesize("foo", default=5) == 5
     assert runez.config.get_bytesize("foo", default="5k") == 5120
+    assert runez.config.get_bytesize("foo", default="5K") == 5120
     assert runez.config.get_bytesize("foo", default="5", default_unit="k") == 5120
     assert runez.config.get_json("foo", default='["a"]') == ["a"]
 
