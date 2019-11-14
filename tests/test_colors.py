@@ -36,6 +36,7 @@ def test_plural():
 
 
 def test_uncolored():
+    runez.activate_colors(True)
     assert runez.uncolored(None) == ""
     assert runez.uncolored(" ") == " "
     assert runez.uncolored("foo") == "foo"
@@ -44,3 +45,4 @@ def test_uncolored():
 
     assert runez.color_adjusted_size("foo", 5) == 5
     assert runez.color_adjusted_size(runez.red("foo"), 5) == 14
+    runez.activate_colors(False)
