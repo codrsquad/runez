@@ -7,6 +7,7 @@ Example usage:
     print(blue("hello"))
 """
 
+import re
 import os
 import sys
 
@@ -15,7 +16,9 @@ from runez.convert import shortened
 
 
 # Allows for a clean `from runez.colors import *`
-__all__ = ["blue", "bold", "dim", "plural", "red", "yellow"]
+__all__ = ["blue", "bold", "color_adjusted_size", "dim", "plural", "red", "yellow"]
+
+RE_ANSI_ESCAPE = re.compile("\x1b\\[\\d*[A-Za-z]")
 
 
 def activate_colors(enable):
@@ -43,6 +46,32 @@ def is_tty():
         (bool): True if current stdout is a tty
     """
     return sys.stdout.isatty() or 'PYCHARM_HOSTED' in os.environ
+
+
+def uncolored(text):
+    """
+    Args:
+        text (str | None): Text to remove ANSI colors from
+
+    Returns:
+        (str): Text without any ANSI color escapes
+    """
+    return RE_ANSI_ESCAPE.sub("", text or "")
+
+
+def color_adjusted_size(text, size):
+    """
+    Args:
+        text (str): Text to compute color adjusted padding size
+        size (int): Desired padding size
+
+    Returns:
+        (int): 'size', adjusted to help take into account any color ANSI escapes
+    """
+    if text:
+        size += len(text) - len(uncolored(text))
+
+    return size
 
 
 class Color(object):

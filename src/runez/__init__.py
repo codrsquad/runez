@@ -19,7 +19,7 @@ DRYRUN mode:
 
 from runez import click, colors, config, heartbeat, program, schema, serialize, thread
 from runez.base import class_descendants, decode, PY2, Slotted, stringified, Undefined, UNSET
-from runez.colors import activate_colors, blue, bold, dim, is_coloring, is_tty, plural, red, yellow
+from runez.colors import activate_colors, blue, bold, color_adjusted_size, dim, is_coloring, is_tty, plural, red, yellow, uncolored
 from runez.config import from_json, parsed_bytesize
 from runez.context import CaptureOutput, CurrentFolder, TempFolder, TrackedOutput, verify_abort
 from runez.convert import Anchored, capped, flattened, formatted, quoted, represented_args, represented_bytesize, represented_with_units, \
@@ -45,7 +45,7 @@ __all__ = [
     "DRYRUN",
     "click", "colors", "config", "heartbeat", "logsetup", "program", "schema", "serialize", "thread",
     "class_descendants", "decode", "PY2", "Slotted", "stringified", "Undefined", "UNSET",
-    "activate_colors", "blue", "bold", "dim", "is_coloring", "is_tty", "plural", "red", "yellow",
+    "activate_colors", "blue", "bold", "color_adjusted_size", "dim", "is_coloring", "is_tty", "plural", "red", "yellow", "uncolored",
     "from_json", "parsed_bytesize",
     "CaptureOutput", "CurrentFolder", "TempFolder", "TrackedOutput", "verify_abort",
     "Anchored", "capped", "flattened", "formatted", "quoted", "represented_args", "represented_bytesize", "represented_with_units",

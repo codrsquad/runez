@@ -33,3 +33,14 @@ def test_plural():
     assert runez.plural(2, "man") == "2 men"
     assert runez.plural(2, "woman") == "2 women"
     assert runez.plural(2, "status") == "2 statuses"
+
+
+def test_uncolored():
+    assert runez.uncolored(None) == ""
+    assert runez.uncolored(" ") == " "
+    assert runez.uncolored("foo") == "foo"
+    assert runez.uncolored(runez.red("foo")) == "foo"
+    assert runez.uncolored("%s - %s" % (runez.red("foo"), runez.yellow("bar"))) == "foo - bar"
+
+    assert runez.color_adjusted_size("foo", 5) == 5
+    assert runez.color_adjusted_size(runez.red("foo"), 5) == 14
