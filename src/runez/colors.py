@@ -7,8 +7,8 @@ Example usage:
     print(blue("hello"))
 """
 
-import re
 import os
+import re
 import sys
 
 from runez.base import stringified
@@ -16,7 +16,10 @@ from runez.convert import shortened
 
 
 # Allows for a clean `from runez.colors import *`
-__all__ = ["blue", "bold", "color_adjusted_size", "dim", "plural", "red", "yellow"]
+__all__ = [
+    "activate_colors", "color_adjusted_size", "is_coloring", "is_tty", "plural", "uncolored",
+    "blue", "bold", "dim", "orange", "plain", "purple", "red", "teal", "yellow",
+]
 
 RE_ANSI_ESCAPE = re.compile("\x1b\\[\\d*[A-Za-z]")
 
@@ -79,7 +82,11 @@ class Color(object):
 
     def __init__(self, name, *tty_codes):
         self.name = name
-        self.tty_fmt = "".join("\033[%dm" % c for c in tty_codes) + "%s\033[0m"  # codes + %s + reset
+        if tty_codes:
+            self.tty_fmt = "".join("\033[%dm" % c for c in tty_codes) + "%s\033[0m"  # codes + %s + reset
+
+        else:
+            self.tty_fmt = "%s"
 
     def __call__(self, text, backend=None, shorten=None):
         if shorten:
@@ -124,7 +131,11 @@ class TtyBackend(PlainBackend):
 BACKEND = TtyBackend if is_tty() else PlainBackend
 
 blue = Color("blue", 94)
+orange = Color("purple", 33)
+plain = Color("plain")
+purple = Color("purple", 95)
 red = Color("red", 91)
+teal = Color("purple", 96)
 yellow = Color("yellow", 93)
 
 bold = Color("bold", 1)
@@ -134,8 +145,8 @@ dim = Color("dim", 2)
 class Pluralizer:
     """Best-effort english plurals"""
 
-    letter_based = {"f": "ves", "s": "ses", "x": "ces", "y": "ies"}
-    suffix_based = {"man": "men"}
+    letter_based = {"s": "ses", "x": "ces", "y": "ies"}
+    suffix_based = {"ch": "ches", "man": "men", "sh": "shes"}
     word_based = {"person": "people"}
 
     @classmethod
@@ -143,11 +154,6 @@ class Pluralizer:
         irregular = cls.letter_based.get(singular[-1])
         if irregular is not None:
             return 1, irregular
-
-        if len(singular) > 1:
-            irregular = cls.letter_based.get(singular[-2])
-            if irregular is not None:
-                return 2, irregular
 
     @classmethod
     def plural(cls, singular):
