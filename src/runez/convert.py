@@ -422,6 +422,54 @@ def get_words(text, normalize=None):
     return words
 
 
+class Pluralizer:
+    """Best-effort english plurals"""
+
+    letter_based = {"s": "ses", "x": "ces", "y": "ies"}
+    suffix_based = {"ch": "ches", "man": "men", "sh": "shes"}
+    word_based = {"person": "people"}
+
+    @classmethod
+    def find_letter_based(cls, singular):
+        irregular = cls.letter_based.get(singular[-1])
+        if irregular is not None:
+            return 1, irregular
+
+    @classmethod
+    def plural(cls, singular):
+        irregular = cls.word_based.get(singular)
+        if irregular:
+            return irregular
+
+        for suffix in cls.suffix_based:
+            if singular.endswith(suffix):
+                c = len(suffix)
+                return "%s%s" % (singular[:-c], cls.suffix_based[suffix])
+
+        irregular = cls.find_letter_based(singular)
+        if irregular:
+            return singular[:-irregular[0]] + irregular[1]
+
+        return "%ss" % singular
+
+
+def plural(countable, singular):
+    """
+    Args:
+        countable: How many things there are (can be int, or something countable)
+        singular: What is counted (example: "record", or "chair", etc...)
+
+    Returns:
+        (str): Rudimentary, best-effort plural of "<count> <name>(s)"
+    """
+    count = len(countable) if hasattr(countable, "__len__") else countable
+    if count == 1:
+        return "1 %s" % singular
+
+    plural = Pluralizer.plural(singular)
+    return "%s %s" % (count, plural)
+
+
 def snakified(text, normalize=str.upper):
     """
     Args:

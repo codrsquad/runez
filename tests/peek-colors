@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Take a peek at how colors look
@@ -30,28 +30,23 @@ if not sys.exec_prefix.startswith(PROJECT_FOLDER):
     try_venv(".venv", ".tox/py37", ".tox/py36", ".tox/py27")
 
 
-from runez import blue, red, yellow, dim, bold
+import runez
 
 
 def sized(text):
     return "%-14s" % text
 
 
-def show_colored(color):
-    if color is None:
-        color_name = ""
-        line = [sized("regular")]
-    else:
+def show_fgcolors(bg=runez.plain):
+    for color in [runez.plain] + runez.colors.fg.colors:
         color_name = color.name
         line = [color(sized(color_name))]
-    for mode in (dim, bold):
-        text = sized("%s %s" % (mode.name, color_name))
-        if color is None:
-            line.append(mode(text))
-        else:
-            line.append(mode(color(text)))
-    print("".join(line))
+
+        for style in runez.colors.fg.styles:
+            text = sized("%s %s" % (style.name, color_name))
+            line.append(style(color(text)))
+
+        print(bg("".join(line)))
 
 
-for color in (None, blue, red, yellow):
-    show_colored(color)
+show_fgcolors()

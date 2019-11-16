@@ -17,7 +17,7 @@ try:
 except ImportError:  # pragma: no cover, click used only if installed
     click = None
 
-from runez.colors import activate_colors
+from runez.colors.terminal import activate_colors
 from runez.config import use_cli
 from runez.convert import flattened
 from runez.logsetup import LogManager

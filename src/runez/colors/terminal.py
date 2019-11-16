@@ -15,13 +15,13 @@ from runez.base import stringified
 from runez.convert import shortened
 
 
-# Allows for a clean `from runez.colors import *`
+# Allows for a clean `import *`
 __all__ = [
-    "activate_colors", "color_adjusted_size", "is_coloring", "is_tty", "plural", "uncolored",
-    "blue", "bold", "dim", "orange", "plain", "purple", "red", "teal", "yellow",
+    "activate_colors", "Color", "color_adjusted_size", "is_coloring", "is_tty", "uncolored",
 ]
 
-RE_ANSI_ESCAPE = re.compile("\x1b\\[\\d*[A-Za-z]")
+
+RE_ANSI_ESCAPE = re.compile("\x1b\\[[;\\d]*[A-Za-z]")
 
 
 def activate_colors(enable):
@@ -129,62 +129,3 @@ class TtyBackend(PlainBackend):
 
 
 BACKEND = TtyBackend if is_tty() else PlainBackend
-
-blue = Color("blue", 94)
-orange = Color("purple", 33)
-plain = Color("plain")
-purple = Color("purple", 95)
-red = Color("red", 91)
-teal = Color("purple", 96)
-yellow = Color("yellow", 93)
-
-bold = Color("bold", 1)
-dim = Color("dim", 2)
-
-
-class Pluralizer:
-    """Best-effort english plurals"""
-
-    letter_based = {"s": "ses", "x": "ces", "y": "ies"}
-    suffix_based = {"ch": "ches", "man": "men", "sh": "shes"}
-    word_based = {"person": "people"}
-
-    @classmethod
-    def find_letter_based(cls, singular):
-        irregular = cls.letter_based.get(singular[-1])
-        if irregular is not None:
-            return 1, irregular
-
-    @classmethod
-    def plural(cls, singular):
-        irregular = cls.word_based.get(singular)
-        if irregular:
-            return irregular
-
-        for suffix in cls.suffix_based:
-            if singular.endswith(suffix):
-                c = len(suffix)
-                return "%s%s" % (singular[:-c], cls.suffix_based[suffix])
-
-        irregular = cls.find_letter_based(singular)
-        if irregular:
-            return singular[:-irregular[0]] + irregular[1]
-
-        return "%ss" % singular
-
-
-def plural(countable, singular):
-    """
-    Args:
-        countable: How many things there are (can be int, or something countable)
-        singular: What is counted (example: "record", or "chair", etc...)
-
-    Returns:
-        (str): Rudimentary, best-effort plural of "<count> <name>(s)"
-    """
-    count = len(countable) if hasattr(countable, "__len__") else countable
-    if count == 1:
-        return "1 %s" % singular
-
-    plural = Pluralizer.plural(singular)
-    return "%s %s" % (count, plural)

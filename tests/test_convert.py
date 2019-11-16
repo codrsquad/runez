@@ -129,6 +129,26 @@ def test_formatted():
     assert runez.formatted("{filename}") == "{filename}"
 
 
+def test_plural():
+    assert runez.plural(2, "match") == "2 matches"
+    assert runez.plural(0, "dish") == "0 dishes"
+    assert runez.plural(5, "goth") == "5 goths"
+    assert runez.plural(7, "diff") == "7 diffs"
+
+    assert runez.plural(1, "penny") == "1 penny"
+    assert runez.plural(2, "penny") == "2 pennies"
+
+    assert runez.plural([], "record") == "0 records"
+    assert runez.plural([""], "record") == "1 record"
+
+    assert runez.plural(1, "person") == "1 person"
+    assert runez.plural(2, "person") == "2 people"
+
+    assert runez.plural(2, "man") == "2 men"
+    assert runez.plural(2, "woman") == "2 women"
+    assert runez.plural(2, "status") == "2 statuses"
+
+
 def test_quoted():
     assert runez.quoted(None) is None
     assert runez.quoted("") == ""

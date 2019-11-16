@@ -18,7 +18,7 @@ import runez
 @runez.click.log(expose_value=False)
 def my_group():
     config = runez.config.CONFIG.overview()
-    print("color: %s, %s" % (runez.colors.is_coloring(), config))
+    print("color: %s, %s" % (runez.is_coloring(), config))
     print("debug: %s, dryrun: %s, log: %s" % (runez.DRYRUN, runez.log.debug, runez.log.spec.file_location))
 
 
