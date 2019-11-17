@@ -9,7 +9,7 @@ __all__ = [
 
 black = Color("black", 0x000000)
 blue = Color("blue", 0x0000ff)
-brown = Color("brown", 0xa52a2a)
+brown = Color("brown", 0x850a0a)
 gray = Color("gray", 0xbebebe)
 green = Color("green", 0xff00)
 orange = Color("orange", 0xffa500)

@@ -85,16 +85,30 @@ class AnsiCode(object):
     fg_offset = 30
 
     @classmethod
-    def ansi16(cls, offset, r, g, b, use_bright):
+    def enhanced(cls, r, g, b, ratio):
+        """Enhanced color by 'ratio', allows lighten/darken colors"""
+        f, lm = (min, 255) if ratio > 1 else (max, 0)
+        if ratio > 1:
+            r = max(8, r)
+            g = max(8, g)
+            b = max(8, b)
+
+        return f(lm, int(round(r * ratio))), f(lm, int(round(g * ratio))), f(lm, int(round(b * ratio)))
+
+    @classmethod
+    def ansi16(cls, offset, r, g, b, brighten):
         r = int(round(r / 255.0))
         g = int(round(g / 255.0)) << 1
         b = int(round(b / 255.0)) << 2
-        code = (90 if use_bright else 30) + (r | g | b)
+        code = (90 if brighten else 30) + (r | g | b)
         return int(code) + offset - cls.fg_offset
 
     @classmethod
-    def ansi256(cls, offset, r, g, b, use_bright):
+    def ansi256(cls, offset, r, g, b, brighten):
         """Convert RGB to ANSI 256 color"""
+        if brighten is not None:
+            r, g, b = cls.enhanced(r, g, b, 2 if brighten else 0.7)
+
         if r == g == b:
             if r < 8:
                 code = 16
@@ -111,10 +125,13 @@ class AnsiCode(object):
             b = round(b / 255.0 * 5.0)
             code = 16 + r + g + b
 
-        return "%s;5;%s" % (8 + offset, code)
+        return "%s;5;%s" % (8 + offset, int(code))
 
     @classmethod
-    def truecolor(cls, offset, r, g, b, use_bright):
+    def truecolor(cls, offset, r, g, b, brighten):
+        if brighten is not None:
+            r, g, b = cls.enhanced(r, g, b, 1.25 if brighten else 0.8)
+
         return "%s;2;%s;%s;%s" % (8 + offset, r, g, b)
 
 
@@ -122,6 +139,7 @@ class ColorFormat(object):
     def __init__(self, color, fmt):
         self.color = color
         if self.color.rgb is None:
+            self.neutral = "{}"
             self.light = "{}"
             self.dark = "{}"
 
@@ -133,6 +151,7 @@ class ColorFormat(object):
             b = rgb & 0xff
 
             base_fmt = "\033[{{start}}m{{{{}}}}\033[{end}m".format(end=offset + 9)
+            self.neutral = base_fmt.format(start=fmt(offset, r, g, b, None))
             self.light = base_fmt.format(start=fmt(offset, r, g, b, True))
             self.dark = base_fmt.format(start=fmt(offset, r, g, b, False))
 
@@ -191,10 +210,25 @@ underline = Style("underline", 4, 24)
 styles = [blink, bold, dim, invert, italic, strikethrough, underline]
 
 
+def detect_flavor(bg):
+    if bg:
+        if ";" in bg:
+            _, _, bg = bg.partition(";")
+
+        bg = to_int(bg, default=None)
+        if bg is not None:
+            if bg > 6 and bg != 8:
+                return "dark"
+
+            return "light"
+
+    return "neutral"
+
+
 class PlainBackend(object):
     """Default plain backend, ignoring colors"""
     priority = 10
-    flavor = "dark"
+    flavor = detect_flavor(os.environ.get("COLORFGBG"))
 
     @classmethod
     def colored(cls, text, color):
@@ -282,15 +316,4 @@ def detect_backend(enable, env=os.environ):
     return PlainBackend
 
 
-def detect_flavor(fgbg):
-    if fgbg:
-        _, _, bg = fgbg.partition(";")
-        bg = to_int(bg, default=0)
-        if bg > 6 and bg != 8:
-            return "light"
-
-        return "dark"
-
-
 BACKEND = detect_backend(is_tty())
-PlainBackend.flavor = detect_flavor(os.environ.get("COLORFGBG") or "dark")

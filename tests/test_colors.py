@@ -2,7 +2,7 @@ import runez
 
 
 def test_colors():
-    assert runez.colors.terminal.PlainBackend.flavor == "dark"
+    runez.colors.terminal.PlainBackend.flavor = "neutral"
     runez.activate_colors(runez.colors.terminal.Ansi16Backend)
     assert runez.red(None) == "\x1b[31mNone\x1b[39m"
     assert runez.blue("") == ""
@@ -25,9 +25,14 @@ def test_colors():
     assert str(runez.dim) == "dim"
     assert str(runez.black.ansi16) == "\x1b[90m{}\x1b[39m - \x1b[30m{}\x1b[39m"
 
-    assert runez.colors.terminal.detect_flavor("") is None
-    assert runez.colors.terminal.detect_flavor("0;15") == "light"
-    assert runez.colors.terminal.detect_flavor("15;5") == "dark"
+
+def test_flavor():
+    assert runez.colors.terminal.detect_flavor("") == "neutral"
+    assert runez.colors.terminal.detect_flavor("foo") == "neutral"
+    assert runez.colors.terminal.detect_flavor("15") == "dark"
+    assert runez.colors.terminal.detect_flavor("5") == "light"
+    assert runez.colors.terminal.detect_flavor("0;15") == "dark"
+    assert runez.colors.terminal.detect_flavor("15;5") == "light"
     assert runez.colors.terminal.detect_backend(True, {"COLORTERM": "truecolor"}) is runez.colors.terminal.TrueColorBackend
     assert runez.colors.terminal.detect_backend(True, {"TERM": "xterm-256color"}) is runez.colors.terminal.Ansi256Backend
     assert runez.colors.terminal.detect_backend(True, {}) is runez.colors.terminal.Ansi16Backend

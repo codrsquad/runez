@@ -40,9 +40,15 @@ def sized(text, size):
 
 def show_fgcolors(bg=runez.plain):
     longest_color_name = max(len(c.name) for c in runez.colors.fg.colors)
+    additional = runez.white("foo").index("m", 1)
     for color in [runez.plain] + runez.colors.fg.colors:
         color_name = color.name
-        line = [bg(color(sized(color_name, longest_color_name + 1)))]
+        text = color(color.name)
+        if text[0] == "\033":
+            i = text.index("m", 1)
+            text = "%s %s" % (color_name, text[2:i])
+
+        line = [bg(color(sized(text, longest_color_name + additional)))]
         for style in runez.colors.terminal.styles:
             text = "%s %s" % (style.name, color_name)
             line.append(sized(bg(style(color(text))), longest_color_name + len(style.name) + 2))
@@ -52,6 +58,14 @@ def show_fgcolors(bg=runez.plain):
     print("")
 
 
+# runez.colors.terminal.PlainBackend.flavor = "light"
+# runez.activate_colors(runez.colors.terminal.Ansi256Backend)
 print("Backend: %s %s\n" % (runez.colors.terminal.BACKEND.__name__, runez.colors.terminal.BACKEND.flavor))
 show_fgcolors()
-show_fgcolors(bg=runez.bg.yellow)
+
+# runez.colors.terminal.PlainBackend.flavor = "dark"
+# print("Backend: %s %s\n" % (runez.colors.terminal.BACKEND.__name__, runez.colors.terminal.BACKEND.flavor))
+# show_fgcolors()
+
+if len(sys.argv) > 1:
+    show_fgcolors(bg=runez.bg.yellow)
