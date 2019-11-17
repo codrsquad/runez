@@ -60,10 +60,6 @@ class IsolatedLogSetup(object):
         self.old_handlers = logging.root.handlers
         logging.root.handlers = []
 
-        # Isolate default color detection as well
-        self.old_tty = runez.colors.terminal.is_tty
-        runez.colors.terminal.is_tty = sys.stdout.isatty
-
         if self.adjust_tmp:
             # Adjust log.spec.tmp, and leave logging.root without any predefined handlers
             # intent: underlying wants to perform their own log.setup()
@@ -82,7 +78,6 @@ class IsolatedLogSetup(object):
         WrappedHandler.isolation -= 1
         runez.log.reset()
         logging.root.handlers = self.old_handlers
-        runez.colors.terminal.is_tty = self.old_tty
 
         if self.temp_folder:
             runez.log.spec.tmp = self.old_spec

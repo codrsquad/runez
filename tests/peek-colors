@@ -30,6 +30,7 @@ if not sys.exec_prefix.startswith(PROJECT_FOLDER):
     try_venv(".venv", ".tox/py37", ".tox/py36", ".tox/py27")
 
 
+import click
 import runez
 
 
@@ -41,7 +42,7 @@ def sized(text, size):
 def show_fgcolors(bg=runez.plain):
     longest_color_name = max(len(c.name) for c in runez.colors.fg.colors)
     additional = runez.white("foo").index("m", 1)
-    for color in [runez.plain] + runez.colors.fg.colors:
+    for color in runez.colors.fg.colors + [runez.plain]:
         color_name = color.name
         text = color(color.name)
         if text[0] == "\033":
@@ -58,14 +59,24 @@ def show_fgcolors(bg=runez.plain):
     print("")
 
 
-# runez.colors.terminal.PlainBackend.flavor = "light"
-# runez.activate_colors(runez.colors.terminal.Ansi256Backend)
-print("Backend: %s %s\n" % (runez.colors.terminal.BACKEND.__name__, runez.colors.terminal.BACKEND.flavor))
-show_fgcolors()
+@runez.click.command()
+@click.option("--flavors", "-f", is_flag=True, help="Show all flavors")
+@click.option("--bg", is_flag=True, help="Show bg variant")
+def main(flavors, bg):
+    print("Backend: %s %s\n" % (runez.colors.terminal.BACKEND.__name__, runez.colors.terminal.BACKEND.flavor))
+    show_fgcolors()
 
-# runez.colors.terminal.PlainBackend.flavor = "dark"
-# print("Backend: %s %s\n" % (runez.colors.terminal.BACKEND.__name__, runez.colors.terminal.BACKEND.flavor))
-# show_fgcolors()
+    if flavors:
+        flavors = ["neutral", "light", "dark"]
+        flavors.remove(runez.colors.terminal.BACKEND.flavor)
+        for flavor in flavors:
+            runez.colors.terminal.BACKEND.flavor = flavor
+            print("Backend: %s %s\n" % (runez.colors.terminal.BACKEND.__name__, flavor))
+            show_fgcolors()
 
-if len(sys.argv) > 1:
-    show_fgcolors(bg=runez.bg.yellow)
+    if bg:
+        show_fgcolors(bg=runez.bg.yellow)
+
+
+if __name__ == "__main__":
+    main()
