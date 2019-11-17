@@ -19,6 +19,7 @@ DRYRUN mode:
 
 from runez import click, colors, config, heartbeat, program, schema, serialize, thread
 from runez.base import class_descendants, decode, PY2, Slotted, stringified, Undefined, UNSET
+from runez.colors import bg, fg
 from runez.colors.fg import black, blue, brown, gray, green, orange, plain, purple, red, teal, white, yellow
 from runez.colors.terminal import activate_colors, Color, color_adjusted_size, is_coloring, is_tty, uncolored
 from runez.colors.terminal import blink, bold, dim, invert, italic, strikethrough, underline
@@ -48,6 +49,7 @@ __all__ = [
     "DRYRUN",
     "click", "colors", "config", "heartbeat", "logsetup", "program", "schema", "serialize", "thread",
     "class_descendants", "decode", "PY2", "Slotted", "stringified", "Undefined", "UNSET",
+    "bg", "fg",
     "black", "blue", "brown", "gray", "green", "orange", "plain", "purple", "red", "teal", "white", "yellow",
     "activate_colors", "Color", "color_adjusted_size", "is_coloring", "is_tty", "uncolored",
     "blink", "bold", "dim", "invert", "italic", "strikethrough", "underline",

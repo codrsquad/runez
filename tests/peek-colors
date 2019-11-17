@@ -42,13 +42,16 @@ def show_fgcolors(bg=runez.plain):
     longest_color_name = max(len(c.name) for c in runez.colors.fg.colors)
     for color in [runez.plain] + runez.colors.fg.colors:
         color_name = color.name
-        line = [color(sized(color_name, longest_color_name + 1))]
+        line = [bg(color(sized(color_name, longest_color_name + 1)))]
         for style in runez.colors.terminal.styles:
             text = "%s %s" % (style.name, color_name)
-            line.append(sized(style(color(text)), longest_color_name + len(style.name) + 2))
+            line.append(sized(bg(style(color(text))), longest_color_name + len(style.name) + 2))
 
-        print(bg(" ".join(line)))
+        print(" ".join(line))
+
+    print("")
 
 
 print("Backend: %s %s\n" % (runez.colors.terminal.BACKEND.__name__, runez.colors.terminal.BACKEND.flavor))
 show_fgcolors()
+show_fgcolors(bg=runez.bg.yellow)
