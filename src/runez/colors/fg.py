@@ -3,22 +3,21 @@ from runez.colors.terminal import Color
 
 # Allows for a clean `import *`
 __all__ = [
-    "blue", "orange", "plain", "purple", "red", "teal", "yellow",
-    "bold", "dim",
-    "colors", "styles",
+    "black", "blue", "brown", "gray", "green", "orange", "plain", "purple", "red", "teal", "white", "yellow",
+    "colors",
 ]
 
-blue = Color("blue", 94)
-orange = Color("orange", 33)
-plain = Color("plain")
-purple = Color("purple", 95)
-red = Color("red", 91)
-teal = Color("teal", 96)
-yellow = Color("yellow", 93)
+black = Color("black", 0x000000)
+blue = Color("blue", 0x0000ff)
+brown = Color("brown", 0xa52a2a)
+gray = Color("gray", 0xbebebe)
+green = Color("green", 0xff00)
+orange = Color("orange", 0xffa500)
+plain = Color("plain", None)
+purple = Color("purple", 0xa020f0)
+red = Color("red", 0xff0000)
+teal = Color("teal", 0x008080)
+white = Color("white", 0xffffff)
+yellow = Color("yellow", 0xffff00)
 
-colors = [blue, orange, purple, red, teal, yellow]
-
-bold = Color("bold", 1)
-dim = Color("dim", 2)
-
-styles = [bold, dim]
+colors = [black, blue, brown, gray, green, orange, purple, red, teal, white, yellow]

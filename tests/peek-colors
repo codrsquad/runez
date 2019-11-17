@@ -33,20 +33,22 @@ if not sys.exec_prefix.startswith(PROJECT_FOLDER):
 import runez
 
 
-def sized(text):
-    return "%-14s" % text
+def sized(text, size):
+    fmt = "{:%s}" % runez.color_adjusted_size(text, size)
+    return fmt.format(text)
 
 
 def show_fgcolors(bg=runez.plain):
+    longest_color_name = max(len(c.name) for c in runez.colors.fg.colors)
     for color in [runez.plain] + runez.colors.fg.colors:
         color_name = color.name
-        line = [color(sized(color_name))]
+        line = [color(sized(color_name, longest_color_name + 1))]
+        for style in runez.colors.terminal.styles:
+            text = "%s %s" % (style.name, color_name)
+            line.append(sized(style(color(text)), longest_color_name + len(style.name) + 2))
 
-        for style in runez.colors.fg.styles:
-            text = sized("%s %s" % (style.name, color_name))
-            line.append(style(color(text)))
-
-        print(bg("".join(line)))
+        print(bg(" ".join(line)))
 
 
+print("Backend: %s %s\n" % (runez.colors.terminal.BACKEND.__name__, runez.colors.terminal.BACKEND.flavor))
 show_fgcolors()

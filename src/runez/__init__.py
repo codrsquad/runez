@@ -19,9 +19,9 @@ DRYRUN mode:
 
 from runez import click, colors, config, heartbeat, program, schema, serialize, thread
 from runez.base import class_descendants, decode, PY2, Slotted, stringified, Undefined, UNSET
-from runez.colors.fg import blue, orange, plain, purple, red, teal, yellow
-from runez.colors.fg import bold, dim
+from runez.colors.fg import black, blue, brown, gray, green, orange, plain, purple, red, teal, white, yellow
 from runez.colors.terminal import activate_colors, Color, color_adjusted_size, is_coloring, is_tty, uncolored
+from runez.colors.terminal import blink, bold, dim, invert, italic, strikethrough, underline
 from runez.config import from_json, parsed_bytesize
 from runez.context import CaptureOutput, CurrentFolder, TempFolder, TrackedOutput, verify_abort
 from runez.convert import Anchored, capped, flattened, formatted, plural, quoted, \
@@ -48,9 +48,9 @@ __all__ = [
     "DRYRUN",
     "click", "colors", "config", "heartbeat", "logsetup", "program", "schema", "serialize", "thread",
     "class_descendants", "decode", "PY2", "Slotted", "stringified", "Undefined", "UNSET",
-    "blue", "orange", "plain", "purple", "red", "teal", "yellow",
-    "bold", "dim",
+    "black", "blue", "brown", "gray", "green", "orange", "plain", "purple", "red", "teal", "white", "yellow",
     "activate_colors", "Color", "color_adjusted_size", "is_coloring", "is_tty", "uncolored",
+    "blink", "bold", "dim", "invert", "italic", "strikethrough", "underline",
     "from_json", "parsed_bytesize",
     "CaptureOutput", "CurrentFolder", "TempFolder", "TrackedOutput", "verify_abort",
     "Anchored", "capped", "flattened", "formatted", "plural", "quoted",

@@ -9,7 +9,7 @@ from runez.path import ensure_folder, parent_folder
 from runez.system import abort, is_dryrun
 
 LOG = logging.getLogger(__name__)
-TEXT_THRESHOLD_SIZE = 16384  # Max size in bytes to consider a file a "text file"
+TEXT_THRESHOLD_SIZE = 1048576  # Max size in bytes to consider a file a "text file"
 
 
 def copy(source, destination, ignore=None, adapter=None, fatal=True, logger=LOG.debug):
