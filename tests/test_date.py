@@ -206,3 +206,8 @@ def test_to_seconds():
     assert runez.to_seconds(datetime.timedelta(minutes=60)) == 3600
     assert runez.to_seconds(runez.UTC.offset) == 0
     assert runez.to_seconds(runez.timezone_from_text("+0100").offset) == 3600
+
+    with freeze_time("2020-01-02 00:00:12"):
+        assert runez.to_seconds("2020-01-01") == 86412
+        assert runez.to_seconds("2020-01-02 00:00:01") == 11
+        assert runez.to_seconds("2020-01-02 00:01:12") == -60

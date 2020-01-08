@@ -353,6 +353,10 @@ def to_seconds(duration):
 
     m = RE_DURATION.match(duration)
     if not m:
+        dt = to_datetime(duration)
+        if dt is not None:
+            return elapsed(dt)
+
         return None
 
     v = m.group(1)
