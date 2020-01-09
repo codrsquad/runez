@@ -429,6 +429,13 @@ def _date_from_text(text, epocher, **kwargs):
     """
     match = RE_DATE.match(text)
     if match is None:
+        m = RE_DURATION.match(text)
+        if m:
+            tz = kwargs.get("tz", UTC)
+            offset = to_seconds(text)
+            now = datetime.datetime.now(tz=tz)
+            return to_datetime(to_epoch(now) - offset, tz=tz)
+
         return None
 
     # _, number, _, _, y, m, d, _, hh, mm, ss, sf, _, tz, _, _ = match.groups()

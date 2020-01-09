@@ -23,6 +23,13 @@ def test_date_formats():
     assert runez.to_date("16/01/2019") is None
     assert runez.to_datetime("2019/01/2019") is None
 
+    with freeze_time("2019-09-01 20:00:12"):
+        assert str(runez.to_date("1w")) == "2019-08-25"
+        assert str(runez.to_date("1y")) == "2018-09-01"
+        assert str(runez.to_date("1y1w")) == "2018-08-25"
+
+        assert str(runez.to_datetime("1y", tz=runez.UTC)) == "2018-09-01 14:11:00+00:00"
+
 
 def test_elapsed():
     d1 = datetime.date(2019, 9, 1)
