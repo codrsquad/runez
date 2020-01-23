@@ -220,8 +220,9 @@ def shortened(value, size=120):
     """
     text = stringified(value, converter=_prettified).strip()
     text = RE_SPACES.sub(" ", text)
-    if len(text) > size:
+    if size and len(text) > size:
         return "%s..." % text[:size - 3]
+
     return text
 
 

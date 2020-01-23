@@ -27,6 +27,10 @@ def test_shortened():
     assert runez.shortened(complex) == "{None: 2019-01-01, a b: [1, None, foo ,, {a2: function 'abort', c: class runez.convert.Anchored}]}"
     assert runez.shortened(complex, size=32) == "{None: 2019-01-01, a b: [1, N..."
 
+    assert runez.shortened(" some  text ", size=32) == "some text"
+    assert runez.shortened(" some  text ", size=7) == "some..."
+    assert runez.shortened(" some  text ", size=0) == "some text"
+
 
 def test_flattened():
     assert runez.flattened(None) == [None]
