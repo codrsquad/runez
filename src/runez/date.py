@@ -124,13 +124,14 @@ def elapsed(started, ended=None):
         (float): Elapsed number of seconds
     """
     if not isinstance(started, datetime.datetime):
-        started = datetime.datetime(started.year, started.month, started.day)
+        tzinfo = None if ended is None else getattr(ended, "tzinfo", None)
+        started = datetime.datetime(started.year, started.month, started.day, tzinfo=tzinfo)
 
     if ended is None:
         ended = datetime.datetime.now(tz=started.tzinfo)
 
     elif not isinstance(ended, datetime.datetime):
-        ended = datetime.datetime(ended.year, ended.month, ended.day)
+        ended = datetime.datetime(ended.year, ended.month, ended.day, tzinfo=started.tzinfo)
 
     delta = ended - started
     return delta.total_seconds()
