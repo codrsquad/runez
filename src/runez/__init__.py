@@ -17,7 +17,7 @@ DRYRUN mode:
     It's recommended to set DRYRUN only once at the start of your run via: runez.log.setup(dryrun=...)
 """
 
-from runez import click, colors, config, heartbeat, program, schema, serialize, thread
+from runez import click, colors, config, heartbeat, program, prompt, schema, serialize, thread
 from runez.base import class_descendants, decode, PY2, Slotted, stringified, Undefined, UNSET
 from runez.colors import bg, fg
 from runez.colors.fg import black, blue, brown, gray, green, orange, plain, purple, red, teal, white, yellow
@@ -40,6 +40,7 @@ from runez.logsetup import LogManager as log, LogSpec
 from runez.path import basename, ensure_folder, parent_folder
 from runez.program import check_pid, get_dev_folder, get_program_path, is_executable, is_younger, make_executable
 from runez.program import require_installed, run, which
+from runez.prompt import ask_once
 from runez.represent import header
 from runez.serialize import json_sanitized, read_json, represented_json, save_json, Serializable
 from runez.system import abort, current_test, get_platform, get_version, set_dryrun, WINDOWS
@@ -47,7 +48,7 @@ from runez.thread import thread_local_property, ThreadLocalSingleton
 
 __all__ = [
     "DRYRUN",
-    "click", "colors", "config", "heartbeat", "logsetup", "program", "schema", "serialize", "thread",
+    "click", "colors", "config", "heartbeat", "logsetup", "program", "prompt", "schema", "serialize", "thread",
     "class_descendants", "decode", "PY2", "Slotted", "stringified", "Undefined", "UNSET",
     "bg", "fg",
     "black", "blue", "brown", "gray", "green", "orange", "plain", "purple", "red", "teal", "white", "yellow",
@@ -70,6 +71,7 @@ __all__ = [
     "basename", "ensure_folder", "parent_folder",
     "check_pid", "get_dev_folder", "get_program_path", "is_executable", "is_younger", "make_executable",
     "require_installed", "run", "which",
+    "ask_once",
     "header",
     "json_sanitized", "read_json", "represented_json", "save_json", "Serializable",
     "abort", "current_test", "get_platform", "get_version", "set_dryrun", "WINDOWS",
