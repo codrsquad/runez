@@ -1,3 +1,5 @@
+import os
+
 from mock import patch
 
 import runez
@@ -23,6 +25,37 @@ def test_abort(logged):
 
     with patch("runez.system.AbortException", side_effect=str):
         assert runez.abort("oops", logger=None) == "1"
+
+
+def test_auto_import_siblings():
+    # Check that none of these invocations raise an exception
+    assert not runez.system.is_caller_package(None)
+    assert not runez.system.is_caller_package("")
+    assert not runez.system.is_caller_package("_pydevd")
+    assert not runez.system.is_caller_package("_pytest.foo")
+    assert not runez.system.is_caller_package("pluggy.hooks")
+    assert not runez.system.is_caller_package("runez.system")
+
+    assert runez.system.is_caller_package("foo")
+
+    assert runez.auto_import_siblings([]) is None
+    assert runez.auto_import_siblings([""]) == []
+
+    runez.auto_import_siblings()
+
+    with patch("runez.system.find_caller_frame", return_value=None):
+        runez.auto_import_siblings()
+
+    with patch.dict(os.environ, {"TOX_WORK_DIR": "some-value"}, clear=True):
+        imported = runez.auto_import_siblings()
+        by_name = dict((m.__name__, m) for m in imported)
+
+        assert len(imported) == 20
+        assert "conftest" in by_name
+        assert "secondary" in by_name
+        assert "secondary.test_import" in by_name
+        assert "test_base" in by_name
+        assert "test_system" not in by_name
 
 
 def test_current_test():

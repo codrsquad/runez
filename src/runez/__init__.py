@@ -37,13 +37,13 @@ from runez.date import SECONDS_IN_ONE_DAY, SECONDS_IN_ONE_HOUR, SECONDS_IN_ONE_M
 from runez.file import copy, delete, first_line, get_conf, get_lines, move, symlink, touch, write
 from runez.heartbeat import Heartbeat
 from runez.logsetup import LogManager as log, LogSpec
-from runez.path import auto_import_siblings, basename, ensure_folder, parent_folder
+from runez.path import basename, ensure_folder, parent_folder
 from runez.program import check_pid, get_dev_folder, get_program_path, is_executable, is_younger, make_executable
 from runez.program import require_installed, run, which
 from runez.prompt import ask_once
 from runez.represent import header
 from runez.serialize import json_sanitized, read_json, represented_json, save_json, Serializable
-from runez.system import abort, current_test, get_platform, get_version, set_dryrun, WINDOWS
+from runez.system import abort, auto_import_siblings, current_test, get_platform, get_version, set_dryrun, WINDOWS
 from runez.thread import thread_local_property, ThreadLocalSingleton
 
 __all__ = [
@@ -68,13 +68,13 @@ __all__ = [
     "copy", "delete", "first_line", "get_conf", "get_lines", "move", "symlink", "touch", "write",
     "Heartbeat",
     "log", "LogSpec",
-    "auto_import_siblings", "basename", "ensure_folder", "parent_folder",
+    "basename", "ensure_folder", "parent_folder",
     "check_pid", "get_dev_folder", "get_program_path", "is_executable", "is_younger", "make_executable",
     "require_installed", "run", "which",
     "ask_once",
     "header",
     "json_sanitized", "read_json", "represented_json", "save_json", "Serializable",
-    "abort", "current_test", "get_platform", "get_version", "set_dryrun", "WINDOWS",
+    "abort", "auto_import_siblings", "current_test", "get_platform", "get_version", "set_dryrun", "WINDOWS",
     "thread_local_property", "ThreadLocalSingleton",
 ]
 

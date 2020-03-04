@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 
 
@@ -62,6 +63,80 @@ def abort(*args, **kwargs):
             return AbortException(code)
 
     return return_value
+
+
+def auto_import_siblings(folders=None, skip=None, auto_clean="TOX_WORK_DIR"):
+    """
+    Auto-import all sibling submodules from caller.
+    This is handy for click command groups for example.
+    It allows to avoid having to have a module that simply lists all sub-commands, just to ensure they are added to `main`.
+
+    Example usage:
+        my_cli.py:
+
+            @click.group()
+            def main(...):
+                ...
+
+            # Without this, one would have to ensure that all subcommands are imported somehow
+            runez.auto_import_siblings()
+
+        my_sub_command.py:
+
+            from .my_cli import main
+
+            @main.command():
+            def foo(...):
+                ...
+
+    Args:
+        folders (list | None): Folders to auto-import (default: folder of caller module)
+        skip (list | set | None): Optional module names to skip importing
+        auto_clean (str | bool | None): If True, auto-clean .pyc files
+                                        If string: auto-clean .pyc files when corresponding env var is defined
+
+    Returns:
+        (list | None): List of imported modules, if any
+    """
+    if folders is None:
+        caller = find_caller_frame(depth=1)
+        if not caller:
+            return None
+
+        caller_path = caller.f_globals.get("__file__")
+        if skip is None:
+            basename = os.path.basename(caller_path)
+            skip = [basename.partition(".")[0]]
+
+        folders = [os.path.dirname(caller_path)]
+
+    if not folders:
+        return None
+
+    import pkgutil
+
+    imported = []
+    for folder in folders:
+        if folder and os.path.isdir(folder):
+            if auto_clean is not None and not isinstance(auto_clean, bool):
+                auto_clean = os.environ.get(auto_clean)
+
+            if auto_clean:
+                # Clean .pyc files so consecutive tox runs with distinct python2 versions don't get confused
+                for root, dirs, files in os.walk(folder):
+                    for fname in files:
+                        if fname.endswith(".pyc"):  # pragma: no cover, only applicable for local development
+                            try:
+                                os.unlink(os.path.join(root, fname))
+
+                            except OSError:
+                                pass  # Delete is only needed in tox run, no need to fail if delete is not possible
+
+            for loader, module_name, _ in pkgutil.walk_packages([folder]):
+                if module_name not in skip:
+                    imported.append(loader.find_module(module_name).load_module(module_name))
+
+    return imported
 
 
 def current_test():
