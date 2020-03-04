@@ -37,7 +37,7 @@ from runez.date import SECONDS_IN_ONE_DAY, SECONDS_IN_ONE_HOUR, SECONDS_IN_ONE_M
 from runez.file import copy, delete, first_line, get_conf, get_lines, move, symlink, touch, write
 from runez.heartbeat import Heartbeat
 from runez.logsetup import LogManager as log, LogSpec
-from runez.path import basename, ensure_folder, parent_folder
+from runez.path import auto_import_siblings, basename, ensure_folder, parent_folder
 from runez.program import check_pid, get_dev_folder, get_program_path, is_executable, is_younger, make_executable
 from runez.program import require_installed, run, which
 from runez.prompt import ask_once
@@ -68,7 +68,7 @@ __all__ = [
     "copy", "delete", "first_line", "get_conf", "get_lines", "move", "symlink", "touch", "write",
     "Heartbeat",
     "log", "LogSpec",
-    "basename", "ensure_folder", "parent_folder",
+    "auto_import_siblings", "basename", "ensure_folder", "parent_folder",
     "check_pid", "get_dev_folder", "get_program_path", "is_executable", "is_younger", "make_executable",
     "require_installed", "run", "which",
     "ask_once",

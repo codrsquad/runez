@@ -65,6 +65,7 @@ def test_version():
 
     with runez.CaptureOutput() as logged:
         assert runez.get_version(None) == "0.0.0"
-        assert "Can't determine version" in logged.pop()
-        assert runez.get_version([]) == "0.0.0"
+        assert not logged
+
+        assert runez.get_version(["foo"]) == "0.0.0"
         assert "Can't determine version" in logged.pop()

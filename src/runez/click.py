@@ -11,8 +11,6 @@ Convenience commonly used click options:
 
 from __future__ import absolute_import
 
-import os
-
 try:
     import click
 
@@ -23,45 +21,13 @@ from runez.colors.terminal import activate_colors
 from runez.config import use_cli
 from runez.convert import flattened
 from runez.logsetup import LogManager
-from runez.system import find_caller_frame, get_version
+from runez.system import find_caller_frame, get_version, is_caller_package
 
 
 def command(help=None, width=140, **attrs):
     """Same as `@click.command()`, but with common settings (ie: "-h" for help, slightly larger help display)"""
     attrs = settings(help=help, width=width, **attrs)
     return click.command(**attrs)
-
-
-def auto_import_commands(location):
-    """
-    Auto-import all submodules from `location` so click sub-commands get conveniently registered
-    This allows to avoid having to have a module that simply lists all sub-commands, just to ensure they are added to `main`
-    """
-    if not location:
-        return
-
-    if not os.path.isdir(location):
-        location = os.path.dirname(location)
-
-    if not os.path.isdir(location):
-        return
-
-    if os.environ.get("TOX_WORK_DIR"):
-        # Because we're doing this dynamically, we need to clean all .pyc files so tox runs with distinct python versions don't get confused
-        for root, dirs, files in os.walk(location):
-            for fname in files:
-                if fname.endswith(".pyc"):  # pragma: no cover, only applicable for local development
-                    try:
-                        os.unlink(os.path.join(root, fname))
-
-                    except OSError:
-                        pass  # Delete is only needed in tox run, no need to fail if delete is not possible
-
-    import pkgutil
-
-    for loader, module_name, _ in pkgutil.walk_packages([location]):
-        if module_name != "cli":
-            loader.find_module(module_name).load_module(module_name)
 
 
 def group(help=None, width=140, **attrs):
@@ -117,8 +83,10 @@ def version(*args, **attrs):
         package = attrs.pop("package", None)
         if not package:
             package = find_caller_frame(frame_package)
+
         if package:
             attrs.setdefault("version", get_version(package))
+
     return click.version_option(*args, **attrs)
 
 
@@ -158,17 +126,21 @@ def option(func, *args, **attrs):
         if attrs.get("is_flag") == "negatable":
             attrs["is_flag"] = True
             negatable = True
+
         attrs.setdefault("help", func.__doc__)
         attrs.setdefault("required", False)
         if not attrs.get("is_flag"):
             attrs.setdefault("show_default", True)
             attrs.setdefault("metavar", name.replace("-", "_").upper())
             attrs.setdefault("type", str)
+
         if not name.startswith("-"):
             if negatable:
                 name = "--%s/--no-%s" % (name, name)
+
             else:
                 name = "--%s" % name
+
         return click.option(name, *args, **attrs)(f)
 
     return decorator
@@ -179,6 +151,7 @@ def auto_complete_callback(attrs, func):
         def _callback(ctx, param, value):
             func(value)
             return value
+
         attrs.setdefault("callback", _callback)
 
 
@@ -192,5 +165,5 @@ def frame_package(depth, f):
         (str | None): Package name, if any
     """
     package = f.f_globals.get("__package__")
-    if package and not package.startswith("_"):
+    if is_caller_package(package):
         return package

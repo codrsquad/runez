@@ -72,7 +72,7 @@ def current_test():
                otherwise path to first found test-framework module
     """
     import re
-    regex = re.compile(r"^(conftest|(test_|_pytest\.|unittest\.).+|.+_test)$")
+    regex = re.compile(r"^(.+\.|)(conftest|(test_|_pytest\.|unittest\.).+|.+_test)$")
 
     def test_frame(depth, f):
         name = f.f_globals.get("__name__").lower()
@@ -83,7 +83,12 @@ def current_test():
     return find_caller_frame(test_frame, depth=2)
 
 
-def find_caller_frame(validator, depth=2, maximum=None):
+def is_caller_package(package):
+    """True if `package` looks like actual caller (not runez itself, or an internal library package)"""
+    return package and not package.startswith("_") and package.partition(".")[0] not in ("importlib", "pluggy", "runez")
+
+
+def find_caller_frame(validator=None, depth=2, maximum=None):
     """
     Args:
         validator (callable): Function that will decide whether a frame is suitable, and return value of interest from it
@@ -97,10 +102,17 @@ def find_caller_frame(validator, depth=2, maximum=None):
         while not maximum or depth <= maximum:
             try:
                 f = sys._getframe(depth)
-                value = validator(depth, f)
+                if validator is None:
+                    value = f if is_caller_package(f.f_globals.get("__package__")) else None
+
+                else:
+                    value = validator(depth, f)
+
                 if value is not None:
                     return value
+
                 depth = depth + 1
+
             except ValueError:
                 return None
 
@@ -141,6 +153,10 @@ def get_version(mod, default="0.0.0", logger=LOG.warning):
     if hasattr(mod, "__name__"):
         name = mod.__name__
 
+    if not name:
+        return default
+
+    module_name = name
     try:
         import pkg_resources
 
@@ -148,7 +164,7 @@ def get_version(mod, default="0.0.0", logger=LOG.warning):
         return pkg_resources.get_distribution(module_name).version
 
     except Exception as e:
-        if logger:
+        if logger and module_name != "tests":
             logger("Can't determine version for %s: %s", name, e, exc_info=e)
 
         return default
@@ -164,6 +180,7 @@ def _get_runez():
         import runez
 
         _runez_module = runez
+
     return _runez_module
 
 

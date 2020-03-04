@@ -149,7 +149,7 @@ def test_meta(logged):
 
     assert SerializableDescendants.get_meta("NoSuchDescendant") is None
     assert SerializableDescendants.get_meta("SomeSerializable") is SomeSerializable._meta
-    assert SerializableDescendants.get_meta("test_serialize.SomeSerializable") is SomeSerializable._meta
+    assert SerializableDescendants.get_meta("tests.test_serialize.SomeSerializable") is SomeSerializable._meta
 
     assert SomeSerializable._called is None
     SerializableDescendants.call("do_something_on_class", "testing")

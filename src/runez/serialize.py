@@ -317,8 +317,9 @@ class SerializableDescendants(object):
 
     @classmethod
     def register(cls, meta):
-        cls.by_name[meta.name] = meta
-        cls.by_qualified_name[meta.qualified_name] = meta
+        if meta.name not in cls.by_name:
+            cls.by_name[meta.name] = meta
+            cls.by_qualified_name[meta.qualified_name] = meta
 
     @classmethod
     def children(cls, base):
