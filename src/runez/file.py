@@ -64,7 +64,7 @@ def first_line(path):
     :return str|None: First line of file, if any
     """
     try:
-        with io.open(path, "rt", errors="ignore") as fh:
+        with io.open(path, errors="ignore") as fh:
             return fh.readline().strip()
 
     except (IOError, TypeError):
@@ -134,7 +134,7 @@ def get_lines(path, max_size=TEXT_THRESHOLD_SIZE, fatal=True, default=None):
         return default
 
     try:
-        with io.open(path, "rt", errors="ignore") as fh:
+        with io.open(path) as fh:
             return fh.readlines()
 
     except Exception as e:

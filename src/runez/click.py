@@ -11,6 +11,8 @@ Convenience commonly used click options:
 
 from __future__ import absolute_import
 
+import os
+
 try:
     import click
 
@@ -28,6 +30,38 @@ def command(help=None, width=140, **attrs):
     """Same as `@click.command()`, but with common settings (ie: "-h" for help, slightly larger help display)"""
     attrs = settings(help=help, width=width, **attrs)
     return click.command(**attrs)
+
+
+def auto_import_commands(location):
+    """
+    Auto-import all submodules from `location` so click sub-commands get conveniently registered
+    This allows to avoid having to have a module that simply lists all sub-commands, just to ensure they are added to `main`
+    """
+    if not location:
+        return
+
+    if not os.path.isdir(location):
+        location = os.path.dirname(location)
+
+    if not os.path.isdir(location):
+        return
+
+    if os.environ.get("TOX_WORK_DIR"):
+        # Because we're doing this dynamically, we need to clean all .pyc files so tox runs with distinct python versions don't get confused
+        for root, dirs, files in os.walk(location):
+            for fname in files:
+                if fname.endswith(".pyc"):  # pragma: no cover, only applicable for local development
+                    try:
+                        os.unlink(os.path.join(root, fname))
+
+                    except OSError:
+                        pass  # Delete is only needed in tox run, no need to fail if delete is not possible
+
+    import pkgutil
+
+    for loader, module_name, _ in pkgutil.walk_packages([location]):
+        if module_name != "cli":
+            loader.find_module(module_name).load_module(module_name)
 
 
 def group(help=None, width=140, **attrs):

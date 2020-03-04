@@ -4,7 +4,10 @@
 Test click related methods
 """
 
+import os
+
 import click
+from mock import patch
 
 import runez
 
@@ -91,3 +94,11 @@ def test_command(cli):
 def test_edge_cases():
     # Ensure we stop once callstack is exhausted
     assert runez.click.find_caller_frame(lambda d, f: None, maximum=1000) is None
+
+
+@patch.dict(os.environ, {"TOX_WORK_DIR": "some-value"}, clear=True)
+def test_auto_import():
+    # Check that none of these invocations raise an exception
+    runez.click.auto_import_commands(None)
+    runez.click.auto_import_commands("/dev/null/foo/bar")
+    runez.click.auto_import_commands(runez.__file__)

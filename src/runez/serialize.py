@@ -661,7 +661,7 @@ def read_json(path, default=None, fatal=True, logger=None):
         return default
 
     try:
-        with io.open(path, "rt") as fh:
+        with io.open(path) as fh:
             data = json.load(fh)
             if default is not None and type(data) != type(default):
                 return abort("Wrong type %s for %s, expecting %s", type(data), short(path), type(default), fatal=(fatal, default))
