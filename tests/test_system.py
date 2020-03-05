@@ -1,6 +1,6 @@
 import os
 
-from mock import patch
+from mock import MagicMock, patch
 
 import runez
 
@@ -9,6 +9,10 @@ def failed_function(*args):
     with patch("runez.system.logging.root") as root:
         root.handlers = None
         runez.abort(*args)
+
+
+def mock_package(package, name=None):
+    return MagicMock(f_globals={"__package__": package, "__name__": name})
 
 
 def test_abort(logged):
@@ -29,14 +33,16 @@ def test_abort(logged):
 
 def test_auto_import_siblings():
     # Check that none of these invocations raise an exception
-    assert not runez.system.is_caller_package(None)
-    assert not runez.system.is_caller_package("")
-    assert not runez.system.is_caller_package("_pydevd")
-    assert not runez.system.is_caller_package("_pytest.foo")
-    assert not runez.system.is_caller_package("pluggy.hooks")
-    assert not runez.system.is_caller_package("runez.system")
+    assert not runez.system.actual_caller_frame(mock_package(None))
+    assert not runez.system.actual_caller_frame(mock_package(""))
+    assert not runez.system.actual_caller_frame(mock_package("_pydevd"))
+    assert not runez.system.actual_caller_frame(mock_package("_pytest.foo"))
+    assert not runez.system.actual_caller_frame(mock_package("pluggy.hooks"))
+    assert not runez.system.actual_caller_frame(mock_package("runez"))
+    assert not runez.system.actual_caller_frame(mock_package("runez.system"))
 
-    assert runez.system.is_caller_package("foo")
+    assert runez.system.actual_caller_frame(mock_package("foo"))
+    assert runez.system.actual_caller_frame(mock_package("runez.system", name="__main__"))
 
     assert runez.auto_import_siblings([]) is None
     assert runez.auto_import_siblings([""]) == []

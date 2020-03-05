@@ -149,7 +149,7 @@ def current_test():
     import re
     regex = re.compile(r"^(.+\.|)(conftest|(test_|_pytest\.|unittest\.).+|.+_test)$")
 
-    def test_frame(depth, f):
+    def test_frame(f):
         name = f.f_globals.get("__name__").lower()
         m = regex.match(name)
         if m:
@@ -158,12 +158,17 @@ def current_test():
     return find_caller_frame(test_frame, depth=2)
 
 
-def is_caller_package(package):
-    """True if `package` looks like actual caller (not runez itself, or an internal library package)"""
-    return package and not package.startswith("_") and package.partition(".")[0] not in ("importlib", "pluggy", "runez")
+def actual_caller_frame(f):
+    """Return `f` if it's a frame that looks like coming from actual caller (not runez itself, or an internal library package)"""
+    if f.f_globals.get("__name__") == "__main__":
+        return f
+
+    package = f.f_globals.get("__package__")
+    if package and not package.startswith("_") and package.partition(".")[0] not in ("importlib", "pluggy", "runez"):
+        return f
 
 
-def find_caller_frame(validator=None, depth=2, maximum=None):
+def find_caller_frame(validator=actual_caller_frame, depth=2, maximum=None):
     """
     Args:
         validator (callable): Function that will decide whether a frame is suitable, and return value of interest from it
@@ -177,12 +182,7 @@ def find_caller_frame(validator=None, depth=2, maximum=None):
         while not maximum or depth <= maximum:
             try:
                 f = sys._getframe(depth)
-                if validator is None:
-                    value = f if is_caller_package(f.f_globals.get("__package__")) else None
-
-                else:
-                    value = validator(depth, f)
-
+                value = validator(f)
                 if value is not None:
                     return value
 

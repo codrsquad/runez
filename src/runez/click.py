@@ -21,7 +21,7 @@ from runez.colors.terminal import activate_colors
 from runez.config import use_cli
 from runez.convert import flattened
 from runez.logsetup import LogManager
-from runez.system import find_caller_frame, get_version, is_caller_package
+from runez.system import actual_caller_frame, find_caller_frame, get_version
 
 
 def command(help=None, width=140, **attrs):
@@ -155,15 +155,16 @@ def auto_complete_callback(attrs, func):
         attrs.setdefault("callback", _callback)
 
 
-def frame_package(depth, f):
+def frame_package(f):
     """
     Args:
-        depth (int): Depth at which `f` is into callstack
         f (frame): Frame to inspect
 
     Returns:
         (str | None): Package name, if any
     """
-    package = f.f_globals.get("__package__")
-    if is_caller_package(package):
-        return package
+    caller = actual_caller_frame(f)
+    if caller:
+        package = caller.f_globals.get("__package__")
+        if package:
+            return package

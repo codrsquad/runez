@@ -90,4 +90,4 @@ def test_command(cli):
 
 def test_edge_cases():
     # Ensure we stop once callstack is exhausted
-    assert runez.click.find_caller_frame(lambda d, f: None, maximum=1000) is None
+    assert runez.click.find_caller_frame(lambda f: None, maximum=1000) is None
