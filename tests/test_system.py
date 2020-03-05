@@ -1,5 +1,6 @@
 import os
 
+import pytest
 from mock import MagicMock, patch
 
 import runez
@@ -11,8 +12,12 @@ def failed_function(*args):
         runez.abort(*args)
 
 
-def mock_package(package, name=None):
-    return MagicMock(f_globals={"__package__": package, "__name__": name})
+def mock_package(package, **kwargs):
+    globs = {"__package__": package}
+    for key, value in kwargs.items():
+        globs["__%s__" % key] = value
+
+    return MagicMock(f_globals=globs)
 
 
 def test_abort(logged):
@@ -44,24 +49,32 @@ def test_auto_import_siblings():
     assert runez.system.actual_caller_frame(mock_package("foo"))
     assert runez.system.actual_caller_frame(mock_package("runez.system", name="__main__"))
 
-    assert runez.auto_import_siblings([]) is None
-    assert runez.auto_import_siblings([""]) == []
+    with pytest.raises(ImportError):
+        with patch("runez.system.find_caller_frame", return_value=None):
+            runez.auto_import_siblings()
 
-    runez.auto_import_siblings()
+    with pytest.raises(ImportError):
+        with patch("runez.system.find_caller_frame", return_value=mock_package("foo", name="__main__")):
+            runez.auto_import_siblings()
 
-    with patch("runez.system.find_caller_frame", return_value=None):
-        runez.auto_import_siblings()
+    with pytest.raises(ImportError):
+        with patch("runez.system.find_caller_frame", return_value=mock_package("foo")):
+            runez.auto_import_siblings()
+
+    with pytest.raises(ImportError):
+        with patch("runez.system.find_caller_frame", return_value=mock_package("foo", file="/dev/null/foo")):
+            runez.auto_import_siblings()
 
     with patch.dict(os.environ, {"TOX_WORK_DIR": "some-value"}, clear=True):
         imported = runez.auto_import_siblings()
         by_name = dict((m.__name__, m) for m in imported)
 
-        assert len(imported) == 20
+        assert len(imported) == 21
         assert "conftest" in by_name
         assert "secondary" in by_name
         assert "secondary.test_import" in by_name
         assert "test_base" in by_name
-        assert "test_system" not in by_name
+        assert "test_system" in by_name
 
 
 def test_current_test():
