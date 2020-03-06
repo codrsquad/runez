@@ -96,10 +96,46 @@ def auto_import_siblings(auto_clean="TOX_WORK_DIR"):
     Returns:
         (list): List of imported modules, if any
     """
+    caller = find_caller_frame(depth=1)
+    if not caller:
+        raise ImportError("Could not determine caller, can't auto-import")
+
+    if caller.f_globals.get("__name__") == "__main__":
+        raise ImportError("Calling auto_import_siblings() from __main__ is not supported: %s" % caller)
+
+    caller_package = caller.f_globals.get("__package__")
+    if not caller_package:
+        raise ImportError("Could not determine caller's __package__, can't auto-import: %s" % caller)
+
+    caller_path = caller.f_globals.get("__file__")
+    if not caller_path:
+        raise ImportError("Could not determine caller's __file__, can't auto-import: %s" % caller)
+
+    folder = os.path.dirname(caller_path)
+    if not os.path.isdir(folder):
+        raise ImportError("Caller's __file__ points to a non-existing directory, can't auto-import: %s" % caller)
+
     if auto_clean is not None and not isinstance(auto_clean, bool):
         auto_clean = os.environ.get(auto_clean)
 
-    return AutoImporter.auto_import_siblings(auto_clean=auto_clean)
+    if auto_clean:
+        # Clean .pyc files so consecutive tox runs with distinct python2 versions don't get confused
+        _clean_files(folder, ".pyc")
+
+    import pkgutil
+
+    imported = []
+    failed = {}
+    for loader, module_name, _ in pkgutil.walk_packages([folder], prefix="%s." % caller_package):
+        if not module_name.endswith("_"):
+            try:
+                __import__(module_name)
+                imported.append(module_name)
+
+            except Exception as e:
+                failed[module_name] = e
+
+    return imported, failed
 
 
 def current_test():
@@ -237,64 +273,13 @@ def set_dryrun(dryrun):
     return old
 
 
-class AutoImporter(object):
-    """This class allows to auto-import all sibling modules of caller"""
+def _clean_files(folder, extension):
+    """Clean all files with `extension` from `folder`"""
+    for root, dirs, files in os.walk(folder):
+        for fname in files:
+            if fname.endswith(extension):  # pragma: no cover, only applicable for local development
+                try:
+                    os.unlink(os.path.join(root, fname))
 
-    _is_auto_importing = False
-
-    @classmethod
-    def auto_import_siblings(cls, auto_clean):
-        if not cls._is_auto_importing:
-            try:
-                cls._is_auto_importing = True
-                return cls._auto_import_siblings(auto_clean)
-
-            finally:
-                cls._is_auto_importing = False
-
-    @classmethod
-    def _auto_import_siblings(cls, auto_clean):
-        caller = find_caller_frame(depth=1)
-        if not caller:
-            raise ImportError("Could not determine caller, can't auto-import")
-
-        caller_package = caller.f_globals.get("__package__")
-        if not caller_package:
-            raise ImportError("Could not determine caller's __package__, can't auto-import: %s" % caller)
-
-        if caller.f_globals.get("__name__") == "__main__":
-            raise ImportError("Calling auto_import_siblings() from __main__ is not supported: %s" % caller)
-
-        caller_path = caller.f_globals.get("__file__")
-        if not caller_path:
-            raise ImportError("Could not determine caller's __file__, can't auto-import: %s" % caller)
-
-        folder = os.path.dirname(caller_path)
-        if not os.path.isdir(folder):
-            raise ImportError("Caller's __file__ points to a non-existing directory, can't auto-import: %s" % caller)
-
-        import pkgutil
-
-        imported = []
-        if auto_clean:
-            # Clean .pyc files so consecutive tox runs with distinct python2 versions don't get confused
-            for root, dirs, files in os.walk(folder):
-                for fname in files:
-                    if fname.endswith(".pyc"):  # pragma: no cover, only applicable for local development
-                        try:
-                            os.unlink(os.path.join(root, fname))
-
-                        except OSError:
-                            pass  # Delete is only needed in tox run, no need to fail if delete is not possible
-
-        for loader, module_name, _ in pkgutil.walk_packages([folder]):
-            if not module_name.startswith("_"):
-                module_name = "%s.%s" % (caller_package, module_name)
-                if not cls.is_already_imported(module_name):
-                    imported.append(loader.find_module(module_name).load_module(module_name))
-
-        return imported
-
-    @classmethod
-    def is_already_imported(cls, module_name):
-        return module_name in sys.modules
+                except OSError:
+                    pass  # Delete is only needed in tox run, no need to fail if delete is not possible
