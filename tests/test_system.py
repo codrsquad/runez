@@ -49,8 +49,14 @@ def test_auto_import_siblings():
     assert runez.system.actual_caller_frame(mock_package("foo"))
     assert runez.system.actual_caller_frame(mock_package("runez.system", name="__main__"))
 
+    assert runez.system.AutoImporter.is_already_imported("tests.conftest")
+
     with pytest.raises(ImportError):
         with patch("runez.system.find_caller_frame", return_value=None):
+            runez.auto_import_siblings()
+
+    with pytest.raises(ImportError):
+        with patch("runez.system.find_caller_frame", return_value=mock_package(None)):
             runez.auto_import_siblings()
 
     with pytest.raises(ImportError):
@@ -66,15 +72,13 @@ def test_auto_import_siblings():
             runez.auto_import_siblings()
 
     with patch.dict(os.environ, {"TOX_WORK_DIR": "some-value"}, clear=True):
-        imported = runez.auto_import_siblings()
-        by_name = dict((m.__name__, m) for m in imported)
-
-        assert len(imported) == 21
-        assert "conftest" in by_name
-        assert "secondary" in by_name
-        assert "secondary.test_import" in by_name
-        assert "test_base" in by_name
-        assert "test_system" in by_name
+        with patch("runez.system.AutoImporter.is_already_imported", return_value=False):
+            imported = runez.auto_import_siblings()
+            by_name = dict((m.__name__, m) for m in imported)
+            assert "tests.conftest" in by_name
+            assert "tests.secondary" in by_name
+            assert "tests.test_base" in by_name
+            assert "tests.test_system" in by_name
 
 
 def test_current_test():
