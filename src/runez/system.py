@@ -65,7 +65,7 @@ def abort(*args, **kwargs):
     return return_value
 
 
-def auto_import_siblings(auto_clean="TOX_WORK_DIR"):
+def auto_import_siblings(auto_clean="TOX_WORK_DIR", skip=None):
     """
     Auto-import all sibling submodules from caller.
     This is handy for click command groups for example.
@@ -92,6 +92,7 @@ def auto_import_siblings(auto_clean="TOX_WORK_DIR"):
     Args:
         auto_clean (str | bool | None): If True, auto-clean .pyc files
                                         If string: auto-clean .pyc files when corresponding env var is defined
+        skip (list | None): Do not auto-import specified modules
 
     Returns:
         (list): List of imported modules, if any
@@ -125,17 +126,28 @@ def auto_import_siblings(auto_clean="TOX_WORK_DIR"):
     import pkgutil
 
     imported = []
-    failed = {}
     for loader, module_name, _ in pkgutil.walk_packages([folder], prefix="%s." % caller_package):
-        if not module_name.endswith("_"):
-            try:
-                __import__(module_name)
-                imported.append(module_name)
+        if should_auto_import(module_name, skip):
+            __import__(module_name)
+            imported.append(module_name)
 
-            except Exception as e:
-                failed[module_name] = e
+    return imported
 
-    return imported, failed
+
+def should_auto_import(module_name, skip):
+    """
+    Args:
+        module_name (str): Module being auto-imported
+        skip (list | None): Modules to NOT auto-import
+
+    Returns:
+        (bool): True if we should auto-import `module_name`
+    """
+    if not module_name.endswith("_"):
+        if skip and any(module_name.startswith(x) for x in skip):
+            return False
+
+        return True
 
 
 def current_test():

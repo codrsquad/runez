@@ -70,23 +70,22 @@ def test_auto_import_siblings():
             runez.auto_import_siblings()
 
     with patch.dict(os.environ, {"TOX_WORK_DIR": "some-value"}, clear=True):
-        imported, failed = runez.auto_import_siblings()
-        assert len(imported) == 21
-        assert len(failed) == 0
+        imported = runez.auto_import_siblings(skip=["tests.test_base", "tests.test_system"])
+        assert len(imported) == 19
 
         assert "tests.conftest" in imported
         assert "tests.secondary" in imported
         assert "tests.secondary.test_import" in imported
-        assert "tests.test_base" in imported
-        assert "tests.test_system" in imported
+        assert "tests.test_base" not in imported
+        assert "tests.test_click" in imported
+        assert "tests.test_system" not in imported
 
-    with runez.TempFolder():
-        runez.write("bad_module.py", "oops, this is not python")
-        with patch("runez.system.find_caller_frame", return_value=mock_package("sample", file="./bad_module.py")):
-            imported, failed = runez.auto_import_siblings()
-            assert not imported
-            assert len(failed) == 1
-            assert "sample.bad_module" in failed
+    imported = runez.auto_import_siblings(skip=["tests.secondary"])
+    assert len(imported) == 19
+    assert "tests.conftest" in imported
+    assert "tests.secondary" not in imported
+    assert "tests.secondary.test_import" not in imported
+    assert "tests.test_base" in imported
 
 
 def test_current_test():
