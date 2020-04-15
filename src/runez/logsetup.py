@@ -297,7 +297,7 @@ class LogManager(object):
             context_format (str | unicode | None): Format to use for contextual log, use None to deactivate
             dev (str | unicode | None): Custom folder to use when running from a development venv (auto-determined if None)
             file_format (str | unicode | None): Format to use for file log, use None to deactivate
-            file_level (str | unicode | None): Level to use for file logging
+            file_level (int | None): Level to use for file logging
             file_location (str | unicode | None): Desired custom file location (overrides {locations} search, handy as a --log cli flag)
             locations (list[str | unicode]|None): List of candidate folders for file logging (None: deactivate file logging)
             rotate (str | unicode | None): How to rotate log file (None: no rotation, "time:1d" time-based, "size:50m" size-based)

@@ -53,9 +53,11 @@ def get_dev_folder(path=sys.prefix):
     """
     if not path or len(path) <= 4:
         return None
+
     dirpath, basename = os.path.split(path)
     if basename in DEV_FOLDERS:
         return path
+
     return get_dev_folder(dirpath)
 
 
@@ -65,6 +67,7 @@ def get_program_path(path=None):
     """
     if path is None:
         path = sys.argv[0]
+
     return which(path) or path
 
 
@@ -127,6 +130,19 @@ def make_executable(path, fatal=True):
         return abort("Can't chmod %s: %s", short(path), e, fatal=(fatal, -1))
 
 
+def needs_wrapping(args):
+    return not WINDOWS and "PYCHARM_HOSTED" in os.environ and len(args) > 1 and "python" in args[0] and args[1].startswith("-m")
+
+
+def wrapped_args(args):
+    if needs_wrapping(args):
+        # Temporary workaround for https://youtrack.jetbrains.com/issue/PY-40692
+        wrapper = os.path.join(os.path.dirname(__file__), "pydev-wrapper.sh")
+        return ["/bin/sh", wrapper] + args
+
+    return args
+
+
 def run(program, *args, **kwargs):
     """
     Run 'program' with 'args'
@@ -175,11 +191,12 @@ def run(program, *args, **kwargs):
     if not full_path:
         return abort("%s is not installed", short(program), fatal=fatal)
 
-    args = [full_path] + args
+    args = wrapped_args([full_path] + args)
     try:
         path_env = kwargs.pop("path_env", None)
         if path_env:
             kwargs["env"] = added_env_paths(path_env, env=kwargs.get("env"))
+
         p = subprocess.Popen(args, stdout=stdout, stderr=stderr, **kwargs)  # nosec
         output, err = p.communicate()
         output = decode(output, strip=True)
@@ -203,6 +220,7 @@ def run(program, *args, **kwargs):
     except Exception as e:
         if isinstance(e, AbortException):
             raise
+
         return abort("%s failed: %s", short(program), e, exc_info=e, fatal=fatal)
 
 
@@ -239,11 +257,14 @@ def which(program, ignore_own_venv=False):
 def get_platform_install_instructions(program, instructions=None):
     if instructions is None:
         instructions = DEFAULT_PLATFORM_INSTRUCTIONS
+
     text = instructions.get(get_platform())
     if not text:
         text = ":\n- %s" % "\n- ".join("on %s: %s" % (k, v) for k, v in instructions.items())
+
     else:
         text = ", %s" % text
+
     return text.format(program=program)
 
 
@@ -264,13 +285,18 @@ def require_installed(program, instructions=None, fatal=True):
     if which(program) is None:
         if not instructions:
             instructions = get_platform_install_instructions(program)
+
         elif isinstance(instructions, dict):
             instructions = get_platform_install_instructions(program, instructions=instructions)
+
         elif " " not in instructions:
             instructions = get_platform_install_instructions(instructions)
+
         else:
             instructions = ", %s" % instructions
+
         return abort("%s is not installed%s", program, instructions, fatal=(fatal, False))
+
     return True
 
 

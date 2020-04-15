@@ -174,3 +174,12 @@ def test_failed_run(logged):
     with patch("subprocess.Popen", side_effect=Exception("testing")):
         assert runez.run("python", "--version", fatal=False) is False
         assert "python failed: testing" in logged
+
+
+@pytest.mark.skipif(runez.WINDOWS, reason="Not supported on windows")
+def test_wrapped_run():
+    with patch.dict(os.environ, {"PYCHARM_HOSTED": "1"}):
+        a = runez.program.wrapped_args(["python", "-mvenv", "foo"])
+        assert len(a) == 5
+        assert a[0] == "/bin/sh"
+        assert os.path.basename(a[1]) == "pydev-wrapper.sh"

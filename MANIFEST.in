@@ -1,0 +1,3 @@
+include README.rst
+graft src/runez
+global-exclude *.py[cod] __pycache__ *.so
