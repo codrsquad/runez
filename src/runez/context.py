@@ -3,9 +3,7 @@ Convenience context managers
 """
 
 import os
-import shutil
 import sys
-import tempfile
 
 import runez.convert
 import runez.system
@@ -202,48 +200,6 @@ class CurrentFolder(object):
         os.chdir(self.current_folder)
         if self.anchor:
             runez.convert.Anchored.pop(self.destination)
-
-
-class TempFolder(object):
-    """
-    Context manager for obtaining a temp folder
-    """
-
-    def __init__(self, anchor=True, dryrun=None, follow=True):
-        """
-        :param anchor: If True, short-ify paths relative to used temp folder
-        :param dryrun: Override dryrun (if provided)
-        :param follow: If True, change working dir to temp folder (and restore)
-        """
-        self.anchor = anchor
-        self.dryrun = dryrun
-        self.follow = follow
-        self.old_cwd = None
-        self.tmp_folder = None
-
-    def __enter__(self):
-        if self.dryrun is not None:
-            self.dryrun = runez.system.set_dryrun(self.dryrun)
-        if not runez.system.is_dryrun():
-            # Use realpath() to properly resolve for example symlinks on OSX temp paths
-            self.tmp_folder = os.path.realpath(tempfile.mkdtemp())
-            if self.follow:
-                self.old_cwd = os.getcwd()
-                os.chdir(self.tmp_folder)
-        tmp = self.tmp_folder or runez.convert.SYMBOLIC_TMP
-        if self.anchor:
-            runez.convert.Anchored.add(tmp)
-        return tmp
-
-    def __exit__(self, *_):
-        if self.anchor:
-            runez.convert.Anchored.pop(self.tmp_folder or runez.convert.SYMBOLIC_TMP)
-        if self.old_cwd:
-            os.chdir(self.old_cwd)
-        if self.tmp_folder:
-            shutil.rmtree(self.tmp_folder)
-        if self.dryrun is not None:
-            runez.system.set_dryrun(self.dryrun)
 
 
 def verify_abort(func, *args, **kwargs):

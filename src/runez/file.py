@@ -2,11 +2,12 @@ import io
 import logging
 import os
 import shutil
+import tempfile
 
 from runez.base import decode
-from runez.convert import resolved_path, short
+from runez.convert import Anchored, resolved_path, short, SYMBOLIC_TMP, to_int
 from runez.path import ensure_folder, parent_folder
-from runez.system import abort, is_dryrun
+from runez.system import abort, is_dryrun, set_dryrun
 
 LOG = logging.getLogger(__name__)
 TEXT_THRESHOLD_SIZE = 1048576  # Max size in bytes to consider a file a "text file"
@@ -170,6 +171,72 @@ def symlink(source, destination, adapter=None, must_exist=True, fatal=True, logg
     return _file_op(source, destination, _symlink, adapter, fatal, logger, must_exist=must_exist)
 
 
+class TempFolder(object):
+    """
+    Context manager for obtaining a temp folder
+    """
+
+    def __init__(self, anchor=True, dryrun=None, follow=True):
+        """
+        Args:
+            anchor (bool): If True, short-ify paths relative to used temp folder
+            dryrun (bool): Override dryrun (if provided)
+            follow (bool): If True, change working dir to temp folder (and restore)
+        """
+        self.anchor = anchor
+        self.dryrun = dryrun
+        self.follow = follow
+        self.old_cwd = None
+        self.tmp_folder = None
+
+    def __enter__(self):
+        if self.dryrun is not None:
+            self.dryrun = set_dryrun(self.dryrun)
+
+        if not is_dryrun():
+            # Use realpath() to properly resolve for example symlinks on OSX temp paths
+            self.tmp_folder = os.path.realpath(tempfile.mkdtemp())
+            if self.follow:
+                self.old_cwd = os.getcwd()
+                os.chdir(self.tmp_folder)
+
+        tmp = self.tmp_folder or SYMBOLIC_TMP
+        if self.anchor:
+            Anchored.add(tmp)
+
+        return tmp
+
+    def __exit__(self, *_):
+        if self.anchor:
+            Anchored.pop(self.tmp_folder or SYMBOLIC_TMP)
+
+        if self.old_cwd:
+            os.chdir(self.old_cwd)
+
+        if self.tmp_folder:
+            shutil.rmtree(self.tmp_folder)
+
+        if self.dryrun is not None:
+            set_dryrun(self.dryrun)
+
+
+def terminal_width(default=None):
+    """Get the width (number of columns) of the terminal window.
+
+    Args:
+        default: Default to use if terminal width could not be determined
+
+    Returns:
+        (int): Determined terminal width, if possible
+    """
+    for func in (_tw_shutil, _tw_env):
+        columns = func()
+        if columns is not None:
+            return columns
+
+    return to_int(default)
+
+
 def touch(path, fatal=True, logger=None):
     """
     :param str|None path: Path to file to touch
@@ -295,3 +362,15 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True,
 
     except Exception as e:
         return abort("Can't %s %s %s %s: %s", action, short(source), indicator, short(destination), e, fatal=(fatal, -1))
+
+
+def _tw_shutil():
+    try:
+        return shutil.get_terminal_size().columns
+
+    except Exception:
+        return None
+
+
+def _tw_env():
+    return to_int(os.environ.get("COLUMNS"))

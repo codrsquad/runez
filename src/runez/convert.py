@@ -201,7 +201,7 @@ def resolved_path(path, base=None):
 def short(path):
     """
     Args:
-        path (str): Path to textually represent in a shortened (yet meaningful) form
+        path (str | None): Path to textually represent in a shortened (yet meaningful) form
 
     Returns:
         (str): Shorter version of `path` (relative to one of the current anchor folders)
@@ -224,6 +224,60 @@ def shortened(value, size=120):
         return "%s..." % text[:size - 3]
 
     return text
+
+
+def to_boolean(value):
+    """Convert `value` to boolean, strings considered to represent True: "true", "yes", "y" or "on"
+
+    Args:
+        value (str | unicode | None): Value to convert to bool
+
+    Returns:
+        (bool): Deduced boolean value
+    """
+    if value is not None:
+        if stringified(value).lower() in TRUE_TOKENS:
+            return True
+
+        number = to_number(value)
+        if number is not None:
+            return bool(number)
+
+    return False
+
+
+def to_bytesize(value, default_unit=None, base=1024):
+    """Convert `value` to bytes, accepts notations such as "4k" to mean 4096 bytes
+
+    Args:
+        value (str | unicode | int | None): Number of bytes optionally suffixed by 1 or 2 chars designating unit (ie: "m" or "kb" etc)
+        default_unit (str | unicode | None): Default unit to use for unqualified values
+        base (int): Base to use (usually 1024)
+
+    Returns:
+        (int | None): Deduced bytesize value, if possible
+    """
+    if value is not None:
+        v = to_number(value)
+        if v is not None:
+            return unitized(v, default_unit, base)
+
+        try:
+            if value[-1].lower() == "b":
+                # Accept notations such as "1mb", as they get used out of habit
+                value = value[:-1]
+
+            unit = value[-1:].lower()
+            if unit.isdigit():
+                unit = default_unit
+
+            else:
+                value = value[:-1]
+
+            return unitized(to_number(value), unit, base)
+
+        except (AttributeError, IndexError, KeyError, TypeError, ValueError):
+            return None
 
 
 def to_float(value, lenient=False, default=None):

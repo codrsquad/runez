@@ -24,11 +24,8 @@ import json
 import os
 
 from runez.base import decode, stringified
-from runez.convert import affixed, capped, flattened, SANITIZED, snakified, to_float, to_int, to_number, TRUE_TOKENS, unitized
+from runez.convert import affixed, capped, flattened, SANITIZED, snakified, to_boolean, to_bytesize, to_float, to_int
 from runez.system import get_platform
-
-
-BYTESIZE_BASE = 1024
 
 
 class Configuration:
@@ -241,11 +238,11 @@ class Configuration:
         """
         value = self.get_str(key)
         if value is not None:
-            return parsed_boolean(value)
+            return to_boolean(value)
 
         return default
 
-    def get_bytesize(self, key, default=None, minimum=None, maximum=None, default_unit=None, base=BYTESIZE_BASE):
+    def get_bytesize(self, key, default=None, minimum=None, maximum=None, default_unit=None, base=1024):
         """Size in bytes expressed by value configured under 'key'
 
         Args:
@@ -259,11 +256,11 @@ class Configuration:
         Returns:
             (int): Size in bytes
         """
-        value = parsed_bytesize(self.get_str(key), default_unit, base)
+        value = to_bytesize(self.get_str(key), default_unit, base)
         if value is None:
-            return parsed_bytesize(default, default_unit, base)
+            return to_bytesize(default, default_unit, base)
 
-        return capped(value, parsed_bytesize(minimum, default_unit, base), parsed_bytesize(maximum, default_unit, base))
+        return capped(value, to_bytesize(minimum, default_unit, base), to_bytesize(maximum, default_unit, base))
 
     def get_json(self, key, default=None):
         """
@@ -418,59 +415,6 @@ def from_json(value):
 
     except (TypeError, ValueError):
         return None
-
-
-def parsed_boolean(value):
-    """
-    Args:
-        value (str | unicode | None): Value to convert to bool
-
-    Returns:
-        (bool): Deduced boolean value
-    """
-    if value is not None:
-        if stringified(value).lower() in TRUE_TOKENS:
-            return True
-
-        number = to_number(value)
-        if number is not None:
-            return bool(number)
-
-    return False
-
-
-def parsed_bytesize(value, default_unit=None, base=BYTESIZE_BASE):
-    """Convert `value` to bytes, accepts notations such as "4k" to mean 4096 bytes
-
-    Args:
-        value (str | unicode | int | None): Number of bytes optionally suffixed by 1 or 2 chars designating unit (ie: "m" or "kb" etc)
-        default_unit (str | unicode | None): Default unit to use for unqualified values
-        base (int): Base to use (usually 1024)
-
-    Returns:
-        (int | None): Deduced bytesize value, if possible
-    """
-    if value is not None:
-        v = to_number(value)
-        if v is not None:
-            return unitized(v, default_unit, base)
-
-        try:
-            if value[-1].lower() == "b":
-                # Accept notations such as "1mb", as they get used out of habit
-                value = value[:-1]
-
-            unit = value[-1:].lower()
-            if unit.isdigit():
-                unit = default_unit
-
-            else:
-                value = value[:-1]
-
-            return unitized(to_number(value), unit, base)
-
-        except (AttributeError, IndexError, KeyError, TypeError, ValueError):
-            return None
 
 
 def parsed_dict(value, prefix=None, separators="=,"):

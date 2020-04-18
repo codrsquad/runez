@@ -31,15 +31,19 @@ def test_boolean():
     assert b.converted("a") is False
     assert b.converted("False") is False
     assert b.converted("true") is True
+    assert b.converted("Y") is True
     assert b.converted("yes") is True
 
     assert b.converted(0) is False
     assert b.converted(4) is True
+    assert b.converted(123.4) is True
+    assert b.converted("123.4") is True
+    assert b.converted("123.4a") is False
 
     assert b.converted([]) is False
-    assert b.converted([1, 2]) is True
+    assert b.converted([1, 2]) is False
 
-    assert b.converted(object()) is True
+    assert b.converted(object()) is False
 
 
 def test_date():

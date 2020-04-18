@@ -15,7 +15,7 @@ Example:
 import inspect
 
 from runez.base import string_type, stringified
-from runez.convert import to_float, to_int, TRUE_TOKENS
+from runez.convert import to_boolean, to_float, to_int
 from runez.date import to_date, to_datetime, UTC
 
 
@@ -172,10 +172,7 @@ class Boolean(Any):
     """Represents boolean type"""
 
     def _converted(self, value):
-        if isinstance(value, string_type):
-            return value.lower() in TRUE_TOKENS
-
-        return bool(value)
+        return to_boolean(value)
 
 
 class Date(Any):

@@ -1,7 +1,60 @@
 import datetime
 import math
+import os
 
 import runez
+
+
+def test_anchored(temp_folder):
+    assert runez.resolved_path(None) is None
+    assert runez.resolved_path("some-file") == os.path.join(temp_folder, "some-file")
+    assert runez.resolved_path("some-file", base="bar") == os.path.join(temp_folder, "bar", "some-file")
+
+    assert runez.short(None) is None
+    assert runez.short("") == ""
+    assert runez.short(os.path.join(temp_folder, "some-file")) == "some-file"
+
+    assert runez.represented_args(["ls", os.path.join(temp_folder, "some-file") + " bar", "-a"]) == 'ls "some-file bar" -a'
+
+    user_path = runez.resolved_path("~/some-folder/bar")
+    current_path = runez.resolved_path("./some-folder/bar")
+
+    assert user_path != "~/some-folder/bar"
+    assert runez.short(user_path) == "~/some-folder/bar"
+    assert runez.short(current_path) == "some-folder/bar"
+
+    with runez.Anchored(os.getcwd()):
+        assert runez.short(current_path) == os.path.join("some-folder", "bar")
+
+
+def test_boolean():
+    assert runez.to_boolean(None) is False
+    assert runez.to_boolean("") is False
+    assert runez.to_boolean("t") is False
+    assert runez.to_boolean("0") is False
+    assert runez.to_boolean("0.0") is False
+    assert runez.to_boolean("1.0.0") is False
+
+    assert runez.to_boolean("True") is True
+    assert runez.to_boolean("Y") is True
+    assert runez.to_boolean("yes") is True
+    assert runez.to_boolean("On") is True
+    assert runez.to_boolean("5") is True
+    assert runez.to_boolean("16.1") is True
+
+
+def test_bytesize():
+    assert runez.to_bytesize(10) == 10
+    assert runez.to_bytesize(None) is None
+    assert runez.to_bytesize("") is None
+    assert runez.to_bytesize("1a") is None
+
+    assert runez.to_bytesize(10, default_unit="k", base=1024) == 10 * 1024
+    assert runez.to_bytesize(10, default_unit="k", base=1000) == 10000
+    assert runez.to_bytesize("10", default_unit="k", base=1000) == 10000
+    assert runez.to_bytesize("10m", default_unit="k", base=1000) == 10000000
+
+    assert runez.to_bytesize(10, default_unit="a", base=1000) is None  # Bogus default_unit
 
 
 def test_capped():

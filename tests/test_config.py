@@ -199,22 +199,6 @@ def test_samples():
         assert config.get_json("some-string", default='{"a": "b"}') == {"a": "b"}
 
 
-def test_boolean():
-    assert runez.config.parsed_boolean(None) is False
-    assert runez.config.parsed_boolean("") is False
-    assert runez.config.parsed_boolean("t") is False
-    assert runez.config.parsed_boolean("0") is False
-    assert runez.config.parsed_boolean("0.0") is False
-    assert runez.config.parsed_boolean("1.0.0") is False
-
-    assert runez.config.parsed_boolean("True") is True
-    assert runez.config.parsed_boolean("Y") is True
-    assert runez.config.parsed_boolean("yes") is True
-    assert runez.config.parsed_boolean("On") is True
-    assert runez.config.parsed_boolean("5") is True
-    assert runez.config.parsed_boolean("16.1") is True
-
-
 def test_bytesize():
     config = runez.config.Configuration(runez.config.PropsfsProvider(SAMPLES))
     # Override 'some-int' (no prefix, same key as from samples folder)
@@ -245,18 +229,6 @@ def test_bytesize():
     assert config.get_bytesize("some-string", default="5k") == 5 * 1024
     assert config.get_bytesize("some-string", default=5, default_unit="k") == 5 * 1024
     assert config.get_bytesize("some-string", default="5m", default_unit="k") == 5 * 1024 * 1024
-
-    assert runez.config.parsed_bytesize(10) == 10
-    assert runez.config.parsed_bytesize(None) is None
-    assert runez.config.parsed_bytesize("") is None
-    assert runez.config.parsed_bytesize("1a") is None
-
-    assert runez.config.parsed_bytesize(10, default_unit="k", base=1024) == 10 * 1024
-    assert runez.config.parsed_bytesize(10, default_unit="k", base=1000) == 10000
-    assert runez.config.parsed_bytesize("10", default_unit="k", base=1000) == 10000
-    assert runez.config.parsed_bytesize("10m", default_unit="k", base=1000) == 10000000
-
-    assert runez.config.parsed_bytesize(10, default_unit="a", base=1000) is None  # Bogus default_unit
 
 
 def test_parsed_dict():
