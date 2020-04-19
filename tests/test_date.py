@@ -105,10 +105,10 @@ def test_represented_duration():
 
 
 def test_timezone():
-    assert runez.get_local_timezone() == time.tzname[0]
+    assert runez.local_timezone() == time.tzname[0]
     with patch("runez.date.time") as runez_time:
         runez_time.tzname = []
-        assert runez.get_local_timezone() == ""
+        assert runez.local_timezone() == ""
 
     assert runez.timezone_from_text(None) is runez.date.DEFAULT_TIMEZONE
     assert runez.timezone_from_text("foo") is runez.date.DEFAULT_TIMEZONE

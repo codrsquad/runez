@@ -10,12 +10,12 @@ import time
 
 from runez.base import decode
 from runez.convert import flattened, represented_args, SHELL, short
-from runez.system import abort, AbortException, get_platform, is_dryrun, WINDOWS
+from runez.system import abort, AbortException, is_dryrun, WINDOWS
 
 
 LOG = logging.getLogger(__name__)
 DEV_FOLDERS = ("venv", ".venv", ".tox", "build")
-DEFAULT_PLATFORM_INSTRUCTIONS = {
+DEFAULT_INSTRUCTIONS = {
     "darwin": "run: `brew install {program}`",
     "linux": "run: `apt install {program}`",
 }
@@ -46,10 +46,13 @@ def check_pid(pid):
         return False
 
 
-def get_dev_folder(path=sys.prefix):
+def dev_folder(path=sys.prefix):
     """
-    :param str path: Path to examine
-    :return str|None: Path to development build folder, such as .venv, .tox etc, if any
+    Args:
+        path (str): Path to examine
+
+    Returns:
+        (str | None): Path to development build folder, such as .venv, .tox etc, if any
     """
     if not path or len(path) <= 4:
         return None
@@ -58,28 +61,7 @@ def get_dev_folder(path=sys.prefix):
     if basename in DEV_FOLDERS:
         return path
 
-    return get_dev_folder(dirpath)
-
-
-def get_program_path(path=None):
-    """
-    :return str: Path of currently running program
-    """
-    if path is None:
-        path = sys.argv[0]
-
-    return which(path) or path
-
-
-def windows_exe(path):  # pragma: no cover
-    if path:
-        for extension in (".exe", ".bat"):
-            fpath = path
-            if not fpath.lower().endswith(extension):
-                fpath += extension
-
-            if os.path.isfile(fpath):
-                return fpath
+    return dev_folder(dirpath)
 
 
 def is_executable(path):
@@ -132,6 +114,31 @@ def make_executable(path, fatal=True):
 
 def needs_wrapping(args):
     return not WINDOWS and "PYCHARM_HOSTED" in os.environ and len(args) > 1 and "python" in args[0] and args[1].startswith("-m")
+
+
+def program_path(path=None):
+    """
+    Args:
+        path (str | None): Optional, path or name to consider (default: `sys.argv[0]`)
+
+    Returns:
+        (str): Path of currently running program
+    """
+    if path is None:
+        path = sys.argv[0]
+
+    return which(path) or path
+
+
+def windows_exe(path):  # pragma: no cover
+    if path:
+        for extension in (".exe", ".bat"):
+            fpath = path
+            if not fpath.lower().endswith(extension):
+                fpath += extension
+
+            if os.path.isfile(fpath):
+                return fpath
 
 
 def wrapped_args(args):
@@ -254,21 +261,15 @@ def which(program, ignore_own_venv=False):
     return None
 
 
-def get_platform_install_instructions(program, instructions=None):
-    if instructions is None:
-        instructions = DEFAULT_PLATFORM_INSTRUCTIONS
-
-    text = instructions.get(get_platform())
+def install_instructions(instructions_dict, platform):
+    text = instructions_dict.get(platform)
     if not text:
-        text = ":\n- %s" % "\n- ".join("on %s: %s" % (k, v) for k, v in instructions.items())
+        text = "\n- ".join("on %s: %s" % (k, v) for k, v in instructions_dict.items())
 
-    else:
-        text = ", %s" % text
-
-    return text.format(program=program)
+    return text
 
 
-def require_installed(program, instructions=None, fatal=True):
+def require_installed(program, instructions=None, fatal=True, platform=sys.platform):
     """
     Args:
         program (str): Program to check
@@ -278,24 +279,28 @@ def require_installed(program, instructions=None, fatal=True):
                                    - A word (without spaces) to refer to "usual" package (brew on OSX, apt on Linux etc)
                                    - A dict with instructions per `sys.platform`
         fatal (bool): If True, raise `AbortException` when `program` is not installed
+        platform (str | None): Override sys.platform, if provided
 
     Returns:
         (bool): True if installed, False otherwise (and fatal=False)
     """
     if which(program) is None:
         if not instructions:
-            instructions = get_platform_install_instructions(program)
+            instructions = DEFAULT_INSTRUCTIONS
 
-        elif isinstance(instructions, dict):
-            instructions = get_platform_install_instructions(program, instructions=instructions)
+        if isinstance(instructions, dict):
+            instructions = install_instructions(instructions, platform)
 
-        elif " " not in instructions:
-            instructions = get_platform_install_instructions(instructions)
+        message = "{program} is not installed"
+        if instructions:
+            if "\n" in instructions:
+                message += ":\n- %s" % instructions
 
-        else:
-            instructions = ", %s" % instructions
+            else:
+                message += ", %s" % instructions
 
-        return abort("%s is not installed%s", program, instructions, fatal=(fatal, False))
+        message = message.format(program=program)
+        return abort(message, fatal=(fatal, False))
 
     return True
 

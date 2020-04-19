@@ -55,13 +55,13 @@ def test_executable(temp_folder):
 
 
 def test_program():
-    assert runez.get_dev_folder("") is None
-    assert runez.get_dev_folder("some-path/.venv/bar/baz") == "some-path/.venv"
-    assert runez.get_dev_folder("some-path/.tox/bar/baz") == "some-path/.tox"
-    assert runez.get_dev_folder("some-path/build/bar/baz") == "some-path/build"
+    assert runez.dev_folder("") is None
+    assert runez.dev_folder("some-path/bar/baz") is None
+    assert runez.dev_folder("some-path/.venv/bar/baz") == "some-path/.venv"
+    assert runez.dev_folder("some-path/.tox/bar/baz") == "some-path/.tox"
+    assert runez.dev_folder("some-path/build/bar/baz") == "some-path/build"
 
-    program_path = runez.get_program_path(path="/some/program")
-    assert runez.basename(program_path) == "program"
+    assert runez.program_path(path="/dev/null/some-program") == "/dev/null/some-program"
 
 
 def test_which():
@@ -76,19 +76,27 @@ def test_require_installed():
         assert runez.require_installed("foo") is True
 
     with patch("runez.program.which", return_value=None):
-        assert "foo is not installed, see http://..." in runez.verify_abort(runez.require_installed, "foo", "see http://...")
+        with runez.CaptureOutput() as logged:
+            runez.require_installed("foo", fatal=False, platform="darwin")
+            assert "foo is not installed, run: `brew install foo`" in logged.pop()
 
-        linux = {"linux": "see http:..."}
-        with patch("runez.program.get_platform", return_value="darwin"):
-            assert "foo is not installed, run: `brew install foo`" in runez.verify_abort(runez.require_installed, "foo", "foo")
-            assert "run: `brew install foo`" in runez.verify_abort(runez.require_installed, "foo")
-            text = runez.verify_abort(runez.require_installed, "foo", instructions=linux)
-            assert "not installed:\n" in text
-            assert "- on linux: see http:..." in text
+            runez.require_installed("foo", instructions="see http:...", fatal=False, platform="darwin")
+            assert "foo is not installed, see http:..." in logged.pop()
 
-        with patch("runez.program.get_platform", return_value="linux"):
-            assert "run: `apt install foo`" in runez.verify_abort(runez.require_installed, "foo")
-            assert "not installed, see http:..." in runez.verify_abort(runez.require_installed, "foo", instructions=linux)
+            runez.require_installed("foo", fatal=False, platform="linux")
+            assert "foo is not installed, run: `apt install foo`" in logged.pop()
+
+            runez.require_installed("foo", instructions={"linux": "see http:..."}, fatal=False, platform="linux")
+            assert "foo is not installed, see http:..." in logged.pop()
+
+            runez.require_installed("foo", instructions={"linux": "see http:..."}, fatal=False, platform=None)
+            assert "foo is not installed, on linux: see http:..." in logged.pop()
+
+            runez.require_installed("foo", fatal=False, platform=None)
+            message = logged.pop()
+            assert "foo is not installed:\n" in message
+            assert "- on darwin: run: `brew install foo`" in message
+            assert "- on linux: run: `apt install foo`" in message
 
 
 def test_pids():

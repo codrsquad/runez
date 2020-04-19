@@ -137,10 +137,10 @@ def elapsed(started, ended=None):
     return delta.total_seconds()
 
 
-def get_local_timezone():
+def local_timezone():
     """
     Returns:
-        (str): Name of current timezone
+        (str): Name of current local timezone
     """
     try:
         return time.tzname[0]

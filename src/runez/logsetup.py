@@ -20,9 +20,9 @@ except ImportError:
 
 from runez.base import Slotted, ThreadGlobalContext, UNSET
 from runez.convert import flattened, formatted, represented_args, SANITIZED, to_bytesize, to_int, UNIQUE
-from runez.date import get_local_timezone
+from runez.date import local_timezone
 from runez.path import basename as get_basename, ensure_folder, parent_folder
-from runez.program import get_dev_folder, get_program_path
+from runez.program import dev_folder, program_path
 from runez.system import is_dryrun, set_dryrun, WINDOWS
 
 
@@ -170,7 +170,7 @@ class _ContextFilter(logging.Filter):
         return True
 
 
-def get_default_log_locations():
+def default_log_locations():
     if WINDOWS:  # pragma: no cover
         return [os.path.join("{dev}", "log", "{basename}")]
 
@@ -196,10 +196,10 @@ class LogManager(object):
         file_format="%(asctime)s %(timezone)s [%(threadName)s] %(context)s%(levelname)s - %(message)s",
         file_level=logging.DEBUG,
         file_location=None,
-        locations=get_default_log_locations(),
+        locations=default_log_locations(),
         rotate=None,
         rotate_count=10,
-        timezone=get_local_timezone(),
+        timezone=local_timezone(),
         tmp=None,
     )
 
@@ -529,9 +529,10 @@ class LogManager(object):
     def _auto_fill_defaults(cls):
         """Late auto-filled missing defaults (caller's value kept if provided)"""
         if not cls.spec.appname:
-            cls.spec.appname = get_basename(get_program_path())
+            cls.spec.appname = get_basename(program_path())
+
         if not cls.spec.dev:
-            cls.spec.dev = get_dev_folder()
+            cls.spec.dev = dev_folder()
 
     @classmethod
     def _disable_faulthandler(cls):

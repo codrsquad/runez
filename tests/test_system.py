@@ -112,10 +112,6 @@ def test_formatted_string():
     assert runez.system.formatted_string("test", None) == "test"
 
 
-def test_platform():
-    assert runez.get_platform()
-
-
 def test_version():
     with runez.CaptureOutput() as logged:
         expected = runez.get_version(runez)

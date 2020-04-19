@@ -4,6 +4,7 @@ import sys
 
 
 LOG = logging.getLogger(__name__)
+WINDOWS = sys.platform.startswith("win")
 
 
 class AbortException(Exception):
@@ -216,13 +217,6 @@ def formatted_string(*args):
 
     except TypeError:
         return message
-
-
-def get_platform():
-    return sys.platform
-
-
-WINDOWS = get_platform().startswith("win")
 
 
 def get_version(mod, default="0.0.0", logger=LOG.warning):
