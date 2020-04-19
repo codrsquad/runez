@@ -28,16 +28,28 @@ k2 =
 """
 
 
-def test_conf():
-    assert runez.get_conf(None) is None
+def test_ini_to_dict():
+    assert runez.ini_to_dict(None) is None
+    assert runez.ini_to_dict("/dev/null/no-such-file") is None
 
     expected = {None: {"root": "some-value"}, "": {"ek": "ev"}, "s1": {"k1": "v1"}, "s2": {"k2": ""}}
-    assert runez.get_conf(SAMPLE_CONF.splitlines(), keep_empty=True) == expected
+    actual = runez.ini_to_dict(SAMPLE_CONF.splitlines(), keep_empty=True)
+    assert actual == expected
+
+    with runez.TempFolder():
+        runez.write("test.ini", SAMPLE_CONF)
+        actual = runez.ini_to_dict("test.ini", keep_empty=True)
+        assert actual == expected
+
+        with open("test.ini") as fh:
+            actual = runez.ini_to_dict(fh, keep_empty=True)
+            assert actual == expected
 
     del expected[None]
     del expected[""]
     del expected["s2"]
-    assert runez.get_conf(SAMPLE_CONF.splitlines(), keep_empty=False) == expected
+    actual = runez.ini_to_dict(SAMPLE_CONF.splitlines(), keep_empty=False)
+    assert actual == expected
 
 
 @patch("io.open", side_effect=Exception)

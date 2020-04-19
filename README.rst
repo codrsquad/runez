@@ -1,5 +1,5 @@
-Friendly misc/utils/convenience library.
-========================================
+Friendly misc/utils/convenience library
+=======================================
 
 .. image:: https://img.shields.io/pypi/v/runez.svg
     :target: https://pypi.org/project/runez/
