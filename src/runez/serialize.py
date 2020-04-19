@@ -136,10 +136,10 @@ class DefaultBehavior(object):
         return "lenient"
 
     @staticmethod
-    def get_behavior(bases):
-        """Determine behavior from given `bases` (base classes)"""
+    def behavior_from_bases(cls):
+        """Determine behavior from base classes of given `cls`"""
         strict = hook = UNSET
-        for base in reversed(bases):
+        for base in reversed(cls.__bases__):
             meta = getattr(base, "_meta", None)
             if isinstance(meta, ClassMetaDescription) and meta.behavior is not None and is_serializable_descendant(base):
                 # Let `strict` and `hook` be inherited from parent classes (but not `Serializable` itself)
@@ -301,7 +301,7 @@ class SerializableDescendants(object):
     by_qualified_name = {}  # Tracks by full qualified name (won't be any conflicts)
 
     @classmethod
-    def get_meta(cls, name):
+    def descendant_with_name(cls, name):
         """
         Args:
             name (str): Short name or fully qualified name of Serializable descendant
@@ -357,7 +357,7 @@ class ClassMetaDescription(object):
         self.cls = cls
         self.attributes = {}
         self.properties = []
-        self.behavior = mbehavior.behavior if mbehavior is not None else DefaultBehavior.get_behavior(cls.__bases__)
+        self.behavior = mbehavior.behavior if mbehavior is not None else DefaultBehavior.behavior_from_bases(cls)
         self.unique_identifier = None
 
         by_type = collections.defaultdict(list)

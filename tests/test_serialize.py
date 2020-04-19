@@ -147,9 +147,9 @@ def test_meta(logged):
     assert custom.attributes["some_int"].default == 5
     assert str(custom.behavior) == "extras: function 'debug'"
 
-    assert SerializableDescendants.get_meta("NoSuchDescendant") is None
-    assert SerializableDescendants.get_meta("SomeSerializable") is SomeSerializable._meta
-    assert SerializableDescendants.get_meta("tests.test_serialize.SomeSerializable") is SomeSerializable._meta
+    assert SerializableDescendants.descendant_with_name("NoSuchDescendant") is None
+    assert SerializableDescendants.descendant_with_name("SomeSerializable") is SomeSerializable._meta
+    assert SerializableDescendants.descendant_with_name("tests.test_serialize.SomeSerializable") is SomeSerializable._meta
 
     assert SomeSerializable._called is None
     SerializableDescendants.call("do_something_on_class", "testing")

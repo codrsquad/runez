@@ -47,7 +47,7 @@ class CapturedStream(object):
     def contents(self):
         """
         Returns:
-            str: Contents of `self.buffer`
+            (str): Contents of `self.buffer`
         """
         return self.buffer.getvalue()
 
@@ -83,14 +83,13 @@ class CapturedStream(object):
 
 
 class TrackedOutput(object):
-    """
-    Track captured output
-    """
+    """Track captured output"""
 
     def __init__(self, stdout, stderr):
         """
-        :param CapturedStream|None stdout: Captured stdout
-        :param CapturedStream|None stderr: Captured stderr
+        Args:
+            stdout (CapturedStream | None): Captured stdout
+            stderr (CapturedStream | None): Captured stderr
         """
         self.stdout = stdout
         self.stderr = stderr
@@ -122,25 +121,25 @@ class TrackedOutput(object):
 
 
 class CaptureOutput(object):
-    """
-    Context manager allowing to temporarily grab stdout/stderr output.
-    Output is captured and made available only for the duration of the context.
+    """Output is captured and made available only for the duration of the context.
 
     Sample usage:
 
-    with CaptureOutput() as logged:
-        # do something that generates output
-        # output has been captured in `logged`, see `logged.stdout` etc
-        assert "foo" in logged
-        assert "bar" in logged.stdout
+    >>> with CaptureOutput() as logged:
+    >>>     print("foo bar")
+    >>>     # output has been captured in `logged`, see `logged.stdout` etc
+    >>>     assert "foo" in logged
+    >>>     assert "bar" in logged.stdout
     """
 
     def __init__(self, stdout=True, stderr=True, anchors=None, dryrun=None):
-        """
-        :param bool stdout: Capture stdout
-        :param bool stderr: Capture stderr
-        :param str|list anchors: Optional paths to use as anchors for short()
-        :param bool|None dryrun: Override dryrun (when explicitly specified, ie not None)
+        """Context manager allowing to temporarily grab stdout/stderr/log output.
+
+        Args:
+            stdout (bool): Capture stdout?
+            stderr (bool): Capture stderr?
+            anchors (str | list | None): Optional paths to use as anchors for `runez.short()`
+            dryrun (bool | None): Override dryrun (when explicitly specified, ie not None)
         """
         self.stdout = stdout
         self.stderr = stderr
@@ -148,6 +147,10 @@ class CaptureOutput(object):
         self.dryrun = dryrun
 
     def __enter__(self):
+        """
+        Returns:
+            (TrackedOutput): Object holding captured stdout/stderr/log output
+        """
         self.tracked = TrackedOutput(
             CapturedStream("stdout", sys.stdout) if self.stdout else None,
             CapturedStream("stderr", sys.stderr) if self.stderr else None,
@@ -182,9 +185,7 @@ class CaptureOutput(object):
 
 
 class CurrentFolder(object):
-    """
-    Context manager for changing the current working directory
-    """
+    """Context manager for changing the current working directory"""
 
     def __init__(self, destination, anchor=False):
         self.anchor = anchor
@@ -207,7 +208,8 @@ def verify_abort(func, *args, **kwargs):
     Convenient wrapper around functions that should exit or raise an exception
 
     Example:
-        assert "Can't create folder" in verify_abort(ensure_folder, "/dev/null/not-there")
+
+        >>> assert "Can't create folder" in verify_abort(runez.ensure_folder, "/dev/null/not-there")
 
     Args:
         func (callable): Function to execute

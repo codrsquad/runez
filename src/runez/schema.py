@@ -2,14 +2,12 @@
 Allows to define a simple one-level-at-a-time schema to help control (de)serialization
 
 Example:
-    import runez
-    from runez.serialize import Dict, Integer, Serializable, String
 
-    class MyClass(Serializable):
+>>> from runez.schema import Dict, Integer, Serializable, String
 
-        name = String(default="joe")  # All instances will get "joe" by default, and deserialization will ensure string
-
-        map = Dict(String, Integer)  # No default value (ie: None), deserialization will ensure proper type is used
+>>> class MyClass(Serializable):
+>>>     name = String(default="joe")  # All instances will get "joe" by default, and deserialization will ensure string
+>>>     map = Dict(String, Integer)  # No default value (ie: None), deserialization will ensure proper type is used
 """
 
 import inspect
@@ -23,9 +21,7 @@ Serializable = None  # type: type # Set to runez.Serializable class once parsing
 
 
 class ValidationException(Exception):
-    """
-    Thrown when type mismatch found during deserialization (and strict mode enabled)
-    """
+    """Thrown when type mismatch found during deserialization (and strict mode enabled)"""
 
     def __init__(self, message):
         self.message = message
@@ -46,6 +42,7 @@ def get_descriptor(value, required=True):
     descriptor = _get_descriptor(value)
     if required and descriptor is None:
         raise ValidationException("Invalid schema definition '%s'" % value)
+
     return descriptor
 
 

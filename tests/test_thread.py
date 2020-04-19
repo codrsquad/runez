@@ -9,21 +9,20 @@ class MySingleton(ThreadLocalSingleton):
         self.some_number = random.randint(0, 100000) + random.randint(0, 100000)
 
 
-def get_new_singleton():
-    s1 = MySingleton()
-    s2 = MySingleton()
-    assert s1 is s2
-    return s1
+def new_singleton():
+    return MySingleton()
 
 
 def test_singleton():
     s1 = MySingleton()
     s2 = MySingleton()
     assert s1 is s2
-    assert s1 is get_new_singleton()
+    assert s1 is new_singleton()
 
-    s3 = run_in_new_thread(get_new_singleton)
-    s4 = run_in_new_thread(get_new_singleton)
+    s3 = run_in_new_thread(MySingleton)
+    s4 = run_in_new_thread(new_singleton)
+    assert type(s1) is type(s3)
+    assert type(s1) is type(s4)
     assert s1 is not s3
     assert s1 is not s4
     assert s3 is not s4

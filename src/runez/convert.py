@@ -450,11 +450,11 @@ def entitled(text, separator=" "):
     Returns:
         (str): First letter (of 1st word only) upper-cased
     """
-    words = get_words(text)
-    if words:
-        words[0] = words[0].title()
+    strings = get_words(text)
+    if strings:
+        strings[0] = strings[0].title()
 
-    return separator.join(words)
+    return separator.join(strings)
 
 
 def get_identifiers(text):
@@ -490,12 +490,12 @@ def get_words(text, normalize=None, split="_"):
 
         return result
 
-    words = [s.strip() for s in RE_WORDS.split(stringified(text))]
-    words = [w for w in flattened(words, split=split) if w]
+    strings = [s.strip() for s in RE_WORDS.split(stringified(text))]
+    strings = [s for s in flattened(strings, split=split) if s]
     if normalize:
-        words = [normalize(s) for s in words]
+        strings = [normalize(s) for s in strings]
 
-    return words
+    return strings
 
 
 class Pluralizer:
