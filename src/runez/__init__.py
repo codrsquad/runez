@@ -13,7 +13,7 @@ from runez.context import CaptureOutput, CurrentFolder, TrackedOutput, verify_ab
 from runez.convert import Anchored, capped, flattened, formatted, plural, quoted, \
     represented_args, represented_bytesize, represented_with_units, \
     resolved_path, short, shortened
-from runez.convert import affixed, camel_cased, entitled, get_words, snakified, wordified  # noqa, import order not useful here
+from runez.convert import affixed, camel_cased, entitled, get_identifiers, get_words, snakified, wordified  # noqa, ignore import order
 from runez.convert import SANITIZED, SHELL, to_boolean, to_bytesize, to_float, to_int, UNIQUE, unitized
 from runez.date import date_from_epoch, datetime_from_epoch, elapsed, get_local_timezone, represented_duration, \
     timezone, timezone_from_text, \
@@ -44,7 +44,7 @@ __all__ = [
     "Anchored", "capped", "flattened", "formatted", "plural", "quoted",
     "represented_args", "represented_bytesize", "represented_with_units",
     "resolved_path", "short", "shortened",
-    "affixed", "camel_cased", "entitled", "get_words", "snakified", "wordified",
+    "affixed", "camel_cased", "entitled", "get_identifiers", "get_words", "snakified", "wordified",
     "SANITIZED", "SHELL", "to_boolean", "to_bytesize", "to_float", "to_int", "UNIQUE", "unitized",
     "date_from_epoch", "datetime_from_epoch", "elapsed", "get_local_timezone", "represented_duration",
     "timezone", "timezone_from_text",

@@ -62,10 +62,13 @@ def flattened(value, split=None):
     mode = 0
     if isinstance(split, tuple):
         separator, mode = split
+
     elif isinstance(split, int):
         mode = split
+
     else:
         separator = split
+
     _flatten(result, value, separator, mode)
     return result
 
@@ -82,25 +85,31 @@ def formatted(text, *args, **kwargs):
     """
     if not text or "{" not in text:
         return text
+
     strict = kwargs.pop("strict", True)
     max_depth = kwargs.pop("max_depth", 3)
     objects = list(args) + [kwargs] if kwargs else args[0] if len(args) == 1 else args
     if not objects:
         return text
+
     definitions = {}
     markers = RE_FORMAT_MARKERS.findall(text)
     while markers:
         key = markers.pop()
         if key in definitions:
             continue
+
         val = _find_value(key, objects)
         if strict and val is None:
             return None
+
         val = stringified(val) if val is not None else "{%s}" % key
         markers.extend(m for m in RE_FORMAT_MARKERS.findall(val) if m not in definitions)
         definitions[key] = val
+
     if not max_depth or not isinstance(max_depth, int) or max_depth <= 0:
         return text
+
     expanded = dict((k, _rformat(k, v, definitions, max_depth)) for k, v in definitions.items())
     return text.format(**expanded)
 
@@ -116,6 +125,7 @@ def quoted(text):
     if text and " " in text:
         sep = "'" if '"' in text else '"'
         return "%s%s%s" % (sep, text, sep)
+
     return text
 
 
@@ -132,6 +142,7 @@ def represented_args(args, separator=" "):
     if args:
         for text in args:
             result.append(quoted(short(text)))
+
     return separator.join(result)
 
 
@@ -442,25 +453,48 @@ def entitled(text, separator=" "):
     words = get_words(text)
     if words:
         words[0] = words[0].title()
+
     return separator.join(words)
 
 
-def get_words(text, normalize=None):
-    """
+def get_identifiers(text):
+    """Identifiers extracted from `text` (words, NOT split on underscore character)
+
     Args:
-        text (str | None): Text to extract words from
-        normalize (callable | None): Optional function to apply on each word
+        text (str | list | None): Text to extract identifiers from
 
     Returns:
-        (list | None): Words, if any
+        (list): Identifiers found
+    """
+    return get_words(text, split=None)
+
+
+def get_words(text, normalize=None, split="_"):
+    """Words extracted from `text` (split on underscore character as well by default)
+
+    Args:
+        text (str | list | None): Text to extract words from
+        normalize (callable | None): Optional function to apply on each word
+        split (str | None): Optional extra character to split words on
+
+    Returns:
+        (list): Extracted words
     """
     if not text:
         return []
 
-    words = [s.strip().split("_") for s in RE_WORDS.split(text)]
-    words = [s for s in flattened(words) if s]
+    if isinstance(text, list):
+        result = []
+        for line in text:
+            result.extend(get_words(line, normalize=normalize, split=split))
+
+        return result
+
+    words = [s.strip() for s in RE_WORDS.split(stringified(text))]
+    words = [w for w in flattened(words, split=split) if w]
     if normalize:
         words = [normalize(s) for s in words]
+
     return words
 
 
@@ -568,6 +602,7 @@ def _rformat(key, value, definitions, max_depth):
     if max_depth > 1 and value and "{" in value:
         value = value.format(**definitions)
         return _rformat(key, value, definitions, max_depth=max_depth - 1)
+
     return value
 
 
@@ -587,6 +622,7 @@ def _flatten(result, value, separator, mode):
             # Convenience: allow to filter out ["--switch", None] easily
             if result and result[-1].startswith("-"):
                 result.pop(-1)
+
             return
 
         if mode & SANITIZED:
@@ -596,6 +632,7 @@ def _flatten(result, value, separator, mode):
         if isinstance(value, (list, tuple, set)):
             for item in value:
                 _flatten(result, item, separator, mode)
+
             return
 
         if separator and hasattr(value, "split") and separator in value:
@@ -617,9 +654,12 @@ def _get_value(obj, key):
                 v = _find_value(key, item)
                 if v is not None:
                     return v
+
             return None
+
         if hasattr(obj, "get"):
             return obj.get(key)
+
         return getattr(obj, key, None)
 
 

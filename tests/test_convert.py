@@ -270,9 +270,25 @@ def test_to_int():
 
 
 def test_wordification():
+    assert runez.get_identifiers(None) == []
+    assert runez.get_identifiers("") == []
+    assert runez.get_identifiers("a_b1") == ["a_b1"]
+    assert runez.get_identifiers("hi_There-you") == ["hi_There", "you"]
+    assert runez.get_identifiers(["a", ["b_c", None, [1]]]) == ["a", "b_c", "1"]
+
     assert runez.get_words(None) == []
+    assert runez.get_words("") == []
+    assert runez.get_words("*") == []
     assert runez.get_words("a") == ["a"]
+    assert runez.get_words("a b") == ["a", "b"]
+    assert runez.get_words("a,b") == ["a", "b"]
+    assert runez.get_words("a,,b") == ["a", "b"]
+    assert runez.get_words("a_b1") == ["a", "b1"]
     assert runez.get_words("hi_There-you", normalize=str.lower) == ["hi", "there", "you"]
+
+    assert runez.get_words(["a", "b_c", "a"]) == ["a", "b", "c", "a"]
+    assert runez.get_words(["a", None, "b", 1]) == ["a", "b", "1"]
+    assert runez.get_words(["a", [None, "b,c"], 1]) == ["a", "b", "c", "1"]
 
     assert runez.wordified(None) is None
     assert runez.wordified("Hello_There", separator="-") == "Hello-There"
