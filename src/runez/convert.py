@@ -55,7 +55,7 @@ def flattened(value, split=None):
             - SHELL:  filter out sequences of the form ["-f", None] (handy for simplified cmd line specification)
 
     Returns:
-        list: 'value' flattened out (leaves from all involved lists/tuples)
+        (list): 'value' flattened out (leaves from all involved lists/tuples)
     """
     result = []
     separator = None
@@ -74,14 +74,20 @@ def flattened(value, split=None):
 
 
 def formatted(text, *args, **kwargs):
-    """
+    """Generically formatted `text`, `{...}` placeholders are resolved from given objects / keyword arguments
+
+    >>> formatted("{foo}", foo="bar")
+    'bar'
+    >>> formatted("{foo} {age}", {"age": 5}, foo="bar")
+    'bar 5'
+
     Args:
         text (str | unicode): Text to format
         *args: Objects to extract values from (as attributes)
         **kwargs: Optional values provided as named args
 
     Returns:
-        (str): Attributes from this class are expanded if mentioned
+        (str): `{...}` placeholders formatted from given `args` object's properties/fields, or as `kwargs`
     """
     if not text or "{" not in text:
         return text
@@ -115,7 +121,13 @@ def formatted(text, *args, **kwargs):
 
 
 def quoted(text):
-    """
+    """Quoted `text`, if it contains whitespaces
+
+    >>> quoted("foo")
+    'foo'
+    >>> quoted("foo bar")
+    '"foo bar"'
+
     Args:
         text (str | unicode | None): Text to optionally quote
 
@@ -129,11 +141,10 @@ def quoted(text):
     return text
 
 
-def represented_args(args, separator=" "):
+def represented_args(args):
     """
     Args:
         args (list | tuple | None): Arguments to represent
-        separator (str | unicode): Separator to use
 
     Returns:
         (str): Quoted as needed textual representation
@@ -143,51 +154,45 @@ def represented_args(args, separator=" "):
         for text in args:
             result.append(quoted(short(text)))
 
-    return separator.join(result)
+    return " ".join(result)
 
 
-def represented_bytesize(size, unit="B", separator=" "):
-    """
+def represented_bytesize(size, base=1024, unit="B", separator=" ", prefixes=DEFAULT_UNITS):
+    """Human friendly byte size representation
+
+    >>> represented_bytesize(1024)
+    '1 KB'
+    >>> represented_bytesize(10_000_000_000)
+    '9 GB'
+    >>> represented_bytesize(10_000_000_000, unit="b", separator="", base=1000)
+    '10Gb'
+
     Args:
         size (int | float): Size to represent
+        base (int): Base to represent it in (example: 1024 for bytes, 1000 for bits)
         unit (str): Unit symbol
         separator (str): Separator to use between number and units
+        prefixes (str): Prefixes to use per power (kilo, mega, giga, tera, peta, ...)
 
     Returns:
         (str): Human friendly byte size representation
     """
-    return represented_with_units(size, base=1024, unit=unit, separator=separator)
+    return _represented_with_units(size, base, unit, separator, prefixes)
 
 
-def represented_with_units(size, base=1000, unit="", prefixes=DEFAULT_UNITS, exponent=0, separator=" "):
+def represented_with_units(size, base=1000, unit="", separator="", prefixes=DEFAULT_UNITS):
     """
     Args:
         size (int | float): Size to represent
-        base (int): Base to represent it in (typically 1024 for bytes, 1000 for bits)
+        base (int): Base to represent it in (example: 1024 for bytes, 1000 for bits)
         unit (str): Unit symbol
-        prefixes (str): Prefixes to use per power (kilo, mega, giga, tera, peta, ...)
-        exponent (int): Exponent 'size' is expressed in (callers don't need to worry about this, it's used internally for recursion)
         separator (str): Separator to use between number and units
+        prefixes (str): Prefixes to use per power (kilo, mega, giga, tera, peta, ...)
 
     Returns:
         (str): Human friendly representation with units, avoids having to read/parse visually large numbers
     """
-    if size >= base and exponent < len(prefixes):
-        size = float(size) / base
-        return represented_with_units(size, base=base, unit=unit, prefixes=prefixes, exponent=exponent + 1, separator=separator)
-
-    if exponent == 0:
-        if unit:
-            return "%s%s%s" % (size, separator, unit)
-
-        return "%s" % size
-
-    fmt = "%.{precision}f".format(precision=0 if size > 9 else 1)
-    represented_size = fmt % size
-    if "." in represented_size:
-        represented_size = represented_size.strip("0").strip(".")
-
-    return "%s%s%s%s" % (represented_size, separator, prefixes[exponent - 1], unit)
+    return _represented_with_units(size, base, unit, separator, prefixes)
 
 
 def resolved_path(path, base=None):
@@ -433,7 +438,7 @@ def camel_cased(text, separator=""):
     """
     Args:
         text (str): Text to camel case
-        separator (str): Separator to use
+        separator (str): Separator to use to join the words back
 
     Returns:
         (str): Camel-cased text
@@ -445,57 +450,28 @@ def entitled(text, separator=" "):
     """
     Args:
         text (str): Text to turn into title
-        separator (str): Separator to use
+        separator (str): Separator to use to join the words back
 
     Returns:
         (str): First letter (of 1st word only) upper-cased
     """
-    strings = get_words(text)
+    strings = words(text)
     if strings:
         strings[0] = strings[0].title()
 
     return separator.join(strings)
 
 
-def get_identifiers(text):
+def identifiers(text):
     """Identifiers extracted from `text` (words, NOT split on underscore character)
 
     Args:
-        text (str | list | None): Text to extract identifiers from
+        text: Text to extract identifiers from
 
     Returns:
         (list): Identifiers found
     """
-    return get_words(text, split=None)
-
-
-def get_words(text, normalize=None, split="_"):
-    """Words extracted from `text` (split on underscore character as well by default)
-
-    Args:
-        text (str | list | None): Text to extract words from
-        normalize (callable | None): Optional function to apply on each word
-        split (str | None): Optional extra character to split words on
-
-    Returns:
-        (list): Extracted words
-    """
-    if not text:
-        return []
-
-    if isinstance(text, list):
-        result = []
-        for line in text:
-            result.extend(get_words(line, normalize=normalize, split=split))
-
-        return result
-
-    strings = [s.strip() for s in RE_WORDS.split(stringified(text))]
-    strings = [s for s in flattened(strings, split=split) if s]
-    if normalize:
-        strings = [normalize(s) for s in strings]
-
-    return strings
+    return words(text, split=None)
 
 
 class Pluralizer:
@@ -562,7 +538,7 @@ def wordified(text, separator="_", normalize=None):
     """
     Args:
         text (str | None): Text to process as words
-        separator (str): Separator to use to join words back
+        separator (str): Separator to use to join the words back
         normalize (callable | None): Optional function to apply on each word
 
     Returns:
@@ -571,7 +547,36 @@ def wordified(text, separator="_", normalize=None):
     if text is None:
         return None
 
-    return separator.join(get_words(text, normalize=normalize))
+    return separator.join(words(text, normalize=normalize))
+
+
+def words(text, normalize=None, split="_"):
+    """Words extracted from `text` (split on underscore character as well by default)
+
+    Args:
+        text: Text to extract words from
+        normalize (callable | None): Optional function to apply on each word
+        split (str | None): Optional extra character to split words on
+
+    Returns:
+        (list): Extracted words
+    """
+    if not text:
+        return []
+
+    if isinstance(text, list):
+        result = []
+        for line in text:
+            result.extend(words(line, normalize=normalize, split=split))
+
+        return result
+
+    strings = [s.strip() for s in RE_WORDS.split(stringified(text))]
+    strings = [s for s in flattened(strings, split=split) if s]
+    if normalize:
+        strings = [normalize(s) for s in strings]
+
+    return strings
 
 
 def unitized(value, unit, base=DEFAULT_BASE, unitseq=DEFAULT_UNITS):
@@ -756,3 +761,22 @@ def _prettified(value):
 
     if callable(value):
         return "function '%s'" % value.__name__
+
+
+def _represented_with_units(size, base, unit, separator, prefixes, exponent=0):
+    if size >= base and exponent < len(prefixes):
+        size = float(size) / base
+        return _represented_with_units(size, base, unit, separator, prefixes, exponent=exponent + 1)
+
+    if exponent == 0:
+        if unit:
+            return "%s%s%s" % (size, separator, unit)
+
+        return "%s" % size
+
+    fmt = "%.{precision}f".format(precision=0 if size > 9 else 1)
+    represented_size = fmt % size
+    if "." in represented_size:
+        represented_size = represented_size.strip("0").strip(".")
+
+    return "%s%s%s%s" % (represented_size, separator, prefixes[exponent - 1], unit)

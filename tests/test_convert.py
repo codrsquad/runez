@@ -143,7 +143,7 @@ def test_flattened():
 def test_representation():
     assert runez.represented_args(None) == ""
     assert runez.represented_args([]) == ""
-    assert runez.represented_args([0, 1, 2], separator="+") == "0+1+2"
+    assert runez.represented_args([0, 1, 2]) == "0 1 2"
     assert runez.represented_args(["foo", {}, 0, [1, 2], {3: 4}, 5]) == 'foo {} 0 "[1, 2]" "{3: 4}" 5'
 
     assert runez.represented_bytesize(20) == "20 B"
@@ -156,6 +156,13 @@ def test_representation():
     assert runez.represented_bytesize(20000000000000) == "18 TB"
     assert runez.represented_bytesize(20000000000000000) == "18 PB"
     assert runez.represented_bytesize(20000000000000000000) == "17764 PB"
+
+    assert runez.represented_with_units(20) == "20"
+    assert runez.represented_with_units(999.9) == "999.9"
+    assert runez.represented_with_units(1001) == "1K"
+    assert runez.represented_with_units(1060) == "1.1K"
+    assert runez.represented_with_units(8900) == "8.9K"
+    assert runez.represented_with_units(20304050600000000000) == "20304P"
 
 
 def test_formatted():
@@ -270,25 +277,27 @@ def test_to_int():
 
 
 def test_wordification():
-    assert runez.get_identifiers(None) == []
-    assert runez.get_identifiers("") == []
-    assert runez.get_identifiers("a_b1") == ["a_b1"]
-    assert runez.get_identifiers("hi_There-you") == ["hi_There", "you"]
-    assert runez.get_identifiers(["a", ["b_c", None, [1]]]) == ["a", "b_c", "1"]
+    assert runez.identifiers(None) == []
+    assert runez.identifiers("") == []
+    assert runez.identifiers("a_b1") == ["a_b1"]
+    assert runez.identifiers("hi_There-you") == ["hi_There", "you"]
+    assert runez.identifiers(["a", ["b_c(d)", None, [1]]]) == ["a", "b_c", "d", "1"]
+    assert runez.identifiers({"a": "b_c(d)"}) == ["a", "b_c", "d"]
 
-    assert runez.get_words(None) == []
-    assert runez.get_words("") == []
-    assert runez.get_words("*") == []
-    assert runez.get_words("a") == ["a"]
-    assert runez.get_words("a b") == ["a", "b"]
-    assert runez.get_words("a,b") == ["a", "b"]
-    assert runez.get_words("a,,b") == ["a", "b"]
-    assert runez.get_words("a_b1") == ["a", "b1"]
-    assert runez.get_words("hi_There-you", normalize=str.lower) == ["hi", "there", "you"]
+    assert runez.words(None) == []
+    assert runez.words("") == []
+    assert runez.words("*") == []
+    assert runez.words("a") == ["a"]
+    assert runez.words("a b") == ["a", "b"]
+    assert runez.words("a,b(c)") == ["a", "b", "c"]
+    assert runez.words("a,,b") == ["a", "b"]
+    assert runez.words("a_b1") == ["a", "b1"]
+    assert runez.words("hi_There-you", normalize=str.lower) == ["hi", "there", "you"]
+    assert runez.words({"a": "b_c(d)"}) == ["a", "b", "c", "d"]
 
-    assert runez.get_words(["a", "b_c", "a"]) == ["a", "b", "c", "a"]
-    assert runez.get_words(["a", None, "b", 1]) == ["a", "b", "1"]
-    assert runez.get_words(["a", [None, "b,c"], 1]) == ["a", "b", "c", "1"]
+    assert runez.words(["a", "b_c", "a"]) == ["a", "b", "c", "a"]
+    assert runez.words(["a", None, "b", 1]) == ["a", "b", "1"]
+    assert runez.words(["a", [None, "b,c"], 1]) == ["a", "b", "c", "1"]
 
     assert runez.wordified(None) is None
     assert runez.wordified("Hello_There", separator="-") == "Hello-There"
