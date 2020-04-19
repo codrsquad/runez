@@ -61,7 +61,7 @@ def test_ini_to_dict():
 @patch("os.path.getsize", return_value=10)
 def test_failure(*_):
     with runez.CaptureOutput() as logged:
-        assert runez.get_lines("bar", fatal=False) is None
+        assert runez.readlines("bar", fatal=False) is None
         assert "Can't read" in logged.pop()
 
         assert runez.write("bar", "some content", fatal=False)
@@ -166,10 +166,10 @@ def test_file_operations(temp_folder):
     assert runez.delete("sample") == 1
     with runez.CaptureOutput() as logged:
         sample = os.path.join(os.path.dirname(__file__), "sample.txt")
-        content = runez.get_lines(sample)
+        content = runez.readlines(sample)
 
         assert runez.write("sample", "".join(content), fatal=False, logger=logging.debug) == 1
-        assert runez.get_lines("sample") == content
+        assert runez.readlines("sample") == content
         assert "bytes to sample" in logged.pop()  # Writing 13 bytes on linux... but 14 on windows...
 
         assert runez.first_line("sample") == "Fred"
@@ -223,11 +223,11 @@ def test_file_operations(temp_folder):
         assert os.path.exists("x2/z2/sample2")
 
     assert runez.touch(None) == 0
-    assert not runez.is_younger(None, 1)
+    assert not runez.is_younger("", 1)
     assert not runez.is_younger("/dev/null/not-there", 1)
     assert runez.first_line("/dev/null/not-there") is None
 
-    assert runez.get_lines(None) is None
+    assert runez.readlines(None) is None
 
 
 def test_terminal_width():

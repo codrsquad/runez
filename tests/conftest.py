@@ -8,7 +8,7 @@ from runez.base import stringified
 from runez.conftest import cli, isolated_log_setup, IsolatedLogSetup, logged, temp_folder
 from runez.context import CaptureOutput
 from runez.convert import short
-from runez.file import get_lines
+from runez.file import readlines
 from runez.logsetup import LogManager
 
 
@@ -49,7 +49,7 @@ class TempLog(object):
 
         if remaining:
             LOG.info("File contents:")
-            LOG.info("\n".join(get_lines(LogManager.file_handler.baseFilename)))
+            LOG.info("\n".join(readlines(LogManager.file_handler.baseFilename)))
 
         assert not remaining
 

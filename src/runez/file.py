@@ -98,7 +98,7 @@ def ini_to_dict(data, fatal=False, keep_empty=False, default=None):
     if not data:
         return default
 
-    lines = get_lines(data, fatal=fatal)
+    lines = readlines(data, fatal=fatal)
     if lines is None:
         return default
 
@@ -137,7 +137,7 @@ def ini_to_dict(data, fatal=False, keep_empty=False, default=None):
     return result
 
 
-def get_lines(data, max_size=TEXT_THRESHOLD_SIZE, fatal=True, default=None):
+def readlines(data, max_size=TEXT_THRESHOLD_SIZE, fatal=True, default=None):
     """
     Args:
         data (str | file | list | None): Path to file, or file object to return lines from

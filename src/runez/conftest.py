@@ -224,7 +224,7 @@ class ClickWrapper(object):
             return ClickWrapper(runez.stringified(e), exit_code=1, exception=e)
 
     @classmethod
-    def get_runner(cls, main):
+    def new_runner(cls, main):
         """
         Returns:
             (ClickWrapper| click.testing.CliRunner): CliRunner if available
@@ -272,7 +272,7 @@ class ClickRunner(object):
                 if self.main is None:
                     self.main = self.default_main
                 assert bool(self.main), "No main provided"
-                runner = ClickWrapper.get_runner(self.main)
+                runner = ClickWrapper.new_runner(self.main)
                 result = runner.invoke(self.main, args=self.args)
 
                 if result.output:

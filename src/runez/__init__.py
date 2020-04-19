@@ -19,7 +19,7 @@ from runez.date import date_from_epoch, datetime_from_epoch, elapsed, local_time
     timezone, timezone_from_text, \
     to_date, to_datetime, to_epoch, to_epoch_ms, to_seconds
 from runez.date import SECONDS_IN_ONE_DAY, SECONDS_IN_ONE_HOUR, SECONDS_IN_ONE_MINUTE, SECONDS_IN_ONE_YEAR, UTC
-from runez.file import copy, delete, first_line, get_lines, ini_to_dict, move, symlink, TempFolder, terminal_width, touch, write
+from runez.file import copy, delete, first_line, ini_to_dict, move, readlines, symlink, TempFolder, terminal_width, touch, write
 from runez.heartbeat import Heartbeat
 from runez.logsetup import LogManager as log, LogSpec
 from runez.path import basename, ensure_folder, parent_folder
@@ -50,7 +50,7 @@ __all__ = [
     "timezone", "timezone_from_text",
     "to_date", "to_datetime", "to_epoch", "to_epoch_ms", "to_seconds",
     "SECONDS_IN_ONE_DAY", "SECONDS_IN_ONE_HOUR", "SECONDS_IN_ONE_MINUTE", "SECONDS_IN_ONE_YEAR", "UTC",
-    "copy", "delete", "first_line", "get_lines", "ini_to_dict", "move", "symlink", "TempFolder", "terminal_width", "touch", "write",
+    "copy", "delete", "first_line", "ini_to_dict", "move", "readlines", "symlink", "TempFolder", "terminal_width", "touch", "write",
     "Heartbeat",
     "log", "LogSpec",
     "basename", "ensure_folder", "parent_folder",

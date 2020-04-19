@@ -87,7 +87,7 @@ File operations::
 
     runez.write("foo", "bar\nbaz\n")
     first = runez.first_line("foo")
-    lines = runez.get_lines("foo")
+    lines = runez.readlines("foo")
 
     full_path = runez.resolved_path("foo/bar")
     folder = runez.parent_folder(full_path)
