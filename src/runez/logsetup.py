@@ -95,9 +95,11 @@ class LogSpec(Slotted):
         """
         if not self.should_log_to_file:
             return None
+
         if self.file_location is not None:
             # Custom location typically provided via --config CLI flag
             return self._auto_complete_filename(self.file_location)
+
         if self.locations:
             for location in self.locations:
                 path = self._auto_complete_filename(location)
@@ -112,8 +114,10 @@ class LogSpec(Slotted):
         """
         if not self.file_format:
             return False
+
         if self.file_location is not None:
             return bool(self.file_location)
+
         return bool(self.locations)
 
     def _auto_complete_filename(self, location):
@@ -165,8 +169,10 @@ class _ContextFilter(logging.Filter):
             data = self.context.to_dict()
             if data:
                 record.context = fmt % ",".join("%s=%s" % (key, val) for key, val in sorted(data.items()) if key and val)
+
             else:
                 record.context = ""
+
         return True
 
 
@@ -228,6 +234,7 @@ class LogManager(object):
         """Useful only as simple callback function, use rune.log.setup() for regular usage"""
         if debug is None and is_dryrun():
             debug = True
+
         cls.set_debug_dryrun(debug=debug)
 
     @classmethod
@@ -252,6 +259,7 @@ class LogManager(object):
                 # Automatically turn debug on (if not explicitly specified) with dryrun,
                 # as many of the "Would ..." messages are at debug level
                 debug = True
+
             set_dryrun(dryrun)
 
         if debug is not UNSET:
@@ -378,7 +386,9 @@ class LogManager(object):
         if cls.handlers is not None:
             for handler in cls.handlers:
                 logging.root.removeHandler(handler)
+
             cls.handlers = None
+
         cls._logging_snapshot.restore()
         cls.context.reset()
         cls.spec = LogSpec(cls._default_spec)
@@ -392,12 +402,16 @@ class LogManager(object):
         if greeting:
             if cls.file_handler and cls.file_handler.baseFilename:
                 location = cls.file_handler.baseFilename
+
             elif not cls.spec.should_log_to_file:
                 location = "file log disabled"
+
             elif cls.spec.file_location:
                 location = "{file_location} is not usable"
+
             else:
                 location = "no usable locations from {locations}"
+
             return formatted(greeting, cls.spec, location=location, strict=False)
 
     @classmethod
@@ -424,26 +438,29 @@ class LogManager(object):
         """
         if used_formats is None:
             used_formats = cls.used_formats
+
         if not markers or not used_formats:
             return False
+
         return any(marker in used_formats for marker in flattened(markers, split=(" ", UNIQUE)))
 
     @classmethod
     def enable_faulthandler(cls, signum=getattr(signal, "SIGUSR1", None)):
-        """
-        Enable dumping thread stack traces when specified signals are received, similar to java's handling of SIGQUIT
+        """Enable dumping thread stack traces when specified signals are received, similar to java's handling of SIGQUIT
 
         Note: this must be called from the surviving process in case of daemonization.
-        Note that SIGQUIT does not work in all environments with a python process.
 
-        :param int|None signum: Signal number to register for full thread stack dump (use None to disable)
+        Args:
+            signum (int | None): Signal number to register for full thread stack dump (use None to disable)
         """
         with cls._lock:
             if not signum:
                 cls._disable_faulthandler()
                 return
+
             if not cls.file_handler or faulthandler is None:
                 return
+
             cls.faulthandler_signum = signum
             dump_file = cls.file_handler.stream
             faulthandler.enable(file=dump_file, all_threads=True)
@@ -469,6 +486,7 @@ class LogManager(object):
         level = getattr(cls.spec, "%s_level" % name)
         if name == "console":
             target = cls.spec.console_stream
+
         else:
             target = cls.spec.usable_location()
 
@@ -491,6 +509,7 @@ class LogManager(object):
 
         if fmt:
             new_handler.setFormatter(logging.Formatter(fmt))
+
         if level:
             new_handler.setLevel(level)
 
@@ -567,6 +586,7 @@ class LogManager(object):
         else:
             for handler in cls.handlers:
                 handler.removeFilter(cls.context.filter)
+
             cls.context.enable(False)
 
         if cls.is_using_format("%(pathname)s %(filename)s %(funcName)s %(module)s"):
@@ -580,6 +600,7 @@ class LogManager(object):
 
         if cls._shortcuts_fixed:
             return
+
         cls._shortcuts_fixed = True
 
         if hasattr(sys, "_getframe"):
@@ -590,6 +611,7 @@ class LogManager(object):
                 try:
                     logging.currentframe = lambda: sys._getframe(4)
                     logger.log(level, msg, *args, **kwargs)
+
                 finally:
                     logging.currentframe = ORIGINAL_CF
 
@@ -622,8 +644,10 @@ def _replace_and_pad(fmt, marker, replacement):
     """
     if marker not in fmt:
         return fmt
+
     if replacement:
         return fmt.replace(marker, replacement)
+
     # Remove mention of 'marker' in 'fmt', including leading space (if present)
     fmt = fmt.replace("%s " % marker, marker)
     return fmt.replace(marker, "")
@@ -639,6 +663,7 @@ def _canonical_format(fmt):
     """
     if not fmt:
         return fmt
+
     return _replace_and_pad(fmt, "%(timezone)s", LogManager.spec.timezone)
 
 

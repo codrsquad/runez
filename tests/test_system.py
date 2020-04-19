@@ -99,17 +99,17 @@ def test_failed_version(logged):
 
 
 def test_formatted_string():
-    assert runez.system.formatted_string() == ""
+    assert runez.system._formatted_string() == ""
 
-    assert runez.system.formatted_string("test") == "test"
-    assert runez.system.formatted_string("test", "bar") == "test"
-    assert runez.system.formatted_string("test %s", "bar") == "test bar"
-    assert runez.system.formatted_string("test %s %s", "bar") == "test %s %s"
+    assert runez.system._formatted_string("test") == "test"
+    assert runez.system._formatted_string("test", "bar") == "test"
+    assert runez.system._formatted_string("test %s", "bar") == "test bar"
+    assert runez.system._formatted_string("test %s %s", "bar") == "test %s %s"
 
-    assert runez.system.formatted_string(None) is None
-    assert runez.system.formatted_string(None, "bar") is None
+    assert runez.system._formatted_string(None) is None
+    assert runez.system._formatted_string(None, "bar") is None
 
-    assert runez.system.formatted_string("test", None) == "test"
+    assert runez.system._formatted_string("test", None) == "test"
 
 
 def test_version():

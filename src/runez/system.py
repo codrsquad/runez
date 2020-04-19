@@ -8,10 +8,12 @@ WINDOWS = sys.platform.startswith("win")
 
 
 class AbortException(Exception):
-    """
+    """Raised when calls fail, in runez functions with argument `fatal=True`.
+
     You can replace this with your preferred exception, for example:
 
-        runez.system.AbortException = SystemExit
+    >>> import runez
+    >>> runez.system.AbortException = SystemExit
     """
 
     def __init__(self, code):
@@ -19,24 +21,36 @@ class AbortException(Exception):
 
 
 def abort(*args, **kwargs):
-    """
-    Usage:
-        return abort("...") => will sys.exit() by default
-        return abort("...", fatal=True) => Will sys.exit()
+    """General wrapper for optionally fatal calls
 
-        # Not fatal, but will log/print message:
-        return abort("...", fatal=False) => Will return False
-        return abort("...", fatal=(False, None)) => Will return None
-        return abort("...", fatal=(False, -1)) => Will return -1
+    >>> from runez import abort
+    >>> abort("foo")  # Raises AbortException
+    foo
+    runez.system.AbortException: 1
+    >>> abort("foo", fatal=True) # Raises AbortException
+    foo
+    runez.system.AbortException: 1
+    >>> # Not fatal, but will log/print message:
+    >>> abort("foo", fatal=False)  # Returns False
+    foo
+    False
+    >>> abort("foo", fatal=(False, None))  # Returns None
+    foo
+    >>> abort("foo", fatal=(False, -1)) # Returns -1
+    foo
+    -1
+    >>> # Not fatal, will not log/print any message:
+    >>> abort("foo", fatal=None)  # Returns None
+    >>> abort("foo", fatal=(None, None))  # Returns None
+    >>> abort("foo", fatal=(None, -1))  # Returns -1
+    -1
 
-        # Not fatal, will not log/print any message:
-        return abort("...", fatal=None) => Will return None
-        return abort("...", fatal=(None, None)) => Will return None
-        return abort("...", fatal=(None, -1)) => Will return -1
+    Args:
+        *args: Args passed through for error reporting
+        **kwargs: Args passed through for error reporting
 
-    :param args: Args passed through for error reporting
-    :param kwargs: Args passed through for error reporting
-    :return: kwargs["return_value"] (default: -1) to signify failure to non-fatal callers
+    Returns:
+        kwargs["return_value"] (default: -1) to signify failure to non-fatal callers
     """
     code = kwargs.pop("code", 1)
     logger = kwargs.pop("logger", LOG.error if code else LOG.info)
@@ -51,7 +65,7 @@ def abort(*args, **kwargs):
             logger(*args, **kwargs)
 
         else:
-            sys.stderr.write("%s\n" % formatted_string(*args))
+            sys.stderr.write("%s\n" % _formatted_string(*args))
 
     if fatal:
         if isinstance(fatal, type) and issubclass(fatal, BaseException):
@@ -67,32 +81,29 @@ def abort(*args, **kwargs):
 
 
 def auto_import_siblings(auto_clean="TOX_WORK_DIR", skip=None):
-    """
-    Auto-import all sibling submodules from caller.
+    """Auto-import all sibling submodules from caller.
+
     This is handy for click command groups for example.
     It allows to avoid having to have a module that simply lists all sub-commands, just to ensure they are added to `main`.
 
-    Example usage:
-        my_cli.py:
+    - ./my_cli.py::
 
-            @click.group()
-            def main(...):
-                ...
+        @click.group()
+        def main(...):
+            ...
 
-            # Without this, one would have to ensure that all subcommands are imported somehow
-            runez.auto_import_siblings()
+        runez.auto_import_siblings()
 
-        my_sub_command.py:
+    - ./my_sub_command.py::
 
-            from .my_cli import main
+        from .my_cli import main
 
-            @main.command():
-            def foo(...):
-                ...
+        @main.command()  # The auto-import will trigger importing this without further ado
+        def foo(...):
+            ...
 
     Args:
-        auto_clean (str | bool | None): If True, auto-clean .pyc files
-                                        If string: auto-clean .pyc files when corresponding env var is defined
+        auto_clean (str | bool | None): If provided, auto-clean `.pyc`` files
         skip (list | None): Do not auto-import specified modules
 
     Returns:
@@ -204,21 +215,6 @@ def find_caller_frame(validator=actual_caller_frame, depth=2, maximum=None):
                 return None
 
 
-def formatted_string(*args):
-    if not args:
-        return ""
-
-    message = args[0]
-    if len(args) == 1:
-        return message
-
-    try:
-        return message % args[1:]
-
-    except TypeError:
-        return message
-
-
 def get_version(mod, default="0.0.0", logger=LOG.warning):
     """
     Args:
@@ -250,28 +246,22 @@ def get_version(mod, default="0.0.0", logger=LOG.warning):
         return default
 
 
-# We have to import 'runez' late, can't import it right away at import time
-_runez_module = None
-
-
-def _get_runez():
-    global _runez_module
-    if _runez_module is None:
-        import runez
-
-        _runez_module = runez
-
-    return _runez_module
-
-
 def is_dryrun():
+    """
+    Returns:
+        (bool): Same as runez.DRYRUN, but as a function (and with late import)
+    """
     return _get_runez().DRYRUN
 
 
 def set_dryrun(dryrun):
-    """
-    :param bool dryrun: New value for runez.DRYRUN
-    :return bool: Old value
+    """Set runez.DRYRUN, and return its previous value (useful for context managers)
+
+    Args:
+        dryrun (bool): New value for runez.DRYRUN
+
+    Returns:
+        (bool): Old value
     """
     r = _get_runez()
     old = r.DRYRUN
@@ -289,3 +279,32 @@ def _clean_files(folder, extension):
 
                 except OSError:
                     pass  # Delete is only needed in tox run, no need to fail if delete is not possible
+
+
+def _formatted_string(*args):
+    if not args:
+        return ""
+
+    message = args[0]
+    if len(args) == 1:
+        return message
+
+    try:
+        return message % args[1:]
+
+    except TypeError:
+        return message
+
+
+# We have to import 'runez' late when running in runez itself (because runez.__init__ imports everything to expose it)
+_runez_module = None
+
+
+def _get_runez():
+    global _runez_module
+    if _runez_module is None:
+        import runez
+
+        _runez_module = runez
+
+    return _runez_module

@@ -23,8 +23,11 @@ DEFAULT_INSTRUCTIONS = {
 
 def check_pid(pid):
     """
-    :param int pid: Pid to examine
-    :return bool: True if process with pid exists
+    Args:
+        pid (int): Pid to examine
+
+    Returns:
+        (bool): True if process with pid exists
     """
     if WINDOWS:  # pragma: no cover
         import ctypes
@@ -49,7 +52,7 @@ def check_pid(pid):
 def dev_folder(path=sys.prefix):
     """
     Args:
-        path (str): Path to examine
+        path (str | None): Path to examine
 
     Returns:
         (str | None): Path to development build folder, such as .venv, .tox etc, if any
@@ -66,20 +69,26 @@ def dev_folder(path=sys.prefix):
 
 def is_executable(path):
     """
-    :param str|None path: Path to file
-    :return bool: True if file exists and is executable
+    Args:
+        path (str | None): Path to file
+
+    Returns:
+        (bool): True if file exists and is executable
     """
     if WINDOWS:  # pragma: no cover
-        return windows_exe(path)
+        return bool(_windows_exe(path))
 
     return path and os.path.isfile(path) and os.access(path, os.X_OK)
 
 
 def is_younger(path, age):
     """
-    :param str|None path: Path to file
-    :param int|float age: How many seconds to consider the file too old
-    :return bool: True if file exists and is younger than 'age' seconds
+    Args:
+        path (str): Path to file
+        age (int | float): How many seconds to consider the file too old
+
+    Returns:
+        (bool): True if file exists and is younger than 'age' seconds
     """
     try:
         return time.time() - os.path.getmtime(path) < age
@@ -90,9 +99,12 @@ def is_younger(path, age):
 
 def make_executable(path, fatal=True):
     """
-    :param str|None path: chmod file with 'path' as executable
-    :param bool|None fatal: Abort execution on failure if True
-    :return int: 1 if effectively done, 0 if no-op, -1 on failure
+    Args:
+        path (str): chmod file with 'path' as executable
+        fatal (bool | None): Abort execution on failure if True
+
+    Returns:
+        (int): 1 if effectively done, 0 if no-op, -1 on failure
     """
     if is_executable(path):
         return 0
@@ -112,10 +124,6 @@ def make_executable(path, fatal=True):
         return abort("Can't chmod %s: %s", short(path), e, fatal=(fatal, -1))
 
 
-def needs_wrapping(args):
-    return not WINDOWS and "PYCHARM_HOSTED" in os.environ and len(args) > 1 and "python" in args[0] and args[1].startswith("-m")
-
-
 def program_path(path=None):
     """
     Args:
@@ -128,26 +136,6 @@ def program_path(path=None):
         path = sys.argv[0]
 
     return which(path) or path
-
-
-def windows_exe(path):  # pragma: no cover
-    if path:
-        for extension in (".exe", ".bat"):
-            fpath = path
-            if not fpath.lower().endswith(extension):
-                fpath += extension
-
-            if os.path.isfile(fpath):
-                return fpath
-
-
-def wrapped_args(args):
-    if needs_wrapping(args):
-        # Temporary workaround for https://youtrack.jetbrains.com/issue/PY-40692
-        wrapper = os.path.join(os.path.dirname(__file__), "pydev-wrapper.sh")
-        return ["/bin/sh", wrapper] + args
-
-    return args
 
 
 def run(program, *args, **kwargs):
@@ -170,7 +158,7 @@ def run(program, *args, **kwargs):
 
     - logger (callable | None): When provided (defaults to LOG.debug), call logger("Running: ...")
 
-    - path_env (dict | None): Allows to inject PATH-like env vars, see `added_env_paths()`
+    - path_env (dict | None): Allows to inject PATH-like env vars, see `_added_env_paths()`
 
     - stdout, stderr: Passed through to `subprocess.Popen`, when both are None causes this function to return exit code instead of output
     """
@@ -198,11 +186,11 @@ def run(program, *args, **kwargs):
     if not full_path:
         return abort("%s is not installed", short(program), fatal=fatal)
 
-    args = wrapped_args([full_path] + args)
+    args = _wrapped_args([full_path] + args)
     try:
         path_env = kwargs.pop("path_env", None)
         if path_env:
-            kwargs["env"] = added_env_paths(path_env, env=kwargs.get("env"))
+            kwargs["env"] = _added_env_paths(path_env, env=kwargs.get("env"))
 
         p = subprocess.Popen(args, stdout=stdout, stderr=stderr, **kwargs)  # nosec
         output, err = p.communicate()
@@ -233,23 +221,26 @@ def run(program, *args, **kwargs):
 
 def which(program, ignore_own_venv=False):
     """
-    :param str|None program: Program name to find via env var PATH
-    :param bool ignore_own_venv: If True, do not resolve to executables in current venv
-    :return str|None: Full path to program, if one exists and is executable
+    Args:
+        program (str | None): Program name to find via env var PATH
+        ignore_own_venv (bool): If True, do not resolve to executables in current venv
+
+    Returns:
+        (str | None): Full path to program, if one exists and is executable
     """
     if not program:
         return None
 
     if os.path.isabs(program):
         if WINDOWS:  # pragma: no cover
-            return windows_exe(program)
+            return _windows_exe(program)
 
         return program if is_executable(program) else None
 
     for p in os.environ.get("PATH", "").split(os.path.pathsep):
         fp = os.path.join(p, program)
         if WINDOWS:  # pragma: no cover
-            fp = windows_exe(fp)
+            fp = _windows_exe(fp)
 
         if fp and (not ignore_own_venv or not fp.startswith(sys.prefix)) and is_executable(fp):
             return fp
@@ -259,14 +250,6 @@ def which(program, ignore_own_venv=False):
         return program
 
     return None
-
-
-def install_instructions(instructions_dict, platform):
-    text = instructions_dict.get(platform)
-    if not text:
-        text = "\n- ".join("on %s: %s" % (k, v) for k, v in instructions_dict.items())
-
-    return text
 
 
 def require_installed(program, instructions=None, fatal=True, platform=sys.platform):
@@ -289,7 +272,7 @@ def require_installed(program, instructions=None, fatal=True, platform=sys.platf
             instructions = DEFAULT_INSTRUCTIONS
 
         if isinstance(instructions, dict):
-            instructions = install_instructions(instructions, platform)
+            instructions = _install_instructions(instructions, platform)
 
         message = "{program} is not installed"
         if instructions:
@@ -305,16 +288,17 @@ def require_installed(program, instructions=None, fatal=True, platform=sys.platf
     return True
 
 
-def added_env_paths(env_vars, env=None):
+def _added_env_paths(env_vars, env=None):
     """
-    :param dict|None env_vars: Env vars to customize
-    :param dict env: Original env vars
-    """
-    if not env_vars:
-        return None
+    Args:
+        env_vars (dict): Env var customizations to apply
+        env (dict | None): Original env vars (default: os.environ)
 
+    Returns:
+        (dict): Resulting merged env vars
+    """
     if not env:
-        env = dict(os.environ)
+        env = os.environ
 
     result = dict(env)
     for env_var, paths in env_vars.items():
@@ -333,3 +317,31 @@ def added_env_paths(env_vars, env=None):
             result[env_var] = separator.join(current)
 
     return result
+
+
+def _install_instructions(instructions_dict, platform):
+    text = instructions_dict.get(platform)
+    if not text:
+        text = "\n- ".join("on %s: %s" % (k, v) for k, v in instructions_dict.items())
+
+    return text
+
+
+def _windows_exe(path):  # pragma: no cover
+    if path:
+        for extension in (".exe", ".bat"):
+            fpath = path
+            if not fpath.lower().endswith(extension):
+                fpath += extension
+
+            if os.path.isfile(fpath):
+                return fpath
+
+
+def _wrapped_args(args):
+    if not WINDOWS and "PYCHARM_HOSTED" in os.environ and len(args) > 1 and "python" in args[0] and args[1].startswith("-m"):
+        # Temporary workaround for https://youtrack.jetbrains.com/issue/PY-40692
+        wrapper = os.path.join(os.path.dirname(__file__), "pydev-wrapper.sh")
+        return ["/bin/sh", wrapper] + args
+
+    return args

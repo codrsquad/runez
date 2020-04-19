@@ -31,22 +31,22 @@ class Task(object):
 
     def __init__(self, name=None, frequency=None):
         """
-        :param str|None name: Name of this task (by default: descendant's class name)
-        :param int|float|None frequency: How often to call 'execute()' on this task, in seconds
+        Args:
+            name (str | None): Name of this task (by default: descendant's class name)
+            frequency (int | float | None): How often to call 'execute()' on this task, in seconds
         """
         self.name = name or self.__class__.__name__
         self.frequency = frequency or DEFAULT_FREQUENCY
-        # Internal epoch when next execution of this task is due
-        self.next_execution = 0
+        self.next_execution = 0  # Internal epoch when next execution of this task is due
 
     def execute(self):
-        """
-        Execute this task
-        Either provide a descendant with an implementation for this, or replace this 'execute' function with any callable
+        """Execute this task.
+
+        Either provide a descendant with an implementation for this, or replace this `execute` function with any callable
         """
 
     def set_next_execution(self):
-        """Compute 'self.next_execution'"""
+        """Compute `self.next_execution`"""
         self.next_execution = time.time() + self.frequency
 
     def __repr__(self):
@@ -63,8 +63,7 @@ class Task(object):
 
 
 class Heartbeat(object):
-    """
-    Daemon thread used to run periodical background tasks tasks like:
+    """Daemon thread used to run periodical background tasks tasks like:
 
     - collecting CPU/RAM usage
     - sending metrics
@@ -88,8 +87,7 @@ class Heartbeat(object):
 
     @classmethod
     def stop(cls):
-        """
-        Shutdown background thread, stop executing tasks
+        """Shutdown background thread, stop executing tasks.
 
         Note that calling this is not usually necessary, we're using a daemon thread, which does not need to be stopped explicitly.
         This can be useful for tests, as they can conveniently start/stop N times
@@ -100,8 +98,9 @@ class Heartbeat(object):
     @classmethod
     def add_task(cls, task, frequency=None):
         """
-        :param Task|callable task: Add 'task' to the list of tasks to run periodically
-        :param int|float|None frequency: Frequency at which to execute the task
+        Args:
+            task (Task | callable): Add 'task' to the list of tasks to run periodically
+            frequency (int | float | None): How often to execute this task, in seconds
         """
         with cls._lock:
             if not isinstance(task, Task):
@@ -124,7 +123,8 @@ class Heartbeat(object):
     @classmethod
     def remove_task(cls, task):
         """
-        :param Task|callable task: Remove 'task' from the list of tasks to run periodically
+        Args:
+            task (Task | callable): Remove `task` from the list of tasks to run periodically
         """
         with cls._lock:
             if not isinstance(task, Task):
@@ -153,6 +153,7 @@ class Heartbeat(object):
                 # First run: execute each task once to get it started
                 for task in cls.tasks:
                     cls._execute_task(task)
+
                 cls.tasks.sort()
                 cls._last_execution = time.time()
 
@@ -160,10 +161,11 @@ class Heartbeat(object):
             with cls._lock:
                 if cls.tasks:
                     for task in cls.tasks:
-                        if task.next_execution - cls._last_execution < 0.5:
-                            cls._execute_task(task)
-                        else:
+                        if task.next_execution - cls._last_execution > 0.5:
                             break
+
+                        cls._execute_task(task)
+
                     cls.tasks.sort()
                     cls._last_execution = time.time()
                     cls._sleep_delay = cls.tasks[0].next_execution - cls._last_execution

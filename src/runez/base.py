@@ -202,7 +202,8 @@ class ThreadGlobalContext(object):
 
     def __init__(self, filter_type):
         """
-        :param type filter_type: Class to instantiate as filter
+        Args:
+            filter_type (type): Class to instantiate as filter
         """
         self._filter_type = filter_type
         self._lock = threading.RLock()

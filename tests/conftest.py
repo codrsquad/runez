@@ -22,12 +22,14 @@ assert all(s for s in [cli, isolated_log_setup, logged, temp_folder])
 
 
 class TempLog(object):
-    def __init__(self, folder, tracked):
+    """Extra test-oriented convenience on top of runez.TrackedOutput"""
+
+    def __init__(self, tracked):
         """
-        :param str folder: Temp folder
-        :param runez.TrackedOutput tracked: Tracked output
+        Args:
+            tracked (runez.TrackedOutput): Tracked output
         """
-        self.folder = folder
+        self.folder = os.getcwd()
         self.tracked = tracked
         self.stdout = tracked.stdout
         self.stderr = tracked.stderr
@@ -44,9 +46,11 @@ class TempLog(object):
             for line in fh:
                 found = [msg for msg in remaining if msg in line]
                 remaining.difference_update(found)
+
         if remaining:
             LOG.info("File contents:")
             LOG.info("\n".join(get_lines(LogManager.file_handler.baseFilename)))
+
         assert not remaining
 
     def clear(self):
@@ -69,4 +73,4 @@ class TempLog(object):
 def temp_log():
     with IsolatedLogSetup():
         with CaptureOutput() as tracked:
-            yield TempLog(os.getcwd(), tracked)
+            yield TempLog(tracked)
