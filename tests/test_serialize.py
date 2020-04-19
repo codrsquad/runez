@@ -6,13 +6,22 @@ import pytest
 from mock import patch
 
 import runez
-from runez.schema import Dict, get_descriptor, Integer, List, String, UniqueIdentifier, ValidationException
+from runez.schema import determined_schema_type, Dict, Integer, List, String, UniqueIdentifier, ValidationException
 from runez.serialize import add_meta, ClassMetaDescription, same_type, SerializableDescendants, type_name, with_behavior
 
 
 @add_meta(ClassMetaDescription)
 class MetaSlotted(object):
     __slots__ = "name"
+
+
+@add_meta(ClassMetaDescription)
+class MetaSlotted2(object):
+    __slots__ = ["name", "surname"]
+
+    @property
+    def full_name(self):
+        return "%s %s" % (self.name, self.surname)
 
 
 class SlottedExample(runez.Serializable, with_behavior(strict=True, extras=Exception)):
@@ -23,6 +32,10 @@ def test_slotted(logged):
     assert isinstance(MetaSlotted._meta, ClassMetaDescription)
     assert len(MetaSlotted._meta.attributes) == 1
     assert not MetaSlotted._meta.properties
+
+    assert isinstance(MetaSlotted2._meta, ClassMetaDescription)
+    assert len(MetaSlotted2._meta.attributes) == 2
+    assert MetaSlotted2._meta.properties == ["full_name"]
 
     assert isinstance(SlottedExample._meta, ClassMetaDescription)
     assert len(SlottedExample._meta.attributes) == 1
@@ -45,24 +58,24 @@ def test_bogus_class():
             id2 = UniqueIdentifier
 
 
-def test_get_descriptor():
-    assert str(get_descriptor("a")) == "string (default: a)"
-    assert str(get_descriptor(u"a")) == "string (default: a)"
-    assert str(get_descriptor(5)) == "integer (default: 5)"
+def test_determined_schema_type():
+    assert str(determined_schema_type("a")) == "string (default: a)"
+    assert str(determined_schema_type(u"a")) == "string (default: a)"
+    assert str(determined_schema_type(5)) == "integer (default: 5)"
 
-    assert str(get_descriptor(str)) == "string"
-    assert str(get_descriptor(int)) == "integer"
-    assert str(get_descriptor(dict)) == "dict[any, any]"
-    assert str(get_descriptor(list)) == "list[any]"
-    assert str(get_descriptor(set)) == "list[any]"
-    assert str(get_descriptor(tuple)) == "list[any]"
+    assert str(determined_schema_type(str)) == "string"
+    assert str(determined_schema_type(int)) == "integer"
+    assert str(determined_schema_type(dict)) == "dict[any, any]"
+    assert str(determined_schema_type(list)) == "list[any]"
+    assert str(determined_schema_type(set)) == "list[any]"
+    assert str(determined_schema_type(tuple)) == "list[any]"
 
-    assert str(get_descriptor(List)) == "list[any]"
-    assert str(get_descriptor(List(Integer))) == "list[integer]"
-    assert str(get_descriptor(Dict(String, List(Integer)))) == "dict[string, list[integer]]"
+    assert str(determined_schema_type(List)) == "list[any]"
+    assert str(determined_schema_type(List(Integer))) == "list[integer]"
+    assert str(determined_schema_type(Dict(String, List(Integer)))) == "dict[string, list[integer]]"
 
     with pytest.raises(ValidationException) as e:
-        get_descriptor(object())
+        determined_schema_type(object())
     assert "Invalid schema definition" in str(e.value)
 
 

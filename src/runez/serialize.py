@@ -361,18 +361,18 @@ class ClassMetaDescription(object):
                     self.properties.append(key)
                     continue
 
-                descriptor = runez.schema.get_descriptor(value, required=False)
-                if descriptor is not None:
-                    if isinstance(descriptor, runez.schema.UniqueIdentifier):
+                schema_type = runez.schema.determined_schema_type(value, required=False)
+                if schema_type is not None:
+                    if isinstance(schema_type, runez.schema.UniqueIdentifier):
                         if self.unique_identifier:
                             raise runez.schema.ValidationException("Multiple unique ids specified for %s: %s and %s" % (
-                                    self.qualified_name, self.unique_identifier, descriptor
+                                    self.qualified_name, self.unique_identifier, schema_type
                             ))
                         self.unique_identifier = key
-                        descriptor = descriptor.subtype
+                        schema_type = schema_type.subtype
 
-                    self.attributes[key] = descriptor
-                    by_type[descriptor.name].append(key)
+                    self.attributes[key] = schema_type
+                    by_type[schema_type.name].append(key)
 
         self.by_type = dict((k, sorted(v)) for k, v in by_type.items())  # Sorted to make testing py2/py3 deterministic
         if self.attributes:
@@ -411,11 +411,11 @@ class ClassMetaDescription(object):
         else:
             given = dict(data)
 
-        for name, descriptor in self.attributes.items():
-            value = given.pop(name, descriptor.default)
-            problem = descriptor.problem(value)
+        for name, schema_type in self.attributes.items():
+            value = given.pop(name, schema_type.default)
+            problem = schema_type.problem(value)
             if problem is None:
-                value = descriptor.converted(value)
+                value = schema_type.converted(value)
 
             else:
                 self.behavior.handle_mismatch(self.name, name, problem, source)
@@ -441,8 +441,8 @@ class ClassMetaDescription(object):
         Returns:
             (str | None): Explanation of compliance issue, if there is any
         """
-        for name, descriptor in self.attributes.items():
-            problem = descriptor.problem(value.get(name))
+        for name, schema_type in self.attributes.items():
+            problem = schema_type.problem(value.get(name))
             if problem is not None:
                 return problem
 
@@ -481,11 +481,12 @@ def add_metaclass(metaclass):
         orig_vars = dict(cls.__dict__)
         slots = orig_vars.get("__slots__")
         if slots is not None:
-            if isinstance(slots, str):
-                slots = [slots]
+            if isinstance(slots, string_type):
+                orig_vars.pop(slots)
 
-            for slots_var in slots:
-                orig_vars.pop(slots_var)
+            else:
+                for slots_var in slots:
+                    orig_vars.pop(slots_var)
 
         orig_vars.pop("__dict__", None)
         orig_vars.pop("__weakref__", None)
@@ -601,8 +602,8 @@ class Serializable(object):
         """
         Reset all fields of this object to class defaults
         """
-        for name, descriptor in self._meta.attributes.items():
-            setattr(self, name, descriptor.default)
+        for name, schema_type in self._meta.attributes.items():
+            setattr(self, name, schema_type.default)
 
     def to_dict(self, stringify=decode, dt=str, keep_none=False):
         """

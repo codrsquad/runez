@@ -30,34 +30,34 @@ class ValidationException(Exception):
         return self.message
 
 
-def get_descriptor(value, required=True):
+def determined_schema_type(value, required=True):
     """
     Args:
         value: Value given by user (as class attribute to describe their runez.Serializable schema)
-        required (bool): If True, raise ValidationException() is no descriptor could be found
+        required (bool): If True, raise ValidationException() is no type could be determined
 
     Returns:
-        (Any | None): Descriptor if one is applicable
+        (Any | None): Associated schema type (descendant of Any), if one is applicable
     """
-    descriptor = _get_descriptor(value)
-    if required and descriptor is None:
+    schema_type = _determined_schema_type(value)
+    if required and schema_type is None:
         raise ValidationException("Invalid schema definition '%s'" % value)
 
-    return descriptor
+    return schema_type
 
 
-def _get_descriptor(value):
+def _determined_schema_type(value):
     if value is None:
         return Any()  # User used None as value, no more info to be had
 
     if isinstance(value, Any):
-        return value  # User specified their schema properly
+        return value  # User specified their schema explicitly
 
     if inspect.isroutine(value):
-        return None  # Routine, not a descriptor
+        return None  # Routine, not a schema type
 
     if inspect.ismemberdescriptor(value):
-        return Any()  # Member descriptor (such as slot), not type as runez.Serializable goes
+        return Any()  # Member descriptor (such as slot)
 
     if isinstance(value, string_type):
         return String(default=value)  # User gave a string as value, assume they mean string type, and use value as default
@@ -213,8 +213,8 @@ class Dict(Any):
             value: Optional constraint for values
             default: Default to use when no value was provided
         """
-        self.key = get_descriptor(key)  # type: Any
-        self.value = get_descriptor(value)  # type: Any
+        self.key = determined_schema_type(key)  # type: Any
+        self.value = determined_schema_type(value)  # type: Any
         super(Dict, self).__init__(default=default)
 
     def representation(self):
@@ -290,7 +290,7 @@ class List(Any):
             subtype: Optional constraint for values
             default: Default to use when no value was provided
         """
-        self.subtype = get_descriptor(subtype)  # type: Any
+        self.subtype = determined_schema_type(subtype)  # type: Any
         super(List, self).__init__(default=default)
 
     def representation(self):
@@ -328,7 +328,7 @@ class UniqueIdentifier(Any):
         Args:
             subtype: Optional type constraint for this identifier (defaults to `String`)
         """
-        self.subtype = get_descriptor(subtype or String)  # type: Any
+        self.subtype = determined_schema_type(subtype or String)  # type: Any
         super(UniqueIdentifier, self).__init__(default=None)
 
 
@@ -337,6 +337,5 @@ TYPE_MAP = {
     int: Integer,
     list: List,
     set: List,
-    string_type: String,
     tuple: List,
 }
