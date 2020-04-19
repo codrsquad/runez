@@ -218,6 +218,13 @@ def test_plural():
     assert runez.plural(2, "woman") == "2 women"
     assert runez.plural(2, "status") == "2 statuses"
 
+    assert runez.plural(0, "carrot") == "0 carrots"
+    assert runez.plural(1, "carrot") == "1 carrot"
+    assert runez.plural(20, "carrot") == "20 carrots"
+    assert runez.plural(20000, "carrot") == "20K carrots"
+    assert runez.plural(20000, "carrot", base=None) == "20000 carrots"
+    assert runez.plural(20000, "carrot", base=0) == "20000 carrots"
+
 
 def test_quoted():
     assert runez.quoted(None) is None

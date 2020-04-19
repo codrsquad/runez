@@ -157,7 +157,7 @@ def represented_args(args):
     return " ".join(result)
 
 
-def represented_bytesize(size, base=1024, unit="B", separator=" ", prefixes=DEFAULT_UNITS):
+def represented_bytesize(size, unit="B", base=1024, separator=" ", prefixes=DEFAULT_UNITS):
     """Human friendly byte size representation
 
     >>> represented_bytesize(1024)
@@ -169,30 +169,30 @@ def represented_bytesize(size, base=1024, unit="B", separator=" ", prefixes=DEFA
 
     Args:
         size (int | float): Size to represent
-        base (int): Base to represent it in (example: 1024 for bytes, 1000 for bits)
         unit (str): Unit symbol
+        base (int): Base to represent it in (example: 1024 for bytes, 1000 for bits)
         separator (str): Separator to use between number and units
         prefixes (str): Prefixes to use per power (kilo, mega, giga, tera, peta, ...)
 
     Returns:
         (str): Human friendly byte size representation
     """
-    return _represented_with_units(size, base, unit, separator, prefixes)
+    return _represented_with_units(size, unit, base, separator, prefixes)
 
 
-def represented_with_units(size, base=1000, unit="", separator="", prefixes=DEFAULT_UNITS):
+def represented_with_units(size, unit="", base=1000, separator="", prefixes=DEFAULT_UNITS):
     """
     Args:
         size (int | float): Size to represent
-        base (int): Base to represent it in (example: 1024 for bytes, 1000 for bits)
         unit (str): Unit symbol
+        base (int): Base to represent it in (example: 1024 for bytes, 1000 for bits)
         separator (str): Separator to use between number and units
         prefixes (str): Prefixes to use per power (kilo, mega, giga, tera, peta, ...)
 
     Returns:
         (str): Human friendly representation with units, avoids having to read/parse visually large numbers
     """
-    return _represented_with_units(size, base, unit, separator, prefixes)
+    return _represented_with_units(size, unit, base, separator, prefixes)
 
 
 def resolved_path(path, base=None):
@@ -505,11 +505,13 @@ class Pluralizer:
         return "%ss" % singular
 
 
-def plural(countable, singular):
+def plural(countable, singular, base=1000, prefixes=DEFAULT_UNITS):
     """
     Args:
         countable: How many things there are (can be int, or something countable)
         singular: What is counted (example: "record", or "chair", etc...)
+        base (int | None): Optional base to unitize count representation
+        prefixes (str | None): Prefixes to use per power (kilo, mega, giga, tera, peta, ...)
 
     Returns:
         (str): Rudimentary, best-effort plural of "<count> <name>(s)"
@@ -519,6 +521,7 @@ def plural(countable, singular):
         return "1 %s" % singular
 
     plural = Pluralizer.plural(singular)
+    count = _represented_with_units(count, "", base, "", prefixes)
     return "%s %s" % (count, plural)
 
 
@@ -763,10 +766,13 @@ def _prettified(value):
         return "function '%s'" % value.__name__
 
 
-def _represented_with_units(size, base, unit, separator, prefixes, exponent=0):
+def _represented_with_units(size, unit, base, separator, prefixes, exponent=0):
+    if not base:
+        return "%s" % size
+
     if size >= base and exponent < len(prefixes):
         size = float(size) / base
-        return _represented_with_units(size, base, unit, separator, prefixes, exponent=exponent + 1)
+        return _represented_with_units(size, unit, base, separator, prefixes, exponent=exponent + 1)
 
     if exponent == 0:
         if unit:
