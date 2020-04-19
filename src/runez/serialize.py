@@ -20,6 +20,11 @@ LOG = logging.getLogger(__name__)
 Serializable = None  # type: type # Set to runez.Serializable class once parsing of runez.serialize.py is past that class definition
 
 
+def _to_callable(value, fallback=None):
+    if value:
+        return value if callable(value) else fallback
+
+
 def with_behavior(strict=UNSET, extras=UNSET, hook=UNSET):
     """
     Args:
@@ -101,8 +106,8 @@ class DefaultBehavior(object):
         if extras is UNSET:
             extras = self.extras
 
-        self.strict = self.to_callable(strict, runez.schema.ValidationException)
-        self.hook = self.to_callable(hook, None)  # type: callable # Called if provided at the end of ClassMetaDescription initialization
+        self.strict = _to_callable(strict, fallback=runez.schema.ValidationException)
+        self.hook = _to_callable(hook)  # Called if provided at the end of ClassMetaDescription initialization
         self.ignored_extras = None  # Internal, populated if given `extras` is a `tuple(callable, list)`
 
         if isinstance(extras, tuple) and len(extras) == 2:
@@ -113,7 +118,7 @@ class DefaultBehavior(object):
         else:
             self.ignored_extras = None
 
-        self.extras = self.to_callable(extras, LOG.debug)
+        self.extras = _to_callable(extras, fallback=LOG.debug)
 
     def __repr__(self):
         result = []
@@ -146,16 +151,6 @@ class DefaultBehavior(object):
                 hook = meta.behavior.hook
 
         return DefaultBehavior(strict=strict, hook=hook)
-
-    @staticmethod
-    def to_callable(value, default):
-        if not value:
-            return None
-
-        if callable(value):
-            return value
-
-        return default
 
     def handle_mismatch(self, class_name, field_name, problem, source):
         if self.strict:
