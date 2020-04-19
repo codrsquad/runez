@@ -227,23 +227,22 @@ def shortened(value, size=120):
 
 
 def to_boolean(value):
-    """Convert `value` to boolean, strings considered to represent True: "true", "yes", "y" or "on"
+    """Convert `value` to boolean, strings considered to represent True are limited to: "true", "yes", "y" or "on".
+    For all other types: python truthiness applies.
 
     Args:
-        value (str | unicode | None): Value to convert to bool
+        value: Value to convert to bool
 
     Returns:
         (bool): Deduced boolean value
     """
-    if value is not None:
-        if stringified(value).lower() in TRUE_TOKENS:
+    if isinstance(value, string_type):
+        if value.lower() in TRUE_TOKENS:
             return True
 
-        number = to_number(value)
-        if number is not None:
-            return bool(number)
+        return bool(to_float(value))
 
-    return False
+    return bool(value)
 
 
 def to_bytesize(value, default_unit=None, base=1024):
@@ -258,7 +257,7 @@ def to_bytesize(value, default_unit=None, base=1024):
         (int | None): Deduced bytesize value, if possible
     """
     if value is not None:
-        v = to_number(value)
+        v = to_float(value)
         if v is not None:
             return unitized(v, default_unit, base)
 
@@ -274,7 +273,7 @@ def to_bytesize(value, default_unit=None, base=1024):
             else:
                 value = value[:-1]
 
-            return unitized(to_number(value), unit, base)
+            return unitized(to_float(value), unit, base)
 
         except (AttributeError, IndexError, KeyError, TypeError, ValueError):
             return None
@@ -324,18 +323,6 @@ def to_int(value, default=None):
 
     except (TypeError, ValueError):
         return default
-
-
-def to_number(value, default=None):
-    """
-    Args:
-        value: Value to convert to number
-        default: Default to return when value can't be converted
-
-    Returns:
-        (int | float | None): Extracted number if possible, otherwise `None`
-    """
-    return to_float(value, lenient=True, default=default)
 
 
 class Anchored(object):
@@ -566,7 +553,7 @@ def unitized(value, unit, base=DEFAULT_BASE, unitseq=DEFAULT_UNITS):
     """
     exponent = _get_unit_exponent(unit, unitseq)
     if exponent is not None:
-        return int(value * (base ** exponent))
+        return int(round(value * (base ** exponent)))
 
 
 def _get_unit_exponent(unit, unitseq, default=None):

@@ -1,20 +1,5 @@
 """
-All public functions/classes are made available here.
-
-Example usage (with this style, you can easily see all of your usages of runez by simply searching for `runez.`):
-
-    import runez
-    runez.copy("source", "dest")
-
-Or (perhaps slightly harder to track runez usage, and also needlessly specific):
-
-    from runez.file import copy
-    copy("source", "dest")
-
-
-DRYRUN mode:
-    operations like copy(), delete() etc will not actually do their thing, but just log "Would ..." instead
-    It's recommended to set DRYRUN only once at the start of your run via: runez.log.setup(dryrun=...)
+Friendly misc/utils/convenience library
 """
 
 from runez import click, colors, config, heartbeat, program, prompt, schema, serialize, thread

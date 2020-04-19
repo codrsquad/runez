@@ -40,6 +40,7 @@ def test_boolean():
     assert runez.to_boolean("yes") is True
     assert runez.to_boolean("On") is True
     assert runez.to_boolean("5") is True
+    assert runez.to_boolean("0.1") is True
     assert runez.to_boolean("16.1") is True
 
 
@@ -49,10 +50,15 @@ def test_bytesize():
     assert runez.to_bytesize("") is None
     assert runez.to_bytesize("1a") is None
 
+    assert runez.to_bytesize("10") == 10
+    assert runez.to_bytesize("10.4") == 10
+    assert runez.to_bytesize("10.6") == 11
     assert runez.to_bytesize(10, default_unit="k", base=1024) == 10 * 1024
     assert runez.to_bytesize(10, default_unit="k", base=1000) == 10000
     assert runez.to_bytesize("10", default_unit="k", base=1000) == 10000
     assert runez.to_bytesize("10m", default_unit="k", base=1000) == 10000000
+    assert runez.to_bytesize("10.m", default_unit="k", base=1000) == 10000000
+    assert runez.to_bytesize("10.4m", default_unit="k", base=1000) == 10400000
 
     assert runez.to_bytesize(10, default_unit="a", base=1000) is None  # Bogus default_unit
 

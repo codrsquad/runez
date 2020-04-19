@@ -41,9 +41,11 @@ def test_boolean():
     assert b.converted("123.4a") is False
 
     assert b.converted([]) is False
-    assert b.converted([1, 2]) is False
+    assert b.converted({}) is False
+    assert b.converted([1, 2]) is True
+    assert b.converted({"a": "b"}) is True
 
-    assert b.converted(object()) is False
+    assert b.converted(object()) is True
 
 
 def test_date():
