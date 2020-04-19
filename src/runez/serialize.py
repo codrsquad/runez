@@ -8,7 +8,6 @@ import io
 import json
 import logging
 import os
-from copy import copy
 
 import runez.schema
 from runez.base import decode, string_type, UNSET
@@ -415,7 +414,7 @@ class ClassMetaDescription(object):
             given = {}
 
         else:
-            given = data.copy()
+            given = dict(data)
 
         for name, descriptor in self.attributes.items():
             value = given.pop(name, descriptor.default)
@@ -484,18 +483,22 @@ class BaseMetaInjector(type):
 def add_metaclass(metaclass):
     """Class decorator for creating a class with a metaclass (taken from https://pypi.org/project/six/)."""
     def wrapper(cls):
-        orig_vars = cls.__dict__.copy()
+        orig_vars = dict(cls.__dict__)
         slots = orig_vars.get("__slots__")
         if slots is not None:
             if isinstance(slots, str):
                 slots = [slots]
+
             for slots_var in slots:
                 orig_vars.pop(slots_var)
+
         orig_vars.pop("__dict__", None)
         orig_vars.pop("__weakref__", None)
         if hasattr(cls, "__qualname__"):
             orig_vars["__qualname__"] = cls.__qualname__
+
         return metaclass(cls.__name__, cls.__bases__, orig_vars)
+
     return wrapper
 
 
@@ -555,27 +558,6 @@ class Serializable(object):
 
     def __copy__(self):
         return self.__class__.from_dict(self.to_dict())
-
-    @classmethod
-    def copy_of(cls, obj):
-        """
-        Args:
-            obj (self.__class__ | None): Object to copy
-
-        Returns:
-            (self.__class__): Copy of `obj`, or brand new object if it was None
-        """
-        if obj is None:
-            return cls()
-
-        return obj.__copy__()
-
-    def copy(self):
-        """
-        Returns:
-            (self.__class__): Copy of this object
-        """
-        return copy(self)
 
     @classmethod
     def from_json(cls, path, default=None, fatal=True, logger=None):
