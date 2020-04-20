@@ -141,10 +141,11 @@ def quoted(text):
     return text
 
 
-def represented_args(args):
+def represented_args(args, separator=" "):
     """
     Args:
         args (list | tuple | None): Arguments to represent
+        separator (str): Separator to use to join args back as a string
 
     Returns:
         (str): Quoted as needed textual representation
@@ -154,7 +155,7 @@ def represented_args(args):
         for text in args:
             result.append(quoted(short(text)))
 
-    return " ".join(result)
+    return separator.join(result)
 
 
 def represented_bytesize(size, unit="B", base=1024, separator=" ", prefixes=DEFAULT_UNITS):
