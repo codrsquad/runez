@@ -83,12 +83,11 @@ def first_line(path, default=None):
         return default
 
 
-def ini_to_dict(data, fatal=False, keep_empty=False, default=None):
+def ini_to_dict(data, keep_empty=False, default=None):
     """Contents of an INI-style config file as a dict of dicts: section -> key -> value
 
     Args:
         data (str | file | list | None): Path to file, or file object, or lines to parse
-        fatal (bool | None): Abort execution on failure if True
         keep_empty (bool): If True, keep definitions with empty values
         default (dict | None): Object to return if conf couldn't be read
 
@@ -98,7 +97,7 @@ def ini_to_dict(data, fatal=False, keep_empty=False, default=None):
     if not data:
         return default
 
-    lines = readlines(data, fatal=fatal)
+    lines = readlines(data)
     if lines is None:
         return default
 
@@ -137,12 +136,11 @@ def ini_to_dict(data, fatal=False, keep_empty=False, default=None):
     return result
 
 
-def readlines(data, max_size=TEXT_THRESHOLD_SIZE, fatal=True, default=None):
+def readlines(data, max_size=TEXT_THRESHOLD_SIZE, default=None):
     """
     Args:
         data (str | file | list | None): Path to file, or file object to return lines from
         max_size (int | None): Return contents only for files smaller than 'max_size' bytes
-        fatal (bool | None): Abort execution on failure if True
         default (list | None): Object to return if lines couldn't be read
 
     Returns:
@@ -162,12 +160,8 @@ def readlines(data, max_size=TEXT_THRESHOLD_SIZE, fatal=True, default=None):
         # Intended for small text files, pretend no contents for binaries
         return default
 
-    try:
-        with io.open(path) as fh:
-            return fh.readlines()
-
-    except Exception as e:
-        return abort("Can't read %s: %s", short(path), e, fatal=(fatal, default))
+    with io.open(path) as fh:
+        return fh.readlines()
 
 
 def move(source, destination, adapter=None, fatal=True, logger=LOG.debug):

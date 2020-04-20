@@ -58,12 +58,8 @@ def test_ini_to_dict():
 @patch("runez.open", side_effect=Exception)
 @patch("os.path.exists", return_value=True)
 @patch("os.path.isfile", return_value=True)
-@patch("os.path.getsize", return_value=10)
 def test_failure(*_):
     with runez.CaptureOutput() as logged:
-        assert runez.readlines("bar", fatal=False) is None
-        assert "Can't read" in logged.pop()
-
         assert runez.write("bar", "some content", fatal=False)
         assert "Can't write" in logged.pop()
 
