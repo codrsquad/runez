@@ -137,7 +137,8 @@ def ini_to_dict(data, keep_empty=False, default=None):
 
 
 def readlines(data, max_size=TEXT_THRESHOLD_SIZE, default=None):
-    """
+    """Tentatively read lines from `data`, if not possible, simply return `default`
+
     Args:
         data (str | file | list | None): Path to file, or file object to return lines from
         max_size (int | None): Return contents only for files smaller than 'max_size' bytes
@@ -160,8 +161,12 @@ def readlines(data, max_size=TEXT_THRESHOLD_SIZE, default=None):
         # Intended for small text files, pretend no contents for binaries
         return default
 
-    with io.open(path) as fh:
-        return fh.readlines()
+    try:
+        with io.open(path) as fh:
+            return fh.readlines()
+
+    except Exception:
+        return default
 
 
 def move(source, destination, adapter=None, fatal=True, logger=LOG.debug):
