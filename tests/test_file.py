@@ -1,4 +1,5 @@
 import logging
+import io
 import os
 
 from mock import patch
@@ -78,38 +79,6 @@ def test_failure(*_):
             assert "Can't chmod" in logged.pop()
 
 
-def test_temp():
-    cwd = os.getcwd()
-
-    with runez.CaptureOutput(anchors=[os.path.join("/tmp"), os.path.join("/etc")]) as logged:
-        with runez.TempFolder() as tmp:
-            assert os.path.isdir(tmp)
-            assert tmp != runez.convert.SYMBOLIC_TMP
-        assert not os.path.isdir(tmp)
-        assert os.getcwd() == cwd
-
-        assert runez.short(os.path.join("/tmp", "some-file")) == "some-file"
-        assert runez.short(os.path.join("/etc", "some-file")) == "some-file"
-
-        assert not logged
-
-    symbolic = os.path.join(runez.convert.SYMBOLIC_TMP, "some-file")
-    with runez.CaptureOutput(dryrun=True) as logged:
-        assert os.getcwd() == cwd
-        with runez.TempFolder() as tmp:
-            assert tmp == runez.convert.SYMBOLIC_TMP
-            assert runez.short(symbolic) == "some-file"
-
-        assert os.getcwd() == cwd
-        with runez.TempFolder(anchor=False) as tmp:
-            assert tmp == runez.convert.SYMBOLIC_TMP
-            assert runez.short(symbolic) == symbolic
-
-        assert not logged
-
-    assert os.getcwd() == cwd
-
-
 def test_file_operations(temp_folder):
     # Don't crash for no-ops
     assert runez.copy(None, None) == 0
@@ -119,6 +88,12 @@ def test_file_operations(temp_folder):
     assert runez.move("some-file", "some-file") == 0
     assert runez.symlink("some-file", "some-file") == 0
     assert runez.delete("non-existing") == 0
+
+    assert runez.touch(None) == 0
+    assert not runez.is_younger("", 1)
+    assert not runez.is_younger("/dev/null/not-there", 1)
+    assert runez.first_line("/dev/null/not-there") is None
+    assert runez.readlines(None) is None
 
     with runez.CaptureOutput(dryrun=True) as logged:
         assert runez.ensure_folder("some-folder", folder=True, fatal=False) == 1
@@ -176,6 +151,14 @@ def test_file_operations(temp_folder):
         assert runez.is_younger("sample", age=10)
         assert not runez.is_younger("sample", age=-1)
 
+        # Verify that a non-text file simply returns `None` for first_line() and readlines()
+        with io.open("not-a-text-file", "wb") as fh:
+            fh.write(b"\x89 hello")
+
+        assert runez.first_line("not-a-text-file") is None
+        assert runez.readlines("not-a-text-file") is None
+        assert not logged
+
         assert runez.copy("bar", "baz", fatal=False) == -1
         assert "does not exist" in logged.pop()
         assert runez.move("bar", "baz", fatal=False) == -1
@@ -222,12 +205,37 @@ def test_file_operations(temp_folder):
         assert runez.copy("x", "x2") == 1
         assert os.path.exists("x2/z2/sample2")
 
-    assert runez.touch(None) == 0
-    assert not runez.is_younger("", 1)
-    assert not runez.is_younger("/dev/null/not-there", 1)
-    assert runez.first_line("/dev/null/not-there") is None
 
-    assert runez.readlines(None) is None
+def test_temp():
+    cwd = os.getcwd()
+
+    with runez.CaptureOutput(anchors=[os.path.join("/tmp"), os.path.join("/etc")]) as logged:
+        with runez.TempFolder() as tmp:
+            assert os.path.isdir(tmp)
+            assert tmp != runez.convert.SYMBOLIC_TMP
+        assert not os.path.isdir(tmp)
+        assert os.getcwd() == cwd
+
+        assert runez.short(os.path.join("/tmp", "some-file")) == "some-file"
+        assert runez.short(os.path.join("/etc", "some-file")) == "some-file"
+
+        assert not logged
+
+    symbolic = os.path.join(runez.convert.SYMBOLIC_TMP, "some-file")
+    with runez.CaptureOutput(dryrun=True) as logged:
+        assert os.getcwd() == cwd
+        with runez.TempFolder() as tmp:
+            assert tmp == runez.convert.SYMBOLIC_TMP
+            assert runez.short(symbolic) == "some-file"
+
+        assert os.getcwd() == cwd
+        with runez.TempFolder(anchor=False) as tmp:
+            assert tmp == runez.convert.SYMBOLIC_TMP
+            assert runez.short(symbolic) == symbolic
+
+        assert not logged
+
+    assert os.getcwd() == cwd
 
 
 def test_terminal_width():

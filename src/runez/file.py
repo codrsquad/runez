@@ -79,7 +79,7 @@ def first_line(path, default=None):
         with io.open(resolved_path(path)) as fh:
             return fh.readline().strip()
 
-    except (IOError, TypeError):
+    except (IOError, TypeError, ValueError):
         return default
 
 
