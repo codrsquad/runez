@@ -153,9 +153,9 @@ def test_file_operations(temp_folder):
 
         # Verify that a non-text file simply returns `None` for first_line() and readlines()
         with io.open("not-a-text-file", "wb") as fh:
-            fh.write(b"\x89 hello")
+            fh.write(b"\x89 hello\nworld")
 
-        assert runez.first_line("not-a-text-file") is None
+        assert runez.first_line("not-a-text-file") == "hello"
         assert runez.readlines("not-a-text-file") is None
         assert not logged
 

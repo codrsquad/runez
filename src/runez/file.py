@@ -76,7 +76,7 @@ def first_line(path, default=None):
         (str | None): First line of file, if any
     """
     try:
-        with io.open(resolved_path(path)) as fh:
+        with io.open(resolved_path(path), errors="ignore") as fh:
             return fh.readline().strip()
 
     except (IOError, TypeError, ValueError):
