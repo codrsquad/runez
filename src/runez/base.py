@@ -118,6 +118,12 @@ class Slotted(object):
                     return False
             return True
 
+    def __iter__(self):
+        for name in self.__slots__:
+            val = getattr(self, name, UNSET)
+            if val is not UNSET:
+                yield val
+
     def _set(self, name, value):
         """
         Args:
@@ -136,6 +142,10 @@ class Slotted(object):
                     current.set(value)
                     return
             setattr(self, name, value)
+
+    def get(self, key, default=None):
+        if key is not None:
+            return getattr(self, key, default)
 
     def set(self, *args, **kwargs):
         """Conveniently set one or more fields at a time.

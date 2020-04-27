@@ -2,14 +2,13 @@
 Friendly misc/utils/convenience library
 """
 
-from runez import click, colors, config, heartbeat, program, prompt, schema, serialize, thread
+from runez import click, config, heartbeat, program, prompt, schema, serialize, thread
 from runez.base import class_descendants, decode, PY2, Slotted, stringified, Undefined, UNSET
-from runez.colors import bg, fg
-from runez.colors.fg import black, blue, brown, gray, green, orange, plain, purple, red, teal, white, yellow
-from runez.colors.terminal import activate_colors, Color, color_adjusted_size, is_coloring, is_tty, uncolored
-from runez.colors.terminal import blink, bold, dim, invert, italic, strikethrough, underline
+from runez.colors import ActivateColors, ColorManager as color, is_coloring, uncolored
+from runez.colors.named import black, blue, brown, gray, green, orange, plain, purple, red, teal, white, yellow
+from runez.colors.named import blink, bold, dim, invert, italic, strikethrough, underline
 from runez.config import from_json
-from runez.context import CaptureOutput, CurrentFolder, TrackedOutput, verify_abort
+from runez.context import CaptureOutput, CurrentFolder, TempArgv, TrackedOutput, verify_abort
 from runez.convert import Anchored, capped, flattened, formatted, plural, quoted, \
     represented_args, represented_bytesize, represented_with_units, \
     resolved_path, short, shortened
@@ -28,19 +27,18 @@ from runez.program import require_installed, run, which
 from runez.prompt import ask_once
 from runez.represent import header
 from runez.serialize import json_sanitized, read_json, represented_json, save_json, Serializable
-from runez.system import abort, auto_import_siblings, current_test, get_version, set_dryrun, WINDOWS
+from runez.system import abort, auto_import_siblings, current_test, get_version, is_tty, set_dryrun, WINDOWS
 from runez.thread import thread_local_property, ThreadLocalSingleton
 
 __all__ = [
     "DRYRUN",
-    "click", "colors", "config", "heartbeat", "logsetup", "program", "prompt", "schema", "serialize", "thread",
+    "click", "config", "heartbeat", "logsetup", "program", "prompt", "schema", "serialize", "thread",
     "class_descendants", "decode", "PY2", "Slotted", "stringified", "Undefined", "UNSET",
-    "bg", "fg",
+    "ActivateColors", "color", "is_coloring", "uncolored",
     "black", "blue", "brown", "gray", "green", "orange", "plain", "purple", "red", "teal", "white", "yellow",
-    "activate_colors", "Color", "color_adjusted_size", "is_coloring", "is_tty", "uncolored",
     "blink", "bold", "dim", "invert", "italic", "strikethrough", "underline",
     "from_json",
-    "CaptureOutput", "CurrentFolder", "TrackedOutput", "verify_abort",
+    "CaptureOutput", "CurrentFolder", "TempArgv", "TrackedOutput", "verify_abort",
     "Anchored", "capped", "flattened", "formatted", "plural", "quoted",
     "represented_args", "represented_bytesize", "represented_with_units",
     "resolved_path", "short", "shortened",
@@ -59,7 +57,7 @@ __all__ = [
     "ask_once",
     "header",
     "json_sanitized", "read_json", "represented_json", "save_json", "Serializable",
-    "abort", "auto_import_siblings", "current_test", "get_version", "set_dryrun", "WINDOWS",
+    "abort", "auto_import_siblings", "current_test", "get_version", "is_tty", "set_dryrun", "WINDOWS",
     "thread_local_property", "ThreadLocalSingleton",
 ]
 

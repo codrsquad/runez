@@ -203,6 +203,21 @@ class CurrentFolder(object):
             runez.convert.Anchored.pop(self.destination)
 
 
+class TempArgv(object):
+    """Context manager for changing the current sys.argv"""
+
+    def __init__(self, args, exe=sys.executable):
+        self.args = args
+        self.exe = exe
+        self.old_argv = sys.argv
+
+    def __enter__(self):
+        sys.argv = [self.exe] + self.args
+
+    def __exit__(self, *_):
+        sys.argv = self.old_argv
+
+
 def verify_abort(func, *args, **kwargs):
     """
     Convenient wrapper around functions that should exit or raise an exception

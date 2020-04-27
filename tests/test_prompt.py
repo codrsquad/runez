@@ -25,7 +25,7 @@ def test_no_tty():
         runez.prompt.interactive_prompt("test")
 
 
-@patch("sys.stdin.isatty", return_value=True)
+@patch("runez.prompt.is_tty", return_value=True)
 @patch("runez.prompt.interactive_prompt", side_effect=str)
 def test_with_tty(*_):
     with runez.TempFolder() as tmp:

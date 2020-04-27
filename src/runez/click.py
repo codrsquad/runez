@@ -17,7 +17,7 @@ try:
 except ImportError:  # pragma: no cover, click used only if installed
     click = None
 
-from runez.colors.terminal import activate_colors
+from runez.colors import ColorManager
 from runez.config import use_cli
 from runez.convert import flattened
 from runez.logsetup import LogManager
@@ -41,7 +41,7 @@ def color(*args, **attrs):
     attrs.setdefault("is_flag", "negatable")
     attrs.setdefault("default", None)
     attrs.setdefault("expose_value", False)
-    auto_complete_callback(attrs, activate_colors)
+    auto_complete_callback(attrs, ColorManager.activate_colors)
     return option(color, *args, **attrs)
 
 

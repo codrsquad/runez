@@ -6,7 +6,8 @@ import pytest
 import runez
 
 
-def sample_main(*args):
+def sample_main():
+    args = sys.argv[1:]
     if args:
         args = runez.flattened(args, split=runez.SHELL)
         if args[0] == "TypeError":
@@ -32,11 +33,8 @@ def sample_main(*args):
     return " ".join(args)
 
 
-def sample_main_no_args():
-    return sample_main(*sys.argv[1:])
-
-
-def verify_success(cli):
+def test_success(cli):
+    cli.main = sample_main
     cli.run("--dryrun hello")
     assert cli.succeeded
     assert cli.match("hello")
@@ -67,15 +65,16 @@ def verify_success(cli):
     assert not cli.match("hello")
 
 
-def test_success(cli):
+def test_crash(cli):
+    with pytest.raises(AssertionError):
+        # Nothing ran yet, no output
+        cli.match("foo")
+
+    with pytest.raises(AssertionError):
+        # No main provided
+        cli.run("hello no main")
+
     cli.main = sample_main
-    verify_success(cli)
-
-    cli.main = sample_main_no_args
-    verify_success(cli)
-
-
-def verify_crash(cli):
     cli.run(["Exception", "hello with main"])
     assert cli.failed
     assert cli.match("crashed...hello")
@@ -126,19 +125,3 @@ def verify_crash(cli):
     with pytest.raises(AssertionError):
         # Expected message not seen in output
         cli.expect_failure(["Exception", "hello"], "this message shouldn't appear")
-
-
-def test_crash(cli):
-    with pytest.raises(AssertionError):
-        # Nothing ran yet, no output
-        cli.match("foo")
-
-    with pytest.raises(AssertionError):
-        # No main provided
-        cli.run("hello no main")
-
-    cli.main = sample_main
-    verify_crash(cli)
-
-    cli.main = sample_main_no_args
-    verify_crash(cli)

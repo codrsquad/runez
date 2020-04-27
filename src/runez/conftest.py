@@ -8,9 +8,11 @@ Example:
 
 from __future__ import absolute_import
 
+import inspect
 import logging
 import os
 import re
+import runpy
 import sys
 import tempfile
 
@@ -78,7 +80,6 @@ class IsolatedLogSetup(object):
         WrappedHandler.isolation -= 1
         runez.log.reset()
         logging.root.handlers = self.old_handlers
-
         if self.temp_folder:
             runez.log.spec.tmp = self.old_spec
             self.temp_folder.__exit__(*_)
@@ -155,6 +156,7 @@ class WrappedHandler(_pytest.logging.LogCaptureHandler):
                     stream = runez.context._CAPTURE_STACK[-1].buffer
                     stream.write(msg + "\n")
                     self.flush()
+
                 except Exception:  # pragma: no cover
                     self.handleError(record)
 
@@ -188,40 +190,31 @@ class ClickWrapper(object):
 
     def invoke(self, main, args):
         """Mocked click-like behavior"""
+        output = None
+        exit_code = 0
+        exception = None
         try:
-            try:
-                output = main(*args)
-                return ClickWrapper(output=output, exit_code=0)
+            with runez.TempArgv(args, exe=sys.executable):
+                if inspect.ismodule(main):
+                    runpy.run_module(main.__name__)
 
-            except TypeError as e:
-                msg = runez.stringified(e)
-                if msg and msg.startswith(main.__name__) and "takes" in msg and "arguments" in msg:
-                    # py2: TypeError: hard_exit_no_args() takes no arguments (1 given)
-                    # py3: TypeError: hard_exit_no_args() takes 0 positional arguments but 1 was given
-                    old_argv = sys.argv
-                    try:
-                        sys.argv = old_argv[:1] + args
-                        output = main()
-                        return ClickWrapper(output=output, exit_code=0)
-
-                    finally:
-                        sys.argv = old_argv
-
-                raise
+                else:
+                    output = main()
 
         except SystemExit as e:
+            exit_code = 1
             if isinstance(e.code, int):
                 exit_code = e.code
-                output = None
 
             else:
-                exit_code = 1
                 output = runez.stringified(e)
 
-            return ClickWrapper(output=output, exit_code=exit_code)
-
         except BaseException as e:
-            return ClickWrapper(runez.stringified(e), exit_code=1, exception=e)
+            exit_code = 1
+            exception = e
+            output = runez.stringified(e)
+
+        return ClickWrapper(output=output, exit_code=exit_code, exception=exception)
 
     @classmethod
     def new_runner(cls, main):
@@ -257,6 +250,14 @@ class ClickRunner(object):
             *args: Command line args
             **kwargs: If provided, format each arg with given `kwargs`
         """
+        main = kwargs.pop("main", None)
+        if main is not None:
+            self.main = main
+
+        if self.main is None:
+            self.main = self.default_main
+
+        assert bool(self.main), "No main provided"
         if kwargs:
             args = [runez.formatted(a, **kwargs) for a in args]
 
@@ -265,16 +266,11 @@ class ClickRunner(object):
             args = args[0].split()
 
         self.args = runez.flattened(args, split=runez.SHELL)
-
         with IsolatedLogSetup(adjust_tmp=False):
             with runez.CaptureOutput(dryrun=runez.DRYRUN) as logged:
                 self.logged = logged
-                if self.main is None:
-                    self.main = self.default_main
-                assert bool(self.main), "No main provided"
                 runner = ClickWrapper.new_runner(self.main)
                 result = runner.invoke(self.main, args=self.args)
-
                 if result.output:
                     logged.stdout.buffer.write(result.output)
 
@@ -291,6 +287,7 @@ class ClickRunner(object):
             handler = WrappedHandler.find_wrapper()
             if handler:
                 handler.reset()
+
             title = runez.header("Captured output for: %s" % runez.represented_args(self.args), border="==")
             LOG.info("\n%s\nmain: %s\nexit_code: %s\n%s\n", title, self.main, self.exit_code, self.logged)
 

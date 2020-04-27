@@ -1,8 +1,7 @@
 import json
 import os
-import sys
 
-from runez.system import abort
+from runez.system import abort, is_tty
 
 
 def ask_once(name, instructions, serializer=str, fatal=True, base="~/.config", default=None):
@@ -31,7 +30,7 @@ def ask_once(name, instructions, serializer=str, fatal=True, base="~/.config", d
         pass
 
     reason = "can't ask for value, not on a tty"
-    if sys.stdin.isatty():
+    if is_tty():
         try:
             reason = "no value provided"
             provided = interactive_prompt(instructions)

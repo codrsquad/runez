@@ -24,8 +24,14 @@ def basename(path, extension_marker="."):
     """
     result = os.path.basename(path or "")
     if extension_marker:
+        if extension_marker not in result:
+            return result
+
         pre, _, post = result.rpartition(extension_marker)
-        return pre or post
+        if pre:
+            return pre
+
+        return "%s%s" % (extension_marker, post)
 
     return result
 

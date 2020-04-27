@@ -1,5 +1,5 @@
-import logging
 import io
+import logging
 import os
 
 from mock import patch

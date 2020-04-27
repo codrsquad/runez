@@ -1,6 +1,231 @@
-from runez.colors import fg, terminal
+"""
+Simple coloring capabilities, without the need of bringing in further dependencies
+
+Example usage:
+    >>> from runez import blue
+    >>> print(blue("hello"))
+"""
+
+import re
+
+from runez.base import Slotted, stringified
+from runez.convert import shortened
+from runez.system import current_test, is_tty
 
 
-__all__ = [
-    "fg", "terminal"
-]
+RE_ANSI_ESCAPE = re.compile("\x1b\\[[;\\d]*[A-Za-z]")
+
+
+class ActivateColors(object):
+    """Context manager for temporarily overriding coloring"""
+
+    def __init__(self, enable=True, flavor=None):
+        if enable is True and current_test():
+            # This allows to have easily reproducible tests (same color backend used in tests by default)
+            enable = "testing"
+
+        self.enable = enable
+        self.flavor = flavor
+        self.prev = None
+
+    def __enter__(self):
+        self.prev = ColorManager.activate_colors(self.enable, flavor=self.flavor)
+
+    def __exit__(self, *_):
+        ColorManager.backend, ColorManager.bg, ColorManager.fg, ColorManager.style = self.prev
+
+
+class PlainBackend(object):
+    """Default plain backend, ignoring colors"""
+    color_count = 1
+    name = "plain"
+
+    def __repr__(self):
+        return self.name
+
+    def named_triplet(self):
+        """Triplet of named bg, fg and style-s"""
+        return NamedColors(), NamedColors(), NamedStyles()
+
+    def adjusted_size(self, text, size=0):
+        """
+        Args:
+            text (str): Text to compute color adjusted padding size
+            size (int): Desired padding size
+
+        Returns:
+            (int): `size`, adjusted to help take into account any color ANSI escapes
+        """
+        if text:
+            size += len(text) - len(uncolored(text))
+
+        return size
+
+
+class ColorManager(object):
+    """Holds current global coloring backend and bg, fg color and style implementations"""
+
+    backend = None  # type: PlainBackend
+    bg = None  # type: NamedColors
+    fg = None  # type: NamedColors
+    style = None  # type: NamedStyles
+
+    @classmethod
+    def is_coloring(cls):
+        """
+        Returns:
+            (bool): True if tty coloring is currently activated
+        """
+        return cls.backend.color_count > 1
+
+    @classmethod
+    def activate_colors(cls, enable=None, flavor=None):
+        """
+        Args:
+            enable (bool | PlainBackend.__class__ | None): Set colored output on or off
+            flavor (str | None): Flavor to use (neutral, light or dark)
+        """
+        if enable is None:
+            enable = is_tty()
+
+        prev = cls.backend, cls.bg, cls.fg, cls.style
+        cls.backend = _detect_backend(enable, flavor=flavor)
+        cls.bg, cls.fg, cls.style = cls.backend.named_triplet()
+        return prev
+
+    @classmethod
+    def adjusted_size(cls, text, size=0):
+        """
+        Args:
+            text (str): Text to compute color adjusted padding size
+            size (int): Desired padding size
+
+        Returns:
+            (int): `size`, adjusted to help take into account any color ANSI escapes
+        """
+        return cls.backend.adjusted_size(text, size)
+
+
+def is_coloring():
+    """
+    Returns:
+        (bool): True if tty coloring is currently activated
+    """
+    return ColorManager.is_coloring()
+
+
+def uncolored(text):
+    """
+    Args:
+        text (str | None): Text to remove ANSI colors from
+
+    Returns:
+        (str): Text without any color rendering
+    """
+    return RE_ANSI_ESCAPE.sub("", stringified(text))
+
+
+class Renderable(object):
+    """A render-able (color or style) named object"""
+    def __init__(self, name):
+        self.name = name
+
+    def __repr__(self):
+        return self.name
+
+    def __call__(self, text, shorten=None):
+        """
+        Allows for convenient call of the form:
+
+        >>> import runez
+        >>> print(runez.blue("foo"))
+        """
+        if shorten:
+            text = shortened(text, size=shorten)
+
+        else:
+            text = stringified(text)
+
+        if not text:
+            return ""
+
+        return self.rendered(text)
+
+    @property
+    def overhead(self):
+        """int: Number of characters the largest formatter currently adds"""
+        return 0
+
+    def rendered(self, text):
+        return text
+
+
+class NamedRenderables(Slotted):
+    def __init__(self, cls=Renderable, params=None, **kwargs):
+        colors = _auto_complete_implementations(Renderable, cls, self.__slots__, params, kwargs)
+        super(NamedRenderables, self).__init__(**colors)
+
+    @property
+    def longest_name(self):
+        """Longest name in this set"""
+        return max(len(x.name) for x in self)
+
+    @property
+    def overhead(self):
+        """Longest overhead induced by formatting in this set"""
+        return max(x.overhead for x in self)
+
+
+class NamedColors(NamedRenderables):
+    """Set of registered named colors"""
+    __slots__ = ["black", "blue", "brown", "gray", "green", "orange", "plain", "purple", "red", "teal", "white", "yellow"]
+
+
+class NamedStyles(NamedRenderables):
+    """Set of registered named styles"""
+    __slots__ = ["blink", "bold", "dim", "invert", "italic", "strikethrough", "underline"]
+
+
+def _auto_complete_implementations(default_cls, cls, slots, params, kwargs):
+    result = dict()
+    for key in slots:
+        value = kwargs.pop(key, None)
+        if value is None:
+            value = default_cls(key)
+
+        else:
+            args = value if isinstance(value, tuple) else [value]
+            if params:
+                value = cls(key, *args, **params)
+
+            else:
+                value = cls(key, *args)
+
+        result[key] = value
+
+    assert not kwargs
+    return result
+
+
+def _detect_backend(enable, flavor=None):
+    """Auto-detect best backend to use"""
+    if isinstance(enable, type) and issubclass(enable, PlainBackend):
+        return enable()
+
+    if enable and isinstance(enable, PlainBackend):
+        return enable
+
+    if enable:
+        from runez.colors import terminal
+
+        if enable == "testing":
+            return terminal.Ansi16Backend(flavor=flavor or "neutral")
+
+        usable = terminal.usable_backends(flavor=flavor)
+        if usable:
+            return usable[0]
+
+    return PlainBackend()
+
+
+ColorManager.activate_colors()

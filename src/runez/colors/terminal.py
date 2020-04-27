@@ -1,73 +1,10 @@
-"""
-Simple coloring capabilities, without the need of bringing in further dependencies
-
-Example usage:
-    from runez import activate_colors, blue
-
-    print(blue("hello"))
-"""
-
 import os
-import re
-import sys
 
-from runez.base import stringified
-from runez.convert import shortened, to_int
-from runez.system import current_test
+from runez.colors import NamedColors, NamedStyles, PlainBackend, Renderable
+from runez.convert import to_int
 
 
-# Allows for a clean `import *`
-__all__ = [
-    "activate_colors", "Color", "color_adjusted_size", "is_coloring", "is_tty", "uncolored",
-    "blink", "bold", "dim", "invert", "italic", "strikethrough", "underline",
-    "styles",
-]
-
-
-RE_ANSI_ESCAPE = re.compile("\x1b\\[[;\\d]*[A-Za-z]")
-BACKEND = None
-
-
-def is_coloring():
-    """
-    Returns:
-        (bool): True if tty coloring is currently activated
-    """
-    return BACKEND is not PlainBackend
-
-
-def is_tty():
-    """
-    Returns:
-        (bool): True if current stdout is a tty
-    """
-    return (sys.stdout.isatty() or "PYCHARM_HOSTED" in os.environ) and not current_test()
-
-
-def uncolored(text):
-    """
-    Args:
-        text (str | None): Text to remove ANSI colors from
-
-    Returns:
-        (str): Text without any ANSI color escapes
-    """
-    return RE_ANSI_ESCAPE.sub("", text or "")
-
-
-def color_adjusted_size(text, size):
-    """
-    Args:
-        text (str): Text to compute color adjusted padding size
-        size (int): Desired padding size
-
-    Returns:
-        (int): `size`, adjusted to help take into account any color ANSI escapes
-    """
-    if text:
-        size += len(text) - len(uncolored(text))
-
-    return size
+VALID_FLAVORS = {"dark", "light", "neutral"}
 
 
 class AnsiCode(object):
@@ -128,111 +65,46 @@ class AnsiCode(object):
         return "%s;2;%s;%s;%s" % (8 + offset, r, g, b)
 
 
-class ColorFormat(object):
-    """Pre-computed color formatters for all supported flavors"""
-
-    def __init__(self, color, fmt):
-        self.color = color
-        if self.color.rgb is None:
-            # `plain` color: return text as-is (no coloring applied)
-            self.neutral = "{}"
-            self.light = "{}"
-            self.dark = "{}"
-
-        else:
-            offset = AnsiCode.bg_offset if color.rgb < 0 else AnsiCode.fg_offset
-            rgb = abs(color.rgb)
-            r = (rgb & 0xff0000) >> 16
-            g = (rgb & 0xff00) >> 8
-            b = rgb & 0xff
-
-            base_fmt = "\033[{{start}}m{{{{}}}}\033[{end}m".format(end=offset + 9)
-            self.neutral = base_fmt.format(start=fmt(offset, r, g, b, None))
-            self.light = base_fmt.format(start=fmt(offset, r, g, b, True))
-            self.dark = base_fmt.format(start=fmt(offset, r, g, b, False))
-
-
-class Color(object):
+class AnsiColor(Renderable):
     """Defines a color, with associated tty codes, plus a `name` that can potentially be used by other kinds of backends"""
 
-    def __init__(self, name, rgb):
+    def __init__(self, name, rgb, ansi=None, flavor=None):
         """
         Args:
             name (str): Color name (example: blue)
             rgb (int | None): RGB value (example: 0x0000ff)
+            ansi (str): Ansi codeset to use (ansi16, ansi256 or truecolor)
+            flavor (str): Flavor to use (neutral, light or dark)
         """
-        self.name = name
+        super(AnsiColor, self).__init__(name)
         self.rgb = rgb
-        self.ansi16 = ColorFormat(self, AnsiCode.ansi16)
-        self.ansi256 = ColorFormat(self, AnsiCode.ansi256)
-        self.truecolor = ColorFormat(self, AnsiCode.truecolor)
+        fmt = getattr(AnsiCode, ansi)
+        offset = AnsiCode.bg_offset if rgb < 0 else AnsiCode.fg_offset
+        rgb = abs(rgb)
+        r = (rgb & 0xff0000) >> 16
+        g = (rgb & 0xff00) >> 8
+        b = rgb & 0xff
+        base_fmt = "\033[{{start}}m{{{{}}}}\033[{end}m".format(end=offset + 9)
+        brighten = None if flavor == "neutral" else flavor == "light"
+        self.fmt = base_fmt.format(start=fmt(offset, r, g, b, brighten))
 
-    def __repr__(self):
-        return self.name
+    @property
+    def overhead(self):
+        return len(self.fmt.format(""))
 
-    def __call__(self, text, shorten=None):
-        if shorten:
-            text = shortened(text, size=shorten)
-
-        return BACKEND.colored(text, self)
+    def rendered(self, text):
+        return self.fmt.format(text)
 
 
-class Style(object):
+class AnsiStyle(Renderable):
     def __init__(self, name, start, end):
-        self.name = name
+        super(AnsiStyle, self).__init__(name)
         self.start = start
         self.end = end
         self.fmt = "\033[%sm{}\033[%sm" % (start, end)
 
-    def __repr__(self):
-        return self.name
-
-    def __call__(self, text, shorten=None):
-        if shorten:
-            text = shortened(text, size=shorten)
-
-        return BACKEND.styled(text, self)
-
-
-blink = Style("blink", 5, 25)
-bold = Style("bold", 1, 22)
-dim = Style("dim", 2, 22)
-invert = Style("invert", 7, 27)
-italic = Style("italic", 3, 23)
-strikethrough = Style("strikethrough", 9, 29)
-underline = Style("underline", 4, 24)
-
-styles = [blink, bold, dim, invert, italic, strikethrough, underline]
-
-
-class PlainBackend(object):
-    """Default plain backend, ignoring colors"""
-    color_count = 1
-    flavor = "neutral"
-
-    @classmethod
-    def colored(cls, text, color):
-        """
-        Args:
-            text (str): Text to color
-            color (Color): Color to use
-
-        Returns:
-            (str): Optionally colored text
-        """
-        return stringified(text)
-
-    @classmethod
-    def styled(cls, text, style):
-        """
-        Args:
-            text (str): Text to color
-            style (Style): Style to use
-
-        Returns:
-            (str): Optionally styled text
-        """
-        return stringified(text)
+    def rendered(self, text):
+        return self.fmt.format(text)
 
 
 class Ansi16Backend(PlainBackend):
@@ -240,21 +112,60 @@ class Ansi16Backend(PlainBackend):
     color_count = 16
     ansi = "ansi16"
 
-    @classmethod
-    def colored(cls, text, color):
-        if color is None or text == "":
-            return text
+    def __init__(self, flavor=None):
+        """
+        Args:
+            flavor (str | None): Flavor to use (neutral, light or dark)
+        """
+        if flavor is None:
+            flavor = detect_flavor(os.environ.get("COLORFGBG"))
 
-        ansi = getattr(color, cls.ansi)
-        flavor = getattr(ansi, cls.flavor)
-        return flavor.format(text)
+        self.flavor = flavor if flavor in VALID_FLAVORS else "neutral"
+        self.name = "%s %s" % (self.ansi, self.flavor)
 
-    @classmethod
-    def styled(cls, text, style):
-        if style is None or text == "":
-            return text
-
-        return style.fmt.format(text)
+    def named_triplet(self):
+        """Triplet of named bg, fg and style-s"""
+        bg = NamedColors(
+            cls=AnsiColor,
+            params=dict(ansi=self.ansi, flavor=self.flavor),
+            black=-0x000001,
+            blue=-0x0000ff,
+            brown=-0xa52a2a,
+            gray=-0xbebebe,
+            green=-0xff00,
+            orange=-0xffa500,
+            purple=-0xa020f0,
+            red=-0xff0000,
+            teal=-0x008080,
+            white=-0xffffff,
+            yellow=-0xffff00,
+        )
+        fg = NamedColors(
+            cls=AnsiColor,
+            params=dict(ansi=self.ansi, flavor=self.flavor),
+            black=0x000000,
+            blue=0x0000ff,
+            brown=0x850a0a,
+            gray=0xbebebe,
+            green=0xff00,
+            orange=0xef9500,
+            purple=0xa020f0,
+            red=0xff0000,
+            teal=0x008080,
+            white=0xffffff,
+            yellow=0xffff00,
+        )
+        style = NamedStyles(
+            cls=AnsiStyle,
+            blink=(5, 25),
+            bold=(1, 22),
+            dim=(2, 22),
+            invert=(7, 27),
+            italic=(3, 23),
+            strikethrough=(9, 29),
+            underline=(4, 24),
+        )
+        return bg, fg, style
 
 
 class Ansi256Backend(Ansi16Backend):
@@ -276,28 +187,27 @@ def mentions(value, *terms):
             return term
 
 
-def usable_backends(env):
+def usable_backends(flavor=None):
     """
     Args:
-        env (dict): Environemnt variables to inspect
+        flavor (str | None): Flavor to use (neutral, light or dark)
 
     Returns:
-        (list): List of usable backends, give `env`
+        (list): List of usable backends
     """
-    result = {PlainBackend}
-    if env:
-        result.add(Ansi16Backend)
-        for env_var in ("COLORTERM", "TERM_PROGRAM", "TERM"):
-            value = env.get(env_var)
-            if value:
-                value = value.lower()
-                if mentions(value, "true", "24", "iterm", "hyper"):
-                    result.add(TrueColorBackend)
+    result = set()
+    result.add(Ansi16Backend)
+    for env_var in ("COLORTERM", "TERM_PROGRAM", "TERM"):
+        value = os.environ.get(env_var)
+        if value:
+            value = value.lower()
+            if mentions(value, "true", "24", "iterm", "hyper"):
+                result.add(TrueColorBackend)
 
-                elif mentions(value, "256", "8", "apple_"):
-                    result.add(Ansi256Backend)
+            elif mentions(value, "256", "8", "apple_"):
+                result.add(Ansi256Backend)
 
-    return sorted(result, key=lambda x: -x.color_count)
+    return [cls(flavor=flavor) for cls in sorted(result, key=lambda x: -x.color_count)]
 
 
 def detect_flavor(bg):
@@ -315,33 +225,3 @@ def detect_flavor(bg):
             return "dark" if bg > 6 and bg != 8 else "light"
 
     return "neutral"
-
-
-def detect_backend(enable, env):
-    """Auto-detect best backend to use"""
-    if isinstance(enable, type) and issubclass(enable, PlainBackend):
-        return enable
-
-    return usable_backends(enable and env)[0]
-
-
-def activate_colors(enable, flavor=None, env=os.environ):
-    """
-    Args:
-        enable (bool | PlainBackend.__class__ | None): Set colored output on or off
-        flavor (str | None): Flavor to use (neutral, light or dark)
-        env (dict): Env vars to use
-    """
-    global BACKEND
-    if enable is None:
-        enable = is_tty()
-        if flavor is None and enable:
-            flavor = detect_flavor(env.get("COLORFGBG"))
-
-    if flavor:
-        PlainBackend.flavor = flavor
-
-    BACKEND = detect_backend(enable, env)
-
-
-activate_colors(None)

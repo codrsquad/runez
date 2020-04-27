@@ -8,6 +8,9 @@ import runez
 def test_basename():
     assert runez.basename(None) == ""
     assert runez.basename("/some-folder/bar") == "bar"
+    assert runez.basename("/some-folder/.bar") == ".bar"
+    assert runez.basename("/some-folder/.bar.py") == ".bar"
+    assert runez.basename("/some-folder/.bar.baz.py") == ".bar.baz"
     assert runez.basename("some-folder/bar.py") == "bar"
     assert runez.basename("some-folder/bar.baz.pyc") == "bar.baz"
 

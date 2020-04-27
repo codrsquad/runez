@@ -1,3 +1,5 @@
+import os
+
 from mock import patch
 
 import runez
@@ -5,66 +7,101 @@ from runez.colors import terminal
 
 
 def test_colors():
-    runez.activate_colors(terminal.Ansi16Backend)
-    assert terminal.PlainBackend.flavor == "neutral"
-    assert runez.is_coloring()
-    assert runez.red(None) == "\x1b[31mNone\x1b[39m"
-    assert runez.blue("") == ""
-    assert runez.plain("hello") == "hello"
-    assert runez.yellow("hello") == "\x1b[33mhello\x1b[39m"
-    assert runez.yellow("hello", shorten=4) == "\x1b[33mh...\x1b[39m"
-    assert runez.bold(1) == "\x1b[1m1\x1b[22m"
-
-    assert runez.dim("") == ""
-    assert runez.dim("hello", shorten=4) == "\x1b[2mh...\x1b[22m"
-
-    runez.activate_colors(False)
     assert not runez.is_coloring()
-    assert runez.red(None) == "None"
+    with runez.ActivateColors(terminal.Ansi16Backend):
+        # Check that backend can be passed as class (flavor auto-determined in that case)
+        assert runez.is_coloring()
+        assert "ansi16" in runez.color.backend.name
+
+    assert not runez.is_coloring()
+    with runez.ActivateColors(terminal.Ansi16Backend(flavor="neutral")):
+        assert runez.is_coloring()
+        assert runez.red(None) == "\x1b[31mNone\x1b[39m"
+        assert runez.blue("") == ""
+        assert runez.plain("hello") == "hello"
+        assert runez.yellow("hello") == "\x1b[33mhello\x1b[39m"
+        assert runez.yellow("hello", shorten=4) == "\x1b[33mh...\x1b[39m"
+        assert runez.bold(1) == "\x1b[1m1\x1b[22m"
+
+        assert runez.color.bg.get(None) is None
+        assert runez.color.bg.get("blue") is runez.color.bg.blue
+
+        assert runez.dim("") == ""
+        assert runez.dim("hello", shorten=4) == "\x1b[2mh...\x1b[22m"
+
+    assert not runez.is_coloring()
+    assert runez.black("") == ""
     assert runez.blue("") == ""
+    assert runez.brown("") == ""
+    assert runez.gray("") == ""
+    assert runez.green("") == ""
+    assert runez.orange("") == ""
     assert runez.plain("hello") == "hello"
-    assert runez.blue("hello") == "hello"
+    assert runez.purple("") == ""
+    assert runez.red(None) == "None"
+    assert runez.teal("") == ""
+    assert runez.white("") == ""
     assert runez.yellow("hello") == "hello"
+    assert runez.blink("hello") == "hello"
     assert runez.bold(1) == "1"
+    assert runez.dim("") == ""
+    assert runez.invert("") == ""
+    assert runez.italic("") == ""
+    assert runez.strikethrough("") == ""
+    assert runez.underline("") == ""
 
-    assert str(runez.black) == "black"
-    assert str(runez.dim) == "dim"
+    assert str(runez.color.fg.black) == "black"
 
 
-def test_default():
+def check_flavor(expected, term=None, fgbg=None, overhead=None):
+    env = {}
+    if term:
+        env["TERM"] = term
+
+    if fgbg:
+        env["COLORFGBG"] = fgbg
+
+    assert not runez.is_coloring()
+    with patch.dict(os.environ, env, clear=True):
+        with runez.ActivateColors():
+            assert runez.is_coloring()
+            assert runez.color.backend.name == expected
+            if overhead is not None:
+                assert runez.color.fg.overhead == overhead
+
+    # Verify testing defaults were restored
+    assert not runez.is_coloring()
+    assert runez.color.backend.name == "plain"
+
+
+@patch("runez.colors.current_test", return_value=None)
+def test_default(*_):
     # Default: not coloring, neutral flavor
     assert not runez.is_coloring()
-    assert terminal.BACKEND is terminal.PlainBackend
-    assert terminal.PlainBackend.flavor == "neutral"
+    assert runez.color.backend.name == "plain"
     assert runez.blue("hello") == "hello"
 
-    with patch("runez.colors.terminal.is_tty", return_value=True):
-        # Simulate auto-detection of light flavor, with Ansi16Backend
-        runez.activate_colors(None, env={"COLORFGBG": "15;0"})
-        assert terminal.PlainBackend.flavor == "light"
-        assert terminal.BACKEND is terminal.Ansi16Backend
+    check_flavor("ansi16 neutral", overhead=10)
+    check_flavor("ansi16 light", fgbg="15;0")
+    check_flavor("ansi16 dark", fgbg="15;9")
 
-        # Simulate auto-detection of dark flavor, with Ansi256Backend
-        runez.activate_colors(None, env={"COLORFGBG": "15;9", "TERM": "xterm-256color"})
-        assert terminal.PlainBackend.flavor == "dark"
-        assert terminal.BACKEND is terminal.Ansi256Backend
+    check_flavor("ansi256 neutral", term="xterm-256color", overhead=16)
+    check_flavor("ansi256 light", term="xterm-256color", fgbg="15;0")
+    check_flavor("ansi256 dark", term="xterm-256color", fgbg="15;9")
 
-        # Simulate auto-detection of neutral flavor, with TrueColorBackend
-        runez.activate_colors(None, env={"COLORTERM": "truecolor"})
-        assert terminal.PlainBackend.flavor == "neutral"
-        assert terminal.BACKEND is terminal.TrueColorBackend
+    check_flavor("truecolor neutral", term="truecolor", overhead=24)
+    check_flavor("truecolor light", term="truecolor", fgbg="15;0")
+    check_flavor("truecolor dark", term="truecolor", fgbg="15;9")
 
-    # Restore defaults
-    runez.activate_colors(None, flavor="neutral")
-    assert not runez.is_coloring()
-    assert terminal.BACKEND is terminal.PlainBackend
-    assert terminal.PlainBackend.flavor == "neutral"
-    assert runez.blue("hello") == "hello"
+
+def check_usable(names, env):
+    with patch.dict(os.environ, env, clear=True):
+        usable = terminal.usable_backends()
+        usable_names = ", ".join(x.name for x in usable)
+        assert names == usable_names
 
 
 def test_flavor():
-    assert not runez.is_coloring()
-
     assert terminal.detect_flavor(None) == "neutral"
     assert terminal.detect_flavor("") == "neutral"
     assert terminal.detect_flavor("foo") == "neutral"
@@ -75,43 +112,42 @@ def test_flavor():
     assert terminal.detect_flavor("15;6") == "light"
     assert terminal.detect_flavor("15;7") == "dark"
 
-    assert terminal.usable_backends({"COLORTERM": "truecolor", "TERM": "xterm-256color"}) == [
-        terminal.TrueColorBackend,
-        terminal.Ansi256Backend,
-        terminal.Ansi16Backend,
-        terminal.PlainBackend,
-    ]
-    assert terminal.usable_backends({"TERM": "xterm-256color"}) == [
-        terminal.Ansi256Backend,
-        terminal.Ansi16Backend,
-        terminal.PlainBackend,
-    ]
-    assert terminal.usable_backends({"TERM": "xterm"}) == [terminal.Ansi16Backend, terminal.PlainBackend]
-    assert terminal.usable_backends({"TERM": "foo"}) == [terminal.Ansi16Backend, terminal.PlainBackend]
-    assert terminal.usable_backends({}) == [terminal.PlainBackend]
+    check_usable("truecolor neutral, ansi256 neutral, ansi16 neutral", {"COLORTERM": "truecolor", "TERM": "xterm-256color"})
+    check_usable("ansi256 neutral, ansi16 neutral", {"TERM": "xterm-256color"})
+    check_usable("ansi16 neutral", {"TERM": "xterm"})
+    check_usable("ansi16 neutral", {"TERM": "foo"})
+    check_usable("ansi16 neutral", {})
 
-    assert terminal.detect_backend(True, {"COLORTERM": "truecolor"}) is terminal.TrueColorBackend
-    assert terminal.detect_backend(True, {"TERM": "xterm-256color"}) is terminal.Ansi256Backend
-    assert terminal.detect_backend(True, {"TERM": "xterm"}) is terminal.Ansi16Backend
-    assert terminal.detect_backend(True, {}) is terminal.PlainBackend
+
+def test_show_colors(cli):
+    import runez.colors
+
+    cli.run(main=runez.colors)
+    assert cli.succeeded
+    assert "Backend: plain" in cli.logged.stdout
+
+    cli.run("--no-color")
+    assert cli.succeeded
+    assert "Backend: plain" in cli.logged.stdout
+
+    cli.run("--color --bg foo,yellow --flavor light")
+    assert cli.succeeded
+    assert "Backend: ansi16 light" in cli.logged.stdout
+    assert "Unknown color 'foo'" in cli.logged.stdout
 
 
 def test_uncolored():
-    runez.activate_colors(terminal.TrueColorBackend)
-    assert runez.uncolored(runez.red("foo")) == "foo"
-    assert runez.color_adjusted_size("foo", 5) == 5
-    assert runez.color_adjusted_size(runez.red("foo"), 5) == 25
+    with runez.ActivateColors(terminal.TrueColorBackend(flavor="neutral")):
+        assert runez.uncolored(runez.red("foo")) == "foo"
+        assert runez.color.adjusted_size("foo", 5) == 5
+        assert runez.color.adjusted_size(runez.red("foo"), 5) == 25
 
-    runez.activate_colors(terminal.Ansi16Backend)
-    assert runez.is_coloring()
-    assert runez.uncolored(None) == ""
-    assert runez.uncolored(" ") == " "
-    assert runez.uncolored("foo") == "foo"
-    assert runez.uncolored(runez.red("foo")) == "foo"
-    assert runez.uncolored("%s - %s" % (runez.red("foo"), runez.yellow("bar"))) == "foo - bar"
+    with runez.ActivateColors(terminal.Ansi16Backend(flavor="neutral")):
+        assert runez.uncolored(None) == "None"
+        assert runez.uncolored(" ") == " "
+        assert runez.uncolored("foo") == "foo"
+        assert runez.uncolored(runez.red("foo")) == "foo"
+        assert runez.uncolored("%s - %s" % (runez.red("foo"), runez.yellow("bar"))) == "foo - bar"
 
-    assert runez.color_adjusted_size("foo", 5) == 5
-    assert runez.color_adjusted_size(runez.red("foo"), 5) == 15
-
-    runez.activate_colors(False)
-    assert not runez.is_coloring()
+        assert runez.color.adjusted_size("foo", 5) == 5
+        assert runez.color.adjusted_size(runez.red("foo"), 5) == 15

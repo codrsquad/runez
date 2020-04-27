@@ -254,6 +254,14 @@ def is_dryrun():
     return _get_runez().DRYRUN
 
 
+def is_tty():
+    """
+    Returns:
+        (bool): True if current stdout is a tty
+    """
+    return (sys.stdout.isatty() or "PYCHARM_HOSTED" in os.environ) and not current_test()
+
+
 def set_dryrun(dryrun):
     """Set runez.DRYRUN, and return its previous value (useful for context managers)
 
