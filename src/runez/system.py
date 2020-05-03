@@ -174,9 +174,8 @@ def current_test():
 
     def test_frame(f):
         name = f.f_globals.get("__name__").lower()
-        m = regex.match(name)
-        if m:
-            return f.f_globals.get("__file__")
+        if not name.startswith("runez"):
+            return regex.match(name) and f.f_globals.get("__file__")
 
     return find_caller_frame(test_frame, depth=2)
 
@@ -213,6 +212,25 @@ def find_caller_frame(validator=actual_caller_frame, depth=2, maximum=None):
 
             except ValueError:
                 return None
+
+
+def find_parent_folder(path, basenames):
+    """
+    Args:
+        path (str): Path to examine, first parent folder with basename in `basenames` is returned (case insensitive)
+        basenames (set): List of acceptable basenames (must be lowercase)
+
+    Returns:
+        (str | None): Path to first containing folder of `path` with one of the `basenames`
+    """
+    if not path or len(path) <= 1:
+        return None
+
+    dirpath, basename = os.path.split(path)
+    if basename and basename.lower() in basenames:
+        return path
+
+    return find_parent_folder(dirpath, basenames)
 
 
 def get_version(mod, default="0.0.0", logger=LOG.warning):

@@ -27,7 +27,7 @@ from runez.program import require_installed, run, which
 from runez.prompt import ask_once
 from runez.represent import header
 from runez.serialize import json_sanitized, read_json, represented_json, save_json, Serializable
-from runez.system import abort, auto_import_siblings, current_test, get_version, is_tty, set_dryrun, WINDOWS
+from runez.system import abort, auto_import_siblings, current_test, find_parent_folder, get_version, is_tty, set_dryrun, WINDOWS
 from runez.thread import thread_local_property, ThreadLocalSingleton
 
 __all__ = [
@@ -57,7 +57,7 @@ __all__ = [
     "ask_once",
     "header",
     "json_sanitized", "read_json", "represented_json", "save_json", "Serializable",
-    "abort", "auto_import_siblings", "current_test", "get_version", "is_tty", "set_dryrun", "WINDOWS",
+    "abort", "auto_import_siblings", "current_test", "find_parent_folder", "get_version", "is_tty", "set_dryrun", "WINDOWS",
     "thread_local_property", "ThreadLocalSingleton",
 ]
 

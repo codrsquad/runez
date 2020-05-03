@@ -18,9 +18,6 @@ else:
     from io import StringIO
 
 
-_CAPTURE_STACK = []
-
-
 class CapturedStream(object):
     """Capture output to a stream by hijacking temporarily its write() function"""
 
@@ -132,6 +129,8 @@ class CaptureOutput(object):
     >>>     assert "bar" in logged.stdout
     """
 
+    _capture_stack = []  # Shared across all objects, tracks possibly nested CaptureOutput buffers
+
     def __init__(self, stdout=True, stderr=True, anchors=None, dryrun=None):
         """Context manager allowing to temporarily grab stdout/stderr/log output.
 
@@ -145,6 +144,11 @@ class CaptureOutput(object):
         self.stderr = stderr
         self.anchors = anchors
         self.dryrun = dryrun
+
+    @classmethod
+    def current_capture_buffer(cls):
+        if cls._capture_stack:
+            return cls._capture_stack[-1].buffer
 
     def __enter__(self):
         """
@@ -160,7 +164,7 @@ class CaptureOutput(object):
             c._start_capture()
 
         if self.tracked.captured:
-            _CAPTURE_STACK.append(self.tracked.captured[-1])
+            self._capture_stack.append(self.tracked.captured[-1])
 
         if self.anchors:
             runez.convert.Anchored.add(self.anchors)
@@ -172,7 +176,7 @@ class CaptureOutput(object):
 
     def __exit__(self, *args):
         if self.tracked.captured:
-            _CAPTURE_STACK.pop()
+            self._capture_stack.pop()
 
         for c in self.tracked.captured:
             c._stop_capture()

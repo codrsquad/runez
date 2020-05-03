@@ -5,6 +5,7 @@ import os
 from mock import patch
 
 import runez
+import runez.conftest
 
 SAMPLE_CONF = """
 # Sample .conf (or .ini file)
@@ -140,7 +141,7 @@ def test_file_operations(temp_folder):
 
     assert runez.delete("sample") == 1
     with runez.CaptureOutput() as logged:
-        sample = os.path.join(os.path.dirname(__file__), "sample.txt")
+        sample = runez.conftest.test_resource("sample.txt")
         content = runez.readlines(sample)
 
         assert runez.write("sample", "".join(content), fatal=False, logger=logging.debug) == 1

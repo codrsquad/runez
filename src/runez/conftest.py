@@ -19,7 +19,14 @@ import tempfile
 import _pytest.logging
 import pytest
 
-import runez
+from runez.base import Slotted, string_type, stringified, UNSET
+from runez.context import CaptureOutput, TempArgv, TrackedOutput
+from runez.convert import flattened, formatted, represented_args, SHELL, shortened
+from runez.file import TempFolder
+from runez.logsetup import LogManager
+from runez.program import which
+from runez.represent import header
+from runez.system import current_test, find_parent_folder, is_dryrun
 
 try:
     from click import BaseCommand as _ClickCommand
@@ -36,14 +43,44 @@ TMP = tempfile.gettempdir()
 # Set DEBUG logging level when running tests, makes sure LOG.debug() calls get captured (for inspection in tests)
 logging.root.setLevel(logging.DEBUG)
 
-if sys.argv and "pycharm" in sys.argv[0].lower():  # pragma: no cover
-    # Ignore PyCharm's special wrapper "_jb_pytest_runner"...
-    pt = runez.which("pytest")
+if sys.argv and "pycharm" in sys.argv[0].lower():  # pragma: no cover, ignore PyCharm's special wrapper "_jb_pytest_runner"...
+    pt = which("pytest")
     if pt:
         sys.argv[0] = pt
 
 # Set logsetup defaults to stable/meaningful for pytest runs
-runez.log.override_spec(timezone="UTC", tmp=TMP, locations=[os.path.join("{tmp}", "{basename}")])
+LogManager.override_spec(timezone="UTC", tmp=TMP, locations=[os.path.join("{tmp}", "{basename}")])
+
+
+def project_folder():
+    """
+    Returns:
+        (str | None): Path to project folder, if we're currently running a test from a tests/ subfolder
+    """
+    tests = tests_folder()
+    if tests:
+        return os.path.dirname(tests)
+
+
+def tests_folder():
+    """
+    Returns:
+        (str | None): Path to project's tests/ folder, if we're currently running a test from there
+    """
+    return find_parent_folder(current_test(), {"tests"})
+
+
+def test_resource(*relative_path):
+    """
+    Args:
+        *relative_path: Path relative to project's tests/ folder
+
+    Returns:
+        (str | None): Full path, if we're currently running a test from a tests/ subfolder
+    """
+    tests = tests_folder()
+    if tests:
+        return os.path.join(tests, *relative_path)
 
 
 class IsolatedLogSetup(object):
@@ -65,10 +102,10 @@ class IsolatedLogSetup(object):
         if self.adjust_tmp:
             # Adjust log.spec.tmp, and leave logging.root without any predefined handlers
             # intent: underlying wants to perform their own log.setup()
-            self.old_spec = runez.log.spec.tmp
-            self.temp_folder = runez.TempFolder()
-            runez.log.spec.tmp = self.temp_folder.__enter__()
-            return runez.log.spec.tmp
+            self.old_spec = LogManager.spec.tmp
+            self.temp_folder = TempFolder()
+            LogManager.spec.tmp = self.temp_folder.__enter__()
+            return LogManager.spec.tmp
 
         # If we're not adjusting tmp, then make sure we have at least one logging handler defined
         handler = logging.StreamHandler(stream=sys.stderr)
@@ -78,10 +115,10 @@ class IsolatedLogSetup(object):
 
     def __exit__(self, *_):
         WrappedHandler.isolation -= 1
-        runez.log.reset()
+        LogManager.reset()
         logging.root.handlers = self.old_handlers
         if self.temp_folder:
-            runez.log.spec.tmp = self.old_spec
+            LogManager.spec.tmp = self.old_spec
             self.temp_folder.__exit__(*_)
 
 
@@ -116,7 +153,7 @@ cli = cli  # type: ClickRunner
 cli.default_main = None
 
 # Can be customized by users, wraps cli (fixture) runs in given context
-cli.context = runez.TempFolder
+cli.context = TempFolder
 
 
 @pytest.fixture
@@ -128,18 +165,18 @@ def isolated_log_setup():
 
 @pytest.fixture
 def logged():
-    with runez.CaptureOutput() as logged:
+    with CaptureOutput() as logged:
         yield logged
 
 
 @pytest.fixture
 def temp_folder():
-    with runez.TempFolder() as tmp:
+    with TempFolder() as tmp:
         yield tmp
 
 
 # This just allows to get auto-complete to work in PyCharm
-logged = logged  # type: runez.TrackedOutput
+logged = logged  # type: TrackedOutput
 temp_folder = temp_folder  # type: str
 
 
@@ -150,10 +187,10 @@ class WrappedHandler(_pytest.logging.LogCaptureHandler):
 
     def emit(self, record):
         if WrappedHandler.isolation == 0:
-            if runez.context._CAPTURE_STACK:
+            stream = CaptureOutput.current_capture_buffer()
+            if stream is not None:
                 try:
                     msg = self.format(record)
-                    stream = runez.context._CAPTURE_STACK[-1].buffer
                     stream.write(msg + "\n")
                     self.flush()
 
@@ -194,7 +231,7 @@ class ClickWrapper(object):
         exit_code = 0
         exception = None
         try:
-            with runez.TempArgv(args, exe=sys.executable):
+            with TempArgv(args, exe=sys.executable):
                 if inspect.ismodule(main):
                     runpy.run_module(main.__name__)
 
@@ -207,12 +244,12 @@ class ClickWrapper(object):
                 exit_code = e.code
 
             else:
-                output = runez.stringified(e)
+                output = stringified(e)
 
         except BaseException as e:
             exit_code = 1
             exception = e
-            output = runez.stringified(e)
+            output = stringified(e)
 
         return ClickWrapper(output=output, exit_code=exit_code, exception=exception)
 
@@ -241,8 +278,42 @@ class ClickRunner(object):
         self.context = context
         self.main = cli.default_main
         self.args = None  # type: list # Arguments used in last run() invocation
-        self.logged = None  # type: runez.TrackedOutput
+        self.logged = None  # type: TrackedOutput
         self.exit_code = None  # type: int
+        self._project_folder = None
+        self._tests_folder = None
+
+    @property
+    def project_folder(self):
+        """
+        Returns:
+            (str | None): Path to project folder, if we're currently running a test from a tests/ subfolder
+        """
+        if self._project_folder is None:
+            self._project_folder = project_folder()
+
+        return self._project_folder
+
+    @property
+    def tests_folder(self):
+        """
+        Returns:
+            (str | None): Path to project's tests/ folder, if we're currently running a test from there
+        """
+        if self._tests_folder is None:
+            self._tests_folder = tests_folder()
+
+        return self._tests_folder
+
+    def test_resource(self, *relative_path):
+        """
+        Args:
+            *relative_path: Path relative to project's tests/ folder
+
+        Returns:
+            (str | None): Full path, if we're currently running a test from a tests/ subfolder
+        """
+        return test_resource(*relative_path)
 
     def run(self, *args, **kwargs):
         """
@@ -259,15 +330,15 @@ class ClickRunner(object):
 
         assert bool(self.main), "No main provided"
         if kwargs:
-            args = [runez.formatted(a, **kwargs) for a in args]
+            args = [formatted(a, **kwargs) for a in args]
 
         if len(args) == 1 and hasattr(args[0], "split"):
             # Convenience: allow to provide full command as one string argument
             args = args[0].split()
 
-        self.args = runez.flattened(args, split=runez.SHELL)
+        self.args = flattened(args, split=SHELL)
         with IsolatedLogSetup(adjust_tmp=False):
-            with runez.CaptureOutput(dryrun=runez.DRYRUN) as logged:
+            with CaptureOutput(dryrun=is_dryrun()) as logged:
                 self.logged = logged
                 runner = ClickWrapper.new_runner(self.main)
                 result = runner.invoke(self.main, args=self.args)
@@ -288,7 +359,7 @@ class ClickRunner(object):
             if handler:
                 handler.reset()
 
-            title = runez.header("Captured output for: %s" % runez.represented_args(self.args), border="==")
+            title = header("Captured output for: %s" % represented_args(self.args), border="==")
             LOG.info("\n%s\nmain: %s\nexit_code: %s\n%s\n", title, self.main, self.exit_code, self.logged)
 
     @property
@@ -332,11 +403,11 @@ class ClickRunner(object):
         else:
             flags = 0
 
-        if isinstance(expected, runez.base.string_type) and "..." in expected and not isinstance(regex, bool):
+        if isinstance(expected, string_type) and "..." in expected and not isinstance(regex, bool):
             regex = True
             expected = expected.replace("...", ".+")
 
-        if not isinstance(expected, runez.base.string_type):
+        if not isinstance(expected, string_type):
             # Assume regex, no easy way to verify isinstance(expected, re.Pattern) for python < 3.7
             regex = expected
 
@@ -355,8 +426,8 @@ class ClickRunner(object):
 
             elif expected in contents:
                 i = contents.index(expected)
-                pre = runez.shortened(contents[:i], 32)
-                post = runez.shortened(contents[i + len(expected):], 32)
+                pre = shortened(contents[:i], 32)
+                post = shortened(contents[i + len(expected):], 32)
                 return Match(c, expected, pre=pre, post=post)
 
     def expect_messages(self, *expected, **kwargs):
@@ -375,20 +446,20 @@ class ClickRunner(object):
         spec = RunSpec()
         spec.pop(kwargs)
         self.run(args, **kwargs)
-        assert self.succeeded, "%s failed, was expecting success" % runez.represented_args(self.args)
+        assert self.succeeded, "%s failed, was expecting success" % represented_args(self.args)
         self.expect_messages(*expected, **spec.to_dict())
 
     def expect_failure(self, args, *expected, **kwargs):
         spec = RunSpec()
         spec.pop(kwargs)
         self.run(args, **kwargs)
-        assert self.failed, "%s succeeded, was expecting failure" % runez.represented_args(self.args)
+        assert self.failed, "%s succeeded, was expecting failure" % represented_args(self.args)
         self.expect_messages(*expected, **spec.to_dict())
 
 
-class RunSpec(runez.Slotted):
+class RunSpec(Slotted):
 
-    _default = runez.UNSET
+    _default = UNSET
 
     __slots__ = ["stdout", "stderr", "regex"]
 

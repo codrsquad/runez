@@ -1,9 +1,11 @@
+import os
 import re
 import sys
 
 import pytest
 
 import runez
+import runez.conftest
 
 
 def sample_main():
@@ -35,6 +37,16 @@ def sample_main():
 
 def test_success(cli):
     cli.main = sample_main
+
+    # Verify that project folder works properly
+    tests = os.path.dirname(__file__)
+    project_folder = os.path.abspath(os.path.join(tests, ".."))
+
+    assert cli.project_folder == project_folder
+    assert runez.conftest.project_folder() == project_folder
+    assert cli.tests_folder == tests
+    assert cli.test_resource("foo.txt") == os.path.join(tests, "foo.txt")
+
     cli.run("--dryrun hello")
     assert cli.succeeded
     assert cli.match("hello")

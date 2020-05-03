@@ -89,6 +89,15 @@ def test_auto_import_siblings():
 
 
 def test_current_test():
+    assert runez.system.find_parent_folder("", {"foo"}) is None
+    assert runez.system.find_parent_folder("/a/b//", {""}) is None
+    assert runez.system.find_parent_folder("/a/b", {"a"}) == "/a"
+    assert runez.system.find_parent_folder("/a/b//", {"a"}) == "/a"
+    assert runez.system.find_parent_folder("//a/b//", {"a"}) == "//a"
+    assert runez.system.find_parent_folder("/a/b", {"b"}) == "/a/b"
+    assert runez.system.find_parent_folder("/a/B", {"a", "b"}) == "/a/B"  # case insensitive
+    assert runez.system.find_parent_folder("/a/b", {"c"}) is None
+    assert runez.system.find_parent_folder("/dev/null", {"foo"}) is None
     assert "test_system.py" in runez.current_test()
 
 

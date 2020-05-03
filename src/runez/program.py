@@ -10,11 +10,10 @@ import time
 
 from runez.base import decode
 from runez.convert import flattened, represented_args, SHELL, short
-from runez.system import abort, AbortException, is_dryrun, WINDOWS
+from runez.system import abort, AbortException, find_parent_folder, is_dryrun, WINDOWS
 
 
 LOG = logging.getLogger(__name__)
-DEV_FOLDERS = ("venv", ".venv", ".tox", "build")
 DEFAULT_INSTRUCTIONS = {
     "darwin": "run: `brew install {program}`",
     "linux": "run: `apt install {program}`",
@@ -49,22 +48,12 @@ def check_pid(pid):
         return False
 
 
-def dev_folder(path=sys.prefix):
+def dev_folder():
     """
-    Args:
-        path (str | None): Path to examine
-
     Returns:
         (str | None): Path to development build folder, such as .venv, .tox etc, if any
     """
-    if not path or len(path) <= 4:
-        return None
-
-    dirpath, basename = os.path.split(path)
-    if basename in DEV_FOLDERS:
-        return path
-
-    return dev_folder(dirpath)
+    return find_parent_folder(sys.prefix, {"venv", ".venv", ".tox", "build"})
 
 
 def is_executable(path):

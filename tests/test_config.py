@@ -5,10 +5,10 @@ import os
 from mock import patch
 
 import runez
+import runez.conftest
 
 
-TEST_DIR = os.path.dirname(__file__)
-SAMPLES = os.path.join(TEST_DIR, "sample")
+SAMPLES = runez.conftest.test_resource("sample")
 
 
 def test_no_implementation():
@@ -49,7 +49,7 @@ def test_global_setup():
     assert runez.config.get_str("a") == "c"
 
     # Add a json source
-    runez.config.use_json(os.path.join(SAMPLES, "sample.json"))
+    runez.config.use_json(runez.conftest.test_resource("sample", "sample.json"))
     assert len(runez.config.CONFIG.providers) == 3
     assert runez.config.get_str("some-key") == "some-value"
     assert runez.config.get_int("some-int") == 51

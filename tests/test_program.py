@@ -54,21 +54,13 @@ def test_executable(temp_folder):
         assert "does not exist, can't make it executable" in logged
 
 
-def test_program():
-    assert runez.dev_folder("") is None
-    assert runez.dev_folder("some-path/bar/baz") is None
-    assert runez.dev_folder("some-path/.venv/bar/baz") == "some-path/.venv"
-    assert runez.dev_folder("some-path/.tox/bar/baz") == "some-path/.tox"
-    assert runez.dev_folder("some-path/build/bar/baz") == "some-path/build"
-
-    assert runez.program_path(path="/dev/null/some-program") == "/dev/null/some-program"
-
-
 def test_which():
+    assert runez.dev_folder()
     assert runez.which(None) is None
     assert runez.which("/dev/null") is None
     assert runez.which("dev/null") is None
     assert runez.which("python")
+    assert runez.program_path(path="/dev/null/some-program") == "/dev/null/some-program"
 
 
 def test_require_installed():
