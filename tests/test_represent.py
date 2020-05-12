@@ -4,10 +4,17 @@ import runez
 
 
 def test_align():
-    assert runez.align_center("foo", 5) == " foo "
+    assert runez.align.cast("left") is runez.align.left
+    assert runez.align.cast("CENTER") is runez.align.center
+    assert runez.align.cast("foo") is runez.align.left
+    assert runez.align.cast("foo", default=runez.align.center) is runez.align.center
+    assert runez.align.cast(None, default=runez.align.right) is runez.align.right
+    assert runez.align.cast(runez.align.center) is runez.align.center
 
-    assert runez.align_left("foo", 5) == "foo  "
-    assert runez.align_left("foo", 5, fill="-") == "foo--"
+    assert runez.align.center("foo", 5) == " foo "
+
+    assert runez.align.left("foo", 5) == "foo  "
+    assert runez.align.left("foo", 5, fill="-") == "foo--"
 
 
 def test_border():
@@ -36,3 +43,29 @@ def test_header():
 
     assert runez.header("test", border="=") == "========\n= test =\n========"
     assert runez.header("test", border="= ") == "= test\n======"
+
+
+def test_pretty_table():
+    t = runez.PrettyTable("1,2,3", border="pad:0")
+    t.add_rows("a b c".split(), "d e foo".split())
+
+    assert str(runez.represent.PTable(t).columns[0])  # Exercise string representation useful in debugger
+
+    t.header = 3  # Interpreted as 3 columns (but no header text)
+    assert t.get_string() == "abc  \ndefoo"
+
+    t.header = [1, 2, 3]  # Numbers will be stringified
+    t.align = "left"
+    assert t.get_string() == "123  \nabc  \ndefoo"
+
+    t.align = "center"
+    assert t.get_string() == "12 3 \nab c \ndefoo"
+
+    t.align = "right"
+    assert t.get_string() == "12  3\nab  c\ndefoo"
+
+    t.border = "ascii"
+    s = t.get_string()
+    assert s == "+===+===+=====+\n| 1 | 2 |   3 |\n+===+===+=====+\n| a | b |   c |\n+---+---+-----+\n| d | e | foo |\n+---+---+-----+"
+
+    t.border = runez.PrettyTable

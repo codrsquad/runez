@@ -3,69 +3,76 @@
 from runez.base import Slotted, stringified
 from runez.colors import ColorManager, uncolored
 from runez.convert import flattened, to_int
-from runez.file import terminal_width
 
 
-def align_left(text, width, fill=""):
-    """
-    Args:
-        text (str): Text to align left
-        width (int): Width to align it to
-        fill (str | None): Optional character to fill with
+class align:
+    """Text alignment functions gathered in a class to minimize imports"""
 
-    Returns:
-        (str): Left-aligned text
-    """
-    fmt = "{:%s<%s}" % (fill, width)
-    return fmt.format(text)
+    @staticmethod
+    def left(text, width, fill=""):
+        """
+        Args:
+            text (str): Text to align left
+            width (int): Width to align it to
+            fill (str | None): Optional character to fill with
 
+        Returns:
+            (str): Left-aligned text
+        """
+        fmt = "{:%s<%s}" % (fill, width)
+        return fmt.format(text)
 
-def align_center(text, width, fill=""):
-    """
-    Args:
-        text (str): Text to center
-        width (int): Width to align it to
-        fill (str | None): Optional character to fill with
+    @staticmethod
+    def center(text, width, fill=""):
+        """
+        Args:
+            text (str): Text to center
+            width (int): Width to align it to
+            fill (str | None): Optional character to fill with
 
-    Returns:
-        (str): Centered text
-    """
-    fmt = "{:%s^%s}" % (fill, width)
-    return fmt.format(text)
+        Returns:
+            (str): Centered text
+        """
+        fmt = "{:%s^%s}" % (fill, width)
+        return fmt.format(text)
 
+    @staticmethod
+    def right(text, width, fill=""):
+        """
+        Args:
+            text (str): Text to align right
+            width (int): Width to align it to
+            fill (str | None): Optional character to fill with
 
-def align_right(text, width, fill=""):
-    """
-    Args:
-        text (str): Text to align right
-        width (int): Width to align it to
-        fill (str | None): Optional character to fill with
+        Returns:
+            (str): Right-aligned text
+        """
+        fmt = "{:%s>%s}" % (fill, width)
+        return fmt.format(text)
 
-    Returns:
-        (str): Right-aligned text
-    """
-    fmt = "{:%s^%s}" % (fill, width)
-    return fmt.format(text)
+    @staticmethod
+    def cast(name, default="left"):
+        """
+        Args:
+            name (str | callable | None): Left, center or right
+            default (str | callable | None): Default to use if 'name' doesn't refer to an existing aligner
 
+        Returns:
+            (callable): Corresponding function
+        """
+        if callable(name):
+            return name
 
-def aligner_by_name(name, default=align_left):
-    """
-    Args:
-        name (str): Left, center or right
+        if name:
+            func = getattr(align, name.lower(), None)
+            if func:
+                return func
 
-    Returns:
-        (callable): Corresponding `align_()` function above
-    """
-    if name == "left":
-        return align_left
+        if callable(default):
+            return default
 
-    if name == "center":
-        return align_center
-
-    if name == "right":
-        return align_right
-
-    return default
+        if default:
+            return getattr(align, default.lower(), None)
 
 
 def header(text, border="--"):
@@ -137,6 +144,10 @@ class PColumn(object):
         w = self.text_width if self.text_width == self.allocated_width else "%s/%s" % (self.allocated_width, self.text_width)
         return "%s (%s), %s cells" % (self.index, w, len(self.cells))
 
+    def align(self, text, width):
+        aligner = self.header_cell.align or self.ptable.default_cell.align
+        return aligner(text, width)
+
     def add_cell(self, cell):
         self.cells.append(cell)
         cell.text = self.formatted(cell.value)
@@ -206,43 +217,33 @@ class PTable(object):
             parent (PrettyTable):
         """
         self.parent = parent
-        self.padding = " " * parent.border.pad
+        self.border = parent.border
+        self.header = parent.header
+        self.padding = " " * self.border.pad
         self.column_count = self._determine_columnt_count()
         self.default_cell = PHeaderCell(align=parent.align, style=parent.style, width=parent.width)
         self.rows = []
         self.columns = [PColumn(self, i) for i in range(self.column_count)]
         self.header_cells = []
-        if parent.header.cells:
-            for i, cell in enumerate(parent.header.cells):
-                self.header_cells.append(PCell(self.columns[i], cell.text))
+        if self.header.has_any_text:
+            for i, cell in enumerate(self.header.cells):
+                self.header_cells.append(PCell(self.columns[i], cell.text or parent.missing))
 
         for row in parent.rows:
             self.add_row(row)
 
-        allocated_width = self.allocated_width
-        available_width = parent.width or terminal_width(default=160)
-        excess = available_width - allocated_width
-        if excess < 0:
-            adjustable = sorted((c for c in self.columns if c.header_cell.is_width_adjustable), key=lambda x: -x.text_width)
-            assert adjustable
-
-    @property
-    def allocated_width(self):
-        total = 0
-        for column in self.columns:
-            total += column.allocated_width
-
-        return total
-
     def header_cell(self, index):
-        cells = self.parent.header.cells
+        cells = self.header.cells
         if cells and index < len(cells):
             return cells[index]
 
         return self.default_cell
 
     def _determine_columnt_count(self):
-        result = len(self.parent.header.cells or [])
+        result = 0
+        if self.header.has_any_text:
+            result = len(self.header.cells)
+
         for row in self.parent.rows:
             result = max(result, len(row))
 
@@ -257,10 +258,10 @@ class PTable(object):
 
     def get_string(self):
         result = []
-        border = self.parent.border
-        header = self.parent.header
+        border = self.border
+        header = self.header
         cb = border.t
-        if header.cells:
+        if header.has_any_text:
             result.append(self.decorated_text(border.pad, cb))
             cb = border.h or border.t
             result.append(self.decorated_text(border.pad, border.hc or border.c, cells=self.header_cells))
@@ -297,7 +298,7 @@ class PTable(object):
                 if cell_text:
                     size += len(cell_text) - len(uncolored(cell_text))
 
-                cell_text = column.header_cell.align(cell_text, size)
+                cell_text = column.align(cell_text, size)
                 result.append("%s%s%s" % (self.padding, cell_text, self.padding))
 
         if chars.last:
@@ -310,15 +311,11 @@ class PTable(object):
 class PHeaderCell(Slotted):
     __slots__ = ["align", "style", "text", "show", "width"]
 
-    @property
-    def is_width_adjustable(self):
-        return self.width is None or self.width <= 0
+    def set_align(self, value):
+        self.align = align.cast(value)
 
-    def set_align(self, align):
-        if not callable(align):
-            align = aligner_by_name(align)
-
-        self.align = align
+    def set_style(self, value):
+        self.style = ColorManager.style.find_renderable(value)
 
     def _values_from_string(self, text):
         return dict(text=text)
@@ -327,11 +324,19 @@ class PHeaderCell(Slotted):
         return dict(text=stringified(obj))
 
     def _get_defaults(self):
-        return dict(align=align_left, show=True)
+        return dict(show=True)
 
 
 class PHeader(Slotted):
     __slots__ = ["cells", "show"]
+
+    @property
+    def has_any_text(self):
+        """bool: Does any cell in this header have any meaningful text?"""
+        if self.cells:
+            for cell in self.cells:
+                if cell.text:
+                    return True
 
     def _values_from_string(self, text):
         return dict(cells=[PHeaderCell(t) for t in flattened(text, split=",")])
@@ -366,21 +371,18 @@ class PrettyTable(object):
     def __init__(self, header=None, align=None, border=None, missing="-", style=None, width=None):
         """
         Args:
-            header (list | str | int | None): Header to use, or column count
+            header (PHeader | list | str | int | None): Header to use, or column count
             align (str | callable | None): How to align cells by default (callable must accept 2 args: text and width)
             border (str | PBorder | None): How to represent missing cells (`None` or not provided)
             missing (str): How to represent missing cells (`None` or not provided)
-            style (str | runez.colors.Renderable | None): Desired default style
+            style (str | runez.colors.Renderable | None): Desired default style (eg: dim, bold, etc)
             width (int | None): Desired width (defaults to detected terminal width)
         """
-        self.header = PHeader.cast(header)
-        self.border = PBorder.cast(border)
+        self.header = header
+        self.border = border
         self.missing = missing
-        if not callable(align):
-            align = aligner_by_name(align)
-
         self.align = align
-        self.style = ColorManager.style.find_renderable(style)
+        self.style = style
         self.width = width
         self.rows = []
 
@@ -399,3 +401,12 @@ class PrettyTable(object):
     def get_string(self):
         ptable = PTable(self)
         return ptable.get_string()
+
+    def __setattr__(self, key, value):
+        if key == "header":
+            value = PHeader.cast(value)
+
+        elif key == "border":
+            value = PBorder.cast(value)
+
+        super(PrettyTable, self).__setattr__(key, value)

@@ -25,7 +25,7 @@ from runez.path import basename, ensure_folder, parent_folder
 from runez.program import check_pid, dev_folder, is_executable, is_younger, make_executable, program_path
 from runez.program import require_installed, run, which
 from runez.prompt import ask_once
-from runez.represent import align_center, align_left, align_right, aligner_by_name, header, indented, PrettyTable
+from runez.represent import align, header, indented, PrettyTable
 from runez.serialize import json_sanitized, read_json, represented_json, save_json, Serializable
 from runez.system import abort, auto_import_siblings, current_test, find_parent_folder, get_version, is_tty, set_dryrun, WINDOWS
 from runez.thread import thread_local_property, ThreadLocalSingleton
@@ -55,7 +55,7 @@ __all__ = [
     "check_pid", "dev_folder", "is_executable", "is_younger", "make_executable", "program_path",
     "require_installed", "run", "which",
     "ask_once",
-    "align_center", "align_left", "align_right", "aligner_by_name", "header", "indented", "PrettyTable",
+    "align", "header", "indented", "PrettyTable",
     "json_sanitized", "read_json", "represented_json", "save_json", "Serializable",
     "abort", "auto_import_siblings", "current_test", "find_parent_folder", "get_version", "is_tty", "set_dryrun", "WINDOWS",
     "thread_local_property", "ThreadLocalSingleton",

@@ -117,6 +117,16 @@ class Slotted(object):
         return cls(obj)
 
     def represented_values(self, delimiter=", ", separator="=", include_none=True, name_formatter=None):
+        """
+        Args:
+            delimiter (str): Delimiter used to separate field representation
+            separator (str): Separator for field=value pairs
+            include_none (bool): Included `None` values?
+            name_formatter (callable | None): If provided, called to transform 'field' for each field=value pair
+
+        Returns:
+            (str): Textual representation of the form field=value
+        """
         result = []
         for name in self.__slots__:
             value = getattr(self, name, UNSET)
@@ -127,6 +137,86 @@ class Slotted(object):
                 result.append("%s%s%s" % (name, separator, stringified(value)))
 
         return delimiter.join(result)
+
+    def get(self, key, default=None):
+        """This makes Slotted objects able to mimic dict's get() function
+
+        Args:
+            key (str): Field name (on defined in __slots__)
+            default: Default value to return if field is currently undefined (or UNSET)
+
+        Returns:
+            Value of field with 'key'
+        """
+        if key is not None:
+            value = getattr(self, key, default)
+            if value is not UNSET:
+                return value
+
+        return default
+
+    def set(self, *positionals, **kwargs):
+        """Conveniently set one or more fields at a time.
+
+        Args:
+            *positionals: Optionally set from other objects, available fields from the passed object are used in order
+            **kwargs: Set from given key/value pairs (only names defined in __slots__ are used)
+        """
+        for positional in positionals:
+            if positional is not UNSET:
+                values = self._values_from_positional(positional)
+                if values:
+                    for k, v in values.items():
+                        if v is not UNSET and kwargs.get(k) in (None, UNSET):
+                            # Positionals take precedence over None and UNSET only
+                            kwargs[k] = v
+
+        for name in kwargs:
+            self._set(name, kwargs.get(name, UNSET))
+
+    def pop(self, settings):
+        """
+        Args:
+            settings (dict): Dict to pop applicable fields from
+        """
+        if settings:
+            for name in self.__slots__:
+                self._set(name, settings.pop(name, UNSET))
+
+    def to_dict(self):
+        """dict: Key/value pairs of defined fields"""
+        result = {}
+        for name in self.__slots__:
+            val = getattr(self, name, UNSET)
+            if val is not UNSET:
+                result[name] = val
+
+        return result
+
+    def __iter__(self):
+        """Iterate over all defined values in this object"""
+        for name in self.__slots__:
+            val = getattr(self, name, UNSET)
+            if val is not UNSET:
+                yield val
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            for name in self.__slots__:
+                if getattr(self, name, None) != getattr(other, name, None):
+                    return False
+
+            return True
+
+    if PY2:
+        def __cmp__(self, other):  # Applicable only for py2
+            if isinstance(other, self.__class__):
+                for name in self.__slots__:
+                    i = cmp(getattr(self, name, None), getattr(other, name, None))  # noqa
+                    if i != 0:
+                        return i
+
+                return 0
 
     def _seed(self):
         """Seed initial fields"""
@@ -143,30 +233,6 @@ class Slotted(object):
 
     def _get_defaults(self):
         """dict|Undefined|None: Optional defaults"""
-
-    if PY2:
-        def __cmp__(self, other):
-            if isinstance(other, self.__class__):
-                for name in self.__slots__:
-                    i = cmp(getattr(self, name, None), getattr(other, name, None))  # noqa
-                    if i != 0:
-                        return i
-
-                return 0
-
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            for name in self.__slots__:
-                if getattr(self, name, None) != getattr(other, name, None):
-                    return False
-
-            return True
-
-    def __iter__(self):
-        for name in self.__slots__:
-            val = getattr(self, name, UNSET)
-            if val is not UNSET:
-                yield val
 
     def _set(self, name, value):
         """
@@ -194,33 +260,6 @@ class Slotted(object):
             else:
                 self._set_field(name, value)
 
-    def get(self, key, default=None):
-        if key is not None:
-            value = getattr(self, key, default)
-            if value is not UNSET:
-                return value
-
-        return default
-
-    def set(self, *positionals, **kwargs):
-        """Conveniently set one or more fields at a time.
-
-        Args:
-            *positionals: Optionally set from other objects, available fields from the passed object are used in order
-            **kwargs: Set from given key/value pairs (only names defined in __slots__ are used)
-        """
-        for positional in positionals:
-            if positional is not UNSET:
-                values = self._values_from_positional(positional)
-                if values:
-                    for k, v in values.items():
-                        if v is not UNSET and kwargs.get(k) in (None, UNSET):
-                            # Positionals take precedence over None and UNSET only
-                            kwargs[k] = v
-
-        for name in kwargs:
-            self._set(name, kwargs.get(name, UNSET))
-
     def _values_from_positional(self, positional):
         """dict: Key/value pairs from a given position to set()"""
         if isinstance(positional, string_type):
@@ -241,24 +280,6 @@ class Slotted(object):
         """dict: Optional hook to allow descendants to extract key/value pairs from an object"""
         if obj is not None:
             return dict((k, getattr(obj, k, UNSET)) for k in self.__slots__)
-
-    def pop(self, settings):
-        """
-        Args:
-            settings (dict): Dict to pop applicable fields from
-        """
-        if settings:
-            for name in self.__slots__:
-                self._set(name, settings.pop(name, UNSET))
-
-    def to_dict(self):
-        result = {}
-        for name in self.__slots__:
-            val = getattr(self, name, UNSET)
-            if val is not UNSET:
-                result[name] = val
-
-        return result
 
 
 def stringified(value, converter=None, none="None"):
@@ -388,10 +409,7 @@ class ThreadGlobalContext(object):
                 self._gpayload = None
 
     def to_dict(self):
-        """
-        Returns:
-            dict: Combined global and thread-specific logging context
-        """
+        """dict: Combined global and thread-specific logging context"""
         with self._lock:
             result = {}
             if self._gpayload:

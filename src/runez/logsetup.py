@@ -604,24 +604,6 @@ class LogManager(object):
         cls._shortcuts_fixed = True
 
         if hasattr(sys, "_getframe"):
-            def log(level, msg, *args, **kwargs):
-                """Wrapper to make logging.info() etc report the right module %(name)"""
-                name = sys._getframe(1).f_globals.get("__name__")
-                logger = logging.getLogger(name)
-                try:
-                    logging.currentframe = lambda: sys._getframe(4)
-                    logger.log(level, msg, *args, **kwargs)
-
-                finally:
-                    logging.currentframe = ORIGINAL_CF
-
-            def wrap(level, **kwargs):
-                """Wrap corresponding logging shortcut function"""
-                original = getattr(logging, logging.getLevelName(level).lower())
-                f = partial(log, level, **kwargs)
-                f.__doc__ = original.__doc__
-                return f
-
             logging.critical = wrap(logging.CRITICAL)
             logging.fatal = logging.critical
             logging.error = wrap(logging.ERROR)
@@ -630,6 +612,26 @@ class LogManager(object):
             logging.info = wrap(logging.INFO)
             logging.debug = wrap(logging.DEBUG)
             logging.log = log
+
+
+def log(level, msg, *args, **kwargs):  # pragma: no cover, for some reason coverage does not properly realize this is indeed covered
+    """Wrapper to make logging.info() etc report the right module %(name)"""
+    name = sys._getframe(1).f_globals.get("__name__")
+    logger = logging.getLogger(name)
+    try:
+        logging.currentframe = lambda: sys._getframe(4)
+        logger.log(level, msg, *args, **kwargs)
+
+    finally:
+        logging.currentframe = ORIGINAL_CF
+
+
+def wrap(level, **kwargs):
+    """Wrap corresponding logging shortcut function"""
+    original = getattr(logging, logging.getLevelName(level).lower())
+    f = partial(log, level, **kwargs)
+    f.__doc__ = original.__doc__
+    return f
 
 
 def _replace_and_pad(fmt, marker, replacement):
