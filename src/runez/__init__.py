@@ -9,7 +9,7 @@ from runez.colors.named import black, blue, brown, gray, green, orange, plain, p
 from runez.colors.named import blink, bold, dim, invert, italic, strikethrough, underline
 from runez.config import from_json
 from runez.context import CaptureOutput, CurrentFolder, TempArgv, TrackedOutput, verify_abort
-from runez.convert import Anchored, capped, flattened, formatted, plural, quoted, \
+from runez.convert import Anchored, capped, first_meaningful_line, flattened, formatted, plural, quoted, \
     represented_args, represented_bytesize, represented_with_units, \
     resolved_path, short, shortened
 from runez.convert import affixed, camel_cased, entitled, identifiers, snakified, wordified, words  # noqa, ignore import order
@@ -25,7 +25,7 @@ from runez.path import basename, ensure_folder, parent_folder
 from runez.program import check_pid, dev_folder, is_executable, is_younger, make_executable, program_path
 from runez.program import require_installed, run, which
 from runez.prompt import ask_once
-from runez.represent import header
+from runez.represent import align_center, align_left, align_right, aligner_by_name, header, indented, PrettyTable
 from runez.serialize import json_sanitized, read_json, represented_json, save_json, Serializable
 from runez.system import abort, auto_import_siblings, current_test, find_parent_folder, get_version, is_tty, set_dryrun, WINDOWS
 from runez.thread import thread_local_property, ThreadLocalSingleton
@@ -39,7 +39,7 @@ __all__ = [
     "blink", "bold", "dim", "invert", "italic", "strikethrough", "underline",
     "from_json",
     "CaptureOutput", "CurrentFolder", "TempArgv", "TrackedOutput", "verify_abort",
-    "Anchored", "capped", "flattened", "formatted", "plural", "quoted",
+    "Anchored", "capped", "first_meaningful_line", "flattened", "formatted", "plural", "quoted",
     "represented_args", "represented_bytesize", "represented_with_units",
     "resolved_path", "short", "shortened",
     "affixed", "camel_cased", "entitled", "identifiers", "snakified", "wordified", "words",
@@ -55,7 +55,7 @@ __all__ = [
     "check_pid", "dev_folder", "is_executable", "is_younger", "make_executable", "program_path",
     "require_installed", "run", "which",
     "ask_once",
-    "header",
+    "align_center", "align_left", "align_right", "aligner_by_name", "header", "indented", "PrettyTable",
     "json_sanitized", "read_json", "represented_json", "save_json", "Serializable",
     "abort", "auto_import_siblings", "current_test", "find_parent_folder", "get_version", "is_tty", "set_dryrun", "WINDOWS",
     "thread_local_property", "ThreadLocalSingleton",

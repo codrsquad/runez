@@ -109,7 +109,7 @@ def auto_import_siblings(auto_clean="TOX_WORK_DIR", skip=None):
     Returns:
         (list): List of imported modules, if any
     """
-    caller = find_caller_frame(depth=1)
+    caller = find_caller_frame()
     if not caller:
         raise ImportError("Could not determine caller, can't auto-import")
 
@@ -177,12 +177,13 @@ def current_test():
         if not name.startswith("runez"):
             return regex.match(name) and f.f_globals.get("__file__")
 
-    return find_caller_frame(test_frame, depth=2)
+    return find_caller_frame(test_frame)
 
 
 def actual_caller_frame(f):
     """Return `f` if it's a frame that looks like coming from actual caller (not runez itself, or an internal library package)"""
-    if f.f_globals.get("__name__") == "__main__":
+    name = f.f_globals.get("__name__")
+    if name and "__main__" in name:
         return f
 
     package = f.f_globals.get("__package__")

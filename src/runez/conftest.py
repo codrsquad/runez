@@ -8,11 +8,9 @@ Example:
 
 from __future__ import absolute_import
 
-import inspect
 import logging
 import os
 import re
-import runpy
 import sys
 import tempfile
 
@@ -232,11 +230,7 @@ class ClickWrapper(object):
         exception = None
         try:
             with TempArgv(args, exe=sys.executable):
-                if inspect.ismodule(main):
-                    runpy.run_module(main.__name__)
-
-                else:
-                    output = main()
+                output = main()
 
         except SystemExit as e:
             exit_code = 1
@@ -459,9 +453,10 @@ class ClickRunner(object):
 
 class RunSpec(Slotted):
 
-    _default = UNSET
-
     __slots__ = ["stdout", "stderr", "regex"]
+
+    def _get_defaults(self):
+        return UNSET
 
 
 class Match(object):

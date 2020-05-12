@@ -151,29 +151,39 @@ class Renderable(object):
 
         return self.rendered(text)
 
-    @property
-    def overhead(self):
-        """int: Number of characters the largest formatter currently adds"""
-        return 0
-
     def rendered(self, text):
         return text
 
 
 class NamedRenderables(Slotted):
-    def __init__(self, cls=Renderable, params=None, **kwargs):
-        colors = _auto_complete_implementations(Renderable, cls, self.__slots__, params, kwargs)
+    def __init__(self, cls=None, params=None, **color_names):
+        if params is None:
+            params = {}
+
+        colors = {}
+        for key in self.__slots__:
+            # Fill all slots, with default (plain) `Renderable` for non-specified ones
+            color = color_names.pop(key, None)
+            if color is None or cls is None:
+                color = Renderable(key)
+
+            else:
+                args = color if isinstance(color, tuple) else [color]
+                color = cls(key, *args, **params)
+
+            colors[key] = color
+
+        assert not color_names  # Verify no unknown colors were mentioned
         super(NamedRenderables, self).__init__(**colors)
 
-    @property
-    def longest_name(self):
-        """Longest name in this set"""
-        return max(len(x.name) for x in self)
+    def find_renderable(self, obj):
+        if isinstance(obj, Renderable):
+            return obj
 
-    @property
-    def overhead(self):
-        """Longest overhead induced by formatting in this set"""
-        return max(x.overhead for x in self)
+        if hasattr(obj, "__name__"):
+            obj = obj.__name__
+
+        return self.get(obj)
 
 
 class NamedColors(NamedRenderables):
@@ -184,27 +194,6 @@ class NamedColors(NamedRenderables):
 class NamedStyles(NamedRenderables):
     """Set of registered named styles"""
     __slots__ = ["blink", "bold", "dim", "invert", "italic", "strikethrough", "underline"]
-
-
-def _auto_complete_implementations(default_cls, cls, slots, params, kwargs):
-    result = dict()
-    for key in slots:
-        value = kwargs.pop(key, None)
-        if value is None:
-            value = default_cls(key)
-
-        else:
-            args = value if isinstance(value, tuple) else [value]
-            if params:
-                value = cls(key, *args, **params)
-
-            else:
-                value = cls(key, *args)
-
-        result[key] = value
-
-    assert not kwargs
-    return result
 
 
 def _detect_backend(enable, flavor=None):

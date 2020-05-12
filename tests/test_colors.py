@@ -1,4 +1,5 @@
 import os
+import sys
 
 from mock import patch
 
@@ -7,6 +8,11 @@ from runez.colors import terminal
 
 
 def test_colors():
+    dim = runez.color.style.dim
+    assert runez.color.style.find_renderable(dim) is dim
+    assert runez.color.style.find_renderable(runez.dim) is dim
+    assert runez.color.style.find_renderable("dim") is dim
+
     assert not runez.is_coloring()
     with runez.ActivateColors(terminal.Ansi16Backend):
         # Check that backend can be passed as class (flavor auto-determined in that case)
@@ -53,7 +59,7 @@ def test_colors():
     assert str(runez.color.fg.black) == "black"
 
 
-def check_flavor(expected, term=None, fgbg=None, overhead=None):
+def check_flavor(expected, term=None, fgbg=None):
     env = {}
     if term:
         env["TERM"] = term
@@ -66,8 +72,6 @@ def check_flavor(expected, term=None, fgbg=None, overhead=None):
         with runez.ActivateColors():
             assert runez.is_coloring()
             assert runez.color.backend.name == expected
-            if overhead is not None:
-                assert runez.color.fg.overhead == overhead
 
     # Verify testing defaults were restored
     assert not runez.is_coloring()
@@ -81,15 +85,15 @@ def test_default(*_):
     assert runez.color.backend.name == "plain"
     assert runez.blue("hello") == "hello"
 
-    check_flavor("ansi16 neutral", overhead=10)
+    check_flavor("ansi16 neutral")
     check_flavor("ansi16 light", fgbg="15;0")
     check_flavor("ansi16 dark", fgbg="15;9")
 
-    check_flavor("ansi256 neutral", term="xterm-256color", overhead=16)
+    check_flavor("ansi256 neutral", term="xterm-256color")
     check_flavor("ansi256 light", term="xterm-256color", fgbg="15;0")
     check_flavor("ansi256 dark", term="xterm-256color", fgbg="15;9")
 
-    check_flavor("truecolor neutral", term="truecolor", overhead=24)
+    check_flavor("truecolor neutral", term="truecolor")
     check_flavor("truecolor light", term="truecolor", fgbg="15;0")
     check_flavor("truecolor dark", term="truecolor", fgbg="15;9")
 
@@ -120,20 +124,19 @@ def test_flavor():
 
 
 def test_show_colors(cli):
-    import runez.colors
-
-    cli.run(main=runez.colors)
+    cli.run("colors")
     assert cli.succeeded
     assert "Backend: plain" in cli.logged.stdout
 
-    cli.run("--no-color")
-    assert cli.succeeded
-    assert "Backend: plain" in cli.logged.stdout
-
-    cli.run("--color --bg foo,yellow --flavor light")
+    cli.run("colors --color --bg foo,yellow --flavor light")
     assert cli.succeeded
     assert "Backend: ansi16 light" in cli.logged.stdout
-    assert "Unknown color 'foo'" in cli.logged.stdout
+    assert "Unknown bg color 'foo'" in cli.logged.stdout
+
+
+def test_no_color():
+    output = runez.run(sys.executable, "-mrunez", "colors", "--no-color")
+    assert "Backend: plain" in output
 
 
 def test_uncolored():

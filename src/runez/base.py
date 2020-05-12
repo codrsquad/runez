@@ -83,39 +83,83 @@ def decode(value, strip=False):
     """
     if value is None:
         return None
+
     if isinstance(value, bytes) and not isinstance(value, unicode):
         value = value.decode("utf-8")
+
     if strip:
         return stringified(value).strip()
+
     return stringified(value)
 
 
 class Slotted(object):
     """This class allows to easily initialize/set a descendant using named arguments"""
 
-    _default = None
-
-    def __init__(self, *args, **kwargs):
+    def __init__(self,  *positionals, **kwargs):
         """
         Args:
-            *args (Slotted): Optionally provide another instance of same type to initialize from
+            *positionals: Optionally provide positional objects to extract values from, when possible
             **kwargs: Override one or more of this classes' fields (keys must refer to valid slots)
         """
         self._seed()
-        self.set(*args, **kwargs)
+        self.set(*positionals, **kwargs)
+
+    def __repr__(self):
+        return "%s(%s)" % (self.__class__.__name__, self.represented_values())
+
+    @classmethod
+    def cast(cls, obj):
+        """Cast `obj` to instance of this type, via positional setter"""
+        if isinstance(obj, cls):
+            return obj
+
+        return cls(obj)
+
+    def represented_values(self, delimiter=", ", separator="=", include_none=True, name_formatter=None):
+        result = []
+        for name in self.__slots__:
+            value = getattr(self, name, UNSET)
+            if value is not UNSET and (include_none or value is not None):
+                if name_formatter is not None:
+                    name = name_formatter(name)
+
+                result.append("%s%s%s" % (name, separator, stringified(value)))
+
+        return delimiter.join(result)
 
     def _seed(self):
         """Seed initial fields"""
+        defaults = self._get_defaults()
+        if not isinstance(defaults, dict):
+            defaults = dict((k, defaults) for k in self.__slots__)
+
         for name in self.__slots__:
-            value = getattr(self, name, UNSET)
-            if value is UNSET:
-                setattr(self, name, self.__class__._default)
+            value = getattr(self, name, defaults.get(name))
+            setattr(self, name, value)
+
+    def _set_field(self, name, value):
+        setattr(self, name, value)
+
+    def _get_defaults(self):
+        """dict|Undefined|None: Optional defaults"""
+
+    if PY2:
+        def __cmp__(self, other):
+            if isinstance(other, self.__class__):
+                for name in self.__slots__:
+                    i = cmp(getattr(self, name, None), getattr(other, name, None))  # noqa
+                    if i != 0:
+                        return i
+
+                return 0
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
             for name in self.__slots__:
                 if getattr(self, name, None) != getattr(other, name, None):
                     return False
+
             return True
 
     def __iter__(self):
@@ -138,29 +182,65 @@ class Slotted(object):
                     current.set(value)
                     setattr(self, name, current)
                     return
+
                 if isinstance(current, Slotted):
                     current.set(value)
                     return
-            setattr(self, name, value)
+
+            setter = getattr(self, "set_%s" % name, None)
+            if setter is not None:
+                setter(value)
+
+            else:
+                self._set_field(name, value)
 
     def get(self, key, default=None):
         if key is not None:
-            return getattr(self, key, default)
+            value = getattr(self, key, default)
+            if value is not UNSET:
+                return value
 
-    def set(self, *args, **kwargs):
+        return default
+
+    def set(self, *positionals, **kwargs):
         """Conveniently set one or more fields at a time.
 
         Args:
-            *args: Optionally set from other objects, available fields from the passed object are used in order
+            *positionals: Optionally set from other objects, available fields from the passed object are used in order
             **kwargs: Set from given key/value pairs (only names defined in __slots__ are used)
         """
-        if args:
-            for arg in args:
-                if arg is not None:
-                    for name in self.__slots__:
-                        self._set(name, getattr(arg, name, UNSET))
+        for positional in positionals:
+            if positional is not UNSET:
+                values = self._values_from_positional(positional)
+                if values:
+                    for k, v in values.items():
+                        if v is not UNSET and kwargs.get(k) in (None, UNSET):
+                            # Positionals take precedence over None and UNSET only
+                            kwargs[k] = v
+
         for name in kwargs:
             self._set(name, kwargs.get(name, UNSET))
+
+    def _values_from_positional(self, positional):
+        """dict: Key/value pairs from a given position to set()"""
+        if isinstance(positional, string_type):
+            return self._values_from_string(positional)
+
+        if isinstance(positional, dict):
+            return positional
+
+        if isinstance(positional, Slotted):
+            return positional.to_dict()
+
+        return self._values_from_object(positional)
+
+    def _values_from_string(self, text):
+        """dict: Optional hook to allow descendants to extract key/value pairs from a string"""
+
+    def _values_from_object(self, obj):
+        """dict: Optional hook to allow descendants to extract key/value pairs from an object"""
+        if obj is not None:
+            return dict((k, getattr(obj, k, UNSET)) for k in self.__slots__)
 
     def pop(self, settings):
         """
@@ -177,14 +257,16 @@ class Slotted(object):
             val = getattr(self, name, UNSET)
             if val is not UNSET:
                 result[name] = val
+
         return result
 
 
-def stringified(value, converter=None):
+def stringified(value, converter=None, none="None"):
     """
     Args:
         value: Any object to turn into a string
         converter (callable | None): Optional converter to use for non-string objects
+        none (str): String to use to represent `None`
 
     Returns:
         (str): Ensure `text` is a string if necessary (this is to avoid transforming string types in py2 as much as possible)
@@ -199,6 +281,9 @@ def stringified(value, converter=None):
 
         if converted is not None:
             value = converted
+
+    if value is None:
+        return none
 
     return "%s" % value
 

@@ -3,7 +3,7 @@ import sys
 import runez
 
 
-def test_scope():
+def test_capture_scope():
     with runez.CaptureOutput() as logged:
         print("on stdout")
         sys.stderr.write("on stderr")
@@ -20,7 +20,7 @@ def test_scope():
         assert logged.stderr is None
 
 
-def test_stacked():
+def test_capture_nested():
     with runez.CaptureOutput(stdout=True, stderr=True) as logged1:
         # Capture both stdout and stderr
         print("print1")

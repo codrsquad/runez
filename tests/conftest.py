@@ -4,6 +4,7 @@ import os
 import pytest
 
 import runez
+from runez.__main__ import main
 from runez.base import stringified
 from runez.conftest import cli, isolated_log_setup, IsolatedLogSetup, logged, temp_folder
 from runez.context import CaptureOutput
@@ -15,6 +16,7 @@ from runez.logsetup import LogManager
 LOG = logging.getLogger(__name__)
 runez.date.DEFAULT_TIMEZONE = runez.date.UTC
 runez.serialize.set_default_behavior(strict=False, extras=True)
+cli.default_main = main
 
 
 # This is here only to satisfy flake8, mentioning the imported fixtures so they're not declared "unused"

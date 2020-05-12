@@ -140,6 +140,12 @@ def test_flattened():
     assert runez.flattened(["a b", None, ["a b c"], "a"], split=(" ", runez.SANITIZED | runez.UNIQUE)) == ["a", "b", "c"]
 
 
+def test_misc():
+    assert runez.first_meaningful_line("") is None
+    assert runez.first_meaningful_line("\n  \n\n") is None
+    assert runez.first_meaningful_line("\n\n\n  foo  \n\bar") == "foo"
+
+
 def test_representation():
     assert runez.represented_args(None) == ""
     assert runez.represented_args([]) == ""

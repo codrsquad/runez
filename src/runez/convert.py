@@ -43,6 +43,24 @@ def capped(value, minimum=None, maximum=None):
     return value
 
 
+def first_meaningful_line(text, default=None):
+    """
+    Args:
+        text (str | None): Text to examine
+        default (str): Default to return if no meaningful line found in `text`
+
+    Returns:
+        (str | None): First non-empty line, if any
+    """
+    if text:
+        for line in text.splitlines():
+            line = line.strip()
+            if line:
+                return line
+
+    return default
+
+
 def flattened(value, split=None):
     """
     Args:

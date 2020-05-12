@@ -328,7 +328,7 @@ def _windows_exe(path):  # pragma: no cover
 
 
 def _wrapped_args(args):
-    if not WINDOWS and "PYCHARM_HOSTED" in os.environ and len(args) > 1 and "python" in args[0] and args[1].startswith("-m"):
+    if not WINDOWS and "PYCHARM_HOSTED" in os.environ and len(args) > 1 and "python" in args[0] and args[1][:2] in ("-m", "-X"):
         # Temporary workaround for https://youtrack.jetbrains.com/issue/PY-40692
         wrapper = os.path.join(os.path.dirname(__file__), "pydev-wrapper.sh")
         return ["/bin/sh", wrapper] + args

@@ -84,10 +84,10 @@ def test_crash(cli):
 
     with pytest.raises(AssertionError):
         # No main provided
+        cli.main = cli.default_main = None
         cli.run("hello no main")
 
-    cli.main = sample_main
-    cli.run(["Exception", "hello with main"])
+    cli.run(["Exception", "hello with main"], main=sample_main)
     assert cli.failed
     assert cli.match("crashed...hello")
     assert cli.match("Exited with stacktrace:")

@@ -88,10 +88,6 @@ class AnsiColor(Renderable):
         brighten = None if flavor == "neutral" else flavor == "light"
         self.fmt = base_fmt.format(start=fmt(offset, r, g, b, brighten))
 
-    @property
-    def overhead(self):
-        return len(self.fmt.format(""))
-
     def rendered(self, text):
         return self.fmt.format(text)
 
@@ -105,6 +101,34 @@ class AnsiStyle(Renderable):
 
     def rendered(self, text):
         return self.fmt.format(text)
+
+
+# class AnsiColors(NamedColors):
+#     def _set_field(self, name, value):
+#         if isinstance(value, int):
+#             value = AnsiColor(name, value, ansi=)
+#
+#         super(AnsiColors, self)._set_field(name, value)
+#
+#     def _get_defaults(self):
+#         if params is None:
+#             params = {}
+#
+#         colors = {}
+#         for key in self.__slots__:
+#             # Fill all slots, with default (plain) `Renderable` for non-specified ones
+#             color = color_names.pop(key, None)
+#             if color is None or cls is None:
+#                 color = Renderable(key)
+#
+#             else:
+#                 args = color if isinstance(color, tuple) else [color]
+#                 color = cls(key, *args, **params)
+#
+#             colors[key] = color
+#
+#         assert not color_names  # Verify no unknown colors were mentioned
+#         super(NamedRenderables, self).__init__(**colors)
 
 
 class Ansi16Backend(PlainBackend):
