@@ -1,8 +1,24 @@
 #  -*- encoding: utf-8 -*-
 
-from runez.base import Slotted, stringified
-from runez.colors import uncolored
+from runez.base import AdaptedProperty, Slotted, string_type, stringified, UNSET
+from runez.colors import cast_style, uncolored
 from runez.convert import flattened, to_int
+
+
+NAMED_BORDERS = dict(
+    ascii="rstgrid,t:+++=,m:+++-",
+    compact="c:   ,h:   -",
+    dashed=u"t:┌┬┐┄,m:├┼┤┄,b:└┴┘┄,c:┆┆┆,h:┝┿┥━",
+    dots="t:....,b::::.,c::::,h:.:..",
+    empty="",
+    framed=u"t:┍┯┑━,m:┝┿┥━,b:┕┷┙━,c:│││,h:╞╪╡═",
+    github="h:-|--,c:|||",
+    jira=dict(c="|||", hc=["||", "||", "||"]),
+    mysql="t:+++-,b:+++-,c:|||",
+    reddit="h:-|--,c: | ",
+    rst="t:  ==,b:  ==,c:  ",
+    rstgrid="mysql,h:+++=",
+)
 
 
 class align:
@@ -51,7 +67,7 @@ class align:
         return fmt.format(text)
 
     @staticmethod
-    def cast(name, default="left"):
+    def cast(name, default=UNSET):
         """
         Args:
             name (str | callable | None): Left, center or right
@@ -68,11 +84,20 @@ class align:
             if func:
                 return func
 
+        if default is None:
+            return None
+
+        if default is UNSET:
+            raise ValueError("Invalid horizontal alignment '%s'" % name)
+
         if callable(default):
             return default
 
-        if default:
-            return getattr(align, default.lower(), None)
+        func = getattr(align, default.lower(), None)
+        if func:
+            return func
+
+        raise ValueError("Invalid default horizontal alignment '%s'" % default)
 
 
 def header(text, border="--"):
@@ -111,71 +136,7 @@ def indented(text, indent=2):
     return "\n".join("%s%s" % (indent, line) for line in stringified(text).splitlines())
 
 
-class PCell(object):
-    text_width = 0
-    text = None
-
-    def __init__(self, column, value):
-        """
-        Args:
-            column (PColumn):
-            value:
-        """
-        self.column = column
-        self.value = value
-        column.add_cell(self)
-
-
-class PColumn(object):
-    def __init__(self, ptable, index):
-        """
-        Args:
-            ptable (PTable):
-            index (int):
-        """
-        self.ptable = ptable
-        self.header_cell = ptable.header_cell(index)
-        self.index = index
-        self.text_width = 0
-        self.allocated_width = 0
-        self.cells = []
-
-    def __repr__(self):
-        w = self.text_width if self.text_width == self.allocated_width else "%s/%s" % (self.allocated_width, self.text_width)
-        return "%s (%s), %s cells" % (self.index, w, len(self.cells))
-
-    def align(self, text, width):
-        aligner = self.header_cell.align or self.ptable.default_cell.align
-        return aligner(text, width)
-
-    def add_cell(self, cell):
-        self.cells.append(cell)
-        cell.text = self.formatted(cell.value)
-        cell.text_width = len(uncolored(cell.text))
-        self.text_width = max(self.text_width, cell.text_width)
-        self.allocated_width = self.text_width
-
-    def formatted(self, value):
-        return stringified(value)
-
-
-class PChars(Slotted):
-    __slots__ = ["first", "mid", "last", "h"]
-
-    def _values_from_string(self, text):
-        parts = list(text)
-        missing = 4 - len(parts)
-        if missing > 0:
-            parts += [""] * missing
-
-        first, mid, last, h = parts
-        return dict(first=first, mid=mid, last=last, h=h)
-
-    def __repr__(self):
-        return self.represented_values(delimiter="", separator="", include_none=False, name_formatter=lambda x: "")
-
-
-class PBorder(Slotted):
+class PrettyBorder(Slotted):
     # top, mid, bottom, cell, header, header-cell
     __slots__ = ["t", "m", "b", "c", "h", "hc", "pad"]
 
@@ -186,12 +147,12 @@ class PBorder(Slotted):
         self.pad = to_int(value)
 
     def _get_defaults(self):
-        return dict(c=PChars(), pad=1)
+        return dict(c=_PTBorderChars(), pad=1)
 
     def _values_from_string(self, text):
         values = {}
         for part in text.split(","):
-            value = PrettyTable.borders.get(part)
+            value = NAMED_BORDERS.get(part)
             if value:
                 v = self._values_from_positional(value)
                 if v:
@@ -205,190 +166,142 @@ class PBorder(Slotted):
 
     def _set_field(self, name, value):
         if value is not None and name != "pad":
-            value = PChars.cast(value)
+            value = _PTBorderChars.cast(value)
 
-        super(PBorder, self)._set_field(name, value)
+        super(PrettyBorder, self)._set_field(name, value)
 
 
-class PTable(object):
-    def __init__(self, parent):
-        """
-        Args:
-            parent (PrettyTable):
-        """
-        self.parent = parent
-        self.border = parent.border
-        self.header = parent.header
-        self.padding = " " * self.border.pad
-        self.column_count = self._determine_columnt_count()
-        self.default_cell = PHeaderCell(align=parent.align, style=parent.style, width=parent.width)
-        self.rows = []
-        self.columns = [PColumn(self, i) for i in range(self.column_count)]
-        self.header_cells = []
-        if self.header.has_any_text:
-            for i, cell in enumerate(self.header.cells):
-                self.header_cells.append(PCell(self.columns[i], cell.text or parent.missing))
+class PrettyCustomizable(object):
+    """
+    Ancestor to customizable points, in reverse order of priority
+    - table: overall settings, acts as default for all cells
+    - header: applies to header row only
+    - header.column: applies to all cells within a column (including header cells)
+    """
+    align = AdaptedProperty("align", caster=align.cast, doc="Horizontal alignment to use (left, center or right)")
+    style = AdaptedProperty("style", caster=cast_style, doc="Style")
+    width = AdaptedProperty("width", caster=int, doc="Desired width")
 
-        for row in parent.rows:
-            self.add_row(row)
-
-    def header_cell(self, index):
-        cells = self.header.cells
-        if cells and index < len(cells):
-            return cells[index]
-
-        return self.default_cell
-
-    def _determine_columnt_count(self):
-        result = 0
-        if self.header.has_any_text:
-            result = len(self.header.cells)
-
-        for row in self.parent.rows:
-            result = max(result, len(row))
+    def to_dict(self):
+        result = {}
+        for key in ("align", "style", "width"):
+            value = getattr(self, key)
+            if value is not None:
+                result[key] = value
 
         return result
 
-    def add_row(self, data):
-        row = [None] * self.column_count
-        for i, value in enumerate(data):
-            row[i] = PCell(self.columns[i], value)
+    def formatted(self, text):
+        style = self.style
+        if style is not None:
+            text = style(text)
 
-        self.rows.append(row)
+        return text
 
-    def get_string(self):
-        result = []
-        border = self.border
-        header = self.header
-        cb = border.t
-        if header.has_any_text:
-            result.append(self.decorated_text(border.pad, cb))
-            cb = border.h or border.t
-            result.append(self.decorated_text(border.pad, border.hc or border.c, cells=self.header_cells))
+    @staticmethod
+    def merged(*chain):
+        values = dict(align=align.left)
+        for item in chain:
+            if item is not None:
+                values.update(item.to_dict())
 
-        for row in self.rows:
-            result.append(self.decorated_text(border.pad, cb))
-            cb = border.m
-            result.append(self.decorated_text(border.pad, border.c, cells=row))
+        result = PrettyCustomizable()
+        for k, v in values.items():
+            setattr(result, k, v)
 
-        result.append(self.decorated_text(border.pad, border.b))
-        return "\n".join(s for s in result if s)
-
-    def decorated_text(self, pad, chars, cells=None):
-        if not chars:
-            return None
-
-        result = []
-        for column in self.columns:
-            size = column.allocated_width
-            if column.index == 0:
-                if chars.first:
-                    result.append(chars.first)
-
-            elif chars.mid:
-                result.append(chars.mid)
-
-            if cells is None:
-                size += 2 * pad
-                if size and chars.h:
-                    result.append(chars.h * size)
-
-            else:
-                cell_text = cells[column.index].text
-                if cell_text:
-                    size += len(cell_text) - len(uncolored(cell_text))
-
-                cell_text = column.align(cell_text, size)
-                result.append("%s%s%s" % (self.padding, cell_text, self.padding))
-
-        if chars.last:
-            result.append(chars.last)
-
-        if result:
-            return "".join(result)
+        return result
 
 
-class PHeaderCell(Slotted):
-    __slots__ = ["align", "style", "text", "show", "width"]
-
-    def set_align(self, value):
-        self.align = align.cast(value)
-
-    def _values_from_string(self, text):
-        return dict(text=text)
-
-    def _values_from_object(self, obj):
-        return dict(text=stringified(obj))
-
-    def _get_defaults(self):
-        return dict(show=True)
+class PrettyColumn(PrettyCustomizable):
+    def __init__(self, index, text=None):
+        self.index = index
+        self.text = None if text is None else stringified(text)
+        self.shown = True
 
 
-class PHeader(Slotted):
-    __slots__ = ["cells", "show"]
+class PrettyHeader(PrettyCustomizable):
+    def __init__(self, value=None):
+        self._columns = []
+        self.shown = True
+        if value is None:
+            return
+
+        if isinstance(value, string_type):
+            for t in flattened(value, split=","):
+                self.add_column(t)
+
+        elif isinstance(value, int):
+            self.accomodate(value)
+
+        elif hasattr(value, "__iter__"):
+            for x in value:
+                self.add_column(x)
+
+        else:
+            raise ValueError("Invalid header '%s'" % value)
 
     @property
-    def has_any_text(self):
-        """bool: Does any cell in this header have any meaningful text?"""
-        if self.cells:
-            for cell in self.cells:
-                if cell.text:
-                    return True
+    def columns(self):
+        return self._columns
 
-    def _values_from_string(self, text):
-        return dict(cells=[PHeaderCell(t) for t in flattened(text, split=",")])
+    @property
+    def shown_columns(self):
+        return [c for c in self._columns if c.shown]
 
-    def _values_from_object(self, obj):
-        if isinstance(obj, int):
-            return dict(cells=[PHeaderCell() for _ in range(obj)])
+    def accomodate(self, size):
+        """
+        Args:
+            size (int): Ensure that we have at least 'size' columns
+        """
+        while len(self._columns) < size:
+            self.add_column()
 
-        if hasattr(obj, "__iter__"):
-            return dict(cells=[PHeaderCell(x) for x in obj])
+    def add_column(self, text=None):
+        self._columns.append(PrettyColumn(len(self._columns), text))
 
-    def _get_defaults(self):
-        return dict(show=True)
+    def add_columns(self, *columns):
+        for c in columns:
+            self.add_column(c)
 
 
-class PrettyTable(object):
-    borders = dict(
-        ascii="rstgrid,t:+++=,m:+++-",
-        compact="c:   ,h:   -",
-        dashed=u"t:┌┬┐┄,m:├┼┤┄,b:└┴┘┄,c:┆┆┆,h:┝┿┥━",
-        dots="t:....,b::::.,c::::,h:.:..",
-        empty="",
-        framed=u"t:┍┯┑━,m:┝┿┥━,b:┕┷┙━,c:│││,h:╞╪╡═",
-        github="h:-|--,c:|||",
-        jira=dict(c="|||", hc=PChars(first="||", mid="||", last="||")),
-        mysql="t:+++-,b:+++-,c:|||",
-        reddit="h:-|--,c: | ",
-        rst="t:  ==,b:  ==,c:  ",
-        rstgrid="mysql,h:+++=",
-    )
+class PrettyTable(PrettyCustomizable):
+
+    border = AdaptedProperty("border", type=PrettyBorder, doc="Border to use")
+    header = AdaptedProperty("header", type=PrettyHeader, doc="Header")
 
     def __init__(self, header=None, align=None, border=None, missing="-", style=None, width=None):
         """
         Args:
-            header (PHeader | list | str | int | None): Header to use, or column count
+            header (PrettyHeader | str | int | list | dict | tuple | None): Header to use, or column count
             align (str | callable | None): How to align cells by default (callable must accept 2 args: text and width)
-            border (str | PBorder | None): How to represent missing cells (`None` or not provided)
+            border (PrettyBorder | str | None): What border to use
             missing (str): How to represent missing cells (`None` or not provided)
             style (str | runez.colors.Renderable | None): Desired default style (eg: dim, bold, etc)
             width (int | None): Desired width (defaults to detected terminal width)
         """
-        self.header = header
+        self.header = header  # type: PrettyHeader
+        self.align = align
         self.border = border
         self.missing = missing
-        self.align = align
         self.style = style
         self.width = width
-        self.rows = []
+        self._rows = []
 
     def __str__(self):
         return self.get_string()
 
-    def add_row(self, *row):
-        """Add one row, accepts any kind of list/tuple"""
-        self.rows.append(flattened(row))
+    @property
+    def rows(self):
+        return self._rows
+
+    def formatted(self, value):
+        return stringified(value, none=self.missing)
+
+    def add_row(self, *values):
+        """Add one rowwith given 'values'"""
+        row = flattened(values)
+        self.header.accomodate(len(row))
+        self._rows.append(row)
 
     def add_rows(self, *rows):
         """Add multiple row at once"""
@@ -396,14 +309,154 @@ class PrettyTable(object):
             self.add_row(row)
 
     def get_string(self):
-        ptable = PTable(self)
-        return ptable.get_string()
+        t = _PTTable(self)
+        result = t.get_string()
+        return result
 
-    def __setattr__(self, key, value):
-        if key == "header":
-            value = PHeader.cast(value)
 
-        elif key == "border":
-            value = PBorder.cast(value)
+def render_line(container, columns, padding, pad, chars, cells=None):
+    if not chars:
+        return
 
-        super(PrettyTable, self).__setattr__(key, value)
+    result = []
+    for index, column in enumerate(columns):
+        size = column.allocated_width
+        if index == 0:
+            if chars.first:
+                result.append(chars.first)
+
+        elif chars.mid:
+            result.append(chars.mid)
+
+        if cells is None:
+            size += 2 * pad
+            if size and chars.h:
+                result.append(chars.h * size)
+
+        else:
+            cell = cells[index]
+            result.append(cell.rendered_text(size, padding))
+
+    if chars.last:
+        result.append(chars.last)
+
+    if result:
+        container.append("".join(result))
+
+
+class _PTBorderChars(Slotted):
+    __slots__ = ["first", "mid", "last", "h"]
+
+    def _values_from_string(self, text):
+        return self._values_from_object(list(text))
+
+    def _values_from_object(self, obj):
+        if isinstance(obj, list):
+            missing = 4 - len(obj)
+            if missing > 0:
+                obj += [""] * missing
+
+            first, mid, last, h = obj
+            return dict(first=first, mid=mid, last=last, h=h)
+
+        return super(_PTBorderChars, self)._values_from_object(obj)
+
+    def __repr__(self):
+        return self.represented_values(delimiter="", separator="", include_none=False, name_formatter=lambda x: "")
+
+
+class _PTTable(object):
+    def __init__(self, parent):
+        """
+        Args:
+            parent (PrettyTable): Table to take a snapshot of for rendering
+        """
+        self.parent = parent
+        header = parent.header
+        shown_columns = header.shown_columns
+        self.columns = [_PTColumn(self, c) for c in shown_columns]
+        self.column_count = len(self.columns)
+        header_text = [c.text for c in shown_columns]
+        header_shown = header.shown and any(header_text)
+        self.header_row = self.new_row(header_text, header=header) if header_shown else None
+        self.rows = [self.new_row(r) for r in parent.rows]
+
+    def new_row(self, values, header=None):
+        row = []
+        nvalues = len(values)
+        for i in range(self.column_count):
+            value = values[i] if i < nvalues else None
+            column = self.columns[i]
+            cell = _PTCell(column, value, header)
+            row.append(cell)
+
+        return row
+
+    def get_string(self):
+        container = []
+        columns = self.columns
+        border = self.parent.border
+        pad = border.pad
+        padding = " " * pad
+        cb = border.t
+        if self.header_row:
+            render_line(container, columns, padding, pad, cb)
+            cb = border.h or border.t
+            render_line(container, columns, padding, pad, border.hc or border.c, cells=self.header_row)
+
+        for row in self.rows:
+            render_line(container, columns, padding, pad, cb)
+            cb = border.m
+            render_line(container, columns, padding, pad, border.c, cells=row)
+
+        render_line(container, columns, padding, pad, border.b)
+        return "\n".join(container)
+
+
+class _PTColumn(object):
+    def __init__(self, ptable, pcolumn):
+        """
+        Args:
+            ptable (_PTTable):
+            pcolumn (PrettyColumn):
+        """
+        self.ptable = ptable
+        self.pcolumn = pcolumn
+        self.text_width = 0
+        self.allocated_width = 0
+
+    def update_width(self, width):
+        self.text_width = max(self.text_width, width)
+        self.allocated_width = self.text_width
+
+
+class _PTCell(object):
+    """Holds text and settings for a cell in the table"""
+
+    def __init__(self, column, value, header):
+        """
+        parent customization_chain
+        cell: column -> table
+        header cell: column -> header -> table
+
+        Args:
+            column (_PTColumn): Associated column
+            value: Value to be rendered
+            header (PrettyHeader | None): Header, if cell is part of it
+        """
+        self.custom = PrettyCustomizable.merged(column.pcolumn, header, column.ptable.parent)
+        self.column = column
+        self.value = value
+        text = column.ptable.parent.formatted(value)
+        text = self.custom.formatted(text)
+        self.text = text
+        self.text_width = len(uncolored(text))
+        column.update_width(self.text_width)
+
+    def rendered_text(self, size, padding):
+        text = self.text
+        if text:
+            size += len(text) - len(uncolored(text))
+
+        text = self.custom.align(text, size)
+        return "%s%s%s" % (padding, text, padding)

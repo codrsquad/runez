@@ -10,6 +10,7 @@ import runez
 def show_fgcolors(bg=runez.plain, border=None):
     print("")
     table = runez.PrettyTable("Color,Blink,Bold,Dim,Invert,Italic,Strikethrough,Underline", border=border)
+    table.header.style = "bold"
     for color in runez.color.fg:
         color_name = color.name
         text = color(color.name)
@@ -30,7 +31,7 @@ def show_fgcolors(bg=runez.plain, border=None):
 def cmd_colors():
     """Show a coloring sample"""
     parser = argparse.ArgumentParser(description="Show a coloring sample")
-    parser.add_argument("--border", choices=runez.PrettyTable.borders, help="Use custom border.")
+    parser.add_argument("--border", choices=runez.represent.NAMED_BORDERS, help="Use custom border.")
     parser.add_argument("--color", action="store_true", help="Use colors (on by default on ttys).")
     parser.add_argument("--no-color", action="store_true", help="Do not use colors (even if on tty).")
     parser.add_argument("--bg", help="Show bg variant(s) (comma-separated list of color names).")

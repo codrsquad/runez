@@ -115,18 +115,22 @@ class AdaptedProperty(object):
     """
     __counter = [0]  # Simple counter for anonymous properties
 
-    def __init__(self, validator=None, default=None, doc=None, caster=None):
+    def __init__(self, validator=None, default=None, doc=None, caster=None, type=None):
         """
         Args:
             validator (callable | str | None): Function to use to validate/adapt passed values, or name of property
             default: Default value
             doc (str): Doctring (applies to anonymous properties only)
             caster (callable): Optional caster called for non-None values only (applies to anonymous properties only)
+            type (type): Optional type, must have initializer with one argument if provided
         """
         self.default = default
         self.caster = caster
+        self.type = type
+        assert caster is None or type is None, "Can't accept both 'caster' and 'type' for AdaptedProperty, pick one"
         if callable(validator):
             # 'validator' is available when used as decorator of the form: @AdaptedProperty
+            assert caster is None and type is None, "'caster' and 'type' are not applicable to AdaptedProperty decorator"
             self.validator = validator
             self.__doc__ = validator.__doc__
             self.key = "__%s" % validator.__name__
@@ -144,6 +148,7 @@ class AdaptedProperty(object):
 
     def __call__(self, validator):
         """Called when used as decorator of the form: @AdaptedProperty(default=...)"""
+        assert self.caster is None and self.type is None, "'caster' and 'type' are not applicable to decorated properties"
         self.validator = validator
         self.__doc__ = validator.__doc__
         self.key = "__%s" % validator.__name__
@@ -158,6 +163,10 @@ class AdaptedProperty(object):
     def __set__(self, obj, value):
         if self.validator is not None:
             value = self.validator(obj, value)
+
+        elif self.type is not None:
+            if not isinstance(value, self.type):
+                value = self.type(value)
 
         elif value is not None and self.caster is not None:
             value = self.caster(value)

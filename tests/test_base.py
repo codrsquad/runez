@@ -75,6 +75,7 @@ class Slotted1(runez.Slotted):
     prop1a = runez.AdaptedProperty(default="1a")  # No validation, accepts anything as-is
     prop1b = runez.AdaptedProperty(default="1b", doc="p1b")  # Allows to verify multiple anonymous properties work
     prop1c = runez.AdaptedProperty(caster=int)  # Allows to verify caster approach
+    prop1d = runez.AdaptedProperty(type=int, default=123)  # Allows to verify type approach
 
     @runez.AdaptedProperty(default="p2")
     def prop2(self, value):
@@ -100,6 +101,12 @@ class Slotted2(runez.Slotted):
 
 
 def test_adapted_properties():
+    with pytest.raises(AssertionError):
+        runez.AdaptedProperty(validator=lambda x: x, caster=int)  # Can't have validator and caster at the same time
+
+    with pytest.raises(AssertionError):
+        runez.AdaptedProperty(caster=int, type=int)  # Can't specify both
+
     s1a = Slotted1()
 
     # Check class-level properties
@@ -108,12 +115,14 @@ def test_adapted_properties():
     assert s1ac.prop1a.__doc__ is None
     assert s1ac.prop1b.__doc__ == "p1b"
     assert s1ac.prop1c.__doc__ is None
+    assert s1ac.prop1d.__doc__ is None
     assert s1ac.prop2.__doc__ == "No validation, accepts anything as-is"
     assert s1ac.prop3.__doc__ == "Requires something that can be turned into an int"
 
     assert s1a.prop1a == "1a"
     assert s1a.prop1b == "1b"
     assert s1a.prop1c is None
+    assert s1a.prop1d == 123
     assert s1a.prop2 == "p2"
     assert s1a.prop3 is None
     assert s1a.prop4 == 4
@@ -126,11 +135,14 @@ def test_adapted_properties():
     assert s1a.prop1a == "foo"
     assert s1a.prop1b == "1b"  # Verify other anonymous props remain unchanged
     assert s1a.prop1c is None
+    assert s1a.prop1d == 123
 
     s1a.prop1b = 0
+    s1a.prop1d = 234
     assert s1a.prop1a == "foo"
     assert s1a.prop1b == 0
     assert s1a.prop1c is None
+    assert s1a.prop1d == 234
 
     s1a.prop1c = "100"  # prop1c has a caster
     assert s1a.prop1a == "foo"
@@ -142,6 +154,9 @@ def test_adapted_properties():
     with pytest.raises(ValueError):  # but anything other than None must be an int
         s1a.prop1c = "foo"
     assert s1a.prop1c is None
+
+    with pytest.raises(TypeError):
+        s1a.prop1d = None  # prop1d uses type=int, and int() does not accept None
 
     # prop3 and prop4 insist on ints
     s1a.prop3 = "30"
