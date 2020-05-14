@@ -93,6 +93,71 @@ def decode(value, strip=False):
     return stringified(value)
 
 
+class AdaptedProperty(object):
+    """
+    This decorator allows to define properties with regular get/set behavior,
+    but the body of the decorated function can act as a validator, and can auto-convert given values
+
+    Example usage:
+        class MyObject:
+            age = AdaptedProperty(default=5)
+
+            @runez.AdaptedProperty
+            def width(self, value):
+                if value is not None:
+                    return int(value)
+
+        my_object = MyObject()
+        assert my_object.age == 5
+        my_object.width = "10"  # Sets value as usual, but here also turns it into an int
+        assert my_object.width == 10
+    """
+    __anonymous_counter = [0]
+
+    def __init__(self, validator=None, default=None, doc=None):
+        """
+        `validator` is available when used as decorator of the form: @AdaptedProperty
+        `validator` is NOT available yet when used as decorator of the form: @AdaptedProperty(default=...)
+        """
+        self.default = default
+        if callable(validator):
+            self.validator = validator
+            self.key = "__%s" % validator.__name__
+            self.__doc__ = validator.__doc__
+
+        else:
+            self.validator = None
+            self.__doc__ = doc
+            self.key = "__%s" % validator if validator is not None else None
+
+    def __call__(self, validator):
+        """Called when used as decorator of the form: @AdaptedProperty(default=...)"""
+        self.validator = validator
+        self.key = "__%s" % validator.__name__
+        self.__doc__ = validator.__doc__
+        return self
+
+    def __get__(self, obj, cls):
+        if obj is None:
+            # We're being called by class
+            if self.key is None:
+                # This happens when this form is used (anonymous property): my_prop = AdaptedProperty()
+                # We use a simple counter in that case, this should happen at declaration time, so no need to be paranoid
+                i = self.__anonymous_counter[0] + 1
+                self.__anonymous_counter[0] = i
+                self.key = "__ap__%s" % i
+
+            return self
+
+        return getattr(obj, self.key, self.default)
+
+    def __set__(self, obj, value):
+        if self.validator is not None:
+            value = self.validator(obj, value)
+
+        setattr(obj, self.key, value)
+
+
 class Slotted(object):
     """This class allows to easily initialize/set a descendant using named arguments"""
 

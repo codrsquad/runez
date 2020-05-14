@@ -72,12 +72,75 @@ def test_undefined():
 class Slotted1(runez.Slotted):
     __slots__ = ["a1", "b1"]
 
+    prop1a = runez.AdaptedProperty(default="1a")  # No validation, accepts anything as-is
+    prop1b = runez.AdaptedProperty(default="1b", doc="p1b")  # Allows to verify multiple anonymous properties work
+
+    @runez.AdaptedProperty(default="p2")
+    def prop2(self, value):
+        """No validation, accepts anything as-is"""
+        return value
+
+    @runez.AdaptedProperty
+    def prop3(self, value):
+        """Requires something that can be turned into an int"""
+        return int(value)
+
+    @runez.AdaptedProperty(default=4)
+    def prop4(self, value):
+        """Requires something that can be turned into an int"""
+        return int(value)
+
     def _get_defaults(self):
         return runez.UNSET
 
 
 class Slotted2(runez.Slotted):
     __slots__ = ["name", "other"]
+
+
+def test_adapted_properties():
+    s1a = Slotted1()
+
+    # Check class-level properties
+    s1ac = s1a.__class__
+    assert isinstance(s1ac.prop1a, runez.AdaptedProperty)
+    assert s1ac.prop1a.__doc__ is None
+    assert s1ac.prop1b.__doc__ == "p1b"
+    assert s1ac.prop2.__doc__ == "No validation, accepts anything as-is"
+    assert s1ac.prop3.__doc__ == "Requires something that can be turned into an int"
+
+    assert s1a.prop1a == "1a"
+    assert s1a.prop1b == "1b"
+    assert s1a.prop2 == "p2"
+    assert s1a.prop3 is None
+    assert s1a.prop4 == 4
+
+    # prop1* and prop2 have no validators
+    s1a.prop1a = "foo"
+    assert s1a.prop1a == "foo"
+    assert s1a.prop1b == "1b"
+    s1a.prop1b = 0
+    assert s1a.prop1a == "foo"
+    assert s1a.prop1b == 0
+    s1a.prop2 = 2
+    assert s1a.prop2 == 2
+
+    # prop3 and prop4 insist on ints
+    s1a.prop3 = "30"
+    s1a.prop4 = 40
+    assert s1a.prop3 == 30
+    assert s1a.prop4 == 40
+
+    with pytest.raises(ValueError):
+        s1a.prop3 = "foo"
+
+    # Verify properties stay bound to their object
+    s1b = Slotted1(s1a)
+    assert s1b.prop1a == "1a"
+    assert s1b.prop1b == "1b"
+    assert s1b.prop2 == "p2"
+    assert s1b.prop3 is None
+    assert s1b.prop4 == 4
 
 
 def test_slotted():
@@ -90,6 +153,13 @@ def test_slotted():
     assert s1a.a1 == "a1"
     assert s1a.b1 == "b1"
     assert s1a == s1b
+
+    # Check properties
+    assert s1a.prop4 == 4
+    assert s1b.prop4 == 4
+    s1a.prop4 = 40
+    assert s1a.prop4 == 40
+    assert s1b.prop4 == 4  # Clone's property did not get modified
 
     s2 = Slotted2(other=s1a)
     assert s2.name is None

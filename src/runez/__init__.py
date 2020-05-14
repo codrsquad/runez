@@ -3,7 +3,7 @@ Friendly misc/utils/convenience library
 """
 
 from runez import click, config, heartbeat, program, prompt, schema, serialize, thread
-from runez.base import class_descendants, decode, PY2, Slotted, stringified, Undefined, UNSET
+from runez.base import AdaptedProperty, class_descendants, decode, PY2, Slotted, stringified, Undefined, UNSET
 from runez.colors import ActivateColors, ColorManager as color, is_coloring, uncolored
 from runez.colors.named import black, blue, brown, gray, green, orange, plain, purple, red, teal, white, yellow
 from runez.colors.named import blink, bold, dim, invert, italic, strikethrough, underline
@@ -33,7 +33,7 @@ from runez.thread import thread_local_property, ThreadLocalSingleton
 __all__ = [
     "DRYRUN",
     "click", "config", "heartbeat", "logsetup", "program", "prompt", "schema", "serialize", "thread",
-    "class_descendants", "decode", "PY2", "Slotted", "stringified", "Undefined", "UNSET",
+    "AdaptedProperty", "class_descendants", "decode", "PY2", "Slotted", "stringified", "Undefined", "UNSET",
     "ActivateColors", "color", "is_coloring", "uncolored",
     "black", "blue", "brown", "gray", "green", "orange", "plain", "purple", "red", "teal", "white", "yellow",
     "blink", "bold", "dim", "invert", "italic", "strikethrough", "underline",
