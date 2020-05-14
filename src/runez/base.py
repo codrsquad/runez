@@ -99,61 +99,68 @@ class AdaptedProperty(object):
     but the body of the decorated function can act as a validator, and can auto-convert given values
 
     Example usage:
-        class MyObject:
-            age = AdaptedProperty(default=5)
-
-            @runez.AdaptedProperty
-            def width(self, value):
-                if value is not None:
-                    return int(value)
-
-        my_object = MyObject()
-        assert my_object.age == 5
-        my_object.width = "10"  # Sets value as usual, but here also turns it into an int
-        assert my_object.width == 10
+        >>> from runez import AdaptedProperty
+        >>> class MyObject:
+        ...     age = AdaptedProperty(default=5)  # Anonymous property
+        ...
+        ...     @AdaptedProperty           # Simple adapted property
+        ...     def width(self, value):
+        ...         if value is not None:  # Implementation of this function acts as validator and adapter
+        ...             return int(value)  # Here we turn value into an int (will raise exception if not possible)
+        ...
+        >>> my_object = MyObject()
+        >>> assert my_object.age == 5  # Default value
+        >>> my_object.width = "10"     # Implementation of decorated function turns this into an int
+        >>> assert my_object.width == 10
     """
-    __anonymous_counter = [0]
+    __counter = [0]  # Simple counter for anonymous properties
 
-    def __init__(self, validator=None, default=None, doc=None):
+    def __init__(self, validator=None, default=None, doc=None, caster=None):
         """
-        `validator` is available when used as decorator of the form: @AdaptedProperty
-        `validator` is NOT available yet when used as decorator of the form: @AdaptedProperty(default=...)
+        Args:
+            validator (callable | str | None): Function to use to validate/adapt passed values, or name of property
+            default: Default value
+            doc (str): Doctring (applies to anonymous properties only)
+            caster (callable): Optional caster called for non-None values only (applies to anonymous properties only)
         """
         self.default = default
+        self.caster = caster
         if callable(validator):
+            # 'validator' is available when used as decorator of the form: @AdaptedProperty
             self.validator = validator
-            self.key = "__%s" % validator.__name__
             self.__doc__ = validator.__doc__
+            self.key = "__%s" % validator.__name__
 
         else:
+            # 'validator' is NOT available when decorator of this form is used: @AdaptedProperty(default=...)
+            # or as an anonymous property form: my_prop = AdaptedProperty()
             self.validator = None
             self.__doc__ = doc
-            self.key = "__%s" % validator if validator is not None else None
+            if validator is None:
+                i = self.__counter[0] = self.__counter[0] + 1
+                validator = "anon_prop_%s" % i
+
+            self.key = "__%s" % validator
 
     def __call__(self, validator):
         """Called when used as decorator of the form: @AdaptedProperty(default=...)"""
         self.validator = validator
-        self.key = "__%s" % validator.__name__
         self.__doc__ = validator.__doc__
+        self.key = "__%s" % validator.__name__
         return self
 
     def __get__(self, obj, cls):
         if obj is None:
-            # We're being called by class
-            if self.key is None:
-                # This happens when this form is used (anonymous property): my_prop = AdaptedProperty()
-                # We use a simple counter in that case, this should happen at declaration time, so no need to be paranoid
-                i = self.__anonymous_counter[0] + 1
-                self.__anonymous_counter[0] = i
-                self.key = "__ap__%s" % i
-
-            return self
+            return self  # We're being called by class
 
         return getattr(obj, self.key, self.default)
 
     def __set__(self, obj, value):
         if self.validator is not None:
             value = self.validator(obj, value)
+
+        elif value is not None and self.caster is not None:
+            value = self.caster(value)
 
         setattr(obj, self.key, value)
 

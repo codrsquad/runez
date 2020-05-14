@@ -74,6 +74,7 @@ class Slotted1(runez.Slotted):
 
     prop1a = runez.AdaptedProperty(default="1a")  # No validation, accepts anything as-is
     prop1b = runez.AdaptedProperty(default="1b", doc="p1b")  # Allows to verify multiple anonymous properties work
+    prop1c = runez.AdaptedProperty(caster=int)  # Allows to verify caster approach
 
     @runez.AdaptedProperty(default="p2")
     def prop2(self, value):
@@ -106,24 +107,41 @@ def test_adapted_properties():
     assert isinstance(s1ac.prop1a, runez.AdaptedProperty)
     assert s1ac.prop1a.__doc__ is None
     assert s1ac.prop1b.__doc__ == "p1b"
+    assert s1ac.prop1c.__doc__ is None
     assert s1ac.prop2.__doc__ == "No validation, accepts anything as-is"
     assert s1ac.prop3.__doc__ == "Requires something that can be turned into an int"
 
     assert s1a.prop1a == "1a"
     assert s1a.prop1b == "1b"
+    assert s1a.prop1c is None
     assert s1a.prop2 == "p2"
     assert s1a.prop3 is None
     assert s1a.prop4 == 4
 
-    # prop1* and prop2 have no validators
+    # prop1a/b and prop2 have no validators
+    s1a.prop2 = 2
+    assert s1a.prop2 == 2
+
     s1a.prop1a = "foo"
     assert s1a.prop1a == "foo"
-    assert s1a.prop1b == "1b"
+    assert s1a.prop1b == "1b"  # Verify other anonymous props remain unchanged
+    assert s1a.prop1c is None
+
     s1a.prop1b = 0
     assert s1a.prop1a == "foo"
     assert s1a.prop1b == 0
-    s1a.prop2 = 2
-    assert s1a.prop2 == 2
+    assert s1a.prop1c is None
+
+    s1a.prop1c = "100"  # prop1c has a caster
+    assert s1a.prop1a == "foo"
+    assert s1a.prop1b == 0
+    assert s1a.prop1c == 100
+
+    s1a.prop1c = None  # caster should accept None
+    assert s1a.prop1c is None
+    with pytest.raises(ValueError):  # but anything other than None must be an int
+        s1a.prop1c = "foo"
+    assert s1a.prop1c is None
 
     # prop3 and prop4 insist on ints
     s1a.prop3 = "30"
