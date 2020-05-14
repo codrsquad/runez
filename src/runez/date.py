@@ -14,13 +14,16 @@ SECONDS_IN_ONE_HOUR = 60 * SECONDS_IN_ONE_MINUTE
 SECONDS_IN_ONE_DAY = 24 * SECONDS_IN_ONE_HOUR
 SECONDS_IN_ONE_YEAR = 365.2425 * SECONDS_IN_ONE_DAY
 
-RE_DURATION = re.compile(r"^([0-9]+[ywdhms]\s*)+$")
+RE_DURATION = re.compile(r"^\s*([0-9]+[ywdhms]\s*)+$")
 RE_BASE_NUMBER = r"([-+]?[0-9_]*\.?[0-9_]*([eE][-+]?[0-9_]+)?|[-+]?\.inf|[-+]?\.Inf|[-+]?\.INF|\.nan|\.NaN|\.NAN|0o[0-7]+|0x[0-9a-fA-F]+)"
 RE_BASE_DATE = r"(([0-9]{1,4})[-/]([0-9][0-9]?)[-/]([0-9]{1,4})" \
             r"([Tt \t]([0-9][0-9]?):([0-9][0-9]?):([0-9][0-9]?)(\.[0-9]*)?" \
             r"([ \t]*(Z|[A-Z]{3}|[+-][0-9][0-9]?(:([0-9][0-9]?))?))?)?)"
 
-RE_DATE = re.compile("^(%s)$" % "|".join((RE_BASE_NUMBER, RE_BASE_DATE)))
+RE_DATE = re.compile(r"^\s*(%s)\s*$" % "|".join((RE_BASE_NUMBER, RE_BASE_DATE)))
+EPOCH_MS_BREAK = 900000000000
+RE_TZ = re.compile(r"\s*(Z|UTC|([+-]?[0-9][0-9]):?([0-9][0-9]))\s*")
+DEFAULT_DURATION_SPAN = 2
 
 
 class timezone(datetime.tzinfo):
@@ -75,9 +78,7 @@ class timezone(datetime.tzinfo):
 
 
 UTC = timezone(datetime.timedelta(0), "UTC")
-EPOCH_MS_BREAK = 900000000000
-RE_TZ = re.compile(r"([+-]?[0-9][0-9]):?([0-9][0-9])")
-DEFAULT_DURATION_SPAN = 2
+NAMED_TIMEZONES = dict(Z=UTC, UTC=UTC)
 
 
 def date_from_epoch(epoch, in_ms=None):
@@ -226,7 +227,7 @@ def represented_duration(seconds, span=UNSET, separator=" "):
     return separator.join(result)
 
 
-def timezone_from_text(value):
+def timezone_from_text(value, default=UNSET):
     """
     Args:
         value (str | None): Name of timezone, or offset of the form +01:00
@@ -237,19 +238,24 @@ def timezone_from_text(value):
     if isinstance(value, timezone):
         return value
 
+    if default is UNSET:
+        default = DEFAULT_TIMEZONE
+
     if not value:
-        return DEFAULT_TIMEZONE
+        return default
 
     if value in ("Z", "UTC"):
         return UTC
 
     m = RE_TZ.match(value)
     if m:
-        hours = int(m.group(1))
-        minutes = int(m.group(2))
-        return timezone(datetime.timedelta(hours=int(hours), minutes=int(minutes)))
+        hours = m.group(2)
+        if hours is not None:
+            return timezone(datetime.timedelta(hours=int(hours), minutes=int(m.group(3))))
 
-    return DEFAULT_TIMEZONE
+        return NAMED_TIMEZONES.get(m.group(1), default)
+
+    return default
 
 
 def to_date(value):
