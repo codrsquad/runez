@@ -1,6 +1,7 @@
 import os
 import sys
 
+import pytest
 from mock import patch
 
 import runez
@@ -9,9 +10,12 @@ from runez.colors import terminal
 
 def test_colors():
     dim = runez.color.style.dim
-    assert runez.color.style.find_renderable(dim) is dim
-    assert runez.color.style.find_renderable(runez.dim) is dim
-    assert runez.color.style.find_renderable("dim") is dim
+    assert runez.colors.cast_style(dim) is dim
+    assert runez.colors.cast_style(runez.dim) is dim
+    assert runez.colors.cast_style("dim") is dim
+
+    with pytest.raises(ValueError):
+        runez.colors.cast_style("foo")
 
     assert not runez.is_coloring()
     with runez.ActivateColors(terminal.Ansi16Backend):

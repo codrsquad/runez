@@ -176,15 +176,6 @@ class NamedRenderables(Slotted):
         assert not color_names  # Verify no unknown colors were mentioned
         super(NamedRenderables, self).__init__(**colors)
 
-    def find_renderable(self, obj):
-        if isinstance(obj, Renderable):
-            return obj
-
-        if hasattr(obj, "__name__"):
-            obj = obj.__name__
-
-        return self.get(obj)
-
 
 class NamedColors(NamedRenderables):
     """Set of registered named colors"""
@@ -194,6 +185,21 @@ class NamedColors(NamedRenderables):
 class NamedStyles(NamedRenderables):
     """Set of registered named styles"""
     __slots__ = ["blink", "bold", "dim", "invert", "italic", "strikethrough", "underline"]
+
+
+def cast_style(obj):
+    """Cast 'obj' to a style, raise exception if that's not possible"""
+    if isinstance(obj, Renderable):
+        return obj
+
+    if hasattr(obj, "__name__"):
+        obj = obj.__name__
+
+    result = ColorManager.style.get(obj)
+    if result:
+        return result
+
+    raise ValueError("Unknown style '%s'" % obj)
 
 
 def _detect_backend(enable, flavor=None):

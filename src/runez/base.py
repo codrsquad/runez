@@ -214,7 +214,7 @@ class Slotted(object):
         """This makes Slotted objects able to mimic dict's get() function
 
         Args:
-            key (str): Field name (on defined in __slots__)
+            key (str | None): Field name (on defined in __slots__)
             default: Default value to return if field is currently undefined (or UNSET)
 
         Returns:

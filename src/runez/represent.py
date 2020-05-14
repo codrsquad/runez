@@ -1,7 +1,7 @@
 #  -*- encoding: utf-8 -*-
 
 from runez.base import Slotted, stringified
-from runez.colors import ColorManager, uncolored
+from runez.colors import uncolored
 from runez.convert import flattened, to_int
 
 
@@ -313,9 +313,6 @@ class PHeaderCell(Slotted):
 
     def set_align(self, value):
         self.align = align.cast(value)
-
-    def set_style(self, value):
-        self.style = ColorManager.style.find_renderable(value)
 
     def _values_from_string(self, text):
         return dict(text=text)
