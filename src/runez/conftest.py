@@ -17,9 +17,9 @@ import tempfile
 import _pytest.logging
 import pytest
 
-from runez.base import Slotted, string_type, stringified, UNSET
+from runez.base import flattened, LOG, SHELL, Slotted, string_type, stringified, UNSET
 from runez.context import CaptureOutput, TempArgv, TrackedOutput
-from runez.convert import flattened, formatted, represented_args, SHELL, shortened
+from runez.convert import formatted, represented_args, shortened
 from runez.file import TempFolder
 from runez.logsetup import LogManager
 from runez.program import which
@@ -35,7 +35,6 @@ except ImportError:  # pragma: no cover, click used only if installed
     _CliRunner = None
 
 
-LOG = logging.getLogger(__name__)
 TMP = tempfile.gettempdir()
 
 # Set DEBUG logging level when running tests, makes sure LOG.debug() calls get captured (for inspection in tests)

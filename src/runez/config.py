@@ -24,8 +24,8 @@ import json
 import os
 import sys
 
-from runez.base import decode, stringified
-from runez.convert import affixed, capped, flattened, SANITIZED, snakified, to_boolean, to_bytesize, to_float, to_int
+from runez.base import decode, flattened, SANITIZED, stringified
+from runez.convert import affixed, capped, snakified, to_boolean, to_bytesize, to_float, to_int
 
 
 class Configuration:

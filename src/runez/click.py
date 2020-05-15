@@ -17,9 +17,9 @@ try:
 except ImportError:  # pragma: no cover, click used only if installed
     click = None
 
+from runez.base import first_meaningful_line, flattened
 from runez.colors import ColorManager
 from runez.config import use_cli
-from runez.convert import first_meaningful_line, flattened
 from runez.logsetup import LogManager
 from runez.represent import PrettyTable
 from runez.system import actual_caller_frame, find_caller_frame, get_version

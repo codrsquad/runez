@@ -3,7 +3,7 @@ import os
 import sys
 
 
-LOG = logging.getLogger(__name__)
+LOG = logging.getLogger("runez")
 WINDOWS = sys.platform.startswith("win")
 
 
@@ -144,6 +144,39 @@ def auto_import_siblings(auto_clean="TOX_WORK_DIR", skip=None):
             imported.append(module_name)
 
     return imported
+
+
+def simplified_class_name(cls, root):
+    """By default, root ancestor is ignored, common prefix/suffix is removed, and name is lowercase-d"""
+    if cls is not root:
+        name = cls.__name__
+        root = getattr(root, "__name__", root)
+        if name.startswith(root):
+            name = name[len(root):]
+        elif name.endswith(root):
+            name = name[:len(root) + 1]
+        return name.lower()
+
+
+def class_descendants(ancestor, adjust=simplified_class_name, root=None):
+    """
+    Args:
+        ancestor (type): Class to track descendants of
+        root (type | str | None): Root ancestor, or ancestor name (defaults to `ancestor`), passed through to `adjust`
+        adjust (callable): Function that can adapt each descendant, and return an optionally massaged name to represent it
+                           If function returns None for a given descendant, that descendant is ignored in the returned map
+
+    Returns:
+        (dict): Map of all descendants, by optionally adjusted name
+    """
+    result = {}
+    if root is None:
+        root = ancestor
+    name = adjust(ancestor, root)
+    if name is not None:
+        result[name] = ancestor
+    _walk_descendants(result, ancestor, adjust, root)
+    return result
 
 
 def should_auto_import(module_name, skip):
@@ -335,3 +368,11 @@ def _get_runez():
         _runez_module = runez
 
     return _runez_module
+
+
+def _walk_descendants(result, ancestor, adjust, root):
+    for m in ancestor.__subclasses__():
+        name = adjust(m, root)
+        if name is not None:
+            result[name] = m
+        _walk_descendants(result, m, adjust, root)

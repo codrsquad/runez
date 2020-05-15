@@ -2,14 +2,11 @@
 Convenience methods for file/folder operations
 """
 
-import logging
 import os
 
+from runez.base import LOG
 from runez.convert import resolved_path, short
 from runez.system import abort, is_dryrun
-
-
-LOG = logging.getLogger(__name__)
 
 
 def basename(path, extension_marker="."):

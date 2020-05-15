@@ -18,15 +18,14 @@ try:
 except ImportError:
     faulthandler = None
 
-from runez.base import Slotted, ThreadGlobalContext, UNSET
-from runez.convert import flattened, formatted, represented_args, SANITIZED, to_bytesize, to_int, UNIQUE
+from runez.base import flattened, LOG, SANITIZED, Slotted, ThreadGlobalContext, UNIQUE, UNSET
+from runez.convert import formatted, represented_args, to_bytesize, to_int
 from runez.date import local_timezone
 from runez.path import basename as get_basename, ensure_folder, parent_folder
 from runez.program import dev_folder, program_path
 from runez.system import is_dryrun, set_dryrun, WINDOWS
 
 
-LOG = logging.getLogger(__name__)
 ORIGINAL_CF = logging.currentframe
 
 

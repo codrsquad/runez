@@ -6,7 +6,7 @@ import os
 import re
 import sys
 
-from runez.base import string_type, stringified, UNSET
+from runez.base import flattened, quoted, SANITIZED, string_type, stringified, UNIQUE
 
 
 DEFAULT_BASE = 1000
@@ -17,10 +17,6 @@ RE_SPACES = re.compile(r"[\s\n]+", re.MULTILINE)
 RE_UNDERSCORED_NUMBERS = re.compile(r"([0-9])_([0-9])")  # py2 does not parse numbers with underscores like "1_000"
 SYMBOLIC_TMP = "<tmp>"
 TRUE_TOKENS = {"on", "true", "y", "yes"}
-
-SANITIZED = 1
-SHELL = 2
-UNIQUE = 4
 
 
 def capped(value, minimum=None, maximum=None):
@@ -41,54 +37,6 @@ def capped(value, minimum=None, maximum=None):
             return maximum
 
     return value
-
-
-def first_meaningful_line(text, default=None):
-    """
-    Args:
-        text (str | None): Text to examine
-        default (str): Default to return if no meaningful line found in `text`
-
-    Returns:
-        (str | None): First non-empty line, if any
-    """
-    if text:
-        for line in text.splitlines():
-            line = line.strip()
-            if line:
-                return line
-
-    return default
-
-
-def flattened(value, split=None):
-    """
-    Args:
-        value: Possibly nested arguments (sequence of lists, nested lists)
-        split (int | str | unicode | (str | unicode | None, int) | None): How to split values:
-            - None: simply flatten, no further processing
-            - one char string: split() on specified char
-            - SANITIZED: discard all None items
-            - UNIQUE: each value will appear only once
-            - SHELL:  filter out sequences of the form ["-f", None] (handy for simplified cmd line specification)
-
-    Returns:
-        (list): 'value' flattened out (leaves from all involved lists/tuples)
-    """
-    result = []
-    separator = None
-    mode = 0
-    if isinstance(split, tuple):
-        separator, mode = split
-
-    elif isinstance(split, int):
-        mode = split
-
-    else:
-        separator = split
-
-    _flatten(result, value, separator, mode)
-    return result
 
 
 def formatted(text, *args, **kwargs):
@@ -136,27 +84,6 @@ def formatted(text, *args, **kwargs):
 
     expanded = dict((k, _rformat(k, v, definitions, max_depth)) for k, v in definitions.items())
     return text.format(**expanded)
-
-
-def quoted(text):
-    """Quoted `text`, if it contains whitespaces
-
-    >>> quoted("foo")
-    'foo'
-    >>> quoted("foo bar")
-    '"foo bar"'
-
-    Args:
-        text (str | unicode | None): Text to optionally quote
-
-    Returns:
-        (str): Quoted if 'text' contains spaces
-    """
-    if text and " " in text:
-        sep = "'" if '"' in text else '"'
-        return "%s%s%s" % (sep, text, sep)
-
-    return text
 
 
 def represented_args(args, separator=" "):
@@ -631,46 +558,6 @@ def _rformat(key, value, definitions, max_depth):
         return _rformat(key, value, definitions, max_depth=max_depth - 1)
 
     return value
-
-
-def _flatten(result, value, separator, mode):
-    """
-    Args:
-        result (list): Will hold all flattened values
-        value: Possibly nested arguments (sequence of lists, nested lists)
-        separator (str | unicode | None): Split values with `separator` if specified
-        mode (int): Describes how keep flattenened values
-
-    Returns:
-        list: 'value' flattened out (leaves from all involved lists/tuples)
-    """
-    if value is None or value is UNSET:
-        if mode & SHELL:
-            # Convenience: allow to filter out ["--switch", None] easily
-            if result and result[-1].startswith("-"):
-                result.pop(-1)
-
-            return
-
-        if mode & SANITIZED:
-            return
-
-    if value is not None:
-        if isinstance(value, (list, tuple, set)):
-            for item in value:
-                _flatten(result, item, separator, mode)
-
-            return
-
-        if separator and hasattr(value, "split") and separator in value:
-            _flatten(result, value.split(separator), separator, mode)
-            return
-
-        if mode & SHELL:
-            value = "%s" % value
-
-    if (mode & UNIQUE == 0) or value not in result:
-        result.append(value)
 
 
 def _get_value(obj, key):

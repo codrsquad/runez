@@ -91,61 +91,6 @@ def test_shortened():
     assert runez.shortened(" some  text ", size=0) == "some text"
 
 
-def test_flattened():
-    assert runez.flattened(None) == [None]
-    assert runez.flattened([None]) == [None]
-    assert runez.flattened(None, split=runez.SANITIZED) == []
-    assert runez.flattened(None, split=runez.SHELL) == []
-    assert runez.flattened(None, split=runez.UNIQUE) == [None]
-
-    assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET]) == ["-a", None, "b", runez.UNSET, runez.UNSET]
-    assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET], split=runez.UNIQUE) == ["-a", None, "b", runez.UNSET]
-    assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET], split=runez.SANITIZED) == ["-a", "b"]
-    assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET], split=runez.SHELL) == ["b"]
-    assert runez.flattened(["-a", [runez.UNSET, "b", runez.UNSET], runez.UNSET], split=runez.SHELL) == ["b"]
-
-    assert runez.flattened(["a b"]) == ["a b"]
-    assert runez.flattened([["a b"]]) == ["a b"]
-
-    assert runez.flattened(["-r", None, "foo"]) == ["-r", None, "foo"]
-    assert runez.flattened(["-r", None, "foo"], split=runez.SANITIZED) == ["-r", "foo"]
-    assert runez.flattened(["-r", None, "foo"], split=runez.SHELL) == ["foo"]
-    assert runez.flattened(["-r", None, "foo"], split=runez.UNIQUE) == ["-r", None, "foo"]
-    assert runez.flattened(["-r", None, "foo"], split=runez.SANITIZED | runez.UNIQUE) == ["-r", "foo"]
-
-    # Sanitized
-    assert runez.flattened(("a", None, ["b", None]), split=runez.UNIQUE) == ["a", None, "b"]
-    assert runez.flattened(("a", None, ["b", None]), split=runez.SANITIZED | runez.UNIQUE) == ["a", "b"]
-
-    # Shell cases
-    assert runez.flattened([None, "a", "-f", "b", "c", None], split=runez.SHELL) == ["a", "-f", "b", "c"]
-    assert runez.flattened(["a", "-f", "b", "c"], split=runez.SHELL) == ["a", "-f", "b", "c"]
-    assert runez.flattened([None, "-f", "b", None], split=runez.SHELL) == ["-f", "b"]
-    assert runez.flattened(["a", "-f", None, "c"], split=runez.SHELL) == ["a", "c"]
-
-    # Splitting on separator
-    assert runez.flattened("a b b") == ["a b b"]
-    assert runez.flattened("a b b", split=" ") == ["a", "b", "b"]
-    assert runez.flattened("a b b", split=(" ", runez.UNIQUE)) == ["a", "b"]
-    assert runez.flattened("a b b", split=(None, runez.UNIQUE)) == ["a b b"]
-    assert runez.flattened("a b b", split=("", runez.UNIQUE)) == ["a b b"]
-    assert runez.flattened("a b b", split=("+", runez.UNIQUE)) == ["a b b"]
-
-    # Unique
-    assert runez.flattened(["a", ["a", ["b", ["b", "c"]]]]) == ["a", "a", "b", "b", "c"]
-    assert runez.flattened(["a", ["a", ["b", ["b", "c"]]]], split=runez.UNIQUE) == ["a", "b", "c"]
-
-    assert runez.flattened(["a b", None, ["a b c"], "a"], split=runez.UNIQUE) == ["a b", None, "a b c", "a"]
-    assert runez.flattened(["a b", None, ["a b c"], "a"], split=(" ", runez.UNIQUE)) == ["a", "b", None, "c"]
-    assert runez.flattened(["a b", None, ["a b c"], "a"], split=(" ", runez.SANITIZED | runez.UNIQUE)) == ["a", "b", "c"]
-
-
-def test_misc():
-    assert runez.first_meaningful_line("") is None
-    assert runez.first_meaningful_line("\n  \n\n") is None
-    assert runez.first_meaningful_line("\n\n\n  foo  \n\bar") == "foo"
-
-
 def test_representation():
     assert runez.represented_args(None) == ""
     assert runez.represented_args([]) == ""
@@ -230,17 +175,6 @@ def test_plural():
     assert runez.plural(20000, "carrot") == "20K carrots"
     assert runez.plural(20000, "carrot", base=None) == "20000 carrots"
     assert runez.plural(20000, "carrot", base=0) == "20000 carrots"
-
-
-def test_quoted():
-    assert runez.quoted(None) is None
-    assert runez.quoted("") == ""
-    assert runez.quoted(" ") == '" "'
-    assert runez.quoted('"') == '"'
-
-    assert runez.quoted("a b") == '"a b"'
-    assert runez.quoted('a="b"') == 'a="b"'
-    assert runez.quoted('foo a="b"') == """'foo a="b"'"""
 
 
 def test_to_float():

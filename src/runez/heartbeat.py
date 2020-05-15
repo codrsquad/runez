@@ -17,13 +17,13 @@ Usage:
     Heartbeat.stop()        # When shutting down
 """
 
-import logging
 import threading
 import time
 
+from runez.base import LOG
+
 
 DEFAULT_FREQUENCY = 60
-LOG = logging.getLogger(__name__)
 
 
 class Task(object):

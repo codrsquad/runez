@@ -4,6 +4,7 @@ Base functionality used by other parts of `runez`.
 This class should not import any other `runez` class, to avoid circular deps.
 """
 
+import logging
 import threading
 
 
@@ -15,6 +16,12 @@ except NameError:
     string_type = str
     unicode = str
     PY2 = False
+
+
+LOG = logging.getLogger("runez")
+SANITIZED = 1
+SHELL = 2
+UNIQUE = 4
 
 
 class Undefined(object):
@@ -38,39 +45,6 @@ class Undefined(object):
 UNSET = Undefined()  # type: Undefined
 
 
-def simplified_class_name(cls, root):
-    """By default, root ancestor is ignored, common prefix/suffix is removed, and name is lowercase-d"""
-    if cls is not root:
-        name = cls.__name__
-        root = getattr(root, "__name__", root)
-        if name.startswith(root):
-            name = name[len(root):]
-        elif name.endswith(root):
-            name = name[:len(root) + 1]
-        return name.lower()
-
-
-def class_descendants(ancestor, adjust=simplified_class_name, root=None):
-    """
-    Args:
-        ancestor (type): Class to track descendants of
-        root (type | str | None): Root ancestor, or ancestor name (defaults to `ancestor`), passed through to `adjust`
-        adjust (callable): Function that can adapt each descendant, and return an optionally massaged name to represent it
-                           If function returns None for a given descendant, that descendant is ignored in the returned map
-
-    Returns:
-        (dict): Map of all descendants, by optionally adjusted name
-    """
-    result = {}
-    if root is None:
-        root = ancestor
-    name = adjust(ancestor, root)
-    if name is not None:
-        result[name] = ancestor
-    _walk_descendants(result, ancestor, adjust, root)
-    return result
-
-
 def decode(value, strip=False):
     """Python 2/3 friendly decoding of output.
 
@@ -91,6 +65,102 @@ def decode(value, strip=False):
         return stringified(value).strip()
 
     return stringified(value)
+
+
+def first_meaningful_line(text, default=None):
+    """
+    Args:
+        text (str | None): Text to examine
+        default (str): Default to return if no meaningful line found in `text`
+
+    Returns:
+        (str | None): First non-empty line, if any
+    """
+    if text:
+        for line in text.splitlines():
+            line = line.strip()
+            if line:
+                return line
+
+    return default
+
+
+def flattened(value, split=None):
+    """
+    Args:
+        value: Possibly nested arguments (sequence of lists, nested lists)
+        split (int | str | unicode | (str | unicode | None, int) | None): How to split values:
+            - None: simply flatten, no further processing
+            - one char string: split() on specified char
+            - SANITIZED: discard all None items
+            - UNIQUE: each value will appear only once
+            - SHELL:  filter out sequences of the form ["-f", None] (handy for simplified cmd line specification)
+
+    Returns:
+        (list): 'value' flattened out (leaves from all involved lists/tuples)
+    """
+    result = []
+    separator = None
+    mode = 0
+    if isinstance(split, tuple):
+        separator, mode = split
+
+    elif isinstance(split, int):
+        mode = split
+
+    else:
+        separator = split
+
+    _flatten(result, value, separator, mode)
+    return result
+
+
+def quoted(text):
+    """Quoted `text`, if it contains whitespaces
+
+    >>> quoted("foo")
+    'foo'
+    >>> quoted("foo bar")
+    '"foo bar"'
+
+    Args:
+        text (str | unicode | None): Text to optionally quote
+
+    Returns:
+        (str): Quoted if 'text' contains spaces
+    """
+    if text and " " in text:
+        sep = "'" if '"' in text else '"'
+        return "%s%s%s" % (sep, text, sep)
+
+    return text
+
+
+def stringified(value, converter=None, none="None"):
+    """
+    Args:
+        value: Any object to turn into a string
+        converter (callable | None): Optional converter to use for non-string objects
+        none (str): String to use to represent `None`
+
+    Returns:
+        (str): Ensure `text` is a string if necessary (this is to avoid transforming string types in py2 as much as possible)
+    """
+    if isinstance(value, string_type):
+        return value
+
+    if converter is not None:
+        converted = converter(value)
+        if isinstance(converted, string_type):
+            return converted
+
+        if converted is not None:
+            value = converted
+
+    if value is None:
+        return none
+
+    return "%s" % value
 
 
 class AdaptedProperty(object):
@@ -363,33 +433,6 @@ class Slotted(object):
             return dict((k, getattr(obj, k, UNSET)) for k in self.__slots__)
 
 
-def stringified(value, converter=None, none="None"):
-    """
-    Args:
-        value: Any object to turn into a string
-        converter (callable | None): Optional converter to use for non-string objects
-        none (str): String to use to represent `None`
-
-    Returns:
-        (str): Ensure `text` is a string if necessary (this is to avoid transforming string types in py2 as much as possible)
-    """
-    if isinstance(value, string_type):
-        return value
-
-    if converter is not None:
-        converted = converter(value)
-        if isinstance(converted, string_type):
-            return converted
-
-        if converted is not None:
-            value = converted
-
-    if value is None:
-        return none
-
-    return "%s" % value
-
-
 class ThreadGlobalContext(object):
     """Thread-local + global context, composed of key/value pairs.
 
@@ -513,9 +556,41 @@ class ThreadGlobalContext(object):
             self._gpayload = values or {}
 
 
-def _walk_descendants(result, ancestor, adjust, root):
-    for m in ancestor.__subclasses__():
-        name = adjust(m, root)
-        if name is not None:
-            result[name] = m
-        _walk_descendants(result, m, adjust, root)
+def _flatten(result, value, separator, mode):
+    """
+    Args:
+        result (list): Will hold all flattened values
+        value: Possibly nested arguments (sequence of lists, nested lists)
+        separator (str | unicode | None): Split values with `separator` if specified
+        mode (int): Describes how keep flattenened values
+
+    Returns:
+        list: 'value' flattened out (leaves from all involved lists/tuples)
+    """
+    if value is None or value is UNSET:
+        if mode & SHELL:
+            # Convenience: allow to filter out ["--switch", None] easily
+            if result and result[-1].startswith("-"):
+                result.pop(-1)
+
+            return
+
+        if mode & SANITIZED:
+            return
+
+    if value is not None:
+        if isinstance(value, (list, tuple, set)):
+            for item in value:
+                _flatten(result, item, separator, mode)
+
+            return
+
+        if separator and hasattr(value, "split") and separator in value:
+            _flatten(result, value.split(separator), separator, mode)
+            return
+
+        if mode & SHELL:
+            value = "%s" % value
+
+    if (mode & UNIQUE == 0) or value not in result:
+        result.append(value)

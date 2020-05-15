@@ -1,15 +1,13 @@
 import io
-import logging
 import os
 import shutil
 import tempfile
 
-from runez.base import decode
+from runez.base import decode, LOG
 from runez.convert import Anchored, resolved_path, short, SYMBOLIC_TMP, to_int
 from runez.path import ensure_folder, parent_folder
 from runez.system import abort, is_dryrun, set_dryrun
 
-LOG = logging.getLogger(__name__)
 TEXT_THRESHOLD_SIZE = 1048576  # Max size in bytes to consider a file a "text file"
 
 

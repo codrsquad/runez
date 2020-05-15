@@ -6,17 +6,15 @@ import collections
 import datetime
 import io
 import json
-import logging
 import os
 
 import runez.schema
-from runez.base import decode, string_type, UNSET
+from runez.base import decode, LOG, string_type, UNSET
 from runez.convert import resolved_path, short, shortened
 from runez.path import ensure_folder
 from runez.system import abort, is_dryrun
 
 
-LOG = logging.getLogger(__name__)
 Serializable = None  # type: type # Set to runez.Serializable class once parsing of runez.serialize.py is past that class definition
 
 

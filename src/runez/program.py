@@ -2,18 +2,16 @@
 Convenience methods for executing programs
 """
 
-import logging
 import os
 import subprocess  # nosec
 import sys
 import time
 
-from runez.base import decode
-from runez.convert import flattened, represented_args, SHELL, short
+from runez.base import decode, flattened, LOG, SHELL
+from runez.convert import represented_args, short
 from runez.system import abort, AbortException, find_parent_folder, is_dryrun, WINDOWS
 
 
-LOG = logging.getLogger(__name__)
 DEFAULT_INSTRUCTIONS = {
     "darwin": "run: `brew install {program}`",
     "linux": "run: `apt install {program}`",

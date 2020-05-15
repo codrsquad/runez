@@ -71,7 +71,7 @@ def test_auto_import_siblings():
 
     with patch.dict(os.environ, {"TOX_WORK_DIR": "some-value"}, clear=True):
         imported = runez.auto_import_siblings(skip=["tests.test_base", "tests.test_system"])
-        assert len(imported) == 20
+        assert len(imported) == 21
 
         assert "tests.conftest" in imported
         assert "tests.secondary" in imported
@@ -81,7 +81,7 @@ def test_auto_import_siblings():
         assert "tests.test_system" not in imported
 
     imported = runez.auto_import_siblings(skip=["tests.secondary"])
-    assert len(imported) == 20
+    assert len(imported) == 21
     assert "tests.conftest" in imported
     assert "tests.secondary" not in imported
     assert "tests.secondary.test_import" not in imported
