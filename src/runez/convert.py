@@ -2,105 +2,17 @@
 This is module should not import any other runez module, it's the lowest on the import chain
 """
 
-import os
 import re
 import sys
 
-from runez.base import flattened, quoted, SANITIZED, string_type, stringified, UNIQUE
+from runez.base import flattened, string_type, stringified
 
 
 DEFAULT_BASE = 1000
 DEFAULT_UNITS = "KMGTP"
-RE_FORMAT_MARKERS = re.compile(r"{([^}]*?)}")
 RE_WORDS = re.compile(r"[^\w]+")
-RE_SPACES = re.compile(r"[\s\n]+", re.MULTILINE)
 RE_UNDERSCORED_NUMBERS = re.compile(r"([0-9])_([0-9])")  # py2 does not parse numbers with underscores like "1_000"
-SYMBOLIC_TMP = "<tmp>"
 TRUE_TOKENS = {"on", "true", "y", "yes"}
-
-
-def capped(value, minimum=None, maximum=None):
-    """
-    Args:
-        value: Value to cap
-        minimum: If specified, value should not be lower than this minimum
-        maximum: If specified, value should not be higher than this maximum
-
-    Returns:
-        `value` capped to `minimum` and `maximum` (if it is outside of those bounds)
-    """
-    if value is not None:
-        if minimum is not None and value < minimum:
-            return minimum
-
-        if maximum is not None and value > maximum:
-            return maximum
-
-    return value
-
-
-def formatted(text, *args, **kwargs):
-    """Generically formatted `text`, `{...}` placeholders are resolved from given objects / keyword arguments
-
-    >>> formatted("{foo}", foo="bar")
-    'bar'
-    >>> formatted("{foo} {age}", {"age": 5}, foo="bar")
-    'bar 5'
-
-    Args:
-        text (str | unicode): Text to format
-        *args: Objects to extract values from (as attributes)
-        **kwargs: Optional values provided as named args
-
-    Returns:
-        (str): `{...}` placeholders formatted from given `args` object's properties/fields, or as `kwargs`
-    """
-    if not text or "{" not in text:
-        return text
-
-    strict = kwargs.pop("strict", True)
-    max_depth = kwargs.pop("max_depth", 3)
-    objects = list(args) + [kwargs] if kwargs else args[0] if len(args) == 1 else args
-    if not objects:
-        return text
-
-    definitions = {}
-    markers = RE_FORMAT_MARKERS.findall(text)
-    while markers:
-        key = markers.pop()
-        if key in definitions:
-            continue
-
-        val = _find_value(key, objects)
-        if strict and val is None:
-            return None
-
-        val = stringified(val) if val is not None else "{%s}" % key
-        markers.extend(m for m in RE_FORMAT_MARKERS.findall(val) if m not in definitions)
-        definitions[key] = val
-
-    if not max_depth or not isinstance(max_depth, int) or max_depth <= 0:
-        return text
-
-    expanded = dict((k, _rformat(k, v, definitions, max_depth)) for k, v in definitions.items())
-    return text.format(**expanded)
-
-
-def represented_args(args, separator=" "):
-    """
-    Args:
-        args (list | tuple | None): Arguments to represent
-        separator (str): Separator to use to join args back as a string
-
-    Returns:
-        (str): Quoted as needed textual representation
-    """
-    result = []
-    if args:
-        for text in args:
-            result.append(quoted(short(text)))
-
-    return separator.join(result)
 
 
 def represented_bytesize(size, unit="B", base=1024, separator=" ", prefixes=DEFAULT_UNITS):
@@ -139,53 +51,6 @@ def represented_with_units(size, unit="", base=1000, separator="", prefixes=DEFA
         (str): Human friendly representation with units, avoids having to read/parse visually large numbers
     """
     return _represented_with_units(size, unit, base, separator, prefixes)
-
-
-def resolved_path(path, base=None):
-    """
-    Args:
-        path (str | unicode | None): Path to resolve
-        base (str | unicode | None): Base path to use to resolve relative paths (default: current working dir)
-
-    Returns:
-        (str): Absolute path
-    """
-    if not path or path.startswith(SYMBOLIC_TMP):
-        return path
-
-    path = os.path.expanduser(path)
-    if base and not os.path.isabs(path):
-        return os.path.join(resolved_path(base), path)
-
-    return os.path.abspath(path)
-
-
-def short(path):
-    """
-    Args:
-        path (str | None): Path to textually represent in a shortened (yet meaningful) form
-
-    Returns:
-        (str): Shorter version of `path` (relative to one of the current anchor folders)
-    """
-    return Anchored.short(path)
-
-
-def shortened(value, size=120):
-    """
-    Args:
-        value: Value to textually represent within `size` characters (stringified if necessary)
-        size (int): Max chars
-
-    Returns:
-        (str): Leading part of 'text' with at most 'size' chars
-    """
-    text = stringified(value, converter=_prettified).strip()
-    text = RE_SPACES.sub(" ", text)
-    if size and len(text) > size:
-        return "%s..." % text[:size - 3]
-
-    return text
 
 
 def to_boolean(value):
@@ -285,75 +150,6 @@ def to_int(value, default=None):
 
     except (TypeError, ValueError):
         return default
-
-
-class Anchored(object):
-    """
-    An "anchor" is a known path that we don't wish to show in full when printing/logging
-    This allows to conveniently shorten paths, and show more readable relative paths
-    """
-
-    paths = []  # Folder paths that can be used to shorten paths, via short()
-    home = os.path.expanduser("~")
-
-    def __init__(self, folder):
-        self.folder = resolved_path(folder)
-
-    def __enter__(self):
-        Anchored.add(self.folder)
-
-    def __exit__(self, *_):
-        Anchored.pop(self.folder)
-
-    @classmethod
-    def set(cls, *anchors):
-        """
-        Args:
-            *anchors (str | unicode | list): Optional paths to use as anchors for short()
-        """
-        cls.paths = sorted(flattened(anchors, split=SANITIZED | UNIQUE), reverse=True)
-
-    @classmethod
-    def add(cls, anchors):
-        """
-        Args:
-            anchors (str | unicode | list): Optional paths to use as anchors for short()
-        """
-        cls.set(cls.paths, anchors)
-
-    @classmethod
-    def pop(cls, anchors):
-        """
-        Args:
-            anchors (str | unicode | list): Optional paths to use as anchors for short()
-        """
-        for anchor in flattened(anchors, split=SANITIZED | UNIQUE):
-            if anchor in cls.paths:
-                cls.paths.remove(anchor)
-
-    @classmethod
-    def short(cls, path):
-        """
-        Example:
-            short("examined /Users/joe/foo") => "examined ~/foo"
-
-        Args:
-            path: Path to represent in its short form
-
-        Returns:
-            (str): Short form, using '~' if applicable
-        """
-        if path is None:
-            return path
-
-        path = stringified(path)
-        if cls.paths:
-            for p in cls.paths:
-                if p:
-                    path = path.replace(p + os.path.sep, "")
-
-        path = path.replace(cls.home, "~")
-        return path
 
 
 def affixed(text, prefix=None, suffix=None, normalize=None):
@@ -552,39 +348,6 @@ def _get_unit_exponent(unit, unitseq, default=None):
         return default
 
 
-def _rformat(key, value, definitions, max_depth):
-    if max_depth > 1 and value and "{" in value:
-        value = value.format(**definitions)
-        return _rformat(key, value, definitions, max_depth=max_depth - 1)
-
-    return value
-
-
-def _get_value(obj, key):
-    """Get a value for 'key' from 'obj', if possible"""
-    if obj is not None:
-        if isinstance(obj, (list, tuple)):
-            for item in obj:
-                v = _find_value(key, item)
-                if v is not None:
-                    return v
-
-            return None
-
-        if hasattr(obj, "get"):
-            return obj.get(key)
-
-        return getattr(obj, key, None)
-
-
-def _find_value(key, *args):
-    """Find a value for 'key' in any of the objects given as 'args'"""
-    for arg in args:
-        v = _get_value(arg, key)
-        if v is not None:
-            return v
-
-
 def _int_from_text(text, base=None, default=None):
     """
     Args:
@@ -648,28 +411,6 @@ def _float_from_text(text, lenient=True, default=None):
                 pass
 
     return default
-
-
-def _prettified(value):
-    if isinstance(value, list):
-        return "[%s]" % ", ".join(stringified(s, converter=_prettified) for s in value)
-
-    if isinstance(value, tuple):
-        return "(%s)" % ", ".join(stringified(s, converter=_prettified) for s in value)
-
-    if isinstance(value, dict):
-        keys = sorted(value, key=lambda x: "%s" % x)
-        pairs = ("%s: %s" % (stringified(k, converter=_prettified), stringified(value[k], converter=_prettified)) for k in keys)
-        return "{%s}" % ", ".join(pairs)
-
-    if isinstance(value, set):
-        return "{%s}" % ", ".join(stringified(s, converter=_prettified) for s in sorted(value, key=lambda x: "%s" % x))
-
-    if isinstance(value, type):
-        return "class %s.%s" % (value.__module__, value.__name__)
-
-    if callable(value):
-        return "function '%s'" % value.__name__
 
 
 def _represented_with_units(size, unit, base, separator, prefixes, exponent=0):

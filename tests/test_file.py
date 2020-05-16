@@ -213,7 +213,7 @@ def test_temp():
     with runez.CaptureOutput(anchors=[os.path.join("/tmp"), os.path.join("/etc")]) as logged:
         with runez.TempFolder() as tmp:
             assert os.path.isdir(tmp)
-            assert tmp != runez.convert.SYMBOLIC_TMP
+            assert tmp != runez.base.SYMBOLIC_TMP
         assert not os.path.isdir(tmp)
         assert os.getcwd() == cwd
 
@@ -222,16 +222,16 @@ def test_temp():
 
         assert not logged
 
-    symbolic = os.path.join(runez.convert.SYMBOLIC_TMP, "some-file")
+    symbolic = os.path.join(runez.base.SYMBOLIC_TMP, "some-file")
     with runez.CaptureOutput(dryrun=True) as logged:
         assert os.getcwd() == cwd
         with runez.TempFolder() as tmp:
-            assert tmp == runez.convert.SYMBOLIC_TMP
+            assert tmp == runez.base.SYMBOLIC_TMP
             assert runez.short(symbolic) == "some-file"
 
         assert os.getcwd() == cwd
         with runez.TempFolder(anchor=False) as tmp:
-            assert tmp == runez.convert.SYMBOLIC_TMP
+            assert tmp == runez.base.SYMBOLIC_TMP
             assert runez.short(symbolic) == symbolic
 
         assert not logged

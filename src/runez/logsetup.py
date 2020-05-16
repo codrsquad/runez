@@ -18,8 +18,8 @@ try:
 except ImportError:
     faulthandler = None
 
-from runez.base import flattened, is_dryrun, LOG, SANITIZED, set_dryrun, Slotted, ThreadGlobalContext, UNIQUE, UNSET, WINDOWS
-from runez.convert import formatted, represented_args, to_bytesize, to_int
+from runez.base import flattened, formatted, is_dryrun, LOG, represented_args, SANITIZED, set_dryrun, Slotted, ThreadGlobalContext, UNIQUE, UNSET, WINDOWS
+from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone
 from runez.path import basename as get_basename, ensure_folder, parent_folder
 from runez.program import dev_folder, program_path

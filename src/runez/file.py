@@ -3,8 +3,8 @@ import os
 import shutil
 import tempfile
 
-from runez.base import abort, decode, is_dryrun, LOG, set_dryrun
-from runez.convert import Anchored, resolved_path, short, SYMBOLIC_TMP, to_int
+from runez.base import abort, Anchored, decode, is_dryrun, LOG, resolved_path, set_dryrun, short, SYMBOLIC_TMP
+from runez.convert import to_int
 from runez.path import ensure_folder, parent_folder
 
 TEXT_THRESHOLD_SIZE = 1048576  # Max size in bytes to consider a file a "text file"

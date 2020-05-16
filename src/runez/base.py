@@ -6,16 +6,22 @@ This class should not import any other `runez` class, to avoid circular deps.
 
 import logging
 import os
+import re
 import sys
 import threading
 
 
 try:
     string_type = basestring  # noqa
+
+    import StringIO
+    StringIO = StringIO.StringIO
     PY2 = True
 
 except NameError:
     string_type = str
+
+    from io import StringIO
     unicode = str
     PY2 = False
 
@@ -24,7 +30,10 @@ LOG = logging.getLogger("runez")
 SANITIZED = 1
 SHELL = 2
 UNIQUE = 4
+SYMBOLIC_TMP = "<tmp>"
 WINDOWS = sys.platform.startswith("win")
+RE_FORMAT_MARKERS = re.compile(r"{([^}]*?)}")
+RE_SPACES = re.compile(r"[\s\n]+", re.MULTILINE)
 
 
 class Undefined(object):
@@ -185,6 +194,26 @@ def auto_import_siblings(auto_clean="TOX_WORK_DIR", skip=None):
     return imported
 
 
+def capped(value, minimum=None, maximum=None):
+    """
+    Args:
+        value: Value to cap
+        minimum: If specified, value should not be lower than this minimum
+        maximum: If specified, value should not be higher than this maximum
+
+    Returns:
+        `value` capped to `minimum` and `maximum` (if it is outside of those bounds)
+    """
+    if value is not None:
+        if minimum is not None and value < minimum:
+            return minimum
+
+        if maximum is not None and value > maximum:
+            return maximum
+
+    return value
+
+
 def simplified_class_name(cls, root):
     """By default, root ancestor is ignored, common prefix/suffix is removed, and name is lowercase-d"""
     if cls is not root:
@@ -256,6 +285,53 @@ def decode(value, strip=False):
         return stringified(value).strip()
 
     return stringified(value)
+
+
+def formatted(text, *args, **kwargs):
+    """Generically formatted `text`, `{...}` placeholders are resolved from given objects / keyword arguments
+
+    >>> formatted("{foo}", foo="bar")
+    'bar'
+    >>> formatted("{foo} {age}", {"age": 5}, foo="bar")
+    'bar 5'
+
+    Args:
+        text (str | unicode): Text to format
+        *args: Objects to extract values from (as attributes)
+        **kwargs: Optional values provided as named args
+
+    Returns:
+        (str): `{...}` placeholders formatted from given `args` object's properties/fields, or as `kwargs`
+    """
+    if not text or "{" not in text:
+        return text
+
+    strict = kwargs.pop("strict", True)
+    max_depth = kwargs.pop("max_depth", 3)
+    objects = list(args) + [kwargs] if kwargs else args[0] if len(args) == 1 else args
+    if not objects:
+        return text
+
+    definitions = {}
+    markers = RE_FORMAT_MARKERS.findall(text)
+    while markers:
+        key = markers.pop()
+        if key in definitions:
+            continue
+
+        val = _find_value(key, objects)
+        if strict and val is None:
+            return None
+
+        val = stringified(val) if val is not None else "{%s}" % key
+        markers.extend(m for m in RE_FORMAT_MARKERS.findall(val) if m not in definitions)
+        definitions[key] = val
+
+    if not max_depth or not isinstance(max_depth, int) or max_depth <= 0:
+        return text
+
+    expanded = dict((k, _rformat(k, v, definitions, max_depth)) for k, v in definitions.items())
+    return text.format(**expanded)
 
 
 def find_caller_frame(validator=actual_caller_frame, depth=2, maximum=None):
@@ -417,6 +493,70 @@ def quoted(text):
     return text
 
 
+def represented_args(args, separator=" "):
+    """
+    Args:
+        args (list | tuple | None): Arguments to represent
+        separator (str): Separator to use to join args back as a string
+
+    Returns:
+        (str): Quoted as needed textual representation
+    """
+    result = []
+    if args:
+        for text in args:
+            result.append(quoted(short(text)))
+
+    return separator.join(result)
+
+
+def resolved_path(path, base=None):
+    """
+    Args:
+        path (str | unicode | None): Path to resolve
+        base (str | unicode | None): Base path to use to resolve relative paths (default: current working dir)
+
+    Returns:
+        (str): Absolute path
+    """
+    if not path or path.startswith(SYMBOLIC_TMP):
+        return path
+
+    path = os.path.expanduser(path)
+    if base and not os.path.isabs(path):
+        return os.path.join(resolved_path(base), path)
+
+    return os.path.abspath(path)
+
+
+def short(path):
+    """
+    Args:
+        path (str | None): Path to textually represent in a shortened (yet meaningful) form
+
+    Returns:
+        (str): Shorter version of `path` (relative to one of the current anchor folders)
+    """
+    return Anchored.short(path)
+
+
+def shortened(value, size=120):
+    """
+    Args:
+        value: Value to textually represent within `size` characters (stringified if necessary)
+        size (int): Max chars
+
+    Returns:
+        (str): Leading part of 'text' with at most 'size' chars
+    """
+    text = stringified(value, converter=_prettified).strip()
+    text = RE_SPACES.sub(" ", text)
+    if size and len(text) > size:
+        return "%s..." % text[:size - 3]
+
+    return text
+
+
 def set_dryrun(dryrun):
     """Set runez.DRYRUN, and return its previous value (useful for context managers)
 
@@ -457,6 +597,28 @@ def stringified(value, converter=None, none="None"):
         return none
 
     return "%s" % value
+
+
+def verify_abort(func, *args, **kwargs):
+    """
+    Convenient wrapper around functions that should exit or raise an exception
+
+    Args:
+        func (callable): Function to execute
+        *args: Args to pass to 'func'
+        **kwargs: Named args to pass to 'func'
+
+    Returns:
+        (str): Chatter from call to 'func', if it did indeed raise
+    """
+    expected_exception = kwargs.pop("expected_exception", AbortException)
+    with CaptureOutput() as logged:
+        try:
+            value = func(*args, **kwargs)
+            assert False, "%s did not raise, but returned %s" % (func, value)
+
+        except expected_exception:
+            return stringified(logged)
 
 
 class AbortException(Exception):
@@ -551,6 +713,264 @@ class AdaptedProperty(object):
             value = self.caster(value)
 
         setattr(obj, self.key, value)
+
+
+class Anchored(object):
+    """
+    An "anchor" is a known path that we don't wish to show in full when printing/logging
+    This allows to conveniently shorten paths, and show more readable relative paths
+    """
+
+    paths = []  # Folder paths that can be used to shorten paths, via short()
+    home = os.path.expanduser("~")
+
+    def __init__(self, folder):
+        self.folder = resolved_path(folder)
+
+    def __enter__(self):
+        Anchored.add(self.folder)
+
+    def __exit__(self, *_):
+        Anchored.pop(self.folder)
+
+    @classmethod
+    def set(cls, *anchors):
+        """
+        Args:
+            *anchors (str | unicode | list): Optional paths to use as anchors for short()
+        """
+        cls.paths = sorted(flattened(anchors, split=SANITIZED | UNIQUE), reverse=True)
+
+    @classmethod
+    def add(cls, anchors):
+        """
+        Args:
+            anchors (str | unicode | list): Optional paths to use as anchors for short()
+        """
+        cls.set(cls.paths, anchors)
+
+    @classmethod
+    def pop(cls, anchors):
+        """
+        Args:
+            anchors (str | unicode | list): Optional paths to use as anchors for short()
+        """
+        for anchor in flattened(anchors, split=SANITIZED | UNIQUE):
+            if anchor in cls.paths:
+                cls.paths.remove(anchor)
+
+    @classmethod
+    def short(cls, path):
+        """
+        Example:
+            short("examined /Users/joe/foo") => "examined ~/foo"
+
+        Args:
+            path: Path to represent in its short form
+
+        Returns:
+            (str): Short form, using '~' if applicable
+        """
+        if path is None:
+            return path
+
+        path = stringified(path)
+        if cls.paths:
+            for p in cls.paths:
+                if p:
+                    path = path.replace(p + os.path.sep, "")
+
+        path = path.replace(cls.home, "~")
+        return path
+
+
+class CapturedStream(object):
+    """Capture output to a stream by hijacking temporarily its write() function"""
+
+    def __init__(self, name, target):
+        self.name = name
+        self.target = target
+        self.buffer = StringIO()
+        self.capture_write = "_pytest" in stringified(self.target.__class__)
+        if self.capture_write and self.target.write.__name__ == self.captured_write.__name__:
+            self.capture_write = False
+
+    def __repr__(self):
+        return self.contents()
+
+    def __contains__(self, item):
+        return item is not None and item in self.contents()
+
+    def __len__(self):
+        return len(self.contents())
+
+    def captured_write(self, message):
+        self.buffer.write(message)
+
+    def contents(self):
+        """
+        Returns:
+            (str): Contents of `self.buffer`
+        """
+        return self.buffer.getvalue()
+
+    def _start_capture(self):
+        if self.capture_write:
+            # setting sys.stdout doesn't survive with cross module fixtures, so we hijack its write the 1st time we see it
+            self.original = self.target.write
+            self.target.write = self.captured_write
+
+        else:
+            self.original = getattr(sys, self.name)
+            setattr(sys, self.name, self.buffer)
+
+    def _stop_capture(self):
+        if self.capture_write:
+            self.target.write = self.original
+
+        else:
+            setattr(sys, self.name, self.original)
+
+    def pop(self, strip=False):
+        """Current content popped, useful for testing"""
+        r = self.contents()
+        self.clear()
+        if r and strip:
+            r = r.strip()
+        return r
+
+    def clear(self):
+        """Clear captured content"""
+        self.buffer.seek(0)
+        self.buffer.truncate(0)
+
+
+class CaptureOutput(object):
+    """Output is captured and made available only for the duration of the context.
+
+    Sample usage:
+
+    >>> with CaptureOutput() as logged:
+    >>>     print("foo bar")
+    >>>     # output has been captured in `logged`, see `logged.stdout` etc
+    >>>     assert "foo" in logged
+    >>>     assert "bar" in logged.stdout
+    """
+
+    _capture_stack = []  # Shared across all objects, tracks possibly nested CaptureOutput buffers
+
+    def __init__(self, stdout=True, stderr=True, anchors=None, dryrun=None):
+        """Context manager allowing to temporarily grab stdout/stderr/log output.
+
+        Args:
+            stdout (bool): Capture stdout?
+            stderr (bool): Capture stderr?
+            anchors (str | list | None): Optional paths to use as anchors for `runez.short()`
+            dryrun (bool | None): Override dryrun (when explicitly specified, ie not None)
+        """
+        self.stdout = stdout
+        self.stderr = stderr
+        self.anchors = anchors
+        self.dryrun = dryrun
+
+    @classmethod
+    def current_capture_buffer(cls):
+        if cls._capture_stack:
+            return cls._capture_stack[-1].buffer
+
+    def __enter__(self):
+        """
+        Returns:
+            (TrackedOutput): Object holding captured stdout/stderr/log output
+        """
+        self.tracked = TrackedOutput(
+            CapturedStream("stdout", sys.stdout) if self.stdout else None,
+            CapturedStream("stderr", sys.stderr) if self.stderr else None,
+        )
+
+        for c in self.tracked.captured:
+            c._start_capture()
+
+        if self.tracked.captured:
+            self._capture_stack.append(self.tracked.captured[-1])
+
+        if self.anchors:
+            Anchored.add(self.anchors)
+
+        if self.dryrun is not None:
+            self.dryrun = set_dryrun(self.dryrun)
+
+        return self.tracked
+
+    def __exit__(self, *args):
+        if self.tracked.captured:
+            self._capture_stack.pop()
+
+        for c in self.tracked.captured:
+            c._stop_capture()
+
+        if self.anchors:
+            Anchored.pop(self.anchors)
+
+        if self.dryrun is not None:
+            set_dryrun(self.dryrun)
+
+
+class CurrentFolder(object):
+    """Context manager for changing the current working directory"""
+
+    def __init__(self, destination, anchor=False):
+        self.anchor = anchor
+        self.destination = resolved_path(destination)
+
+    def __enter__(self):
+        self.current_folder = os.getcwd()
+        os.chdir(self.destination)
+        if self.anchor:
+            Anchored.add(self.destination)
+
+    def __exit__(self, *_):
+        os.chdir(self.current_folder)
+        if self.anchor:
+            Anchored.pop(self.destination)
+
+
+class TrackedOutput(object):
+    """Track captured output"""
+
+    def __init__(self, stdout, stderr):
+        """
+        Args:
+            stdout (CapturedStream | None): Captured stdout
+            stderr (CapturedStream | None): Captured stderr
+        """
+        self.stdout = stdout
+        self.stderr = stderr
+        self.captured = [c for c in (self.stdout, self.stderr) if c is not None]
+
+    def __repr__(self):
+        return "\n".join("%s: %s" % (s.name, s) for s in self.captured)
+
+    def __contains__(self, item):
+        return any(item in s for s in self.captured)
+
+    def __len__(self):
+        return sum(len(s) for s in self.captured)
+
+    def contents(self):
+        return "".join(s.contents() for s in self.captured)
+
+    def pop(self):
+        """Current content popped, useful for testing"""
+        r = self.contents()
+        self.clear()
+        return r
+
+    def clear(self):
+        """Clear captured content"""
+        assert True
+        for s in self.captured:
+            s.clear()
 
 
 class Slotted(object):
@@ -742,6 +1162,21 @@ class Slotted(object):
             return dict((k, getattr(obj, k, UNSET)) for k in self.__slots__)
 
 
+class TempArgv(object):
+    """Context manager for changing the current sys.argv"""
+
+    def __init__(self, args, exe=sys.executable):
+        self.args = args
+        self.exe = exe
+        self.old_argv = sys.argv
+
+    def __enter__(self):
+        sys.argv = [self.exe] + self.args
+
+    def __exit__(self, *_):
+        sys.argv = self.old_argv
+
+
 class ThreadGlobalContext(object):
     """Thread-local + global context, composed of key/value pairs.
 
@@ -881,6 +1316,39 @@ def _clean_files(folder, extension):
                     pass  # Delete is only needed in tox run, no need to fail if delete is not possible
 
 
+def _find_value(key, *args):
+    """Find a value for 'key' in any of the objects given as 'args'"""
+    for arg in args:
+        v = _get_value(arg, key)
+        if v is not None:
+            return v
+
+
+def _get_value(obj, key):
+    """Get a value for 'key' from 'obj', if possible"""
+    if obj is not None:
+        if isinstance(obj, (list, tuple)):
+            for item in obj:
+                v = _find_value(key, item)
+                if v is not None:
+                    return v
+
+            return None
+
+        if hasattr(obj, "get"):
+            return obj.get(key)
+
+        return getattr(obj, key, None)
+
+
+def _rformat(key, value, definitions, max_depth):
+    if max_depth > 1 and value and "{" in value:
+        value = value.format(**definitions)
+        return _rformat(key, value, definitions, max_depth=max_depth - 1)
+
+    return value
+
+
 def _flatten(result, value, separator, mode):
     """
     Args:
@@ -944,6 +1412,28 @@ def _get_runez():
         _runez_module = runez
 
     return _runez_module
+
+
+def _prettified(value):
+    if isinstance(value, list):
+        return "[%s]" % ", ".join(stringified(s, converter=_prettified) for s in value)
+
+    if isinstance(value, tuple):
+        return "(%s)" % ", ".join(stringified(s, converter=_prettified) for s in value)
+
+    if isinstance(value, dict):
+        keys = sorted(value, key=lambda x: "%s" % x)
+        pairs = ("%s: %s" % (stringified(k, converter=_prettified), stringified(value[k], converter=_prettified)) for k in keys)
+        return "{%s}" % ", ".join(pairs)
+
+    if isinstance(value, set):
+        return "{%s}" % ", ".join(stringified(s, converter=_prettified) for s in sorted(value, key=lambda x: "%s" % x))
+
+    if isinstance(value, type):
+        return "class %s.%s" % (value.__module__, value.__name__)
+
+    if callable(value):
+        return "function '%s'" % value.__name__
 
 
 def _should_auto_import(module_name, skip):

@@ -9,8 +9,7 @@ import json
 import os
 
 import runez.schema
-from runez.base import abort, decode, is_dryrun, LOG, string_type, UNSET
-from runez.convert import resolved_path, short, shortened
+from runez.base import abort, decode, is_dryrun, LOG, resolved_path, short, shortened, string_type, UNSET
 from runez.path import ensure_folder
 
 

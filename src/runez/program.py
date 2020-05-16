@@ -7,8 +7,7 @@ import subprocess  # nosec
 import sys
 import time
 
-from runez.base import abort, AbortException, decode, find_parent_folder, flattened, is_dryrun, LOG, SHELL, WINDOWS
-from runez.convert import represented_args, short
+from runez.base import abort, AbortException, decode, find_parent_folder, flattened, is_dryrun, LOG, represented_args, SHELL, short, WINDOWS
 
 
 DEFAULT_INSTRUCTIONS = {

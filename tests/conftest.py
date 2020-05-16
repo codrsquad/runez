@@ -4,10 +4,8 @@ import pytest
 
 import runez
 from runez.__main__ import main
-from runez.base import LOG, stringified
+from runez.base import CaptureOutput, LOG, short, stringified
 from runez.conftest import cli, isolated_log_setup, IsolatedLogSetup, logged, temp_folder
-from runez.context import CaptureOutput
-from runez.convert import short
 from runez.file import readlines
 from runez.logsetup import LogManager
 

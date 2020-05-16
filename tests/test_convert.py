@@ -1,30 +1,6 @@
-import datetime
 import math
-import os
 
 import runez
-
-
-def test_anchored(temp_folder):
-    assert runez.resolved_path(None) is None
-    assert runez.resolved_path("some-file") == os.path.join(temp_folder, "some-file")
-    assert runez.resolved_path("some-file", base="bar") == os.path.join(temp_folder, "bar", "some-file")
-
-    assert runez.short(None) is None
-    assert runez.short("") == ""
-    assert runez.short(os.path.join(temp_folder, "some-file")) == "some-file"
-
-    assert runez.represented_args(["ls", os.path.join(temp_folder, "some-file") + " bar", "-a"]) == 'ls "some-file bar" -a'
-
-    user_path = runez.resolved_path("~/some-folder/bar")
-    current_path = runez.resolved_path("./some-folder/bar")
-
-    assert user_path != "~/some-folder/bar"
-    assert runez.short(user_path) == "~/some-folder/bar"
-    assert runez.short(current_path) == "some-folder/bar"
-
-    with runez.Anchored(os.getcwd()):
-        assert runez.short(current_path) == os.path.join("some-folder", "bar")
 
 
 def test_boolean():
@@ -63,40 +39,7 @@ def test_bytesize():
     assert runez.to_bytesize(10, default_unit="a", base=1000) is None  # Bogus default_unit
 
 
-def test_capped():
-    assert runez.capped(123, minimum=200) == 200
-    assert runez.capped(123, maximum=100) == 100
-    assert runez.capped(123, minimum=100, maximum=200) == 123
-    assert runez.capped(123, minimum=100, maximum=110) == 110
-
-
-def test_shortened():
-    assert runez.shortened(None) == "None"
-    assert runez.shortened("") == ""
-    assert runez.shortened(5) == "5"
-    assert runez.shortened(" some text ") == "some text"
-    assert runez.shortened(" \n  some \n  long text", size=9) == "some l..."
-    assert runez.shortened(" \n  some \n  long text", size=8) == "some ..."
-    assert runez.shortened(" a \n\n  \n  b ") == "a b"
-
-    assert runez.shortened([1, "b"]) == "[1, b]"
-    assert runez.shortened((1, {"b": ["c", {"d", "e"}]})) == "(1, {b: [c, {d, e}]})"
-
-    complex = {"a \n b": [1, None, "foo \n ,", {"a2": runez.abort, "c": runez.Anchored}], None: datetime.date(2019, 1, 1)}
-    assert runez.shortened(complex) == "{None: 2019-01-01, a b: [1, None, foo ,, {a2: function 'abort', c: class runez.convert.Anchored}]}"
-    assert runez.shortened(complex, size=32) == "{None: 2019-01-01, a b: [1, N..."
-
-    assert runez.shortened(" some  text ", size=32) == "some text"
-    assert runez.shortened(" some  text ", size=7) == "some..."
-    assert runez.shortened(" some  text ", size=0) == "some text"
-
-
 def test_representation():
-    assert runez.represented_args(None) == ""
-    assert runez.represented_args([]) == ""
-    assert runez.represented_args([0, 1, 2]) == "0 1 2"
-    assert runez.represented_args(["foo", {}, 0, [1, 2], {3: 4}, 5]) == 'foo {} 0 "[1, 2]" "{3: 4}" 5'
-
     assert runez.represented_bytesize(20) == "20 B"
     assert runez.represented_bytesize(20, unit="") == "20"
     assert runez.represented_bytesize(9000) == "8.8 KB"
@@ -114,40 +57,6 @@ def test_representation():
     assert runez.represented_with_units(1060) == "1.1K"
     assert runez.represented_with_units(8900) == "8.9K"
     assert runez.represented_with_units(20304050600000000000) == "20304P"
-
-
-def test_formatted():
-    class Record(object):
-        basename = "my-name"
-        filename = "{basename}.txt"
-
-    assert runez.formatted("{filename}", Record) == "my-name.txt"
-    assert runez.formatted("{basename}/{filename}", Record) == "my-name/my-name.txt"
-
-    assert runez.formatted("") == ""
-    assert runez.formatted("", Record) == ""
-    assert runez.formatted("{not_there}", Record) is None
-    assert runez.formatted("{not_there}", Record, name="susan") is None
-    assert runez.formatted("{not_there}", Record, not_there="psyched!") == "psyched!"
-    assert runez.formatted("{not_there}", Record, strict=False) == "{not_there}"
-
-    deep = dict(a="a", b="b", aa="{a}", bb="{b}", ab="{aa}{bb}", ba="{bb}{aa}", abba="{ab}{ba}", deep="{abba}")
-    assert runez.formatted("{deep}", deep, max_depth=-1) == "{deep}"
-    assert runez.formatted("{deep}", deep, max_depth=0) == "{deep}"
-    assert runez.formatted("{deep}", deep, max_depth=1) == "{abba}"
-    assert runez.formatted("{deep}", deep, max_depth=2) == "{ab}{ba}"
-    assert runez.formatted("{deep}", deep, max_depth=3) == "{aa}{bb}{bb}{aa}"
-    assert runez.formatted("{deep}", deep, max_depth=4) == "{a}{b}{b}{a}"
-    assert runez.formatted("{deep}", deep, max_depth=5) == "abba"
-    assert runez.formatted("{deep}", deep, max_depth=6) == "abba"
-
-    cycle = dict(a="{b}", b="{a}")
-    assert runez.formatted("{a}", cycle, max_depth=0) == "{a}"
-    assert runez.formatted("{a}", cycle, max_depth=1) == "{b}"
-    assert runez.formatted("{a}", cycle, max_depth=2) == "{a}"
-    assert runez.formatted("{a}", cycle, max_depth=3) == "{b}"
-
-    assert runez.formatted("{filename}") == "{filename}"
 
 
 def test_plural():
