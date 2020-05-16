@@ -3,7 +3,7 @@ import os
 import pytest
 from mock import MagicMock, patch
 
-from runez.inspector import auto_import_siblings, class_descendants
+from runez.inspector import auto_import_siblings
 from runez.system import _is_actual_caller_frame
 
 
@@ -65,42 +65,3 @@ def test_auto_import_siblings():
     assert "tests.secondary" not in imported
     assert "tests.secondary.test_import" not in imported
     assert "tests.test_system" in imported
-
-
-def test_class_descendants():
-    class Cat(object):
-        _foo = None
-
-    class FastCat(Cat):
-        pass
-
-    class LittleCatKitty(Cat):
-        pass
-
-    class CatMeow(FastCat):
-        pass
-
-    # By default, root ancestor is skipped, common prefix/suffix is removed, and name is lowercase-d
-    d = class_descendants(Cat)
-    assert len(d) == 3
-    assert d["fast"] is FastCat
-    assert d["littlecatkitty"] is LittleCatKitty
-    assert d["meow"] is CatMeow
-
-    # Keep names as-is, including root ancestor
-    d = class_descendants(Cat, adjust=lambda x, r: x.__name__)
-    assert len(d) == 4
-    assert d["Cat"] is Cat
-    assert d["FastCat"] is FastCat
-    assert d["LittleCatKitty"] is LittleCatKitty
-    assert d["CatMeow"] is CatMeow
-
-    assert FastCat._foo is None
-
-    # The 'adjust' function can also be used to simply modify descendants (but not track them)
-    def adjust(cls, root):
-        cls._foo = cls.__name__.lower()
-
-    d = class_descendants(Cat, adjust=adjust)
-    assert len(d) == 0
-    assert FastCat._foo == "fastcat"

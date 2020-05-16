@@ -35,15 +35,17 @@ def average_importtime(module, count):
     cumulative = 0
     started = time.time()
     for _ in range(count):
-        s, c = get_importtime(module)
+        _, c = get_importtime(module)
         cumulative += c
 
     return cumulative / count, time.time() - started
 
 
-def check_importtime_within(factor, mod1, count=5):
-    """Check that importtime of 'mod1' is less than 'factor' times slower than 'mod2' on average"""
-    c, e = average_importtime(mod1, count)
+def check_importtime_within(max_factor, module_name, count=5):
+    """Check that 'import runez' is less than 'max_factor' times slower than that of 'module_name'"""
+    c, e = average_importtime(module_name, count)
     cr, er = average_importtime("runez", count)
-    assert cr < factor * c
-    assert er < factor * e
+    cumulative_factor = cr / c
+    elapsed_factor = er / e
+    assert cumulative_factor < max_factor
+    assert elapsed_factor < max_factor
