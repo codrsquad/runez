@@ -255,6 +255,9 @@ def test_system():
     assert runez.decode(b" something ") == " something "
     assert runez.decode(b" something ", strip=True) == "something"
 
+    # Ensure we stop once callstack is exhausted
+    assert runez.click.find_caller_frame(lambda f: None, maximum=None) is None
+
     assert runez.first_meaningful_line("") is None
     assert runez.first_meaningful_line("\n  \n\n") is None
     assert runez.first_meaningful_line("\n\n\n  foo  \n\bar") == "foo"

@@ -117,17 +117,6 @@ def abort(*args, **kwargs):
     return return_value
 
 
-def actual_caller_frame(f):
-    """Return `f` if it's a frame that looks like coming from actual caller (not runez itself, or an internal library package)"""
-    name = f.f_globals.get("__name__")
-    if name and "__main__" in name:
-        return f
-
-    package = f.f_globals.get("__package__")
-    if package and not package.startswith("_") and package.partition(".")[0] not in ("importlib", "pluggy", "runez"):
-        return f
-
-
 def capped(value, minimum=None, maximum=None):
     """
     Args:
@@ -156,14 +145,14 @@ def current_test():
                otherwise path to first found test-framework module
     """
     import re
-    regex = re.compile(r"^(.+\.|)(conftest|(test_|_pytest\.|unittest\.).+|.+_test)$")
+    regex = re.compile(r"^(.+\.|)(conftest|(test_|_pytest|unittest).+|.+_test)$")
 
-    def test_frame(f):
+    def is_test_frame(f):
         name = f.f_globals.get("__name__").lower()
         if not name.startswith("runez"):
             return regex.match(name) and f.f_globals.get("__file__")
 
-    return find_caller_frame(test_frame)
+    return find_caller_frame(validator=is_test_frame)
 
 
 def decode(value, strip=False):
@@ -235,17 +224,20 @@ def formatted(text, *args, **kwargs):
     return text.format(**expanded)
 
 
-def find_caller_frame(validator=actual_caller_frame, depth=2, maximum=None):
+def find_caller_frame(validator=None, depth=2, maximum=1000):
     """
     Args:
         validator (callable): Function that will decide whether a frame is suitable, and return value of interest from it
         depth (int): Depth from top of stack where to start
-        maximum (int | None): Maximum depth to scan
+        maximum (int): Maximum depth to scan
 
     Returns:
         (frame): First frame found
     """
     if hasattr(sys, "_getframe"):
+        if validator is None:
+            validator = _is_actual_caller_frame
+
         while not maximum or depth <= maximum:
             try:
                 f = sys._getframe(depth)
@@ -1260,6 +1252,17 @@ def _get_runez():
         _runez_module = runez
 
     return _runez_module
+
+
+def _is_actual_caller_frame(f):
+    """Return `f` if it's a frame that looks like coming from actual caller (not runez itself, or an internal library package)"""
+    name = f.f_globals.get("__name__")
+    if name and "__main__" in name:
+        return f
+
+    package = f.f_globals.get("__package__")
+    if package and not package.startswith("_") and package.partition(".")[0] not in ("importlib", "pluggy", "runez"):
+        return f
 
 
 def _prettified(value):

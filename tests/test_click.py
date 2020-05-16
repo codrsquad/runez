@@ -86,8 +86,3 @@ def test_command(cli):
     cli.expect_success(["--color", "--config=a=b", "-c", "c=d"], "color: True", "a=b", "c=d")
     cli.expect_success(["--no-color", "--debug", "--log=foo"], "color: False", "debug: True, dryrun: None, log: foo")
     assert runez.log.spec.file_location is None
-
-
-def test_edge_cases():
-    # Ensure we stop once callstack is exhausted
-    assert runez.click.find_caller_frame(lambda f: None, maximum=1000) is None

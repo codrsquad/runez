@@ -67,7 +67,7 @@ def main():
         sys.exit(1)
 
     else:
-        print("No diffs found, orders match")
+        print("No diffs found, all %s orders match" % len(imported))
 
 
 if __name__ == "__main__":

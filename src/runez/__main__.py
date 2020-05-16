@@ -5,6 +5,7 @@ See some example behaviors of runez
 import argparse
 
 import runez
+from runez.inspector import run_cmds
 
 
 def show_fgcolors(bg=runez.plain, border=None):
@@ -59,7 +60,7 @@ def cmd_colors():
 
 
 def main():
-    runez.click.run_cmds()
+    run_cmds()
 
 
 if __name__ == "__main__":
