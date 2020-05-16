@@ -17,14 +17,13 @@ import tempfile
 import _pytest.logging
 import pytest
 
-from runez.base import flattened, LOG, SHELL, Slotted, string_type, stringified, UNSET
+from runez.base import current_test, find_parent_folder, flattened, is_dryrun, LOG, SHELL, Slotted, string_type, stringified, UNSET
 from runez.context import CaptureOutput, TempArgv, TrackedOutput
 from runez.convert import formatted, represented_args, shortened
 from runez.file import TempFolder
 from runez.logsetup import LogManager
 from runez.program import which
 from runez.represent import header
-from runez.system import current_test, find_parent_folder, is_dryrun
 
 try:
     from click import BaseCommand as _ClickCommand

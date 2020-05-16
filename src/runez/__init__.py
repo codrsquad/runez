@@ -2,8 +2,11 @@
 Friendly misc/utils/convenience library
 """
 
+# flake8: noqa
+
 from runez import click, config, heartbeat, program, prompt, schema, serialize, thread
-from runez.base import AdaptedProperty, decode, first_meaningful_line, flattened, PY2, quoted, SANITIZED, SHELL, Slotted, stringified, Undefined, UNIQUE, UNSET  # noqa
+from runez.base import abort, AbortException, AdaptedProperty, decode, first_meaningful_line, flattened, PY2, quoted, SANITIZED, SHELL, Slotted, stringified, Undefined, UNIQUE, UNSET
+from runez.base import auto_import_siblings, class_descendants, current_test, find_parent_folder, get_version, is_tty, set_dryrun, WINDOWS
 from runez.colors import ActivateColors, ColorManager as color, is_coloring, uncolored
 from runez.colors.named import black, blue, brown, gray, green, orange, plain, purple, red, teal, white, yellow
 from runez.colors.named import blink, bold, dim, invert, italic, strikethrough, underline
@@ -12,7 +15,7 @@ from runez.context import CaptureOutput, CurrentFolder, TempArgv, TrackedOutput,
 from runez.convert import Anchored, capped, formatted, plural, \
     represented_args, represented_bytesize, represented_with_units, \
     resolved_path, short, shortened
-from runez.convert import affixed, camel_cased, entitled, identifiers, snakified, wordified, words  # noqa, ignore import order
+from runez.convert import affixed, camel_cased, entitled, identifiers, snakified, wordified, words
 from runez.convert import to_boolean, to_bytesize, to_float, to_int, unitized
 from runez.date import date_from_epoch, datetime_from_epoch, elapsed, local_timezone, represented_duration, \
     timezone, timezone_from_text, \
@@ -27,13 +30,13 @@ from runez.program import require_installed, run, which
 from runez.prompt import ask_once
 from runez.represent import align, header, indented, PrettyTable
 from runez.serialize import json_sanitized, read_json, represented_json, save_json, Serializable
-from runez.system import abort, auto_import_siblings, class_descendants, current_test, find_parent_folder, get_version, is_tty, set_dryrun, WINDOWS  # noqa
 from runez.thread import thread_local_property, ThreadLocalSingleton
 
 __all__ = [
     "DRYRUN",
-    "click", "config", "heartbeat", "logsetup", "program", "prompt", "schema", "serialize", "thread",
-    "AdaptedProperty", "decode", "first_meaningful_line", "PY2", "quoted", "SANITIZED", "SHELL", "flattened", "Slotted", "stringified", "Undefined", "UNIQUE", "UNSET",  # noqa
+    "click", "config", "heartbeat", "program", "prompt", "schema", "serialize", "thread",
+    "abort", "AbortException", "AdaptedProperty", "decode", "first_meaningful_line", "flattened", "PY2", "quoted", "SANITIZED", "SHELL", "Slotted", "stringified", "Undefined", "UNIQUE", "UNSET",
+    "auto_import_siblings", "class_descendants", "current_test", "find_parent_folder", "get_version", "is_tty", "set_dryrun", "WINDOWS",
     "ActivateColors", "color", "is_coloring", "uncolored",
     "black", "blue", "brown", "gray", "green", "orange", "plain", "purple", "red", "teal", "white", "yellow",
     "blink", "bold", "dim", "invert", "italic", "strikethrough", "underline",
@@ -57,8 +60,12 @@ __all__ = [
     "ask_once",
     "align", "header", "indented", "PrettyTable",
     "json_sanitized", "read_json", "represented_json", "save_json", "Serializable",
-    "abort", "auto_import_siblings", "class_descendants", "current_test", "find_parent_folder", "get_version", "is_tty", "set_dryrun", "WINDOWS",  # noqa
     "thread_local_property", "ThreadLocalSingleton",
 ]
 
 DRYRUN = False
+
+
+class system:
+    # This is here for temporary backwars compatibility, because runez.system.AbortException was removed
+    pass

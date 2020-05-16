@@ -1,7 +1,7 @@
 import json
 import os
 
-from runez.system import abort, is_tty
+from runez.base import abort, is_tty
 
 
 def ask_once(name, instructions, serializer=str, fatal=True, base="~/.config", default=None):

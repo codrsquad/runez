@@ -9,10 +9,9 @@ import json
 import os
 
 import runez.schema
-from runez.base import decode, LOG, string_type, UNSET
+from runez.base import abort, decode, is_dryrun, LOG, string_type, UNSET
 from runez.convert import resolved_path, short, shortened
 from runez.path import ensure_folder
-from runez.system import abort, is_dryrun
 
 
 Serializable = None  # type: type # Set to runez.Serializable class once parsing of runez.serialize.py is past that class definition

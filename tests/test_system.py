@@ -7,7 +7,7 @@ import runez
 
 
 def failed_function(*args):
-    with patch("runez.system.logging.root") as root:
+    with patch("runez.base.logging.root") as root:
         root.handlers = None
         runez.abort(*args)
 
@@ -32,41 +32,41 @@ def test_abort(logged):
     assert not logged
     assert "stderr: oops" in runez.verify_abort(failed_function, "oops")
 
-    with patch("runez.system.AbortException", side_effect=str):
+    with patch("runez.base.AbortException", side_effect=str):
         assert runez.abort("oops", logger=None) == "1"
 
 
 def test_auto_import_siblings():
     # Check that none of these invocations raise an exception
-    assert not runez.system.actual_caller_frame(mock_package(None))
-    assert not runez.system.actual_caller_frame(mock_package(""))
-    assert not runez.system.actual_caller_frame(mock_package("_pydevd"))
-    assert not runez.system.actual_caller_frame(mock_package("_pytest.foo"))
-    assert not runez.system.actual_caller_frame(mock_package("pluggy.hooks"))
-    assert not runez.system.actual_caller_frame(mock_package("runez"))
-    assert not runez.system.actual_caller_frame(mock_package("runez.system"))
+    assert not runez.base.actual_caller_frame(mock_package(None))
+    assert not runez.base.actual_caller_frame(mock_package(""))
+    assert not runez.base.actual_caller_frame(mock_package("_pydevd"))
+    assert not runez.base.actual_caller_frame(mock_package("_pytest.foo"))
+    assert not runez.base.actual_caller_frame(mock_package("pluggy.hooks"))
+    assert not runez.base.actual_caller_frame(mock_package("runez"))
+    assert not runez.base.actual_caller_frame(mock_package("runez.base"))
 
-    assert runez.system.actual_caller_frame(mock_package("foo"))
-    assert runez.system.actual_caller_frame(mock_package("runez.system", name="__main__"))
+    assert runez.base.actual_caller_frame(mock_package("foo"))
+    assert runez.base.actual_caller_frame(mock_package("runez.base", name="__main__"))
 
     with pytest.raises(ImportError):
-        with patch("runez.system.find_caller_frame", return_value=None):
+        with patch("runez.base.find_caller_frame", return_value=None):
             runez.auto_import_siblings()
 
     with pytest.raises(ImportError):
-        with patch("runez.system.find_caller_frame", return_value=mock_package("foo", name="__main__")):
+        with patch("runez.base.find_caller_frame", return_value=mock_package("foo", name="__main__")):
             runez.auto_import_siblings()
 
     with pytest.raises(ImportError):
-        with patch("runez.system.find_caller_frame", return_value=mock_package(None)):
+        with patch("runez.base.find_caller_frame", return_value=mock_package(None)):
             runez.auto_import_siblings()
 
     with pytest.raises(ImportError):
-        with patch("runez.system.find_caller_frame", return_value=mock_package("foo")):
+        with patch("runez.base.find_caller_frame", return_value=mock_package("foo")):
             runez.auto_import_siblings()
 
     with pytest.raises(ImportError):
-        with patch("runez.system.find_caller_frame", return_value=mock_package("foo", file="/dev/null/foo")):
+        with patch("runez.base.find_caller_frame", return_value=mock_package("foo", file="/dev/null/foo")):
             runez.auto_import_siblings()
 
     with patch.dict(os.environ, {"TOX_WORK_DIR": "some-value"}, clear=True):
@@ -89,15 +89,15 @@ def test_auto_import_siblings():
 
 
 def test_current_test():
-    assert runez.system.find_parent_folder("", {"foo"}) is None
-    assert runez.system.find_parent_folder("/a/b//", {""}) is None
-    assert runez.system.find_parent_folder("/a/b", {"a"}) == "/a"
-    assert runez.system.find_parent_folder("/a/b//", {"a"}) == "/a"
-    assert runez.system.find_parent_folder("//a/b//", {"a"}) == "//a"
-    assert runez.system.find_parent_folder("/a/b", {"b"}) == "/a/b"
-    assert runez.system.find_parent_folder("/a/B", {"a", "b"}) == "/a/B"  # case insensitive
-    assert runez.system.find_parent_folder("/a/b", {"c"}) is None
-    assert runez.system.find_parent_folder("/dev/null", {"foo"}) is None
+    assert runez.base.find_parent_folder("", {"foo"}) is None
+    assert runez.base.find_parent_folder("/a/b//", {""}) is None
+    assert runez.base.find_parent_folder("/a/b", {"a"}) == "/a"
+    assert runez.base.find_parent_folder("/a/b//", {"a"}) == "/a"
+    assert runez.base.find_parent_folder("//a/b//", {"a"}) == "//a"
+    assert runez.base.find_parent_folder("/a/b", {"b"}) == "/a/b"
+    assert runez.base.find_parent_folder("/a/B", {"a", "b"}) == "/a/B"  # case insensitive
+    assert runez.base.find_parent_folder("/a/b", {"c"}) is None
+    assert runez.base.find_parent_folder("/dev/null", {"foo"}) is None
     assert "test_system.py" in runez.current_test()
 
 
@@ -105,20 +105,6 @@ def test_failed_version(logged):
     with patch("pkg_resources.get_distribution", side_effect=Exception("testing")):
         assert runez.get_version(runez) == "0.0.0"
     assert "Can't determine version for runez" in logged
-
-
-def test_formatted_string():
-    assert runez.system._formatted_string() == ""
-
-    assert runez.system._formatted_string("test") == "test"
-    assert runez.system._formatted_string("test", "bar") == "test"
-    assert runez.system._formatted_string("test %s", "bar") == "test bar"
-    assert runez.system._formatted_string("test %s %s", "bar") == "test %s %s"
-
-    assert runez.system._formatted_string(None) is None
-    assert runez.system._formatted_string(None, "bar") is None
-
-    assert runez.system._formatted_string("test", None) == "test"
 
 
 def test_version():

@@ -1,0 +1,74 @@
+#!/usr/bin/env python
+
+import os
+import re
+import sys
+
+
+RE_FROM = re.compile(r"^from .+ import (.+)$")
+RE_RENAMED = re.compile(r"^.+ as (.+)$")
+
+
+def get_names(line):
+    result = []
+    for item in line.strip("\\").split(","):
+        item = item.strip().strip('"')
+        if not item:
+            continue
+
+        m = RE_RENAMED.match(item)
+        if m:
+            item = m.group(1)
+
+        result.append(item)
+
+    return result
+
+
+def main():
+    project = os.path.dirname(os.path.dirname(__file__))
+    path = os.path.join(project, "src/runez/__init__.py")
+    is_continuation = False
+    imported = [["DRYRUN"]]
+    declared = []
+    with open(path) as fh:
+        for line in fh:
+            line = line.rstrip()
+            if is_continuation:
+                imported.append(get_names(line))
+                is_continuation = line.endswith("\\")
+                continue
+
+            m = RE_FROM.match(line)
+            if m:
+                imported.append(get_names(m.group(1)))
+                is_continuation = line.endswith("\\")
+                continue
+
+            if line.startswith('    "'):
+                declared.append(get_names(line))
+
+    if len(imported) != len(declared):
+        sys.exit("Line count differs: %s imported, %s declared" % (len(imported), len(declared)))
+
+    diffs = 0
+    for i, imp in enumerate(imported):
+        dec = declared[i]
+        if imp != dec:
+            diffs += 1
+            print("lines differ:")
+            print("  imported: %s" % ", ".join(imp))
+            print("vs")
+            print("  declared: %s" % ", ".join(dec))
+            print("")
+
+    if diffs:
+        print("Found %s diffs" % diffs)
+        sys.exit(1)
+
+    else:
+        print("No diffs found, orders match")
+
+
+if __name__ == "__main__":
+    main()

@@ -5,8 +5,8 @@ Convenience context managers
 import os
 import sys
 
+import runez.base
 import runez.convert
-import runez.system
 from runez.base import PY2, stringified
 
 
@@ -170,7 +170,7 @@ class CaptureOutput(object):
             runez.convert.Anchored.add(self.anchors)
 
         if self.dryrun is not None:
-            self.dryrun = runez.system.set_dryrun(self.dryrun)
+            self.dryrun = runez.base.set_dryrun(self.dryrun)
 
         return self.tracked
 
@@ -185,7 +185,7 @@ class CaptureOutput(object):
             runez.convert.Anchored.pop(self.anchors)
 
         if self.dryrun is not None:
-            runez.system.set_dryrun(self.dryrun)
+            runez.base.set_dryrun(self.dryrun)
 
 
 class CurrentFolder(object):
@@ -238,7 +238,7 @@ def verify_abort(func, *args, **kwargs):
     Returns:
         (str): Chatter from call to 'func', if it did indeed raise
     """
-    expected_exception = kwargs.pop("expected_exception", runez.system.AbortException)
+    expected_exception = kwargs.pop("expected_exception", runez.base.AbortException)
     with CaptureOutput() as logged:
         try:
             value = func(*args, **kwargs)

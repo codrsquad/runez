@@ -4,9 +4,8 @@ Convenience methods for file/folder operations
 
 import os
 
-from runez.base import LOG
+from runez.base import abort, is_dryrun, LOG
 from runez.convert import resolved_path, short
-from runez.system import abort, is_dryrun
 
 
 def basename(path, extension_marker="."):

@@ -8,9 +8,8 @@ Example usage:
 
 import re
 
-from runez.base import Slotted, stringified
+from runez.base import current_test, is_tty, Slotted, stringified
 from runez.convert import shortened
-from runez.system import current_test, is_tty
 
 
 RE_ANSI_ESCAPE = re.compile("\x1b\\[[;\\d]*[A-Za-z]")

@@ -41,6 +41,15 @@ def test_base():
     assert runez.stringified(5, converter=lambda x: None) == "5"
     assert runez.stringified(5, converter=lambda x: x) == "5"
 
+    assert runez.base._formatted_string() == ""
+    assert runez.base._formatted_string("test") == "test"
+    assert runez.base._formatted_string("test", "bar") == "test"
+    assert runez.base._formatted_string("test %s", "bar") == "test bar"
+    assert runez.base._formatted_string("test %s %s", "bar") == "test %s %s"
+    assert runez.base._formatted_string(None) is None
+    assert runez.base._formatted_string(None, "bar") is None
+    assert runez.base._formatted_string("test", None) == "test"
+
 
 def test_descendants():
     class Cat(object):
