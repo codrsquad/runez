@@ -20,7 +20,7 @@ Usage:
 import threading
 import time
 
-from runez.base import LOG
+from runez.system import LOG
 
 
 DEFAULT_FREQUENCY = 60

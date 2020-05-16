@@ -17,7 +17,7 @@ def test_no_tty():
     v = runez.ask_once("test", "Please enter value: ", fatal=False)
     assert v is None
 
-    with pytest.raises(runez.base.AbortException):
+    with pytest.raises(runez.system.AbortException):
         runez.ask_once("test", "Please enter value: ")
 
     with pytest.raises(Exception):

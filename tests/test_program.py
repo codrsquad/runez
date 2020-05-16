@@ -4,6 +4,7 @@ import pytest
 from mock import patch
 
 import runez
+from runez.conftest import verify_abort
 
 
 CHATTER = """
@@ -56,11 +57,23 @@ def test_executable(temp_folder):
 
 def test_which():
     assert runez.dev_folder()
+
+    assert runez.find_parent_folder("", {"foo"}) is None
+    assert runez.find_parent_folder("/a/b//", {""}) is None
+    assert runez.find_parent_folder("/a/b", {"a"}) == "/a"
+    assert runez.find_parent_folder("/a/b//", {"a"}) == "/a"
+    assert runez.find_parent_folder("//a/b//", {"a"}) == "//a"
+    assert runez.find_parent_folder("/a/b", {"b"}) == "/a/b"
+    assert runez.find_parent_folder("/a/B", {"a", "b"}) == "/a/B"  # case insensitive
+    assert runez.find_parent_folder("/a/b", {"c"}) is None
+    assert runez.find_parent_folder("/dev/null", {"foo"}) is None
+
+    assert runez.program_path(path="/dev/null/some-program") == "/dev/null/some-program"
+
     assert runez.which(None) is None
     assert runez.which("/dev/null") is None
     assert runez.which("dev/null") is None
     assert runez.which("python")
-    assert runez.program_path(path="/dev/null/some-program") == "/dev/null/some-program"
 
 
 def test_require_installed():
@@ -137,7 +150,7 @@ def test_run(temp_folder):
         exit_code = runez.run(ls, "--foo", ".", stdout=None, stderr=None, fatal=False)
         assert isinstance(exit_code, int) and exit_code != 0
 
-        assert "exited with code" in runez.verify_abort(runez.run, ls, "--foo", ".", stdout=None, stderr=None, fatal=True)
+        assert "exited with code" in verify_abort(runez.run, ls, "--foo", ".", stdout=None, stderr=None, fatal=True)
 
         assert runez.touch("sample") == 1
         files = runez.run(ls, "--invalid-flag", None, ".", path_env={"PATH": ":."})
@@ -166,7 +179,7 @@ def test_python_run():
         exit_code = runez.run("python", "--invalid-flag", stdout=None, stderr=None, fatal=False)
         assert isinstance(exit_code, int) and exit_code != 0
 
-        assert "exited with code" in runez.verify_abort(runez.run, "python", "--invalid-flag", stdout=None, stderr=None, fatal=True)
+        assert "exited with code" in verify_abort(runez.run, "python", "--invalid-flag", stdout=None, stderr=None, fatal=True)
 
 
 def test_failed_run(logged):

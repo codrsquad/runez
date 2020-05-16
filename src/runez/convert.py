@@ -5,7 +5,7 @@ This is module should not import any other runez module, it's the lowest on the 
 import re
 import sys
 
-from runez.base import flattened, string_type, stringified
+from runez.system import flattened, string_type, stringified
 
 
 DEFAULT_BASE = 1000

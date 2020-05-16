@@ -3,6 +3,7 @@ import os
 import pytest
 
 import runez
+from runez.conftest import verify_abort
 
 
 def test_basename():
@@ -25,11 +26,11 @@ def test_ensure_folder(temp_folder):
 
     with runez.CaptureOutput():
         assert runez.touch("sample") == 1
-        assert "Can't create folder" in runez.verify_abort(runez.ensure_folder, "sample", folder=True)
-        custom = runez.verify_abort(runez.ensure_folder, "sample", folder=True, fatal=SystemExit, expected_exception=SystemExit)
+        assert "Can't create folder" in verify_abort(runez.ensure_folder, "sample", folder=True)
+        custom = verify_abort(runez.ensure_folder, "sample", folder=True, fatal=SystemExit, expected_exception=SystemExit)
         assert "Can't create folder" in custom
         with pytest.raises(AssertionError):
-            assert runez.verify_abort(runez.ensure_folder, None)
+            assert verify_abort(runez.ensure_folder, None)
 
         assert runez.delete("sample") == 1
         assert os.getcwd() == temp_folder

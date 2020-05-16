@@ -4,14 +4,14 @@ import datetime
 import os
 import sys
 
-import pytest
-from mock import MagicMock, patch
+from mock import patch
 
 import runez
+from runez.conftest import verify_abort
 
 
 def failed_function(*args):
-    with patch("runez.base.logging.root") as root:
+    with patch("runez.system.logging.root") as root:
         root.handlers = None
         runez.abort(*args)
 
@@ -26,9 +26,9 @@ def test_abort(logged):
 
     assert runez.abort("aborted", fatal=(None, "some-return")) == "some-return"
     assert not logged
-    assert "stderr: oops" in runez.verify_abort(failed_function, "oops")
+    assert "stderr: oops" in verify_abort(failed_function, "oops")
 
-    with patch("runez.base.AbortException", side_effect=str):
+    with patch("runez.system.AbortException", side_effect=str):
         assert runez.abort("oops", logger=None) == "1"
 
 
@@ -52,130 +52,6 @@ def test_anchored(temp_folder):
 
     with runez.Anchored(os.getcwd()):
         assert runez.short(current_path) == os.path.join("some-folder", "bar")
-
-
-def mock_package(package, **kwargs):
-    globs = {"__package__": package}
-    for key, value in kwargs.items():
-        globs["__%s__" % key] = value
-
-    return MagicMock(f_globals=globs)
-
-
-def test_auto_import_siblings():
-    # Check that none of these invocations raise an exception
-    assert not runez.base.actual_caller_frame(mock_package(None))
-    assert not runez.base.actual_caller_frame(mock_package(""))
-    assert not runez.base.actual_caller_frame(mock_package("_pydevd"))
-    assert not runez.base.actual_caller_frame(mock_package("_pytest.foo"))
-    assert not runez.base.actual_caller_frame(mock_package("pluggy.hooks"))
-    assert not runez.base.actual_caller_frame(mock_package("runez"))
-    assert not runez.base.actual_caller_frame(mock_package("runez.base"))
-
-    assert runez.base.actual_caller_frame(mock_package("foo"))
-    assert runez.base.actual_caller_frame(mock_package("runez.base", name="__main__"))
-
-    with pytest.raises(ImportError):
-        with patch("runez.base.find_caller_frame", return_value=None):
-            runez.auto_import_siblings()
-
-    with pytest.raises(ImportError):
-        with patch("runez.base.find_caller_frame", return_value=mock_package("foo", name="__main__")):
-            runez.auto_import_siblings()
-
-    with pytest.raises(ImportError):
-        with patch("runez.base.find_caller_frame", return_value=mock_package(None)):
-            runez.auto_import_siblings()
-
-    with pytest.raises(ImportError):
-        with patch("runez.base.find_caller_frame", return_value=mock_package("foo")):
-            runez.auto_import_siblings()
-
-    with pytest.raises(ImportError):
-        with patch("runez.base.find_caller_frame", return_value=mock_package("foo", file="/dev/null/foo")):
-            runez.auto_import_siblings()
-
-    with patch.dict(os.environ, {"TOX_WORK_DIR": "some-value"}, clear=True):
-        imported = runez.auto_import_siblings(skip=["tests.test_base", "tests.test_serialize"])
-        assert len(imported) == 21
-
-        assert "tests.conftest" in imported
-        assert "tests.secondary" in imported
-        assert "tests.secondary.test_import" in imported
-        assert "tests.test_base" not in imported
-        assert "tests.test_click" in imported
-        assert "tests.test_serialize" not in imported
-
-    imported = runez.auto_import_siblings(skip=["tests.secondary"])
-    assert len(imported) == 21
-    assert "tests.conftest" in imported
-    assert "tests.secondary" not in imported
-    assert "tests.secondary.test_import" not in imported
-    assert "tests.test_base" in imported
-
-
-def test_base():
-    assert runez.capped(123, minimum=200) == 200
-    assert runez.capped(123, maximum=100) == 100
-    assert runez.capped(123, minimum=100, maximum=200) == 123
-    assert runez.capped(123, minimum=100, maximum=110) == 110
-
-    assert runez.decode(None) is None
-    assert runez.decode(" something ") == " something "
-    assert runez.decode(" something ", strip=True) == "something"
-
-    # len() depends on whether python was built with UCS-2 or UCS-4, we don't care here, just want to check decode() works OK with unicode
-    assert len(runez.decode(" lucky leaf ☘ is lucky 😀 ")) in (25, 26)
-    assert len(runez.decode(" lucky leaf ☘ is lucky 😀 ", strip=True)) in (23, 24)
-
-    assert runez.decode(b" something ") == " something "
-    assert runez.decode(b" something ", strip=True) == "something"
-
-    assert runez.first_meaningful_line("") is None
-    assert runez.first_meaningful_line("\n  \n\n") is None
-    assert runez.first_meaningful_line("\n\n\n  foo  \n\bar") == "foo"
-
-    # Verify that UNSET behaves as expected: evaluates to falsy, has correct representation
-    assert not runez.UNSET
-    assert bool(runez.UNSET) is False
-    assert str(runez.UNSET) == "UNSET"
-
-    assert runez.quoted(None) is None
-    assert runez.quoted("") == ""
-    assert runez.quoted(" ") == '" "'
-    assert runez.quoted('"') == '"'
-    assert runez.quoted("a b") == '"a b"'
-    assert runez.quoted('a="b"') == 'a="b"'
-    assert runez.quoted('foo a="b"') == """'foo a="b"'"""
-
-    assert runez.represented_args(None) == ""
-    assert runez.represented_args([]) == ""
-    assert runez.represented_args([0, 1, 2]) == "0 1 2"
-    assert runez.represented_args(["foo", {}, 0, [1, 2], {3: 4}, 5]) == 'foo {} 0 "[1, 2]" "{3: 4}" 5'
-
-    # Edge cases with test_stringified()
-    assert runez.stringified(5, converter=lambda x: None) == "5"
-    assert runez.stringified(5, converter=lambda x: x) == "5"
-
-    assert runez.base._formatted_string() == ""
-    assert runez.base._formatted_string("test") == "test"
-    assert runez.base._formatted_string("test", "bar") == "test"
-    assert runez.base._formatted_string("test %s", "bar") == "test bar"
-    assert runez.base._formatted_string("test %s %s", "bar") == "test %s %s"
-    assert runez.base._formatted_string(None) is None
-    assert runez.base._formatted_string(None, "bar") is None
-    assert runez.base._formatted_string("test", None) == "test"
-
-    assert runez.base.find_parent_folder("", {"foo"}) is None
-    assert runez.base.find_parent_folder("/a/b//", {""}) is None
-    assert runez.base.find_parent_folder("/a/b", {"a"}) == "/a"
-    assert runez.base.find_parent_folder("/a/b//", {"a"}) == "/a"
-    assert runez.base.find_parent_folder("//a/b//", {"a"}) == "//a"
-    assert runez.base.find_parent_folder("/a/b", {"b"}) == "/a/b"
-    assert runez.base.find_parent_folder("/a/B", {"a", "b"}) == "/a/B"  # case insensitive
-    assert runez.base.find_parent_folder("/a/b", {"c"}) is None
-    assert runez.base.find_parent_folder("/dev/null", {"foo"}) is None
-    assert "test_base.py" in runez.current_test()
 
 
 def test_capture_scope():
@@ -233,45 +109,6 @@ def test_capture_nested():
         assert "print2" not in logged1.stdout
         assert "print3" not in logged1.stdout
         assert "err3" not in logged1.stderr
-
-
-def test_descendants():
-    class Cat(object):
-        _foo = None
-
-    class FastCat(Cat):
-        pass
-
-    class LittleCatKitty(Cat):
-        pass
-
-    class CatMeow(FastCat):
-        pass
-
-    # By default, root ancestor is skipped, common prefix/suffix is removed, and name is lowercase-d
-    d = runez.class_descendants(Cat)
-    assert len(d) == 3
-    assert d["fast"] is FastCat
-    assert d["littlecatkitty"] is LittleCatKitty
-    assert d["meow"] is CatMeow
-
-    # Keep names as-is, including root ancestor
-    d = runez.class_descendants(Cat, adjust=lambda x, r: x.__name__)
-    assert len(d) == 4
-    assert d["Cat"] is Cat
-    assert d["FastCat"] is FastCat
-    assert d["LittleCatKitty"] is LittleCatKitty
-    assert d["CatMeow"] is CatMeow
-
-    assert FastCat._foo is None
-
-    # The 'adjust' function can also be used to simply modify descendants (but not track them)
-    def adjust(cls, root):
-        cls._foo = cls.__name__.lower()
-
-    d = runez.class_descendants(Cat, adjust=adjust)
-    assert len(d) == 0
-    assert FastCat._foo == "fastcat"
 
 
 def test_flattened():
@@ -364,7 +201,7 @@ def test_get_version():
         assert expected != "0.0.0"
         assert expected == runez.get_version(runez.__name__)
         assert expected == runez.get_version("runez")
-        assert expected == runez.get_version("runez.base")
+        assert expected == runez.get_version("runez.system")
         assert not logged
 
     with runez.CaptureOutput() as logged:
@@ -393,9 +230,64 @@ def test_shortened():
     assert runez.shortened((1, {"b": ["c", {"d", "e"}]})) == "(1, {b: [c, {d, e}]})"
 
     complex = {"a \n b": [1, None, "foo \n ,", {"a2": runez.abort, "c": runez.Anchored}], None: datetime.date(2019, 1, 1)}
-    assert runez.shortened(complex) == "{None: 2019-01-01, a b: [1, None, foo ,, {a2: function 'abort', c: class runez.base.Anchored}]}"
+    assert runez.shortened(complex) == "{None: 2019-01-01, a b: [1, None, foo ,, {a2: function 'abort', c: class runez.system.Anchored}]}"
     assert runez.shortened(complex, size=32) == "{None: 2019-01-01, a b: [1, N..."
 
     assert runez.shortened(" some  text ", size=32) == "some text"
     assert runez.shortened(" some  text ", size=7) == "some..."
     assert runez.shortened(" some  text ", size=0) == "some text"
+
+
+def test_system():
+    assert runez.capped(123, minimum=200) == 200
+    assert runez.capped(123, maximum=100) == 100
+    assert runez.capped(123, minimum=100, maximum=200) == 123
+    assert runez.capped(123, minimum=100, maximum=110) == 110
+
+    assert runez.decode(None) is None
+    assert runez.decode(" something ") == " something "
+    assert runez.decode(" something ", strip=True) == "something"
+
+    # len() depends on whether python was built with UCS-2 or UCS-4, we don't care here, just want to check decode() works OK with unicode
+    assert len(runez.decode(" lucky leaf ☘ is lucky 😀 ")) in (25, 26)
+    assert len(runez.decode(" lucky leaf ☘ is lucky 😀 ", strip=True)) in (23, 24)
+
+    assert runez.decode(b" something ") == " something "
+    assert runez.decode(b" something ", strip=True) == "something"
+
+    assert runez.first_meaningful_line("") is None
+    assert runez.first_meaningful_line("\n  \n\n") is None
+    assert runez.first_meaningful_line("\n\n\n  foo  \n\bar") == "foo"
+
+    # Verify that UNSET behaves as expected: evaluates to falsy, has correct representation
+    assert not runez.UNSET
+    assert bool(runez.UNSET) is False
+    assert str(runez.UNSET) == "UNSET"
+
+    assert runez.quoted(None) is None
+    assert runez.quoted("") == ""
+    assert runez.quoted(" ") == '" "'
+    assert runez.quoted('"') == '"'
+    assert runez.quoted("a b") == '"a b"'
+    assert runez.quoted('a="b"') == 'a="b"'
+    assert runez.quoted('foo a="b"') == """'foo a="b"'"""
+
+    assert runez.represented_args(None) == ""
+    assert runez.represented_args([]) == ""
+    assert runez.represented_args([0, 1, 2]) == "0 1 2"
+    assert runez.represented_args(["foo", {}, 0, [1, 2], {3: 4}, 5]) == 'foo {} 0 "[1, 2]" "{3: 4}" 5'
+
+    # Edge cases with test_stringified()
+    assert runez.stringified(5, converter=lambda x: None) == "5"
+    assert runez.stringified(5, converter=lambda x: x) == "5"
+
+    assert runez.system._formatted_string() == ""
+    assert runez.system._formatted_string("test") == "test"
+    assert runez.system._formatted_string("test", "bar") == "test"
+    assert runez.system._formatted_string("test %s", "bar") == "test bar"
+    assert runez.system._formatted_string("test %s %s", "bar") == "test %s %s"
+    assert runez.system._formatted_string(None) is None
+    assert runez.system._formatted_string(None, "bar") is None
+    assert runez.system._formatted_string("test", None) == "test"
+
+    assert "test_system.py" in runez.current_test()

@@ -17,11 +17,11 @@ import tempfile
 import _pytest.logging
 import pytest
 
-from runez.base import CaptureOutput, current_test, find_parent_folder, flattened, formatted, is_dryrun, LOG, represented_args, SHELL, shortened, Slotted, string_type, stringified, TempArgv, TrackedOutput, UNSET
 from runez.file import TempFolder
 from runez.logsetup import LogManager
-from runez.program import which
+from runez.program import find_parent_folder, which
 from runez.represent import header
+from runez.system import AbortException, CaptureOutput, current_test, flattened, formatted, is_dryrun, LOG, represented_args, SHELL, shortened, Slotted, string_type, stringified, TempArgv, TrackedOutput, UNSET
 
 try:
     from click import BaseCommand as _ClickCommand
@@ -75,6 +75,28 @@ def test_resource(*relative_path):
     tests = tests_folder()
     if tests:
         return os.path.join(tests, *relative_path)
+
+
+def verify_abort(func, *args, **kwargs):
+    """
+    Convenient wrapper around functions that should exit or raise an exception
+
+    Args:
+        func (callable): Function to execute
+        *args: Args to pass to 'func'
+        **kwargs: Named args to pass to 'func'
+
+    Returns:
+        (str): Chatter from call to 'func', if it did indeed raise
+    """
+    expected_exception = kwargs.pop("expected_exception", AbortException)
+    with CaptureOutput() as logged:
+        try:
+            value = func(*args, **kwargs)
+            assert False, "%s did not raise, but returned %s" % (func, value)
+
+        except expected_exception:
+            return stringified(logged)
 
 
 class IsolatedLogSetup(object):

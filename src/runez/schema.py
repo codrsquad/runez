@@ -12,9 +12,9 @@ Example:
 
 import inspect
 
-from runez.base import string_type, stringified
 from runez.convert import to_boolean, to_float, to_int
 from runez.date import to_date, to_datetime, UTC
+from runez.system import string_type, stringified
 
 
 Serializable = None  # type: type # Set to runez.Serializable class once parsing of runez.serialize.py is past that class definition

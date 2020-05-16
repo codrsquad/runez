@@ -1,8 +1,8 @@
 #  -*- encoding: utf-8 -*-
 
-from runez.base import AdaptedProperty, flattened, Slotted, string_type, stringified, UNSET
 from runez.colors import cast_style, uncolored
 from runez.convert import to_int
+from runez.system import AdaptedProperty, flattened, Slotted, string_type, stringified, UNSET
 
 
 NAMED_BORDERS = dict(

@@ -2,11 +2,7 @@
 Friendly misc/utils/convenience library
 """
 
-from runez import click, config, heartbeat, program, prompt, schema, serialize, thread
-from runez.base import abort, capped, decode, flattened, formatted, get_version, is_tty, quoted, represented_args, resolved_path, set_dryrun, short, shortened, stringified
-from runez.base import AbortException, AdaptedProperty, Anchored, CaptureOutput, CurrentFolder, Slotted, TempArgv, TrackedOutput, Undefined
-from runez.base import auto_import_siblings, class_descendants, current_test, find_parent_folder, first_meaningful_line, verify_abort
-from runez.base import PY2, SANITIZED, SHELL, UNIQUE, UNSET, WINDOWS
+from runez import click, config, heartbeat, program, prompt, schema, serialize, system, thread
 from runez.colors import ActivateColors, ColorManager as color, is_coloring, uncolored
 from runez.colors.named import black, blue, brown, gray, green, orange, plain, purple, red, teal, white, yellow
 from runez.colors.named import blink, bold, dim, invert, italic, strikethrough, underline
@@ -22,20 +18,20 @@ from runez.file import copy, delete, first_line, ini_to_dict, move, readlines, s
 from runez.heartbeat import Heartbeat
 from runez.logsetup import LogManager as log, LogSpec
 from runez.path import basename, ensure_folder, parent_folder
-from runez.program import check_pid, dev_folder, is_executable, is_younger, make_executable, program_path
+from runez.program import check_pid, dev_folder, find_parent_folder, is_executable, is_younger, make_executable, program_path
 from runez.program import require_installed, run, which
 from runez.prompt import ask_once
 from runez.represent import align, header, indented, PrettyTable
 from runez.serialize import json_sanitized, read_json, represented_json, save_json, Serializable
+from runez.system import abort, capped, decode, flattened, formatted, get_version, is_tty, quoted, represented_args, resolved_path, set_dryrun, short, shortened, stringified
+from runez.system import AbortException, AdaptedProperty, Anchored, CaptureOutput, CurrentFolder, Slotted, TempArgv, TrackedOutput, Undefined
+from runez.system import current_test, first_meaningful_line
+from runez.system import PY2, SANITIZED, SHELL, UNIQUE, UNSET, WINDOWS
 from runez.thread import thread_local_property, ThreadLocalSingleton
 
 __all__ = [
     "DRYRUN",
-    "click", "config", "heartbeat", "program", "prompt", "schema", "serialize", "thread",
-    "abort", "capped", "decode", "flattened", "formatted", "get_version", "is_tty", "quoted", "represented_args", "resolved_path", "set_dryrun", "short", "shortened", "stringified",
-    "AbortException", "AdaptedProperty", "Anchored", "CaptureOutput", "CurrentFolder", "Slotted", "TempArgv", "TrackedOutput", "Undefined",
-    "auto_import_siblings", "class_descendants", "current_test", "find_parent_folder", "first_meaningful_line", "verify_abort",
-    "PY2", "SANITIZED", "SHELL", "UNIQUE", "UNSET", "WINDOWS",
+    "click", "config", "heartbeat", "program", "prompt", "schema", "serialize", "system", "thread",
     "ActivateColors", "color", "is_coloring", "uncolored",
     "black", "blue", "brown", "gray", "green", "orange", "plain", "purple", "red", "teal", "white", "yellow",
     "blink", "bold", "dim", "invert", "italic", "strikethrough", "underline",
@@ -51,17 +47,16 @@ __all__ = [
     "Heartbeat",
     "log", "LogSpec",
     "basename", "ensure_folder", "parent_folder",
-    "check_pid", "dev_folder", "is_executable", "is_younger", "make_executable", "program_path",
+    "check_pid", "dev_folder", "find_parent_folder", "is_executable", "is_younger", "make_executable", "program_path",
     "require_installed", "run", "which",
     "ask_once",
     "align", "header", "indented", "PrettyTable",
     "json_sanitized", "read_json", "represented_json", "save_json", "Serializable",
+    "abort", "capped", "decode", "flattened", "formatted", "get_version", "is_tty", "quoted", "represented_args", "resolved_path", "set_dryrun", "short", "shortened", "stringified",
+    "AbortException", "AdaptedProperty", "Anchored", "CaptureOutput", "CurrentFolder", "Slotted", "TempArgv", "TrackedOutput", "Undefined",
+    "current_test", "first_meaningful_line",
+    "PY2", "SANITIZED", "SHELL", "UNIQUE", "UNSET", "WINDOWS",
     "thread_local_property", "ThreadLocalSingleton",
 ]
 
 DRYRUN = False
-
-
-class system:
-    # This is here for temporary backwars compatibility, because runez.system.AbortException was removed
-    pass

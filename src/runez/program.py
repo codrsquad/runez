@@ -7,7 +7,7 @@ import subprocess  # nosec
 import sys
 import time
 
-from runez.base import abort, AbortException, decode, find_parent_folder, flattened, is_dryrun, LOG, represented_args, SHELL, short, WINDOWS
+from runez.system import abort, AbortException, decode, flattened, is_dryrun, LOG, represented_args, SHELL, short, WINDOWS
 
 
 DEFAULT_INSTRUCTIONS = {
@@ -50,6 +50,25 @@ def dev_folder():
         (str | None): Path to development build folder, such as .venv, .tox etc, if any
     """
     return find_parent_folder(sys.prefix, {"venv", ".venv", ".tox", "build"})
+
+
+def find_parent_folder(path, basenames):
+    """
+    Args:
+        path (str): Path to examine, first parent folder with basename in `basenames` is returned (case insensitive)
+        basenames (set): List of acceptable basenames (must be lowercase)
+
+    Returns:
+        (str | None): Path to first containing folder of `path` with one of the `basenames`
+    """
+    if not path or len(path) <= 1:
+        return None
+
+    dirpath, basename = os.path.split(path)
+    if basename and basename.lower() in basenames:
+        return path
+
+    return find_parent_folder(dirpath, basenames)
 
 
 def is_executable(path):

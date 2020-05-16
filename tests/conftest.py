@@ -4,10 +4,10 @@ import pytest
 
 import runez
 from runez.__main__ import main
-from runez.base import CaptureOutput, LOG, short, stringified
 from runez.conftest import cli, isolated_log_setup, IsolatedLogSetup, logged, temp_folder
 from runez.file import readlines
 from runez.logsetup import LogManager
+from runez.system import CaptureOutput, LOG, short, stringified
 
 
 runez.date.DEFAULT_TIMEZONE = runez.date.UTC

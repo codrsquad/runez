@@ -4,8 +4,8 @@ import datetime
 import re
 import time
 
-from runez.base import string_type, stringified, UNSET
 from runez.convert import _float_from_text
+from runez.system import string_type, stringified, UNSET
 
 
 DEFAULT_TIMEZONE = None
