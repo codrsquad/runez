@@ -51,12 +51,11 @@ def say_hello(color, config, debug, log):
     """Say hello"""
     # When --config is exposed, global config is NOT modified
     assert not runez.config.CONFIG.providers
+    assert runez.log.spec.file_location is None
     # Intentionally set global runez.config.CONFIG to verify it has been restored at the end of the test command run
     runez.config.CONFIG = config
     assert len(config.providers) == 4
     assert "propsfs" in config.overview()
-    assert runez.log.debug is debug
-    assert runez.log.spec.file_location is log
     msg = "color: %s, a=%s c=%s, debug: %s, dryrun: %s, log: %s" % (color, config.get("a"), config.get("c"), debug, runez.DRYRUN, log)
     print(msg)
 
@@ -76,47 +75,37 @@ def test_group(cli):
     cli.main = my_group
     cli.expect_success("--version", "my-group, version ")
     cli.expect_success(["--help"], "--color / --no-color", "--log PATH", "Repeat provided text")
-    assert not runez.config.CONFIG.providers
 
     cli.run("--color echo hello")
     assert cli.succeeded
     cli.assert_printed("hello, color: True, 0 values, g.a=None, debug: False, dryrun: None, log: None")
-    assert not runez.config.CONFIG.providers
 
     cli.run("--no-color --dryrun -ca=b --config c=d --log foo echo hello")
     assert cli.succeeded
     cli.assert_printed("hello, color: False, 2 values, g.a=b, debug: True, dryrun: True, log: foo")
-    assert not runez.config.CONFIG.providers
-    assert runez.log.spec.file_location is None
 
 
 def test_command(cli):
     cli.main = say_hello
     cli.expect_success("--version", "say-hello, version ")
     cli.expect_success(["--help"], "-x, --color / --no-color", "--log PATH", "Say hello")
-    assert not runez.config.CONFIG.providers
 
     cli.run("--no-color")
     assert cli.succeeded
     cli.assert_printed("color: False, a=b c=d, debug: None, dryrun: False, log: None")
-    assert not runez.config.CONFIG.providers
 
     cli.run("-x")
     assert cli.succeeded
     assert "color: True" in cli.logged.stdout
-    assert not runez.config.CONFIG.providers
 
     cli.run("--color --debug --config=a=x -c c=y --log=foo")
     assert cli.succeeded
     cli.assert_printed("color: True, a=x c=y, debug: True, dryrun: False, log: foo")
-    assert not runez.config.CONFIG.providers
 
     with patch.dict(os.environ, {"MY_PROG_A": "some-value"}, clear=True):
         cli.run("")
         assert cli.succeeded
-        cli.assert_printed("color: False, a=some-value c=d, debug: None, dryrun: False, log: None")
-
-    assert not runez.config.CONFIG.providers
+        cli.assert_printed("color: None, a=some-value c=d, debug: None, dryrun: False, log: None")
 
 
 def sample_config(**attrs):
@@ -128,14 +117,14 @@ def sample_config(**attrs):
 def test_config(logged):
     with patch.dict(os.environ, {}, clear=True):
         # sys.argv is used as env var prefix when env=True is used
-        config = sample_config(env=True)("")
+        config = sample_config(env=True)(None, None, "")
         assert str(config) == "--config, PYTEST_* env vars"
         assert "Adding config provider PYTEST_*" in logged.pop()
 
     with patch.dict(os.environ, {"MY_PROG_A": "via env"}, clear=True):
         propsfs = runez.conftest.test_resource("sample")
         config = sample_config(env="MY_PROG", default="x=y", propsfs=propsfs, separator=",")
-        c1 = config("")
+        c1 = config(None, None, "")
         assert str(c1) == "--config, MY_PROG_* env vars, propsfs, --config default"
         assert logged.pop()
         assert c1.get("x") == "y"
@@ -144,7 +133,7 @@ def test_config(logged):
         logged.assert_printed("Using some-int='123' from propsfs")
 
         # 'some-int' from propsfs sample is overridden
-        c2 = config("x=overridden,some-int=12,twenty-k=20kb,five-one-g=5.1g")
+        c2 = config(None, None, "x=overridden,some-int=12,twenty-k=20kb,five-one-g=5.1g")
         assert logged.pop()
         assert c1.get_str("key") is None
         assert not logged

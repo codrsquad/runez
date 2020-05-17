@@ -54,8 +54,7 @@ def config(*args, **attrs):
     attrs.setdefault("metavar", "KEY=VALUE")
     attrs.setdefault("multiple", True)
     attrs.setdefault("expose_value", False)
-    c = _ConfigOption(attrs)
-    _auto_complete_callback(attrs, c)
+    attrs.setdefault("callback", _ConfigOption(attrs))
     return option(config, *args, **attrs)
 
 
@@ -154,12 +153,12 @@ def option(func, *args, **attrs):
 
 
 def _auto_complete_callback(attrs, func):
-    if attrs.get("callback") is None:
+    if not attrs.get("expose_value", True) and attrs.get("callback") is None:
         def _callback(ctx, param, value):
             value = func(value)
             return value
 
-        attrs.setdefault("callback", _callback)
+        attrs["callback"] = _callback
 
 
 class _ConfigOption(object):
@@ -188,7 +187,7 @@ class _ConfigOption(object):
         config.add(provider)
         return values
 
-    def __call__(self, value):
+    def __call__(self, ctx, param, value):
         c = runez.config.Configuration(tracer=self.tracer)
         self._add_dict(c, self.name, self._get_values(value))
 
