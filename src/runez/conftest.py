@@ -17,6 +17,8 @@ import tempfile
 import _pytest.logging
 import pytest
 
+import runez.config
+from runez.colors import ActivateColors
 from runez.file import TempFolder
 from runez.logsetup import LogManager
 from runez.program import find_parent_folder, which
@@ -106,36 +108,36 @@ class IsolatedLogSetup(object):
     """
 
     def __init__(self, adjust_tmp=True):
+        """
+        Args:
+            adjust_tmp (bool): If True, create a temp folder and cd to it while in context
+        """
         self.adjust_tmp = adjust_tmp
         self.temp_folder = None
 
     def __enter__(self, tmp=False):
-        """Context manager to save and restore log setup, useful for testing"""
         WrappedHandler.isolation += 1
+        self.color_context = ActivateColors(enable=False, flavor="neutral")
+        self.color_context.__enter__()
+        self.prev_config = runez.config.CONFIG
+        self.old_spec = LogManager.spec
         self.old_handlers = logging.root.handlers
         logging.root.handlers = []
-
         if self.adjust_tmp:
-            # Adjust log.spec.tmp, and leave logging.root without any predefined handlers
-            # intent: underlying wants to perform their own log.setup()
-            self.old_spec = LogManager.spec.tmp
             self.temp_folder = TempFolder()
             LogManager.spec.tmp = self.temp_folder.__enter__()
-            return LogManager.spec.tmp
 
-        # If we're not adjusting tmp, then make sure we have at least one logging handler defined
-        handler = logging.StreamHandler(stream=sys.stderr)
-        handler.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
-        handler.setLevel(logging.DEBUG)
-        logging.root.addHandler(handler)
+        return self.temp_folder and self.temp_folder.tmp_folder
 
     def __exit__(self, *_):
-        WrappedHandler.isolation -= 1
+        self.color_context.__exit__()
+        runez.config.CONFIG = self.prev_config
         LogManager.reset()
         logging.root.handlers = self.old_handlers
+        WrappedHandler.isolation -= 1
         if self.temp_folder:
             LogManager.spec.tmp = self.old_spec
-            self.temp_folder.__exit__(*_)
+            self.temp_folder.__exit__()
 
 
 @pytest.fixture
@@ -175,8 +177,8 @@ cli.context = TempFolder
 @pytest.fixture
 def isolated_log_setup():
     """Log settings restored"""
-    with IsolatedLogSetup():
-        yield
+    with IsolatedLogSetup() as tmp:
+        yield tmp
 
 
 @pytest.fixture
@@ -217,15 +219,12 @@ class WrappedHandler(_pytest.logging.LogCaptureHandler):
                 super(WrappedHandler, self).emit(record)
 
     @classmethod
-    def find_wrapper(cls):
-        """
-        Returns:
-            (WrappedHandler | None): WrappedHandler is logging.root, if present
-        """
+    def remove_accumulated_logs(cls):
+        """Reset pytest log accumulator"""
         if logging.root.handlers:
             for handler in logging.root.handlers:
                 if handler and handler.__class__ is WrappedHandler:
-                    return handler
+                    handler.reset()
 
 
 _pytest.logging.LogCaptureHandler = WrappedHandler
@@ -272,6 +271,10 @@ class ClickWrapper(object):
             (ClickWrapper| click.testing.CliRunner): CliRunner if available
         """
         if _ClickCommand is not None and isinstance(main, _ClickCommand):
+            if "LANG" not in os.environ:
+                # Avoid click complaining about unicode for tests that mock env vars
+                os.environ["LANG"] = "en_US.UTF-8"
+
             return _CliRunner()
 
         return cls()
@@ -317,6 +320,9 @@ class ClickRunner(object):
 
         return self._tests_folder
 
+    def assert_printed(self, expected):
+        self.logged.assert_printed(expected)
+
     def test_resource(self, *relative_path):
         """
         Args:
@@ -352,6 +358,11 @@ class ClickRunner(object):
         with IsolatedLogSetup(adjust_tmp=False):
             with CaptureOutput(dryrun=is_dryrun()) as logged:
                 self.logged = logged
+                # Define a logging handler, IsolatedLogSetup cleared them all
+                handler = logging.StreamHandler(stream=logged.stderr.buffer)
+                handler.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
+                handler.setLevel(logging.DEBUG)
+                logging.root.addHandler(handler)
                 runner = ClickWrapper.new_runner(self.main)
                 result = runner.invoke(self.main, args=self.args)
                 if result.output:
@@ -367,10 +378,7 @@ class ClickRunner(object):
                 self.exit_code = result.exit_code
 
         if self.logged:
-            handler = WrappedHandler.find_wrapper()
-            if handler:
-                handler.reset()
-
+            WrappedHandler.remove_accumulated_logs()
             title = header("Captured output for: %s" % represented_args(self.args), border="==")
             LOG.info("\n%s\nmain: %s\nexit_code: %s\n%s\n", title, self.main, self.exit_code, self.logged)
 

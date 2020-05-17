@@ -11,16 +11,21 @@ Convenience commonly used click options:
 
 from __future__ import absolute_import
 
+import os
+import sys
+
 try:
     import click
 
 except ImportError:  # pragma: no cover, click used only if installed
     click = None
 
+import runez.config
 from runez.colors import ColorManager
-from runez.config import use_cli
+from runez.convert import affixed
 from runez.logsetup import LogManager
-from runez.system import _is_actual_caller_frame, find_caller_frame, flattened, get_version
+from runez.path import basename
+from runez.system import _is_actual_caller_frame, find_caller_frame, flattened, get_version, string_type
 
 
 def command(help=None, width=140, **attrs):
@@ -40,7 +45,7 @@ def color(*args, **attrs):
     attrs.setdefault("is_flag", "negatable")
     attrs.setdefault("default", None)
     attrs.setdefault("expose_value", False)
-    auto_complete_callback(attrs, ColorManager.activate_colors)
+    _auto_complete_callback(attrs, ColorManager.activate_colors)
     return option(color, *args, **attrs)
 
 
@@ -48,7 +53,9 @@ def config(*args, **attrs):
     """Override configuration"""
     attrs.setdefault("metavar", "KEY=VALUE")
     attrs.setdefault("multiple", True)
-    auto_complete_callback(attrs, use_cli)
+    attrs.setdefault("expose_value", False)
+    c = _ConfigOption(attrs)
+    _auto_complete_callback(attrs, c)
     return option(config, *args, **attrs)
 
 
@@ -56,7 +63,7 @@ def debug(*args, **attrs):
     """Show debugging information."""
     attrs.setdefault("is_flag", True)
     attrs.setdefault("default", None)
-    auto_complete_callback(attrs, LogManager.set_debug)
+    _auto_complete_callback(attrs, LogManager.set_debug)
     return option(debug, *args, **attrs)
 
 
@@ -64,7 +71,8 @@ def dryrun(*args, **attrs):
     """Perform a dryrun."""
     attrs.setdefault("is_flag", True)
     attrs.setdefault("default", None)
-    auto_complete_callback(attrs, LogManager.set_dryrun)
+    attrs.setdefault("expose_value", False)
+    _auto_complete_callback(attrs, LogManager.set_dryrun)
     return option(dryrun, *args, **attrs)
 
 
@@ -72,7 +80,7 @@ def log(*args, **attrs):
     """Override log file location."""
     attrs.setdefault("metavar", "PATH")
     attrs.setdefault("show_default", False)
-    auto_complete_callback(attrs, LogManager.set_file_location)
+    _auto_complete_callback(attrs, LogManager.set_file_location)
     return option(log, *args, **attrs)
 
 
@@ -145,13 +153,72 @@ def option(func, *args, **attrs):
     return decorator
 
 
-def auto_complete_callback(attrs, func):
-    if attrs.get("expose_value") is False and attrs.get("callback") is None:
+def _auto_complete_callback(attrs, func):
+    if attrs.get("callback") is None:
         def _callback(ctx, param, value):
-            func(value)
+            value = func(value)
             return value
 
         attrs.setdefault("callback", _callback)
+
+
+class _ConfigOption(object):
+    def __init__(self, attrs):
+        self.adapter = attrs.pop("adapter", str.lower)
+        self.default = attrs.pop("default", None)  # Defaults can't go via click, otherwise they always take precedence
+        self.env = attrs.pop("env", None)
+        self.name = "--%s" % attrs.get("name", "config")
+        self.prefix = attrs.pop("prefix", None)
+        self.propsfs = attrs.pop("propsfs", None)
+        self.separator = attrs.pop("separator", None)
+        self.set_global = not attrs.get("expose_value")
+        self.tracer = attrs.pop("tracer", None)
+
+    def _get_values(self, value):
+        value = flattened(value, split=self.separator)
+        values = [t.partition("=") for t in value if t]
+        values = dict((k, v) for k, _, v in values)
+        if self.prefix:
+            values = dict((affixed(k, prefix=self.prefix), v) for k, v in values.items())
+
+        return values
+
+    def _add_dict(self, config, name, values):
+        provider = runez.config.DictProvider(values, name=name)
+        config.add(provider)
+        return values
+
+    def __call__(self, value):
+        c = runez.config.Configuration(tracer=self.tracer)
+        self._add_dict(c, self.name, self._get_values(value))
+
+        if self.env:
+            env_prefix = self.env if isinstance(self.env, string_type) else basename(sys.argv[0]).upper()
+            if not env_prefix.endswith("_"):
+                env_prefix += "_"
+
+            values = {}
+            for k, v in os.environ.items():
+                if k.startswith(env_prefix):
+                    k = k[len(env_prefix):]
+                    if self.adapter is not None:
+                        k = self.adapter(k)
+
+                    values[k] = v
+
+            self._add_dict(c, "%s* env vars" % env_prefix, values)
+
+        if self.propsfs:
+            folder = self.propsfs if isinstance(self.propsfs, string_type) else None
+            c.add(runez.config.PropsfsProvider(folder))
+
+        if self.default:
+            self._add_dict(c, self.name + " default", self._get_values(self.default))
+
+        if self.set_global:
+            runez.config.CONFIG = c
+
+        return c
 
 
 def _frame_has_package(f):

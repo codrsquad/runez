@@ -6,11 +6,9 @@ Usage example:
     import runez
 
     # One time initialization, call this from your main()
-    @click.command()
-    @click.option("--config", metavar="KEY=VALUE", multiple=True, help="Override configuration")
-    def main(config):
-        runez.config.use_cli(config)
-        runez.config.use_env_vars(prefix="MY_PROGRAM_")
+    @runez.click.command()
+    @runez.click.config(default="foo=5", env="MY_PROGRAM")
+    def main():
         runez.config.use_json("~/.config/my-program.json", "/etc/my-program.json")
 
     # Get values from anywhere in your code
@@ -24,8 +22,8 @@ import json
 import os
 import sys
 
-from runez.convert import affixed, snakified, to_boolean, to_bytesize, to_float, to_int
-from runez.system import capped, decode, flattened, SANITIZED, stringified
+from runez.convert import to_boolean, to_bytesize, to_float, to_int
+from runez.system import capped, decode, stringified
 
 
 class Configuration:
@@ -37,22 +35,26 @@ class Configuration:
     Adding a 2nd provider with same id as an existing one replaces it (instead of being added)
     """
 
-    # Optional callable to report which values were successfully looked up (set to something like logging.debug for example)
-    tracer = None  # type: callable
-
-    def __init__(self, *providers):
+    def __init__(self, providers=None, tracer=None):
         """
         Args:
-            *providers: Providers to use (optional)
+            providers (list | None): Providers to use (optional)
+            tracer (callable | None): Optional callable to report config activity (set to something like logging.debug for example)
         """
         self.providers = []
-        self.set_providers(*providers)
+        self.tracer = tracer
+        if providers is not None:
+            for provider in providers:
+                self.add(provider)
 
     def __repr__(self):
         if not self.providers:
             return "empty"
 
         return ", ".join(stringified(p) for p in self.providers)
+
+    def __len__(self):
+        return sum(len(p) for p in self.providers)
 
     def overview(self, separator=", "):
         """str: A short overview of current providers"""
@@ -70,6 +72,7 @@ class Configuration:
         """Replace current providers with given ones"""
         if self.providers:
             self.clear()
+
         for provider in providers:
             self.add(provider)
 
@@ -94,52 +97,10 @@ class Configuration:
 
         return None
 
-    def use_propsfs(self, folder=None, front=False):
-        """
-        Args:
-            folder (str | unicode | None): Optional custom mount folder (defaults to /mnt/props on Linux, and /Volumes/props on OSX)
-            front (bool): If True, add provider to front of list
-        """
-        if folder is None:
-            folder = "/%s/props" % ("Volumes" if sys.platform == "darwin" else "mnt")
-
-        self.add(PropsfsProvider(folder), front=front)
-
-    def use_cli(self, config, prefix=None, name="--config", front=True):
-        """
-        Args:
-            config: Multi-value option, typically tuple from click CLI flag such as --config
-            prefix (str | unicode | None): Prefix to add to all provided keys
-            name (str | unicode): Name of cli flag
-            front (bool): If True, add provider to front of list
-        """
-        if config is not None:
-            provider = DictProvider(parsed_dict(config, prefix=prefix), name=name)
-            self.add(provider, front=front)
-
-    def use_env_vars(self, prefix=None, suffix=None, normalizer=snakified, name=None, front=True):
-        """
-        Args:
-            prefix (str | None): Prefix to normalize keys with
-            suffix (str | None): Suffix to normalize keys with
-            normalizer (callable | None): Optional key normalizer to use (default: uppercase + snakified)
-            name (str | unicode): Name to identify config provider as
-            front (bool): If True, add provider to front of list
-        """
-        if name is None:
-            if prefix or suffix:
-                name = "%s env vars" % affixed("*", prefix=prefix, suffix=suffix)
-
-            else:
-                name = "env vars"
-
-        provider = DictProvider(os.environ, name=name, prefix=prefix, suffix=suffix, normalizer=normalizer)
-        self.add(provider, front=front)
-
     def use_json(self, *paths):
         """
         Args:
-            *paths (str | unicode): Paths to files to add as static DictProvider-s, only existing files are added
+            *paths (str): Paths to files to add as static DictProvider-s, only existing files are added
         """
         for path in paths:
             if path:
@@ -155,24 +116,26 @@ class Configuration:
             provider (ConfigProvider): Provider to add
             front (bool): If True, add provider to front of list
         """
-        if provider:
-            i = self.provider_id_slot(provider)
-            if i is not None:
-                self._trace("Replacing config provider %s at index %s" % (provider, i))
-                self.providers[i] = provider
+        if not isinstance(provider, ConfigProvider):
+            raise ValueError("Invalid config provider '%s'" % provider)
 
-            elif front and self.providers:
-                self._trace("Adding config provider %s to front" % provider)
-                self.providers.insert(0, provider)
+        i = self.provider_id_slot(provider)
+        if i is not None:
+            self._trace("Replacing config provider %s at index %s" % (provider, i))
+            self.providers[i] = provider
 
-            else:
-                self._trace("Adding config provider %s" % provider)
-                self.providers.append(provider)
+        elif front and self.providers:
+            self._trace("Adding config provider %s to front" % provider)
+            self.providers.insert(0, provider)
+
+        else:
+            self._trace("Adding config provider %s" % provider)
+            self.providers.append(provider)
 
     def get(self, key, default=None):
         """
         Args:
-            key (str | unicode | None): Key to lookup
+            key (str | None): Key to lookup
             default: Default to use if key is not configured
 
         Returns:
@@ -190,8 +153,8 @@ class Configuration:
     def get_str(self, key, default=None):
         """
         Args:
-            key (str | unicode | None): Key to lookup
-            default (str | unicode | None): Default to use if key is not configured
+            key (str | None): Key to lookup
+            default (str | None): Default to use if key is not configured
 
         Returns:
             (str | None): Value of key, if defined
@@ -204,7 +167,7 @@ class Configuration:
     def get_int(self, key, default=None, minimum=None, maximum=None):
         """
         Args:
-            key (str | unicode): Key to lookup
+            key (str): Key to lookup
             default (int | None): Default to use if key is not configured
             minimum (int | None): If specified, result can't be below this minimum
             maximum (int | None): If specified, result can't be above this maximum
@@ -217,7 +180,7 @@ class Configuration:
     def get_float(self, key, default=None, minimum=None, maximum=None):
         """
         Args:
-            key (str | unicode): Key to lookup
+            key (str): Key to lookup
             default (float | None): Default to use if key is not configured
             minimum (float | None): If specified, result can't be below this minimum
             maximum (float | None): If specified, result can't be above this maximum
@@ -230,12 +193,11 @@ class Configuration:
     def get_bool(self, key, default=None):
         """
         Args:
-            key (str | unicode): Key to lookup
+            key (str): Key to lookup
             default (bool | None): Default to use if key is not configured
 
         Returns:
             (bool | None): Value of key, if defined
-
         """
         value = self.get_str(key)
         if value is not None:
@@ -247,11 +209,11 @@ class Configuration:
         """Size in bytes expressed by value configured under 'key'
 
         Args:
-            key (str | unicode): Key to lookup
-            default (int | str | unicode | None): Default to use if key is not configured
-            minimum (int | str | unicode | None): If specified, result can't be below this minimum
-            maximum (int | str | unicode | None): If specified, result can't be above this maximum
-            default_unit (str | unicode | None): Default unit for unqualified values
+            key (str): Key to lookup
+            default (int | str | None): Default to use if key is not configured
+            minimum (int | str | None): If specified, result can't be below this minimum
+            maximum (int | str | None): If specified, result can't be above this maximum
+            default_unit (str | None): Default unit for unqualified values
             base (int): Base to use (usually 1024)
 
         Returns:
@@ -266,8 +228,8 @@ class Configuration:
     def get_json(self, key, default=None):
         """
         Args:
-            key (str | unicode): Key to lookup
-            default (str | unicode | dict | list | None): Default to use if key is not configured
+            key (str): Key to lookup
+            default (str | dict | list | None): Default to use if key is not configured
 
         Returns:
             (dict | list | str | int | None): Deserialized json, if any
@@ -284,21 +246,100 @@ class Configuration:
         return from_json(default)
 
 
-CONFIG = Configuration()
+CONFIG = Configuration()  # Global config object, clients can decide to use this for simplicity
 
-clear = CONFIG.clear
-set_providers = CONFIG.set_providers
-use_propsfs = CONFIG.use_propsfs
-use_cli = CONFIG.use_cli
-use__env_vars = CONFIG.use_env_vars
-use_json = CONFIG.use_json
-get = CONFIG.get
-get_str = CONFIG.get_str
-get_int = CONFIG.get_int
-get_float = CONFIG.get_float
-get_bool = CONFIG.get_bool
-get_bytesize = CONFIG.get_bytesize
-get_json = CONFIG.get_json
+
+def get(key, default=None):
+    """
+    Args:
+        key (str | None): Key to lookup
+        default: Default to use if key is not configured
+
+    Returns:
+        Value of key, if defined
+    """
+    return CONFIG.get(key, default=default)
+
+
+def get_str(key, default=None):
+    """
+    Args:
+        key (str | None): Key to lookup
+        default (str | None): Default to use if key is not configured
+
+    Returns:
+        (str | None): Value of key, if defined
+    """
+    return CONFIG.get_str(key, default=default)
+
+
+def get_int(key, default=None, minimum=None, maximum=None):
+    """
+    Args:
+        key (str): Key to lookup
+        default (int | None): Default to use if key is not configured
+        minimum (int | None): If specified, result can't be below this minimum
+        maximum (int | None): If specified, result can't be above this maximum
+
+    Returns:
+        (int | None): Value of key, if defined
+    """
+    return CONFIG.get_int(key, default=default, minimum=minimum, maximum=maximum)
+
+
+def get_float(key, default=None, minimum=None, maximum=None):
+    """
+    Args:
+        key (str): Key to lookup
+        default (float | None): Default to use if key is not configured
+        minimum (float | None): If specified, result can't be below this minimum
+        maximum (float | None): If specified, result can't be above this maximum
+
+    Returns:
+        (float | None): Value of key, if defined
+    """
+    return CONFIG.get_float(key, default=default, minimum=minimum, maximum=maximum)
+
+
+def get_bool(key, default=None):
+    """
+    Args:
+        key (str): Key to lookup
+        default (bool | None): Default to use if key is not configured
+
+    Returns:
+        (bool | None): Value of key, if defined
+    """
+    return CONFIG.get_bool(key, default=default)
+
+
+def get_bytesize(key, default=None, minimum=None, maximum=None, default_unit=None, base=1024):
+    """Size in bytes expressed by value configured under 'key'
+
+    Args:
+        key (str): Key to lookup
+        default (int | str | None): Default to use if key is not configured
+        minimum (int | str | None): If specified, result can't be below this minimum
+        maximum (int | str | None): If specified, result can't be above this maximum
+        default_unit (str | None): Default unit for unqualified values
+        base (int): Base to use (usually 1024)
+
+    Returns:
+        (int): Size in bytes
+    """
+    return CONFIG.get_bytesize(key, default=default, minimum=minimum, maximum=maximum, default_unit=default_unit, base=base)
+
+
+def get_json(key, default=None):
+    """
+    Args:
+        key (str): Key to lookup
+        default (str | dict | list | None): Default to use if key is not configured
+
+    Returns:
+        (dict | list | str | int | None): Deserialized json, if any
+    """
+    return CONFIG.get_json(key, default=default)
 
 
 class ConfigProvider:
@@ -306,44 +347,28 @@ class ConfigProvider:
     Interface for config providers, that associate a value to a given key
     """
 
-    key_normalizer = None  # Optional callable to use to normalize keys on query
-    prefix = None  # Optional prefix to use
-    suffix = None  # Optional suffix to use
-
     def __repr__(self):
         return self.provider_id()
 
+    def __len__(self):
+        return 0
+
     def overview(self):
         """str: A short overview of this provider"""
-        return stringified(self)
+        return "%s: %s values" % (self.provider_id(), len(self))
 
     def provider_id(self):
         """Id of this provider (there can only be one active at a time)"""
         return self.__class__.__name__.replace("Provider", "").lower()
 
-    def normalized_key(self, key):
-        """
-        Args:
-            key (str | unicode): Key being looked up
-
-        Returns:
-            (str): Normalized key to effectively use for lookup in this provider
-        """
-        return affixed(key, prefix=self.prefix, suffix=self.suffix, normalize=self.key_normalizer)
-
     def get(self, key):
         """
         Args:
-            key (str | unicode): Key to lookup
+            key (str): Key to lookup
 
         Returns:
             Configured value, if any
         """
-        normal_key = self.normalized_key(key)
-        return self._get(normal_key)
-
-    def _get(self, key):
-        """Effective implementation, to be provided by descendants"""
 
 
 class PropsfsProvider(ConfigProvider):
@@ -354,53 +379,55 @@ class PropsfsProvider(ConfigProvider):
     def __init__(self, folder):
         """
         Args:
-            folder (str | unicode): Path to propsfs virtual mount
+            folder (str): Path to propsfs virtual mount
         """
+        if not folder:
+            folder = "/%s/props" % ("Volumes" if sys.platform == "darwin" else "mnt")
+
         self.folder = folder
+
+    def __len__(self):
+        try:
+            names = os.listdir(self.folder)
+            return len(names)
+
+        except OSError:
+            return 0
 
     def overview(self):
         """str: A short overview of this provider"""
         return "%s: %s" % (self, self.folder)
 
-    def _get(self, key):
+    def get(self, key):
         try:
             path = os.path.join(self.folder, key)
             with open(path) as fh:
                 return decode(fh.read())
 
         except IOError:
-            pass
-
-        return None
+            return None
 
 
 class DictProvider(ConfigProvider):
     """Key-value pairs from a given dict"""
 
-    def __init__(self, values, name=None, prefix=None, suffix=None, normalizer=None):
+    def __init__(self, values, name=None):
         """
         Args:
             values (dict | None): Given values
-            name (str | unicode | None): Symbolic name given to this provider
-            prefix (str | None): Prefix to normalize keys with
-            suffix (str | None): Suffix to normalize keys with
-            normalizer (callable | None): Optional key normalizer to use
+            name (str | None): Symbolic name given to this provider
         """
         self.name = name or "dict"
-        self.values = values or {}
-        self.key_normalizer = normalizer
-        self.prefix = prefix
-        self.suffix = suffix
+        self._values = values or {}
 
-    def overview(self):
-        """str: A short overview of this provider"""
-        return "%s: %s values" % (self.name, len(self.values))
+    def __len__(self):
+        return len(self._values)
 
     def provider_id(self):
         return self.name
 
-    def _get(self, key):
-        return self.values.get(key)
+    def get(self, key):
+        return self._values.get(key)
 
 
 def from_json(value):
@@ -416,33 +443,3 @@ def from_json(value):
 
     except (TypeError, ValueError):
         return None
-
-
-def parsed_dict(value, prefix=None, separators="=,"):
-    """
-    Args:
-        value (str | None): Text with key/value pairs to parse into a dict
-        prefix (str | unicode | None): Optional prefix for keys (if provided, `prefix.` is added to all keys)
-        separators (str | unicode): 2 chars: 1st is assignment separator, 2nd is key-value pair separator
-
-    Returns:
-        (dict): Parse key/values
-    """
-    if not value or isinstance(value, dict):
-        return value or {}
-
-    result = {}
-    for val in flattened(value, split=(separators[1], SANITIZED)):
-        if not val:
-            continue
-
-        if hasattr(val, "partition"):
-            k, _, v = val.partition(separators[0])
-            k = k.strip()
-            if k:
-                v = v.strip()
-                if prefix and not k.startswith(prefix):
-                    k = "%s.%s" % (prefix, k)
-                result[k] = v
-
-    return result

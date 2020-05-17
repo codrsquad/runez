@@ -4,22 +4,30 @@
 Test click related methods
 """
 
+from __future__ import print_function
+
+import os
+
 import click
+from mock import patch
 
 import runez
+import runez.conftest
 
 
 @runez.click.group()
 @runez.click.version()
 @runez.click.color()
-@runez.click.config("-c", expose_value=False)
+@runez.click.config("-c", prefix="g.")
 @runez.click.debug(expose_value=False)
-@runez.click.dryrun(expose_value=False)
+@runez.click.dryrun()
 @runez.click.log(expose_value=False)
 def my_group():
-    config = runez.config.CONFIG.overview()
-    print("color: %s, %s" % (runez.is_coloring(), config))
-    print("debug: %s, dryrun: %s, log: %s" % (runez.DRYRUN, runez.log.debug, runez.log.spec.file_location))
+    # By default, --config value is NOT exposed, the global runez.config.CONFIG is altered
+    config = runez.config.CONFIG
+    assert len(config.providers) == 1
+    assert "--config: " in config.overview()
+    assert config.provider_by_name("--config") is not None
 
 
 @my_group.command()
@@ -27,20 +35,30 @@ def my_group():
 def echo(text):
     """Repeat provided text"""
     text = " ".join(text)
-    print(text)
+    msg = "%s, color: %s, %s values, g.a=%s" % (text, runez.is_coloring(), len(runez.config.CONFIG), runez.config.get("g.a"))
+    msg += ", debug: %s, dryrun: %s, log: %s" % (runez.DRYRUN, runez.log.debug, runez.log.spec.file_location)
+    print(msg)
 
 
 @runez.click.command()
 @runez.click.version()
 @runez.click.color("-x", expose_value=True)
-@runez.click.config("-c")
+@runez.click.config("-c", expose_value=True, default="a=b,c=d", separator=",", env="MY_PROG", propsfs=True)
 @runez.click.debug()
 @runez.click.dryrun()
 @runez.click.log()
-def say_hello(color, config, debug, dryrun, log):
+def say_hello(color, config, debug, log):
     """Say hello"""
-    print("color: %s, config: %s" % (color, config))
-    print("debug: %s, dryrun: %s, log: %s" % (debug, dryrun, log))
+    # When --config is exposed, global config is NOT modified
+    assert not runez.config.CONFIG.providers
+    # Intentionally set global runez.config.CONFIG to verify it has been restored at the end of the test command run
+    runez.config.CONFIG = config
+    assert len(config.providers) == 4
+    assert "propsfs" in config.overview()
+    assert runez.log.debug is debug
+    assert runez.log.spec.file_location is log
+    msg = "color: %s, a=%s c=%s, debug: %s, dryrun: %s, log: %s" % (color, config.get("a"), config.get("c"), debug, runez.DRYRUN, log)
+    print(msg)
 
 
 def test_settings():
@@ -58,31 +76,107 @@ def test_group(cli):
     cli.main = my_group
     cli.expect_success("--version", "my-group, version ")
     cli.expect_success(["--help"], "--color / --no-color", "--log PATH", "Repeat provided text")
+    assert not runez.config.CONFIG.providers
 
-    cli.expect_success(["--color", "echo", "hello"], "color: True, --config: 0 values", "hello")
-    cli.expect_success(["--no-color", "-c", "a=b", "echo", "hello"], "color: False, --config: 1 values")
-    cli.expect_success(["--config", "a=b", "-cc=d", "echo", "hello"], "--config: 2 values")
-    p = runez.config.CONFIG.provider_by_name("--config")
-    assert p
-    assert p.values["a"] == "b"
+    cli.run("--color echo hello")
+    assert cli.succeeded
+    cli.assert_printed("hello, color: True, 0 values, g.a=None, debug: False, dryrun: None, log: None")
+    assert not runez.config.CONFIG.providers
+
+    cli.run("--no-color --dryrun -ca=b --config c=d --log foo echo hello")
+    assert cli.succeeded
+    cli.assert_printed("hello, color: False, 2 values, g.a=b, debug: True, dryrun: True, log: foo")
+    assert not runez.config.CONFIG.providers
     assert runez.log.spec.file_location is None
-
-    cli.expect_success(["--log", "foo", "echo", "hi"], "log: foo")
-    assert runez.log.spec.file_location == "foo"
-
-    cli.expect_success(["--dryrun", "echo", "hi"], "--config: 0 values", "debug: True, dryrun: True")
-    assert runez.log.spec.file_location is None
-
-    runez.config.clear()
 
 
 def test_command(cli):
     cli.main = say_hello
     cli.expect_success("--version", "say-hello, version ")
     cli.expect_success(["--help"], "-x, --color / --no-color", "--log PATH", "Say hello")
+    assert not runez.config.CONFIG.providers
 
-    cli.expect_success([], "color: None, config: ()", "debug: None, dryrun: None, log: None")
-    cli.expect_success(["-x"], "color: True")
-    cli.expect_success(["--color", "--config=a=b", "-c", "c=d"], "color: True", "a=b", "c=d")
-    cli.expect_success(["--no-color", "--debug", "--log=foo"], "color: False", "debug: True, dryrun: None, log: foo")
-    assert runez.log.spec.file_location is None
+    cli.run("--no-color")
+    assert cli.succeeded
+    cli.assert_printed("color: False, a=b c=d, debug: None, dryrun: False, log: None")
+    assert not runez.config.CONFIG.providers
+
+    cli.run("-x")
+    assert cli.succeeded
+    assert "color: True" in cli.logged.stdout
+    assert not runez.config.CONFIG.providers
+
+    cli.run("--color --debug --config=a=x -c c=y --log=foo")
+    assert cli.succeeded
+    cli.assert_printed("color: True, a=x c=y, debug: True, dryrun: False, log: foo")
+    assert not runez.config.CONFIG.providers
+
+    with patch.dict(os.environ, {"MY_PROG_A": "some-value"}, clear=True):
+        cli.run("")
+        assert cli.succeeded
+        cli.assert_printed("color: False, a=some-value c=d, debug: None, dryrun: False, log: None")
+
+    assert not runez.config.CONFIG.providers
+
+
+def sample_config(**attrs):
+    attrs.setdefault("tracer", print)
+    c = runez.click._ConfigOption(attrs)
+    return c
+
+
+def test_config(logged):
+    with patch.dict(os.environ, {}, clear=True):
+        # sys.argv is used as env var prefix when env=True is used
+        config = sample_config(env=True)("")
+        assert str(config) == "--config, PYTEST_* env vars"
+        assert "Adding config provider PYTEST_*" in logged.pop()
+
+    with patch.dict(os.environ, {"MY_PROG_A": "via env"}, clear=True):
+        propsfs = runez.conftest.test_resource("sample")
+        config = sample_config(env="MY_PROG", default="x=y", propsfs=propsfs, separator=",")
+        c1 = config("")
+        assert str(c1) == "--config, MY_PROG_* env vars, propsfs, --config default"
+        assert logged.pop()
+        assert c1.get("x") == "y"
+        logged.assert_printed("Using x='y' from --config default")
+        assert c1.get_int("some-int") == 123
+        logged.assert_printed("Using some-int='123' from propsfs")
+
+        # 'some-int' from propsfs sample is overridden
+        c2 = config("x=overridden,some-int=12,twenty-k=20kb,five-one-g=5.1g")
+        assert logged.pop()
+        assert c1.get_str("key") is None
+        assert not logged
+        assert c2.get("x") == "overridden"
+        logged.assert_printed("Using x='overridden' from --config")
+        assert c2.get_int("some-int") == 12
+        logged.assert_printed("Using some-int='12' from --config")
+
+        # Test bytesize
+        assert c2.get_bytesize("some-int") == 12
+        assert c2.get_bytesize("some-int", default_unit="k") == 12 * 1024
+        assert c2.get_bytesize("some-int", default_unit="m") == 12 * 1024 * 1024
+
+        assert c2.get_bytesize("twenty-k") == 20 * 1024
+        assert c2.get_bytesize("five-one-g") == int(5.1 * 1024 * 1024 * 1024)
+
+        assert c2.get_bytesize("twenty-k", minimum=5, maximum=100) == 100
+
+        # Invalid default unit affects only ints without unit
+        assert c2.get_bytesize("some-int", default_unit="a") is None
+        assert c2.get_bytesize("twenty-k", default_unit="a") == 20 * 1024
+
+        assert c2.get_bytesize("some-string") is None
+        assert c2.get_bytesize("some-string", default=5) == 5
+        assert c2.get_bytesize("some-string", default="5k") == 5 * 1024
+        assert c2.get_bytesize("some-string", default=5, default_unit="k") == 5 * 1024
+        assert c2.get_bytesize("some-string", default="5m", default_unit="k") == 5 * 1024 * 1024
+        logged.pop()
+
+        # Shuffle things around
+        c2.add(c2.providers[0])
+        logged.assert_printed("Replacing config provider --config at index 0")
+
+        c2.add(runez.config.DictProvider({}, name="foo1"), front=True)
+        logged.assert_printed("Adding config provider foo1 to front")

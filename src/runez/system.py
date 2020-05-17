@@ -470,7 +470,7 @@ def stringified(value, converter=None, none="None"):
     if value is None:
         return none
 
-    return "%s" % value
+    return "{}".format(value)
 
 
 class AbortException(Exception):
@@ -660,10 +660,7 @@ class CapturedStream(object):
         self.buffer.write(message)
 
     def contents(self):
-        """
-        Returns:
-            (str): Contents of `self.buffer`
-        """
+        """str: Contents of this capture"""
         return self.buffer.getvalue()
 
     def _start_capture(self):
@@ -683,13 +680,16 @@ class CapturedStream(object):
         else:
             setattr(sys, self.name, self.original)
 
-    def pop(self, strip=False):
+    def assert_printed(self, expected):
+        """Assert that 'expected' matches current output exactly (modulo trailing spaces/newlines), and clear current capture"""
+        content = self.pop()
+        assert content == expected
+
+    def pop(self):
         """Current content popped, useful for testing"""
         r = self.contents()
         self.clear()
-        if r and strip:
-            r = r.strip()
-        return r
+        return r.strip()
 
     def clear(self):
         """Clear captured content"""
@@ -812,11 +812,17 @@ class TrackedOutput(object):
     def contents(self):
         return "".join(s.contents() for s in self.captured)
 
+    def assert_printed(self, expected):
+        """Assert that 'expected' matches current stdout exactly (modulo trailing spaces/newlines), and clear current capture"""
+        self.stdout.assert_printed(expected)
+        if self.stderr is not None:
+            self.stderr.clear()
+
     def pop(self):
         """Current content popped, useful for testing"""
         r = self.contents()
         self.clear()
-        return r
+        return r.strip()
 
     def clear(self):
         """Clear captured content"""

@@ -37,6 +37,16 @@ class TempLog(object):
         if LogManager.file_handler:
             return short(LogManager.file_handler.baseFilename)
 
+    def pop(self):
+        content = ""
+        if self.stdout is not None:
+            content += self.stdout.pop()
+
+        if self.stderr is not None:
+            content += "\n" + self.stderr.pop()
+
+        return content.strip()
+
     def expect_logged(self, *expected):
         assert self.logfile, "Logging to a file was not setup"
         remaining = set(expected)

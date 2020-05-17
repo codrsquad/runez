@@ -234,16 +234,19 @@ class LogManager(object):
             debug = True
 
         cls.set_debug_dryrun(debug=debug)
+        return cls.debug
 
     @classmethod
     def set_dryrun(cls, dryrun):
         """Useful only as simple callback function, use rune.log.setup() for regular usage"""
         cls.set_debug_dryrun(dryrun=dryrun)
+        return is_dryrun()
 
     @classmethod
     def set_file_location(cls, file_location):
         """Useful only as simple callback function, use rune.log.setup() for regular usage"""
-        LogManager.override_spec(file_location=file_location)
+        LogManager.spec.set(file_location=file_location)
+        return cls.spec.file_location
 
     @classmethod
     def set_debug_dryrun(cls, debug=UNSET, dryrun=UNSET):

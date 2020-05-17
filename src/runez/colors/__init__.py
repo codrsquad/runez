@@ -27,7 +27,7 @@ class ActivateColors(object):
         self.prev = None
 
     def __enter__(self):
-        self.prev = ColorManager.activate_colors(self.enable, flavor=self.flavor)
+        self.prev = ColorManager._activate_colors(self.enable, flavor=self.flavor)
 
     def __exit__(self, *_):
         ColorManager.backend, ColorManager.bg, ColorManager.fg, ColorManager.style = self.prev
@@ -78,18 +78,8 @@ class ColorManager(object):
 
     @classmethod
     def activate_colors(cls, enable=None, flavor=None):
-        """
-        Args:
-            enable (bool | PlainBackend.__class__ | None): Set colored output on or off
-            flavor (str | None): Flavor to use (neutral, light or dark)
-        """
-        if enable is None:
-            enable = is_tty()
-
-        prev = cls.backend, cls.bg, cls.fg, cls.style
-        cls.backend = _detect_backend(enable, flavor=flavor)
-        cls.bg, cls.fg, cls.style = cls.backend.named_triplet()
-        return prev
+        cls._activate_colors(enable=enable, flavor=flavor)
+        return cls.is_coloring()
 
     @classmethod
     def adjusted_size(cls, text, size=0):
@@ -102,6 +92,21 @@ class ColorManager(object):
             (int): `size`, adjusted to help take into account any color ANSI escapes
         """
         return cls.backend.adjusted_size(text, size)
+
+    @classmethod
+    def _activate_colors(cls, enable=None, flavor=None):
+        """
+        Args:
+            enable (bool | PlainBackend.__class__ | None): Set colored output on or off
+            flavor (str | None): Flavor to use (neutral, light or dark)
+        """
+        if enable is None:
+            enable = is_tty()
+
+        prev = cls.backend, cls.bg, cls.fg, cls.style
+        cls.backend = _detect_backend(enable, flavor=flavor)
+        cls.bg, cls.fg, cls.style = cls.backend.named_triplet()
+        return prev
 
 
 def is_coloring():

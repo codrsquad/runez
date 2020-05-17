@@ -143,6 +143,7 @@ def test_setup(temp_log):
 
 
 def test_default(temp_log):
+    assert runez.log.spec.console_level == logging.WARNING
     runez.log.context.set_global(version="1.0")
     runez.log.context.add_global(worker="mark")
     runez.log.context.add_threadlocal(worker="joe", foo="bar")
@@ -167,9 +168,9 @@ def test_default(temp_log):
     )
     logging.info("hello")
     logging.warning("hello")
-    assert "test_default test_logsetup WARNING hello" == temp_log.stderr.pop(strip=True)
     temp_log.expect_logged("UTC INFO hello")
     temp_log.expect_logged("UTC WARNING hello")
+    assert temp_log.pop() == "test_default test_logsetup WARNING hello"
 
 
 def test_level(temp_log):
@@ -235,24 +236,24 @@ def test_context(temp_log):
     runez.log.context.set_global(version="1.0", name="foo")
     runez.log.context.add_threadlocal(worker="susan", a="b")
     logging.info("hello")
-    assert temp_log.stdout.pop(strip=True) == "UTC [[a=b,name=foo,version=1.0,worker=susan]] INFO - hello"
+    assert temp_log.pop() == "UTC [[a=b,name=foo,version=1.0,worker=susan]] INFO - hello"
 
     # Remove them one by one
     runez.log.context.remove_threadlocal("a")
     logging.info("hello")
-    assert temp_log.stdout.pop(strip=True) == "UTC [[name=foo,version=1.0,worker=susan]] INFO - hello"
+    assert temp_log.pop() == "UTC [[name=foo,version=1.0,worker=susan]] INFO - hello"
 
     runez.log.context.remove_global("name")
     logging.info("hello")
-    assert temp_log.stdout.pop(strip=True) == "UTC [[version=1.0,worker=susan]] INFO - hello"
+    assert temp_log.pop() == "UTC [[version=1.0,worker=susan]] INFO - hello"
 
     runez.log.context.clear_threadlocal()
     logging.info("hello")
-    assert temp_log.stdout.pop(strip=True) == "UTC [[version=1.0]] INFO - hello"
+    assert temp_log.pop() == "UTC [[version=1.0]] INFO - hello"
 
     runez.log.context.clear_global()
     logging.info("hello")
-    assert temp_log.stdout.pop(strip=True) == "UTC INFO - hello"
+    assert temp_log.pop() == "UTC INFO - hello"
 
     assert not runez.log.context.has_global()
     assert not runez.log.context.has_threadlocal()

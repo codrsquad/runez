@@ -170,3 +170,4 @@ def test_wordification():
     assert runez.affixed("my-key", prefix="my-") == "my-key"
     assert runez.affixed("key", prefix="my-") == "my-key"
     assert runez.affixed("my-key", prefix="X_", normalize=runez.snakified) == "X_MY_KEY"
+    assert runez.affixed("my-key", prefix="X_", suffix="+foo") == "X_my-key+foo"
