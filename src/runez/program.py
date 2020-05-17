@@ -7,7 +7,7 @@ import subprocess  # nosec
 import sys
 import time
 
-from runez.system import abort, AbortException, decode, flattened, is_dryrun, LOG, represented_args, SHELL, short, WINDOWS
+from runez.system import _get_abort_exception, abort, decode, flattened, is_dryrun, LOG, represented_args, SHELL, short, WINDOWS
 
 
 DEFAULT_INSTRUCTIONS = {
@@ -156,7 +156,7 @@ def run(program, *args, **kwargs):
         - when program invocation fails:
             - with fatal=None: Return `None` on failure
             - with fatal=False: Return False on failure
-            - with fatal=True: Raise AbortException(exit_code) on failure
+            - with fatal=True: Raise runez.system.AbortException(exit_code) on failure
 
     - include_error (bool): When True, include stderr contents in returned string
 
@@ -217,7 +217,7 @@ def run(program, *args, **kwargs):
         return output and output.strip()
 
     except Exception as e:
-        if isinstance(e, AbortException):
+        if isinstance(e, _get_abort_exception()):
             raise
 
         return abort("%s failed: %s", short(program), e, exc_info=e, fatal=fatal)
@@ -265,7 +265,7 @@ def require_installed(program, instructions=None, fatal=True, platform=sys.platf
                                    - None if `program` can simply be install via `brew install <program>`
                                    - A word (without spaces) to refer to "usual" package (brew on OSX, apt on Linux etc)
                                    - A dict with instructions per `sys.platform`
-        fatal (bool): If True, raise `AbortException` when `program` is not installed
+        fatal (bool): If True, raise `runez.system.AbortException` when `program` is not installed
         platform (str | None): Override sys.platform, if provided
 
     Returns:

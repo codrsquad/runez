@@ -23,7 +23,7 @@ from runez.file import TempFolder
 from runez.logsetup import LogManager
 from runez.program import find_parent_folder, which
 from runez.represent import header
-from runez.system import AbortException, CaptureOutput, current_test, flattened, formatted, is_dryrun, LOG, represented_args, SHELL, shortened, Slotted, string_type, stringified, TempArgv, TrackedOutput, UNSET
+from runez.system import _get_abort_exception, CaptureOutput, current_test, flattened, formatted, is_dryrun, LOG, represented_args, SHELL, shortened, Slotted, string_type, stringified, TempArgv, TrackedOutput, UNSET
 
 try:
     from click import BaseCommand as _ClickCommand
@@ -91,7 +91,7 @@ def verify_abort(func, *args, **kwargs):
     Returns:
         (str): Chatter from call to 'func', if it did indeed raise
     """
-    expected_exception = kwargs.pop("expected_exception", AbortException)
+    expected_exception = kwargs.pop("expected_exception", _get_abort_exception())
     with CaptureOutput() as logged:
         try:
             value = func(*args, **kwargs)

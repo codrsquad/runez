@@ -1170,6 +1170,11 @@ def _find_value(key, *args):
             return v
 
 
+def _get_abort_exception():
+    """AbortException can be modified from client"""
+    return _get_runez().system.AbortException
+
+
 def _get_value(obj, key):
     """Get a value for 'key' from 'obj', if possible"""
     if obj is not None:
