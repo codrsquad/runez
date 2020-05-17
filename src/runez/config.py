@@ -391,7 +391,7 @@ class PropsfsProvider(ConfigProvider):
             names = os.listdir(self.folder)
             return len(names)
 
-        except OSError:
+        except (OSError, IOError):
             return 0
 
     def overview(self):
@@ -404,7 +404,7 @@ class PropsfsProvider(ConfigProvider):
             with open(path) as fh:
                 return decode(fh.read())
 
-        except IOError:
+        except (OSError, IOError):
             return None
 
 

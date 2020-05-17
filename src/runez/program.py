@@ -97,7 +97,7 @@ def is_younger(path, age):
     try:
         return time.time() - os.path.getmtime(path) < age
 
-    except (OSError, TypeError):
+    except (OSError, IOError, TypeError):
         return False
 
 

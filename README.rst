@@ -86,7 +86,6 @@ File operations::
     runez.delete("foo")
 
     runez.write("foo", "bar\nbaz\n")
-    first = runez.first_line("foo")
     lines = runez.readlines("foo")
 
     full_path = runez.resolved_path("foo/bar")

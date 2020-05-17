@@ -9,7 +9,7 @@ Functions from this module must be explicitly imported, for example:
 import os
 
 from runez.represent import PrettyTable
-from runez.system import find_caller_frame, first_meaningful_line
+from runez.system import find_caller_frame, first_line
 
 
 def auto_import_siblings(auto_clean="TOX_WORK_DIR", skip=None):
@@ -121,16 +121,17 @@ def run_cmds(prog=None):
         if package:
             prog = "python -m%s" % package
 
-    epilog = PrettyTable()
+    epilog = PrettyTable(2)
+    epilog.header[0].style = "bold"
     for cmd, func in available_commands.items():
-        epilog.add_row(runez.bold(cmd), first_meaningful_line(func.__doc__, ""))
+        epilog.add_row(cmd, first_line(func.__doc__, default=""))
 
     epilog = runez.indented(epilog, indent=2)
     epilog = "Available commands:\n%s" % epilog
     # noinspection PyTypeChecker
     parser = argparse.ArgumentParser(
         prog=prog,
-        description=first_meaningful_line(f_globals.get("__doc__")),
+        description=first_line(f_globals.get("__doc__"), default=""),
         epilog=epilog,
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -159,7 +160,7 @@ def _clean_files(folder, extension):
                 try:
                     os.unlink(os.path.join(root, fname))
 
-                except OSError:
+                except (OSError, IOError):
                     pass  # Delete is only needed in tox run, no need to fail if delete is not possible
 
 

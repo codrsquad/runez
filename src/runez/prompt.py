@@ -26,7 +26,7 @@ def ask_once(name, instructions, serializer=str, fatal=True, base="~/.config", d
         with open(path) as fh:
             return json.load(fh)
 
-    except IOError:
+    except (OSError, IOError):
         pass
 
     reason = "can't ask for value, not on a tty"

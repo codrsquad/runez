@@ -7,8 +7,6 @@ from runez.convert import to_int
 from runez.path import ensure_folder, parent_folder
 from runez.system import abort, Anchored, decode, is_dryrun, LOG, resolved_path, set_dryrun, short, SYMBOLIC_TMP
 
-TEXT_THRESHOLD_SIZE = 1048576  # Max size in bytes to consider a file a "text file"
-
 
 def copy(source, destination, ignore=None, adapter=None, fatal=True, logger=LOG.debug):
     """Copy source -> destination
@@ -62,29 +60,11 @@ def delete(path, fatal=True, logger=LOG.debug):
         return abort("Can't delete %s: %s", short(path), e, fatal=(fatal, -1))
 
 
-def first_line(path, default=None):
-    """First line of file with `path`, if any
-
-    Args:
-        path (str | None): Path to file
-        default (str | None): Default to return if file could not be read
-
-    Returns:
-        (str | None): First line of file, if any
-    """
-    try:
-        with io.open(resolved_path(path), errors="ignore") as fh:
-            return fh.readline().strip()
-
-    except (IOError, TypeError, ValueError):
-        return default
-
-
 def ini_to_dict(data, keep_empty=False, default=None):
     """Contents of an INI-style config file as a dict of dicts: section -> key -> value
 
     Args:
-        data (str | file | list | None): Path to file, or file object, or lines to parse
+        data (str | file | TextIO | list | None): Path to file, or file object, or lines to parse
         keep_empty (bool): If True, keep definitions with empty values
         default (dict | None): Object to return if conf couldn't be read
 
@@ -94,38 +74,37 @@ def ini_to_dict(data, keep_empty=False, default=None):
     if not data:
         return default
 
-    lines = readlines(data)
-    if lines is None:
-        return default
-
     result = {}
-    section_key = None
-    section = None
-    for line in lines:
-        line = decode(line).strip()
-        if "#" in line:
-            i = line.index("#")
-            line = line[:i].strip()
+    try:
+        section_key = None
+        section = None
+        for line in readlines(data, keep_empty=keep_empty):
+            if "#" in line:
+                i = line.index("#")
+                line = line[:i].strip()
 
-        if not line:
-            continue
+            if not line:
+                continue
 
-        if line.startswith("[") and line.endswith("]"):
-            section_key = line.strip("[]").strip()
-            section = result.get(section_key)
-            continue
+            if line.startswith("[") and line.endswith("]"):
+                section_key = line.strip("[]").strip()
+                section = result.get(section_key)
+                continue
 
-        if "=" not in line:
-            continue
+            if "=" not in line:
+                continue
 
-        if section is None:
-            section = result[section_key] = {}
+            if section is None:
+                section = result[section_key] = {}
 
-        key, _, value = line.partition("=")
-        key = key.strip()
-        value = value.strip()
-        if keep_empty or (key and value):
-            section[key] = value
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip()
+            if keep_empty or (key and value):
+                section[key] = value
+
+    except (OSError, IOError):
+        return default
 
     if not keep_empty:
         result = dict((k, v) for k, v in result.items() if k and v)
@@ -133,37 +112,50 @@ def ini_to_dict(data, keep_empty=False, default=None):
     return result
 
 
-def readlines(data, max_size=TEXT_THRESHOLD_SIZE, default=None):
-    """Tentatively read lines from `data`, if not possible, simply return `default`
+def readlines(data, first=None, keep_empty=True, strip=True, errors=None):
+    """Yield the `first` N lines from `data`
 
     Args:
-        data (str | file | list | None): Path to file, or file object to return lines from
-        max_size (int | None): Return contents only for files smaller than 'max_size' bytes
-        default (list | None): Object to return if lines couldn't be read
-
-    Returns:
-        (list | None): Lines from file contents
+        data (str | file | TextIO | list): Path to file, or object to return lines from
+        first (int | None): Return only the 'first' lines when specified
+        keep_empty (bool): If False, skip empty lines
+        strip (bool): If True, strip lines from leading/trailing spaces/newlines
+        errors (str | None): Optional string specifying how encoding errors are to be handled
     """
-    if not data:
-        return default
-
     if isinstance(data, list):
-        return data
+        for line in _readlines(data, first, keep_empty, strip, None):
+            yield line
 
-    if hasattr(data, "readlines"):
-        return data.readlines()
+        return
+
+    if hasattr(data, "readline"):
+        for line in _readlines(data, first, keep_empty, strip, decode):
+            yield line
+
+        return
 
     path = resolved_path(data)
-    if not os.path.isfile(path) or (max_size and os.path.getsize(path) > max_size):
-        # Intended for small text files, pretend no contents for binaries
-        return default
+    with io.open(path, errors=errors) as fh:
+        for line in _readlines(fh, first, keep_empty, strip, decode):
+            yield line
 
-    try:
-        with io.open(path) as fh:
-            return fh.readlines()
 
-    except Exception:
-        return default
+def _readlines(data, first, keep_empty, strip, adapter):
+    for line in data:
+        if adapter is not None:
+            line = adapter(line)
+
+        if strip:
+            line = line.strip()
+
+        if keep_empty or line:
+            if first is not None:
+                if first == 0:
+                    return
+
+                first -= 1
+
+            yield line
 
 
 def move(source, destination, adapter=None, fatal=True, logger=LOG.debug):

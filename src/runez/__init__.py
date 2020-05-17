@@ -14,7 +14,7 @@ from runez.date import date_from_epoch, datetime_from_epoch, elapsed, local_time
     timezone, timezone_from_text, \
     to_date, to_datetime, to_epoch, to_epoch_ms, to_seconds
 from runez.date import SECONDS_IN_ONE_DAY, SECONDS_IN_ONE_HOUR, SECONDS_IN_ONE_MINUTE, SECONDS_IN_ONE_YEAR, UTC
-from runez.file import copy, delete, first_line, ini_to_dict, move, readlines, symlink, TempFolder, terminal_width, touch, write
+from runez.file import copy, delete, ini_to_dict, move, readlines, symlink, TempFolder, terminal_width, touch, write
 from runez.heartbeat import Heartbeat
 from runez.logsetup import LogManager as log, LogSpec
 from runez.path import basename, ensure_folder, parent_folder
@@ -25,7 +25,7 @@ from runez.represent import align, header, indented, PrettyTable
 from runez.serialize import json_sanitized, read_json, represented_json, save_json, Serializable
 from runez.system import abort, capped, decode, flattened, formatted, get_version, is_tty, quoted, represented_args, resolved_path, set_dryrun, short, shortened, stringified
 from runez.system import AdaptedProperty, Anchored, CaptureOutput, CurrentFolder, Slotted, TempArgv, TrackedOutput, Undefined
-from runez.system import current_test, first_meaningful_line
+from runez.system import current_test, first_line
 from runez.system import PY2, SANITIZED, SHELL, UNIQUE, UNSET, WINDOWS
 from runez.thread import thread_local_property, ThreadLocalSingleton
 
@@ -43,7 +43,7 @@ __all__ = [
     "timezone", "timezone_from_text",
     "to_date", "to_datetime", "to_epoch", "to_epoch_ms", "to_seconds",
     "SECONDS_IN_ONE_DAY", "SECONDS_IN_ONE_HOUR", "SECONDS_IN_ONE_MINUTE", "SECONDS_IN_ONE_YEAR", "UTC",
-    "copy", "delete", "first_line", "ini_to_dict", "move", "readlines", "symlink", "TempFolder", "terminal_width", "touch", "write",
+    "copy", "delete", "ini_to_dict", "move", "readlines", "symlink", "TempFolder", "terminal_width", "touch", "write",
     "Heartbeat",
     "log", "LogSpec",
     "basename", "ensure_folder", "parent_folder",
@@ -54,7 +54,7 @@ __all__ = [
     "json_sanitized", "read_json", "represented_json", "save_json", "Serializable",
     "abort", "capped", "decode", "flattened", "formatted", "get_version", "is_tty", "quoted", "represented_args", "resolved_path", "set_dryrun", "short", "shortened", "stringified",
     "AdaptedProperty", "Anchored", "CaptureOutput", "CurrentFolder", "Slotted", "TempArgv", "TrackedOutput", "Undefined",
-    "current_test", "first_meaningful_line",
+    "current_test", "first_line",
     "PY2", "SANITIZED", "SHELL", "UNIQUE", "UNSET", "WINDOWS",
     "thread_local_property", "ThreadLocalSingleton",
 ]

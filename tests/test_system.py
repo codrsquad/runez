@@ -258,9 +258,23 @@ def test_system():
     # Ensure we stop once callstack is exhausted
     assert runez.click.find_caller_frame(lambda f: None, maximum=None) is None
 
-    assert runez.first_meaningful_line("") is None
-    assert runez.first_meaningful_line("\n  \n\n") is None
-    assert runez.first_meaningful_line("\n\n\n  foo  \n\bar") == "foo"
+    assert runez.first_line(None) is None
+    assert runez.first_line("") is None
+    assert runez.first_line("\n  \n\n") is None
+    assert runez.first_line("\n  \n\n", default="foo") == "foo"
+    assert runez.first_line("\n  \n\n", keep_empty=True) == ""
+    assert runez.first_line("\n\n\n  foo  \n\bar") == "foo"
+    assert runez.first_line("\n\n\n  foo  \n\bar", keep_empty=True) == ""
+    assert runez.first_line([]) is None
+    assert runez.first_line([], keep_empty=True) is None
+    assert runez.first_line([], default="foo") == "foo"
+    assert runez.first_line([""]) is None
+    assert runez.first_line([""], default="foo") == "foo"
+    assert runez.first_line([" "], keep_empty=True) == ""
+    assert runez.first_line([" "], keep_empty=True, strip=False) == " "
+    assert runez.first_line([" ", "b"]) == "b"
+    assert runez.first_line([" ", "b"], default="foo") == "b"
+    assert runez.first_line([" ", "b"], keep_empty=True) == ""
 
     # Verify that UNSET behaves as expected: evaluates to falsy, has correct representation
     assert not runez.UNSET

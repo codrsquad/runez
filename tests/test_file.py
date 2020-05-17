@@ -2,6 +2,7 @@ import io
 import logging
 import os
 
+import pytest
 from mock import patch
 
 import runez
@@ -63,9 +64,6 @@ def test_ini_to_dict():
 @patch("os.path.getsize", return_value=10)
 def test_failure(*_):
     with runez.CaptureOutput() as logged:
-        assert runez.readlines("bar") is None
-        assert not logged
-
         assert runez.write("bar", "some content", fatal=False)
         assert "Can't write" in logged.pop()
 
@@ -93,8 +91,12 @@ def test_file_operations(temp_folder):
     assert runez.touch(None) == 0
     assert not runez.is_younger("", 1)
     assert not runez.is_younger("/dev/null/not-there", 1)
-    assert runez.first_line("/dev/null/not-there") is None
-    assert runez.readlines(None) is None
+
+    with pytest.raises(TypeError):
+        list(runez.readlines(None))
+
+    with pytest.raises((OSError, IOError)):
+        list(runez.readlines("/dev/null/not-there"))
 
     with runez.CaptureOutput(dryrun=True) as logged:
         assert runez.ensure_folder("some-folder", folder=True, fatal=False) == 1
@@ -142,23 +144,27 @@ def test_file_operations(temp_folder):
     assert runez.delete("sample") == 1
     with runez.CaptureOutput() as logged:
         sample = runez.conftest.test_resource("sample.txt")
-        content = runez.readlines(sample)
+        assert len(list(runez.readlines(sample))) == 4
+        assert len(list(runez.readlines(sample, keep_empty=False))) == 2
+        assert len(list(runez.readlines(sample, first=1))) == 1
 
-        assert runez.write("sample", "".join(content), fatal=False, logger=logging.debug) == 1
-        assert runez.readlines("sample") == content
+        content = list(runez.readlines(sample))
+
+        cc = "%s\n" % "\n".join(content)
+        assert runez.write("sample", cc, fatal=False, logger=logging.debug) == 1
+        assert list(runez.readlines("sample")) == content
         assert "bytes to sample" in logged.pop()  # Writing 13 bytes on linux... but 14 on windows...
 
-        assert runez.first_line("sample") == "Fred"
+        assert list(runez.readlines("sample", first=1)) == [""]
+        assert list(runez.readlines("sample", first=1, keep_empty=False)) == ["Fred"]
         assert runez.is_younger("sample", age=10)
         assert not runez.is_younger("sample", age=-1)
 
-        # Verify that a non-text file simply returns `None` for first_line() and readlines()
+        # Verify that readlines() can ignore encoding errors
         with io.open("not-a-text-file", "wb") as fh:
             fh.write(b"\x89 hello\nworld")
 
-        assert runez.first_line("not-a-text-file") == "hello"
-        assert runez.readlines("not-a-text-file") is None
-        assert not logged
+        assert list(runez.readlines("not-a-text-file", first=1, errors="ignore")) == ["hello"]
 
         assert runez.copy("bar", "baz", fatal=False) == -1
         assert "does not exist" in logged.pop()

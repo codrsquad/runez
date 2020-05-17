@@ -66,6 +66,15 @@ def test_pretty_table():
     with pytest.raises(ValueError):
         runez.PrettyTable(object)  # Invalid header
 
+    t = runez.PrettyTable()
+    assert len(t.header) == 0
+    with pytest.raises(IndexError):
+        t.header[0].style = "bold"  # Header columns are not auto-accommodated when accessing by index
+
+    t.header.accomodate(2)
+    assert len(t.header) == 2
+    t.header[0].style = "bold"
+
     t = runez.PrettyTable("1,2,3", border="pad:0")
     assert len(t.header.columns) == 3
     t.add_rows("a b c".split(), "d e foo".split())

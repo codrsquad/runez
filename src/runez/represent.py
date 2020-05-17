@@ -240,6 +240,12 @@ class PrettyHeader(PrettyCustomizable):
         else:
             raise ValueError("Invalid header '%s'" % value)
 
+    def __getitem__(self, item):
+        return self._columns[item]
+
+    def __len__(self):
+        return len(self._columns)
+
     @property
     def columns(self):
         return self._columns

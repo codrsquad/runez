@@ -229,7 +229,7 @@ def find_caller_frame(validator=None, depth=2, maximum=1000):
     Args:
         validator (callable): Function that will decide whether a frame is suitable, and return value of interest from it
         depth (int): Depth from top of stack where to start
-        maximum (int): Maximum depth to scan
+        maximum (int | None): Maximum depth to scan
 
     Returns:
         (frame): First frame found
@@ -251,20 +251,30 @@ def find_caller_frame(validator=None, depth=2, maximum=1000):
                 return None
 
 
-def first_meaningful_line(text, default=None):
-    """
+def first_line(text, keep_empty=False, strip=True, default=None):
+    """First line in 'data', if any
+
     Args:
-        text (str | None): Text to examine
-        default (str): Default to return if no meaningful line found in `text`
+        text (str | list | None): Text to examine
+        keep_empty (bool): If False, skip empty lines
+        strip (bool): If True, strip lines from leading/trailing spaces/newlines
+        default (str | None): Default to return if there was no first line
 
     Returns:
-        (str | None): First non-empty line, if any
+        (str | None): First line, if any
     """
-    if text:
-        for line in text.splitlines():
+    if text is None:
+        return default
+
+    if hasattr(text, "splitlines"):
+        text = text.splitlines()
+
+    for line in text:
+        if strip:
             line = line.strip()
-            if line:
-                return line
+
+        if keep_empty or line:
+            return line
 
     return default
 
@@ -826,7 +836,6 @@ class TrackedOutput(object):
 
     def clear(self):
         """Clear captured content"""
-        assert True
         for s in self.captured:
             s.clear()
 
