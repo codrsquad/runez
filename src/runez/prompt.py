@@ -48,7 +48,7 @@ def ask_once(name, instructions, serializer=str, fatal=True, base="~/.config", d
         except KeyboardInterrupt:
             reason = "cancelled by user"
 
-    return abort("%s" % reason, fatal=(fatal, default))
+    return abort(reason, fatal=(fatal, default))
 
 
 def interactive_prompt(message):

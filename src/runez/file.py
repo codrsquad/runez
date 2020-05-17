@@ -5,7 +5,7 @@ import tempfile
 
 from runez.convert import to_int
 from runez.path import ensure_folder, parent_folder
-from runez.system import abort, Anchored, decode, is_dryrun, LOG, resolved_path, set_dryrun, short, SYMBOLIC_TMP
+from runez.system import abort, Anchored, decode, is_dryrun, LOG, resolved_path, set_dryrun, short, SYMBOLIC_TMP, UNSET
 
 
 def copy(source, destination, ignore=None, adapter=None, fatal=True, logger=LOG.debug):
@@ -112,7 +112,7 @@ def ini_to_dict(data, keep_empty=False, default=None):
     return result
 
 
-def readlines(data, first=None, keep_empty=True, strip=True, errors=None):
+def readlines(data, first=None, keep_empty=True, strip=True, errors=None, fatal=UNSET, logger=UNSET):
     """Yield the `first` N lines from `data`
 
     Args:
@@ -121,23 +121,33 @@ def readlines(data, first=None, keep_empty=True, strip=True, errors=None):
         keep_empty (bool): If False, skip empty lines
         strip (bool): If True, strip lines from leading/trailing spaces/newlines
         errors (str | None): Optional string specifying how encoding errors are to be handled
+        fatal (bool): If True: abort() on error, if UNSET: pass-through original exception
+        logger (callable | None): Logger to use to report crashes
     """
-    if isinstance(data, list):
-        for line in _readlines(data, first, keep_empty, strip, None):
-            yield line
+    try:
+        if isinstance(data, list):
+            for line in _readlines(data, first, keep_empty, strip, None):
+                yield line
 
-        return
+            return
 
-    if hasattr(data, "readline"):
-        for line in _readlines(data, first, keep_empty, strip, decode):
-            yield line
+        if hasattr(data, "readline"):
+            for line in _readlines(data, first, keep_empty, strip, decode):
+                yield line
 
-        return
+            return
 
-    path = resolved_path(data)
-    with io.open(path, errors=errors) as fh:
-        for line in _readlines(fh, first, keep_empty, strip, decode):
-            yield line
+        path = resolved_path(data)
+        with io.open(path, errors=errors) as fh:
+            for line in _readlines(fh, first, keep_empty, strip, decode):
+                yield line
+
+    except Exception as e:
+        if fatal is UNSET:
+            raise
+
+        if fatal:
+            abort("Can't readlines() from %s: %s", short(data), e, fatal=fatal, logger=logger)
 
 
 def _readlines(data, first, keep_empty, strip, adapter):

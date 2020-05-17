@@ -183,7 +183,7 @@ def isolated_log_setup():
 
 @pytest.fixture
 def logged():
-    with CaptureOutput() as logged:
+    with CaptureOutput(seed_logging=True) as logged:
         yield logged
 
 
@@ -356,13 +356,8 @@ class ClickRunner(object):
 
         self.args = flattened(args, split=SHELL)
         with IsolatedLogSetup(adjust_tmp=False):
-            with CaptureOutput(dryrun=is_dryrun()) as logged:
+            with CaptureOutput(dryrun=is_dryrun(), seed_logging=True) as logged:
                 self.logged = logged
-                # Define a logging handler, IsolatedLogSetup cleared them all
-                handler = logging.StreamHandler(stream=logged.stderr.buffer)
-                handler.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
-                handler.setLevel(logging.DEBUG)
-                logging.root.addHandler(handler)
                 runner = ClickWrapper.new_runner(self.main)
                 result = runner.invoke(self.main, args=self.args)
                 if result.output:

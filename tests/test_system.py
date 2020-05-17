@@ -111,6 +111,25 @@ def test_capture_nested():
         assert "err3" not in logged1.stderr
 
 
+def test_current_folder(temp_folder):
+    sample = os.path.join(temp_folder, "sample")
+    assert os.getcwd() == temp_folder
+    assert runez.ensure_folder("sample", folder=True) == 1
+
+    with runez.CurrentFolder("sample", anchor=False):
+        cwd = os.getcwd()
+        assert cwd == sample
+        assert runez.short(os.path.join(cwd, "some-file")) == os.path.join("sample", "some-file")
+
+    with runez.CurrentFolder("sample", anchor=True):
+        cwd = os.getcwd()
+        sample = os.path.join(temp_folder, "sample")
+        assert cwd == sample
+        assert runez.short(os.path.join(cwd, "some-file")) == "some-file"
+
+    assert os.getcwd() == temp_folder
+
+
 def test_flattened():
     assert runez.flattened(None) == [None]
     assert runez.flattened([None]) == [None]
@@ -308,3 +327,35 @@ def test_system():
     assert runez.system._formatted_string("test", None) == "test"
 
     assert "test_system.py" in runez.current_test()
+
+
+def test_temp_folder():
+    cwd = os.getcwd()
+
+    with runez.CaptureOutput(anchors=[os.path.join("/tmp"), os.path.join("/etc")]) as logged:
+        with runez.TempFolder() as tmp:
+            assert os.path.isdir(tmp)
+            assert tmp != runez.system.SYMBOLIC_TMP
+        assert not os.path.isdir(tmp)
+        assert os.getcwd() == cwd
+
+        assert runez.short(os.path.join("/tmp", "some-file")) == "some-file"
+        assert runez.short(os.path.join("/etc", "some-file")) == "some-file"
+
+        assert not logged
+
+    symbolic = os.path.join(runez.system.SYMBOLIC_TMP, "some-file")
+    with runez.CaptureOutput(dryrun=True) as logged:
+        assert os.getcwd() == cwd
+        with runez.TempFolder() as tmp:
+            assert tmp == runez.system.SYMBOLIC_TMP
+            assert runez.short(symbolic) == "some-file"
+
+        assert os.getcwd() == cwd
+        with runez.TempFolder(anchor=False) as tmp:
+            assert tmp == runez.system.SYMBOLIC_TMP
+            assert runez.short(symbolic) == symbolic
+
+        assert not logged
+
+    assert os.getcwd() == cwd

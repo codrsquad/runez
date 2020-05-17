@@ -90,7 +90,10 @@ def abort(*args, **kwargs):
         kwargs["return_value"] (default: -1) to signify failure to non-fatal callers
     """
     code = kwargs.pop("code", 1)
-    logger = kwargs.pop("logger", LOG.error if code else LOG.info)
+    logger = kwargs.pop("logger", UNSET)
+    if logger is UNSET:
+        logger = LOG.error if code else LOG.info
+
     fatal = kwargs.pop("fatal", True)
     return_value = fatal
 
@@ -721,7 +724,7 @@ class CaptureOutput(object):
 
     _capture_stack = []  # Shared across all objects, tracks possibly nested CaptureOutput buffers
 
-    def __init__(self, stdout=True, stderr=True, anchors=None, dryrun=None):
+    def __init__(self, stdout=True, stderr=True, anchors=None, dryrun=None, seed_logging=False):
         """Context manager allowing to temporarily grab stdout/stderr/log output.
 
         Args:
@@ -729,16 +732,24 @@ class CaptureOutput(object):
             stderr (bool): Capture stderr?
             anchors (str | list | None): Optional paths to use as anchors for `runez.short()`
             dryrun (bool | None): Override dryrun (when explicitly specified, ie not None)
+            seed_logging (bool): If True, ensure there is at least one logging handler configured
         """
         self.stdout = stdout
         self.stderr = stderr
         self.anchors = anchors
         self.dryrun = dryrun
+        self.seed_logging = seed_logging
+        self.handler = None
 
     @classmethod
     def current_capture_buffer(cls):
         if cls._capture_stack:
             return cls._capture_stack[-1].buffer
+
+    def _has_stream_handler(self):
+        for h in logging.root.handlers:
+            if isinstance(h, logging.StreamHandler) and not hasattr(h, "isolation"):
+                return True
 
     def __enter__(self):
         """
@@ -762,6 +773,13 @@ class CaptureOutput(object):
         if self.dryrun is not None:
             self.dryrun = set_dryrun(self.dryrun)
 
+        if self.seed_logging and not self._has_stream_handler():
+            # Define a logging handler, IsolatedLogSetup cleared them all
+            self.handler = logging.StreamHandler(stream=self.tracked.captured[-1].buffer)
+            self.handler.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
+            self.handler.setLevel(logging.DEBUG)
+            logging.root.addHandler(self.handler)
+
         return self.tracked
 
     def __exit__(self, *args):
@@ -770,6 +788,9 @@ class CaptureOutput(object):
 
         for c in self.tracked.captured:
             c._stop_capture()
+
+        if self.handler:
+            logging.root.handlers.remove(self.handler)
 
         if self.anchors:
             Anchored.pop(self.anchors)

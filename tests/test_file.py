@@ -31,10 +31,35 @@ k2 =
 """
 
 
-def test_ini_to_dict():
+def test_edge_cases():
     assert runez.ini_to_dict(None) is None
-    assert runez.ini_to_dict("/dev/null/no-such-file") is None
+    assert runez.ini_to_dict("/dev/null/no-such-file", default=dict(a="b")) == dict(a="b")
 
+    # Don't crash for no-ops
+    assert runez.copy(None, None) == 0
+    assert runez.move(None, None) == 0
+    assert runez.symlink(None, None) == 0
+    assert runez.copy("some-file", "some-file") == 0
+    assert runez.move("some-file", "some-file") == 0
+    assert runez.symlink("some-file", "some-file") == 0
+    assert runez.delete("non-existing") == 0
+
+    assert runez.touch(None) == 0
+    assert not runez.is_younger("", 1)
+    assert not runez.is_younger("/dev/null/not-there", 1)
+
+    assert list(runez.readlines(None, fatal=False)) == []
+    with pytest.raises(TypeError):
+        list(runez.readlines(None))
+
+    with pytest.raises((OSError, IOError)):
+        list(runez.readlines("/dev/null/not-there"))
+
+    with pytest.raises(runez.system.AbortException):
+        list(runez.readlines(None, fatal=True))
+
+
+def test_ini_to_dict():
     expected = {None: {"root": "some-value"}, "": {"ek": "ev"}, "s1": {"k1": "v1"}, "s2": {"k2": ""}}
     actual = runez.ini_to_dict(SAMPLE_CONF.splitlines(), keep_empty=True)
     assert actual == expected
@@ -79,25 +104,6 @@ def test_failure(*_):
 
 
 def test_file_operations(temp_folder):
-    # Don't crash for no-ops
-    assert runez.copy(None, None) == 0
-    assert runez.move(None, None) == 0
-    assert runez.symlink(None, None) == 0
-    assert runez.copy("some-file", "some-file") == 0
-    assert runez.move("some-file", "some-file") == 0
-    assert runez.symlink("some-file", "some-file") == 0
-    assert runez.delete("non-existing") == 0
-
-    assert runez.touch(None) == 0
-    assert not runez.is_younger("", 1)
-    assert not runez.is_younger("/dev/null/not-there", 1)
-
-    with pytest.raises(TypeError):
-        list(runez.readlines(None))
-
-    with pytest.raises((OSError, IOError)):
-        list(runez.readlines("/dev/null/not-there"))
-
     with runez.CaptureOutput(dryrun=True) as logged:
         assert runez.ensure_folder("some-folder", folder=True, fatal=False) == 1
         assert "Would create" in logged.pop()
@@ -126,123 +132,85 @@ def test_file_operations(temp_folder):
         assert runez.symlink("some-folder/bar/baz", "some-folder", fatal=False) == -1
         assert "source contained in destination" in logged.pop()
 
-    assert runez.ensure_folder("sample", folder=True) == 1
-    with runez.CurrentFolder("sample", anchor=False):
-        cwd = os.getcwd()
-        sample = os.path.join(temp_folder, "sample")
-        assert cwd == sample
-        assert runez.short(os.path.join(cwd, "some-file")) == os.path.join("sample", "some-file")
 
-    with runez.CurrentFolder("sample", anchor=True):
-        cwd = os.getcwd()
-        sample = os.path.join(temp_folder, "sample")
-        assert cwd == sample
-        assert runez.short(os.path.join(cwd, "some-file")) == "some-file"
-
-    assert os.getcwd() == temp_folder
-
+def test_file_inspection(temp_folder, logged):
+    assert runez.touch("sample") == 1
     assert runez.delete("sample") == 1
-    with runez.CaptureOutput() as logged:
-        sample = runez.conftest.test_resource("sample.txt")
-        assert len(list(runez.readlines(sample))) == 4
-        assert len(list(runez.readlines(sample, keep_empty=False))) == 2
-        assert len(list(runez.readlines(sample, first=1))) == 1
+    assert "Deleting sample" in logged.pop()
 
-        content = list(runez.readlines(sample))
+    assert runez.ensure_folder("sample", folder=True) == 1
+    assert runez.delete("sample") == 1
+    assert "Deleting sample" in logged.pop()
 
-        cc = "%s\n" % "\n".join(content)
-        assert runez.write("sample", cc, fatal=False, logger=logging.debug) == 1
-        assert list(runez.readlines("sample")) == content
-        assert "bytes to sample" in logged.pop()  # Writing 13 bytes on linux... but 14 on windows...
+    sample = runez.conftest.test_resource("sample.txt")
+    assert len(list(runez.readlines(sample))) == 4
+    assert len(list(runez.readlines(sample, keep_empty=False))) == 2
+    assert len(list(runez.readlines(sample, first=1))) == 1
+    assert not logged
 
-        assert list(runez.readlines("sample", first=1)) == [""]
-        assert list(runez.readlines("sample", first=1, keep_empty=False)) == ["Fred"]
-        assert runez.is_younger("sample", age=10)
-        assert not runez.is_younger("sample", age=-1)
+    content = list(runez.readlines(sample))
+    cc = "%s\n" % "\n".join(content)
+    assert runez.write("sample", cc, fatal=False, logger=logging.debug) == 1
+    assert list(runez.readlines("sample")) == content
+    assert "bytes to sample" in logged.pop()  # Writing 13 bytes on linux... but 14 on windows...
 
-        # Verify that readlines() can ignore encoding errors
-        with io.open("not-a-text-file", "wb") as fh:
-            fh.write(b"\x89 hello\nworld")
+    assert list(runez.readlines("sample", first=1)) == [""]
+    assert list(runez.readlines("sample", first=1, keep_empty=False)) == ["Fred"]
+    assert runez.is_younger("sample", age=10)
+    assert not runez.is_younger("sample", age=-1)
 
-        assert list(runez.readlines("not-a-text-file", first=1, errors="ignore")) == ["hello"]
+    # Verify that readlines() can ignore encoding errors
+    with io.open("not-a-text-file", "wb") as fh:
+        fh.write(b"\x89 hello\nworld")
 
-        assert runez.copy("bar", "baz", fatal=False) == -1
-        assert "does not exist" in logged.pop()
-        assert runez.move("bar", "baz", fatal=False) == -1
-        assert "does not exist" in logged.pop()
-        assert runez.symlink("bar", "baz", fatal=False) == -1
-        assert "does not exist" in logged.pop()
+    assert list(runez.readlines("not-a-text-file", first=1, errors="ignore")) == ["hello"]
+    assert not logged
 
-        # Creating dangling symlinks is possible
-        assert runez.symlink("bar", "baz", fatal=False, must_exist=False) == 1
-        assert "Symlink bar <- baz" in logged.pop()
-        assert os.path.islink("baz")
-        assert not os.path.exists("baz")
+    assert runez.copy("bar", "baz", fatal=False) == -1
+    assert "does not exist" in logged.pop()
+    assert runez.move("bar", "baz", fatal=False) == -1
+    assert "does not exist" in logged.pop()
+    assert runez.symlink("bar", "baz", fatal=False) == -1
+    assert "does not exist" in logged.pop()
 
-        assert runez.copy("sample", "x/y/sample") == 1
-        assert runez.symlink("sample", "x/y/sample3", fatal=False) == 1
+    # Creating dangling symlinks is possible
+    assert runez.symlink("bar", "baz", fatal=False, must_exist=False) == 1
+    assert "Symlink bar <- baz" in logged.pop()
+    assert os.path.islink("baz")
+    assert not os.path.exists("baz")
 
-        assert os.path.exists("sample")
-        assert runez.move("sample", "x/y/sample2") == 1
-        assert not os.path.exists("sample")
+    assert runez.copy("sample", "x/y/sample") == 1
+    assert runez.symlink("sample", "x/y/sample3", fatal=False) == 1
 
-        assert runez.copy("x/y", "x/z1") == 1
-        assert os.path.exists("x/z1/sample")
-        assert os.path.exists("x/z1/sample2")
-        assert os.path.exists("x/z1/sample3")
-        assert os.path.islink("x/z1/sample3")
+    assert os.path.exists("sample")
+    assert runez.move("sample", "x/y/sample2") == 1
+    assert not os.path.exists("sample")
 
-        assert runez.copy("x/y", "x/z2", ignore=["sample2"]) == 1
-        assert os.path.exists("x/z2/sample")
-        assert not os.path.exists("x/z2/sample2")
-        assert os.path.exists("x/z2/sample3")
-        assert os.path.islink("x/z2/sample3")
+    assert runez.copy("x/y", "x/z1") == 1
+    assert os.path.exists("x/z1/sample")
+    assert os.path.exists("x/z1/sample2")
+    assert os.path.exists("x/z1/sample3")
+    assert os.path.islink("x/z1/sample3")
 
-        assert runez.copy("x/y", "x/z3", ignore=lambda src, dest: ["sample3"]) == 1
-        assert os.path.exists("x/z3/sample")
-        assert os.path.exists("x/z3/sample2")
-        assert not os.path.exists("x/z3/sample3")
+    assert runez.copy("x/y", "x/z2", ignore=["sample2"]) == 1
+    assert os.path.exists("x/z2/sample")
+    assert not os.path.exists("x/z2/sample2")
+    assert os.path.exists("x/z2/sample3")
+    assert os.path.islink("x/z2/sample3")
 
-        assert runez.copy("x/y", "x/z2") == 1
-        assert os.path.exists("x/z2/sample2")
+    assert runez.copy("x/y", "x/z3", ignore=lambda src, dest: ["sample3"]) == 1
+    assert os.path.exists("x/z3/sample")
+    assert os.path.exists("x/z3/sample2")
+    assert not os.path.exists("x/z3/sample3")
 
-        # Copy a folder over an existing file
-        runez.touch("x2")
-        assert not os.path.exists("x2/z2/sample2")
-        assert runez.copy("x", "x2") == 1
-        assert os.path.exists("x2/z2/sample2")
+    assert runez.copy("x/y", "x/z2") == 1
+    assert os.path.exists("x/z2/sample2")
 
-
-def test_temp():
-    cwd = os.getcwd()
-
-    with runez.CaptureOutput(anchors=[os.path.join("/tmp"), os.path.join("/etc")]) as logged:
-        with runez.TempFolder() as tmp:
-            assert os.path.isdir(tmp)
-            assert tmp != runez.system.SYMBOLIC_TMP
-        assert not os.path.isdir(tmp)
-        assert os.getcwd() == cwd
-
-        assert runez.short(os.path.join("/tmp", "some-file")) == "some-file"
-        assert runez.short(os.path.join("/etc", "some-file")) == "some-file"
-
-        assert not logged
-
-    symbolic = os.path.join(runez.system.SYMBOLIC_TMP, "some-file")
-    with runez.CaptureOutput(dryrun=True) as logged:
-        assert os.getcwd() == cwd
-        with runez.TempFolder() as tmp:
-            assert tmp == runez.system.SYMBOLIC_TMP
-            assert runez.short(symbolic) == "some-file"
-
-        assert os.getcwd() == cwd
-        with runez.TempFolder(anchor=False) as tmp:
-            assert tmp == runez.system.SYMBOLIC_TMP
-            assert runez.short(symbolic) == symbolic
-
-        assert not logged
-
-    assert os.getcwd() == cwd
+    # Copy a folder over an existing file
+    runez.touch("x2")
+    assert not os.path.exists("x2/z2/sample2")
+    assert runez.copy("x", "x2") == 1
+    assert os.path.exists("x2/z2/sample2")
 
 
 def test_terminal_width():
