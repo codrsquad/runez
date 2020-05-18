@@ -23,7 +23,7 @@ from runez.file import TempFolder
 from runez.logsetup import LogManager
 from runez.program import find_parent_folder, which
 from runez.represent import header
-from runez.system import _get_abort_exception, CaptureOutput, current_test, flattened, formatted, is_dryrun, LOG, represented_args, SHELL, shortened, Slotted, string_type, stringified, TempArgv, TrackedOutput, UNSET
+from runez.system import _get_abort_exception, CaptureOutput, current_test, expanded, flattened, is_dryrun, LOG, quoted, shortened, Slotted, string_type, stringified, TempArgv, TrackedOutput, UNSET
 
 try:
     from click import BaseCommand as _ClickCommand
@@ -348,13 +348,13 @@ class ClickRunner(object):
 
         assert bool(self.main), "No main provided"
         if kwargs:
-            args = [formatted(a, **kwargs) for a in args]
+            args = [expanded(a, **kwargs) for a in args]
 
         if len(args) == 1 and hasattr(args[0], "split"):
             # Convenience: allow to provide full command as one string argument
             args = args[0].split()
 
-        self.args = flattened(args, split=SHELL)
+        self.args = flattened(args, shellify=True)
         with IsolatedLogSetup(adjust_tmp=False):
             with CaptureOutput(dryrun=is_dryrun(), seed_logging=True) as logged:
                 self.logged = logged
@@ -374,7 +374,7 @@ class ClickRunner(object):
 
         if self.logged:
             WrappedHandler.remove_accumulated_logs()
-            title = header("Captured output for: %s" % represented_args(self.args), border="==")
+            title = header("Captured output for: %s" % quoted(self.args), border="==")
             LOG.info("\n%s\nmain: %s\nexit_code: %s\n%s\n", title, self.main, self.exit_code, self.logged)
 
     @property
@@ -388,7 +388,7 @@ class ClickRunner(object):
     def match(self, expected, stdout=None, stderr=None, regex=None):
         """
         Args:
-            expected (str | unicode | re.Pattern): Message to find in self.logged
+            expected (str | re.Pattern): Message to find in self.logged
             stdout (bool | None): Look at stdout (default: yes, if captured)
             stderr (bool | None): Look at stderr (default: yes, if captured)
             regex (int | bool | None): Specify whether 'expected' should be a regex
@@ -461,14 +461,14 @@ class ClickRunner(object):
         spec = RunSpec()
         spec.pop(kwargs)
         self.run(args, **kwargs)
-        assert self.succeeded, "%s failed, was expecting success" % represented_args(self.args)
+        assert self.succeeded, "%s failed, was expecting success" % quoted(self.args)
         self.expect_messages(*expected, **spec.to_dict())
 
     def expect_failure(self, args, *expected, **kwargs):
         spec = RunSpec()
         spec.pop(kwargs)
         self.run(args, **kwargs)
-        assert self.failed, "%s succeeded, was expecting failure" % represented_args(self.args)
+        assert self.failed, "%s succeeded, was expecting failure" % quoted(self.args)
         self.expect_messages(*expected, **spec.to_dict())
 
 

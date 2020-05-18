@@ -76,8 +76,8 @@ def to_bytesize(value, default_unit=None, base=1024):
     """Convert `value` to bytes, accepts notations such as "4k" to mean 4096 bytes
 
     Args:
-        value (str | unicode | int | None): Number of bytes optionally suffixed by 1 or 2 chars designating unit (ie: "m" or "kb" etc)
-        default_unit (str | unicode | None): Default unit to use for unqualified values
+        value (str | int | None): Number of bytes optionally suffixed by 1 or 2 chars designating unit (ie: "m" or "kb" etc)
+        default_unit (str | None): Default unit to use for unqualified values
         base (int): Base to use (usually 1024)
 
     Returns:
@@ -317,7 +317,7 @@ def words(text, normalize=None, split="_"):
         return result
 
     strings = [s.strip() for s in RE_WORDS.split(stringified(text))]
-    strings = [s for s in flattened(strings, split=split) if s]
+    strings = [s for s in flattened(strings, separator=split) if s]
     if normalize:
         strings = [normalize(s) for s in strings]
 
@@ -328,7 +328,7 @@ def unitized(value, unit, base=DEFAULT_BASE, unitseq=DEFAULT_UNITS):
     """
     Args:
         value (int | float): Value to expand
-        unit (str | unicode): Given unit
+        unit (str): Given unit
         base (int): Base to use (usually 1024)
         unitseq (str): Sequence of 1-letter representation for each exponent level
 

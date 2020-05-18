@@ -7,7 +7,7 @@ import subprocess  # nosec
 import sys
 import time
 
-from runez.system import _get_abort_exception, abort, decode, flattened, is_dryrun, LOG, represented_args, SHELL, short, WINDOWS
+from runez.system import _get_abort_exception, abort, decode, flattened, is_dryrun, LOG, quoted, short, WINDOWS
 
 
 DEFAULT_INSTRUCTIONS = {
@@ -166,7 +166,7 @@ def run(program, *args, **kwargs):
 
     - stdout, stderr: Passed through to `subprocess.Popen`, when both are None causes this function to return exit code instead of output
     """
-    args = flattened(args, split=SHELL)
+    args = flattened(args, shellify=True)
     full_path = which(program)
 
     logger = kwargs.pop("logger", LOG.debug)
@@ -175,7 +175,7 @@ def run(program, *args, **kwargs):
     include_error = kwargs.pop("include_error", False)
 
     message = "Would run" if dryrun else "Running"
-    message = "%s: %s %s" % (message, short(full_path or program), represented_args(args))
+    message = "%s: %s %s" % (message, short(full_path or program), quoted(args))
     if logger:
         logger(message)
 

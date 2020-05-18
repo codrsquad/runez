@@ -23,10 +23,10 @@ from runez.program import require_installed, run, which
 from runez.prompt import ask_once
 from runez.represent import align, header, indented, PrettyTable
 from runez.serialize import json_sanitized, read_json, represented_json, save_json, Serializable
-from runez.system import abort, capped, decode, flattened, formatted, get_version, is_tty, quoted, represented_args, resolved_path, set_dryrun, short, shortened, stringified
+from runez.system import abort, capped, decode, expanded, flattened, get_version, is_tty, quoted, resolved_path, short, shortened, stringified
 from runez.system import AdaptedProperty, Anchored, CaptureOutput, CurrentFolder, Slotted, TempArgv, TrackedOutput, Undefined
 from runez.system import current_test, first_line
-from runez.system import PY2, SANITIZED, SHELL, UNIQUE, UNSET, WINDOWS
+from runez.system import PY2, UNSET, WINDOWS
 from runez.thread import thread_local_property, ThreadLocalSingleton
 
 __all__ = [
@@ -52,10 +52,10 @@ __all__ = [
     "ask_once",
     "align", "header", "indented", "PrettyTable",
     "json_sanitized", "read_json", "represented_json", "save_json", "Serializable",
-    "abort", "capped", "decode", "flattened", "formatted", "get_version", "is_tty", "quoted", "represented_args", "resolved_path", "set_dryrun", "short", "shortened", "stringified",
+    "abort", "capped", "decode", "expanded", "flattened", "get_version", "is_tty", "quoted", "resolved_path", "short", "shortened", "stringified",
     "AdaptedProperty", "Anchored", "CaptureOutput", "CurrentFolder", "Slotted", "TempArgv", "TrackedOutput", "Undefined",
     "current_test", "first_line",
-    "PY2", "SANITIZED", "SHELL", "UNIQUE", "UNSET", "WINDOWS",
+    "PY2", "UNSET", "WINDOWS",
     "thread_local_property", "ThreadLocalSingleton",
 ]
 

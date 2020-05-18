@@ -2,6 +2,25 @@
 History
 =======
 
+2.0
+---
+
+* ``flattened()`` now has boolean optional parameters (instead of previously ``split`` enum, removed: ``SANITIZED, SHELL, UNIQUE``)
+
+* ``quoted()`` can quote a single string, or a list of strings
+
+* Removed ``represented_args()``, now ``quoted()`` can be used instead
+
+* Renamed ``formatted()`` -> ``expanded()``
+
+* Not-so-useful functions are not exposed in ``runez.`` anymore:
+
+    * ``set_dryrun()`` (better applied via ``runez.log.setup()``)
+
+* Internal refactor to minimize import time (import time now tested, must be less than 3x slower than ``import sys``)
+
+
+
 1.8.1 (2019-05-07)
 ------------------
 

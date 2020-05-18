@@ -22,7 +22,7 @@ from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone
 from runez.path import basename as get_basename, ensure_folder, parent_folder
 from runez.program import dev_folder, program_path
-from runez.system import flattened, formatted, is_dryrun, LOG, represented_args, SANITIZED, set_dryrun, Slotted, ThreadGlobalContext, UNIQUE, UNSET, WINDOWS
+from runez.system import expanded, flattened, is_dryrun, LOG, quoted, set_dryrun, Slotted, ThreadGlobalContext, UNSET, WINDOWS
 
 
 ORIGINAL_CF = logging.currentframe
@@ -79,7 +79,7 @@ class LogSpec(Slotted):
     @property
     def argv(self):
         """str: Command line invocation, represented to show as greeting"""
-        return represented_args(sys.argv)
+        return quoted(sys.argv)
 
     @property
     def pid(self):
@@ -121,15 +121,15 @@ class LogSpec(Slotted):
     def _auto_complete_filename(self, location):
         """
         Args:
-            location (str | unicode | None): Location to auto-complete with {basename}, if it points to a folder
+            location (str | None): Location to auto-complete with {basename}, if it points to a folder
 
         Returns:
             str | None: {location}/{basename}
         """
-        path = formatted(location, self, os.environ)
+        path = expanded(location, self, os.environ)
         if path:
             if os.path.isdir(path):
-                filename = formatted(self.basename, self)
+                filename = expanded(self.basename, self)
                 if not filename:
                     return None
 
@@ -155,7 +155,7 @@ class _ContextFilter(logging.Filter):
         """
         Args:
             context (ThreadGlobalContext): Associated context
-            name (str | unicode): Passed through to parent
+            name (str): Passed through to parent
         """
         super(_ContextFilter, self).__init__(name=name)
         self.context = context
@@ -296,22 +296,22 @@ class LogManager(object):
             dryrun (bool): Enable dryrun
             level (int | None): Shortcut to set both `console_level` and `file_level` at once
             clean_handlers (bool): Remove any existing logging.root.handlers
-            greetings (str | unicode | list[str | unicode] | None): Optional greetings message(s) to log
-            appname (str | unicode | None): Program's base name, not used directly, just as reference for default 'basename'
-            basename (str | unicode | None): Base name of target log file, not used directly, just as reference for default 'locations'
-            console_format (str | unicode | None): Format to use for console log, use None to deactivate
+            greetings (str | list[str] | None): Optional greetings message(s) to log
+            appname (str | None): Program's base name, not used directly, just as reference for default 'basename'
+            basename (str | None): Base name of target log file, not used directly, just as reference for default 'locations'
+            console_format (str | None): Format to use for console log, use None to deactivate
             console_level (int | None): Level to use for console logging
             console_stream (TextIOWrapper | None): Stream to use for console log (eg: sys.stderr), use None to deactivate
-            context_format (str | unicode | None): Format to use for contextual log, use None to deactivate
-            dev (str | unicode | None): Custom folder to use when running from a development venv (auto-determined if None)
-            file_format (str | unicode | None): Format to use for file log, use None to deactivate
+            context_format (str | None): Format to use for contextual log, use None to deactivate
+            dev (str | None): Custom folder to use when running from a development venv (auto-determined if None)
+            file_format (str | None): Format to use for file log, use None to deactivate
             file_level (int | None): Level to use for file logging
-            file_location (str | unicode | None): Desired custom file location (overrides {locations} search, handy as a --log cli flag)
-            locations (list[str | unicode]|None): List of candidate folders for file logging (None: deactivate file logging)
-            rotate (str | unicode | None): How to rotate log file (None: no rotation, "time:1d" time-based, "size:50m" size-based)
+            file_location (str | None): Desired custom file location (overrides {locations} search, handy as a --log cli flag)
+            locations (list[str]|None): List of candidate folders for file logging (None: deactivate file logging)
+            rotate (str | None): How to rotate log file (None: no rotation, "time:1d" time-based, "size:50m" size-based)
             rotate_count (int): How many rotations to keep
-            timezone (str | unicode | None): Time zone, use None to deactivate time zone logging
-            tmp (str | unicode | None): Optional temp folder to use (auto determined)
+            timezone (str | None): Time zone, use None to deactivate time zone logging
+            tmp (str | None): Optional temp folder to use (auto determined)
         """
         with cls._lock:
             cls.set_debug_dryrun(debug=debug, dryrun=dryrun)
@@ -343,7 +343,7 @@ class LogManager(object):
                 cls.spec.console_level = level
                 cls.spec.file_level = level
 
-            root_level = min(flattened([cls.spec.console_level, cls.spec.file_level], split=SANITIZED))
+            root_level = min(flattened([cls.spec.console_level, cls.spec.file_level], sanitized=True))
             if root_level and root_level != logging.root.level:
                 logging.root.setLevel(root_level)
 
@@ -364,11 +364,11 @@ class LogManager(object):
     def greet(cls, greetings, logger=LOG.debug):
         """
         Args:
-            greetings (str | unicode | list[str | unicode] | None): Greetings message(s) to log
+            greetings (str | list[str] | None): Greetings message(s) to log
             logger (callable | None): Logger to use
         """
         if greetings and logger:
-            for msg in flattened(greetings, split=SANITIZED):
+            for msg in flattened(greetings, sanitized=True):
                 message = cls.formatted_greeting(msg)
                 if message:
                     logger(message)
@@ -413,7 +413,7 @@ class LogManager(object):
             else:
                 location = "no usable locations from {locations}"
 
-            return formatted(greeting, cls.spec, location=location, strict=False)
+            return expanded(greeting, cls.spec, location=location, strict=False)
 
     @classmethod
     def silence(cls, *modules, **kwargs):
@@ -431,8 +431,8 @@ class LogManager(object):
     def is_using_format(cls, markers, used_formats=None):
         """
         Args:
-            markers (str | unicode): Space separated list of markers to look for
-            used_formats (str | unicode): Formats to consider (default: cls.used_formats)
+            markers (str): Space separated list of markers to look for
+            used_formats (str): Formats to consider (default: cls.used_formats)
 
         Returns:
             (bool): True if any one of the 'markers' is seen in 'used_formats'
@@ -443,7 +443,7 @@ class LogManager(object):
         if not markers or not used_formats:
             return False
 
-        return any(marker in used_formats for marker in flattened(markers, split=(" ", UNIQUE)))
+        return any(marker in used_formats for marker in flattened(markers, separator=" "))
 
     @classmethod
     def enable_faulthandler(cls, signum=getattr(signal, "SIGUSR1", None)):
@@ -638,9 +638,9 @@ def wrap(level, **kwargs):
 def _replace_and_pad(fmt, marker, replacement):
     """
     Args:
-        fmt (str | unicode): Format to tweak
-        marker (str | unicode): Marker to replace
-        replacement (str | unicode): What to replace marker with
+        fmt (str): Format to tweak
+        marker (str): Marker to replace
+        replacement (str): What to replace marker with
 
     Returns:
         (str): Resulting format, with marker replaced
@@ -659,7 +659,7 @@ def _replace_and_pad(fmt, marker, replacement):
 def _canonical_format(fmt):
     """
     Args:
-        fmt (str | unicode | None): Format specification
+        fmt (str | None): Format specification
 
     Returns:
         (str | None): Canonical version of format
@@ -673,8 +673,8 @@ def _canonical_format(fmt):
 def _get_file_handler(location, rotate, rotate_count):
     """
     Args:
-        location (str | unicode | None): Log file path
-        rotate (str | unicode | None): How to rotate, examples:
+        location (str | None): Log file path
+        rotate (str | None): How to rotate, examples:
             time:midnight - Rotate at midnight
             time:15s - Rotate every 15 seconds
             time:2h - Rotate every 2 hours

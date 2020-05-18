@@ -103,8 +103,8 @@ class align:
 def header(text, border="--"):
     """
     Args:
-        text (str | unicode): Text to turn into a header
-        border (str | unicode): Characters to use to decorate header
+        text (str): Text to turn into a header
+        border (str): Characters to use to decorate header
 
     Returns:
         (str): Decorated
@@ -227,7 +227,7 @@ class PrettyHeader(PrettyCustomizable):
             return
 
         if isinstance(value, string_type):
-            for t in flattened(value, split=","):
+            for t in flattened(value, separator=","):
                 self.add_column(t)
 
         elif isinstance(value, int):

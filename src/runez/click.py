@@ -99,7 +99,7 @@ def version(*args, **attrs):
 def settings(help=None, width=140, **attrs):
     """
     Args:
-        help (list[str | unicode] | str | unicode | None): List of flags to show help, default: -h and --help
+        help (list[str] | str | None): List of flags to show help, default: -h and --help
         width (int): Constrain help to
         **attrs:
 
@@ -110,7 +110,7 @@ def settings(help=None, width=140, **attrs):
         help = ["-h", "--help"]
 
     context_settings = attrs.pop("context_settings", {})
-    context_settings["help_option_names"] = flattened(help, split=" ")
+    context_settings["help_option_names"] = flattened(help, separator=" ")
     context_settings["max_content_width"] = width
 
     return dict(context_settings=context_settings, **attrs)
@@ -174,7 +174,7 @@ class _ConfigOption(object):
         self.tracer = attrs.pop("tracer", None)
 
     def _get_values(self, value):
-        value = flattened(value, split=self.separator)
+        value = flattened(value, separator=self.separator)
         values = [t.partition("=") for t in value if t]
         values = dict((k, v) for k, _, v in values)
         if self.prefix:

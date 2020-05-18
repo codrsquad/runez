@@ -11,7 +11,7 @@ import runez.conftest
 def sample_main():
     args = sys.argv[1:]
     if args:
-        args = runez.flattened(args, split=runez.SHELL)
+        args = runez.flattened(args, shellify=True)
         if args[0] == "TypeError":
             # Raise a TypeError
             len(42)

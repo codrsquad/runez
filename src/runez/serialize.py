@@ -10,7 +10,7 @@ import os
 
 import runez.schema
 from runez.path import ensure_folder
-from runez.system import abort, decode, is_dryrun, LOG, resolved_path, short, shortened, string_type, UNSET
+from runez.system import abort, is_dryrun, LOG, resolved_path, short, shortened, string_type, stringified, UNSET
 
 
 Serializable = None  # type: type # Set to runez.Serializable class once parsing of runez.serialize.py is past that class definition
@@ -108,7 +108,7 @@ class DefaultBehavior(object):
 
         if isinstance(extras, tuple) and len(extras) == 2:
             extras, self.ignored_extras = extras
-            if hasattr(self.ignored_extras, "split"):
+            if isinstance(self.ignored_extras, string_type):
                 self.ignored_extras = self.ignored_extras.split()
 
         else:
@@ -178,7 +178,7 @@ class DefaultBehavior(object):
                 self.do_notify("Extra content given for %s: %s" % (class_name, ", ".join(sorted(extras))))
 
 
-def json_sanitized(value, stringify=decode, dt=str, keep_none=False):
+def json_sanitized(value, stringify=stringified, dt=str, keep_none=False):
     """
     Args:
         value: Value to sanitize
@@ -601,7 +601,7 @@ class Serializable(object):
         for name, schema_type in self._meta.attributes.items():
             setattr(self, name, schema_type.default)
 
-    def to_dict(self, stringify=decode, dt=str, keep_none=False):
+    def to_dict(self, stringify=stringified, dt=str, keep_none=False):
         """
         Args:
             stringify (callable | None): Function to use to stringify non-builtin types

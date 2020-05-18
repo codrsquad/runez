@@ -22,14 +22,10 @@ except NameError:
     string_type = str
 
     from io import StringIO
-    unicode = str
     PY2 = False
 
 
 LOG = logging.getLogger("runez")
-SANITIZED = 1
-SHELL = 2
-UNIQUE = 4
 SYMBOLIC_TMP = "<tmp>"
 WINDOWS = sys.platform.startswith("win")
 RE_FORMAT_MARKERS = re.compile(r"{([^}]*?)}")
@@ -162,7 +158,7 @@ def decode(value, strip=False):
     """Python 2/3 friendly decoding of output.
 
     Args:
-        value (str | unicode | bytes | None): The value to decode.
+        value (str | bytes | None): The value to decode.
         strip (bool): If True, `strip()` the returned string. (Default value = False)
 
     Returns:
@@ -171,30 +167,30 @@ def decode(value, strip=False):
     if value is None:
         return None
 
-    if isinstance(value, bytes) and not isinstance(value, unicode):
+    if isinstance(value, bytes):
         value = value.decode("utf-8")
 
     if strip:
-        return stringified(value).strip()
+        value = value.strip()
 
-    return stringified(value)
+    return value
 
 
-def formatted(text, *args, **kwargs):
-    """Generically formatted `text`, `{...}` placeholders are resolved from given objects / keyword arguments
+def expanded(text, *args, **kwargs):
+    """Generically expanded 'text': '{...}' placeholders are resolved from given objects / keyword arguments
 
-    >>> formatted("{foo}", foo="bar")
+    >>> expanded("{foo}", foo="bar")
     'bar'
-    >>> formatted("{foo} {age}", {"age": 5}, foo="bar")
+    >>> expanded("{foo} {age}", {"age": 5}, foo="bar")
     'bar 5'
 
     Args:
-        text (str | unicode): Text to format
+        text (str): Text to format
         *args: Objects to extract values from (as attributes)
         **kwargs: Optional values provided as named args
 
     Returns:
-        (str): `{...}` placeholders formatted from given `args` object's properties/fields, or as `kwargs`
+        (str): '{...}' placeholders expanded from given `args` object's properties/fields, or as `kwargs`
     """
     if not text or "{" not in text:
         return text
@@ -223,8 +219,8 @@ def formatted(text, *args, **kwargs):
     if not max_depth or not isinstance(max_depth, int) or max_depth <= 0:
         return text
 
-    expanded = dict((k, _rformat(k, v, definitions, max_depth)) for k, v in definitions.items())
-    return text.format(**expanded)
+    result = dict((k, _rformat(k, v, definitions, max_depth)) for k, v in definitions.items())
+    return text.format(**result)
 
 
 def find_caller_frame(validator=None, depth=2, maximum=1000):
@@ -282,33 +278,20 @@ def first_line(text, keep_empty=False, strip=True, default=None):
     return default
 
 
-def flattened(value, split=None):
+def flattened(value, separator=None, sanitized=False, shellify=False, unique=False):
     """
     Args:
-        value: Possibly nested arguments (sequence of lists, nested lists)
-        split (int | str | unicode | (str | unicode | None, int) | None): How to split values:
-            - None: simply flatten, no further processing
-            - one char string: split() on specified char
-            - SANITIZED: discard all None items
-            - UNIQUE: each value will appear only once
-            - SHELL:  filter out sequences of the form ["-f", None] (handy for simplified cmd line specification)
+        value: Possibly nested arguments (sequence of lists, nested lists, ...)
+        separator (str | None): If provided, split strings by given separator
+        sanitized (bool): If True, filter out None values
+        shellify (bool): If True, filter out sequences of the form ["-f", None] (handy for simplified cmd line specification)
+        unique (bool): If True, ensure every value appears only once
 
     Returns:
-        (list): 'value' flattened out (leaves from all involved lists/tuples)
+        (list): Flattened list from 'value'
     """
     result = []
-    separator = None
-    mode = 0
-    if isinstance(split, tuple):
-        separator, mode = split
-
-    elif isinstance(split, int):
-        mode = split
-
-    else:
-        separator = split
-
-    _flatten(result, value, separator, mode)
+    _flatten(result, value, separator, sanitized, shellify, unique)
     return result
 
 
@@ -359,40 +342,42 @@ def is_tty():
     return (sys.stdout.isatty() or "PYCHARM_HOSTED" in os.environ) and not current_test()
 
 
-def quoted(text):
-    """Quoted `text`, if it contains whitespaces
+def quoted(items, adapter=UNSET, keep_empty=True, separator=" "):
+    """Quoted `items`, for those that contain whitespaces
 
     >>> quoted("foo")
     'foo'
     >>> quoted("foo bar")
     '"foo bar"'
+    >>> quoted(["foo", "foo bar"])
+    'foo "foo bar"'
 
     Args:
-        text (str | unicode | None): Text to optionally quote
+        items (str | list | tuple | None): Text, or list of text to optionally quote
+        adapter (callable | None): Called for every item if provided, it should return a string
+        keep_empty (bool): If False, skip empty items
+        separator (str): Separator to use to join args back as a string
 
     Returns:
         (str): Quoted if 'text' contains spaces
     """
-    if text and " " in text:
-        sep = "'" if '"' in text else '"'
-        return "%s%s%s" % (sep, text, sep)
+    if adapter is UNSET:
+        adapter = short
 
-    return text
+    if items is None or isinstance(items, string_type):
+        items = [items]
 
-
-def represented_args(args, separator=" "):
-    """
-    Args:
-        args (list | tuple | None): Arguments to represent
-        separator (str): Separator to use to join args back as a string
-
-    Returns:
-        (str): Quoted as needed textual representation
-    """
     result = []
-    if args:
-        for text in args:
-            result.append(quoted(short(text)))
+    for text in items:
+        if adapter is not None:
+            text = adapter(text)
+
+        if text and " " in text:
+            sep = "'" if '"' in text else '"'
+            text = "%s%s%s" % (sep, text, sep)
+
+        if keep_empty or text:
+            result.append(text)
 
     return separator.join(result)
 
@@ -400,8 +385,8 @@ def represented_args(args, separator=" "):
 def resolved_path(path, base=None):
     """
     Args:
-        path (str | unicode | None): Path to resolve
-        base (str | unicode | None): Base path to use to resolve relative paths (default: current working dir)
+        path (str | None): Path to resolve
+        base (str | None): Base path to use to resolve relative paths (default: current working dir)
 
     Returns:
         (str): Absolute path
@@ -416,15 +401,16 @@ def resolved_path(path, base=None):
     return os.path.abspath(path)
 
 
-def short(path):
+def short(path, none="None"):
     """
     Args:
         path (str | None): Path to textually represent in a shortened (yet meaningful) form
+        none (str): String to use to represent `None`
 
     Returns:
         (str): Shorter version of `path` (relative to one of the current anchor folders)
     """
-    return Anchored.short(path)
+    return Anchored.short(path, none=none)
 
 
 def shortened(value, size=120):
@@ -471,6 +457,9 @@ def stringified(value, converter=None, none="None"):
     """
     if isinstance(value, string_type):
         return value
+
+    if isinstance(value, bytes):
+        return value.decode("utf-8")
 
     if converter is not None:
         converted = converter(value)
@@ -602,15 +591,15 @@ class Anchored(object):
     def set(cls, *anchors):
         """
         Args:
-            *anchors (str | unicode | list): Optional paths to use as anchors for short()
+            *anchors (str | list): Optional paths to use as anchors for short()
         """
-        cls.paths = sorted(flattened(anchors, split=SANITIZED | UNIQUE), reverse=True)
+        cls.paths = sorted(flattened(anchors, sanitized=True, unique=True), reverse=True)
 
     @classmethod
     def add(cls, anchors):
         """
         Args:
-            anchors (str | unicode | list): Optional paths to use as anchors for short()
+            anchors (str | list): Optional paths to use as anchors for short()
         """
         cls.set(cls.paths, anchors)
 
@@ -618,28 +607,26 @@ class Anchored(object):
     def pop(cls, anchors):
         """
         Args:
-            anchors (str | unicode | list): Optional paths to use as anchors for short()
+            anchors (str | list): Optional paths to use as anchors for short()
         """
-        for anchor in flattened(anchors, split=SANITIZED | UNIQUE):
+        for anchor in flattened(anchors, sanitized=True, unique=True):
             if anchor in cls.paths:
                 cls.paths.remove(anchor)
 
     @classmethod
-    def short(cls, path):
+    def short(cls, path, none="None"):
         """
         Example:
             short("examined /Users/joe/foo") => "examined ~/foo"
 
         Args:
             path: Path to represent in its short form
+            none (str): String to use to represent `None`
 
         Returns:
             (str): Short form, using '~' if applicable
         """
-        if path is None:
-            return path
-
-        path = stringified(path)
+        path = stringified(path, none=none)
         if cls.paths:
             for p in cls.paths:
                 if p:
@@ -1005,7 +992,7 @@ class Slotted(object):
     def _set(self, name, value):
         """
         Args:
-            name (str | unicode): Name of slot to set.
+            name (str): Name of slot to set.
             value: Associated value
         """
         if value is not UNSET:
@@ -1121,7 +1108,7 @@ class ThreadGlobalContext(object):
     def remove_threadlocal(self, name):
         """
         Args:
-            name (str | unicode): Remove entry with `name` from current thread's context
+            name (str): Remove entry with `name` from current thread's context
         """
         with self._lock:
             if self._tpayload is not None:
@@ -1149,7 +1136,7 @@ class ThreadGlobalContext(object):
     def remove_global(self, name):
         """
         Args:
-            name (str | unicode): Remove entry with `name` from global context
+            name (str): Remove entry with `name` from global context
         """
         with self._lock:
             if self._gpayload is not None:
@@ -1200,6 +1187,50 @@ def _find_value(key, *args):
             return v
 
 
+def _flatten(result, value, separator, sanitized, shellify, unique):
+    if value is None or value is UNSET:
+        if shellify:
+            # Convenience: allow to filter out ["--switch", None] easily
+            if result and result[-1].startswith("-"):
+                result.pop(-1)
+
+            return
+
+        if sanitized:
+            return
+
+    elif isinstance(value, (list, tuple, set)):
+        for item in value:
+            _flatten(result, item, separator, sanitized, shellify, unique)
+
+        return
+
+    elif separator and isinstance(value, string_type) and separator in value:
+        _flatten(result, value.split(separator), separator, sanitized, shellify, unique)
+        return
+
+    if shellify:
+        value = "%s" % value  # coerce to str() for py2
+
+    if not unique or value not in result:
+        result.append(value)
+
+
+def _formatted_string(*args):
+    if not args:
+        return ""
+
+    message = args[0]
+    if len(args) == 1:
+        return message
+
+    try:
+        return message % args[1:]
+
+    except TypeError:
+        return message
+
+
 def _get_abort_exception():
     """AbortException can be modified from client"""
     return _get_runez().system.AbortException
@@ -1220,69 +1251,6 @@ def _get_value(obj, key):
             return obj.get(key)
 
         return getattr(obj, key, None)
-
-
-def _rformat(key, value, definitions, max_depth):
-    if max_depth > 1 and value and "{" in value:
-        value = value.format(**definitions)
-        return _rformat(key, value, definitions, max_depth=max_depth - 1)
-
-    return value
-
-
-def _flatten(result, value, separator, mode):
-    """
-    Args:
-        result (list): Will hold all flattened values
-        value: Possibly nested arguments (sequence of lists, nested lists)
-        separator (str | unicode | None): Split values with `separator` if specified
-        mode (int): Describes how keep flattenened values
-
-    Returns:
-        list: 'value' flattened out (leaves from all involved lists/tuples)
-    """
-    if value is None or value is UNSET:
-        if mode & SHELL:
-            # Convenience: allow to filter out ["--switch", None] easily
-            if result and result[-1].startswith("-"):
-                result.pop(-1)
-
-            return
-
-        if mode & SANITIZED:
-            return
-
-    if value is not None:
-        if isinstance(value, (list, tuple, set)):
-            for item in value:
-                _flatten(result, item, separator, mode)
-
-            return
-
-        if separator and hasattr(value, "split") and separator in value:
-            _flatten(result, value.split(separator), separator, mode)
-            return
-
-        if mode & SHELL:
-            value = "%s" % value
-
-    if (mode & UNIQUE == 0) or value not in result:
-        result.append(value)
-
-
-def _formatted_string(*args):
-    if not args:
-        return ""
-
-    message = args[0]
-    if len(args) == 1:
-        return message
-
-    try:
-        return message % args[1:]
-
-    except TypeError:
-        return message
 
 
 def _get_runez():
@@ -1326,3 +1294,11 @@ def _prettified(value):
 
     if callable(value):
         return "function '%s'" % value.__name__
+
+
+def _rformat(key, value, definitions, max_depth):
+    if max_depth > 1 and value and "{" in value:
+        value = value.format(**definitions)
+        return _rformat(key, value, definitions, max_depth=max_depth - 1)
+
+    return value

@@ -37,11 +37,11 @@ def test_anchored(temp_folder):
     assert runez.resolved_path("some-file") == os.path.join(temp_folder, "some-file")
     assert runez.resolved_path("some-file", base="bar") == os.path.join(temp_folder, "bar", "some-file")
 
-    assert runez.short(None) is None
+    assert runez.short(None) == "None"
     assert runez.short("") == ""
     assert runez.short(os.path.join(temp_folder, "some-file")) == "some-file"
 
-    assert runez.represented_args(["ls", os.path.join(temp_folder, "some-file") + " bar", "-a"]) == 'ls "some-file bar" -a'
+    assert runez.quoted(["ls", os.path.join(temp_folder, "some-file") + " bar", "-a"]) == 'ls "some-file bar" -a'
 
     user_path = runez.resolved_path("~/some-folder/bar")
     current_path = runez.resolved_path("./some-folder/bar")
@@ -133,84 +133,84 @@ def test_current_folder(temp_folder):
 def test_flattened():
     assert runez.flattened(None) == [None]
     assert runez.flattened([None]) == [None]
-    assert runez.flattened(None, split=runez.SANITIZED) == []
-    assert runez.flattened(None, split=runez.SHELL) == []
-    assert runez.flattened(None, split=runez.UNIQUE) == [None]
+    assert runez.flattened(None, sanitized=True) == []
+    assert runez.flattened(None, shellify=True) == []
+    assert runez.flattened(None, unique=True) == [None]
 
     assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET]) == ["-a", None, "b", runez.UNSET, runez.UNSET]
-    assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET], split=runez.UNIQUE) == ["-a", None, "b", runez.UNSET]
-    assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET], split=runez.SANITIZED) == ["-a", "b"]
-    assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET], split=runez.SHELL) == ["b"]
-    assert runez.flattened(["-a", [runez.UNSET, "b", runez.UNSET], runez.UNSET], split=runez.SHELL) == ["b"]
+    assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET], unique=True) == ["-a", None, "b", runez.UNSET]
+    assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET], sanitized=True) == ["-a", "b"]
+    assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET], shellify=True) == ["b"]
+    assert runez.flattened(["-a", [runez.UNSET, "b", runez.UNSET], runez.UNSET], shellify=True) == ["b"]
 
     assert runez.flattened(["a b"]) == ["a b"]
     assert runez.flattened([["a b"]]) == ["a b"]
 
     assert runez.flattened(["-r", None, "foo"]) == ["-r", None, "foo"]
-    assert runez.flattened(["-r", None, "foo"], split=runez.SANITIZED) == ["-r", "foo"]
-    assert runez.flattened(["-r", None, "foo"], split=runez.SHELL) == ["foo"]
-    assert runez.flattened(["-r", None, "foo"], split=runez.UNIQUE) == ["-r", None, "foo"]
-    assert runez.flattened(["-r", None, "foo"], split=runez.SANITIZED | runez.UNIQUE) == ["-r", "foo"]
+    assert runez.flattened(["-r", None, "foo"], sanitized=True) == ["-r", "foo"]
+    assert runez.flattened(["-r", None, "foo"], shellify=True) == ["foo"]
+    assert runez.flattened(["-r", None, "foo"], unique=True) == ["-r", None, "foo"]
+    assert runez.flattened(["-r", None, "foo"], sanitized=True, unique=True) == ["-r", "foo"]
 
     # Sanitized
-    assert runez.flattened(("a", None, ["b", None]), split=runez.UNIQUE) == ["a", None, "b"]
-    assert runez.flattened(("a", None, ["b", None]), split=runez.SANITIZED | runez.UNIQUE) == ["a", "b"]
+    assert runez.flattened(("a", None, ["b", None]), unique=True) == ["a", None, "b"]
+    assert runez.flattened(("a", None, ["b", None]), sanitized=True, unique=True) == ["a", "b"]
 
     # Shell cases
-    assert runez.flattened([None, "a", "-f", "b", "c", None], split=runez.SHELL) == ["a", "-f", "b", "c"]
-    assert runez.flattened(["a", "-f", "b", "c"], split=runez.SHELL) == ["a", "-f", "b", "c"]
-    assert runez.flattened([None, "-f", "b", None], split=runez.SHELL) == ["-f", "b"]
-    assert runez.flattened(["a", "-f", None, "c"], split=runez.SHELL) == ["a", "c"]
+    assert runez.flattened([None, "a", "-f", "b", "c", None], shellify=True) == ["a", "-f", "b", "c"]
+    assert runez.flattened(["a", "-f", "b", "c"], shellify=True) == ["a", "-f", "b", "c"]
+    assert runez.flattened([None, "-f", "b", None], shellify=True) == ["-f", "b"]
+    assert runez.flattened(["a", "-f", None, "c"], shellify=True) == ["a", "c"]
 
     # Splitting on separator
     assert runez.flattened("a b b") == ["a b b"]
-    assert runez.flattened("a b b", split=" ") == ["a", "b", "b"]
-    assert runez.flattened("a b b", split=(" ", runez.UNIQUE)) == ["a", "b"]
-    assert runez.flattened("a b b", split=(None, runez.UNIQUE)) == ["a b b"]
-    assert runez.flattened("a b b", split=("", runez.UNIQUE)) == ["a b b"]
-    assert runez.flattened("a b b", split=("+", runez.UNIQUE)) == ["a b b"]
+    assert runez.flattened("a b b", separator=" ") == ["a", "b", "b"]
+    assert runez.flattened("a b b", separator=" ", unique=True) == ["a", "b"]
+    assert runez.flattened("a b b", unique=True) == ["a b b"]
+    assert runez.flattened("a b b", separator="", unique=True) == ["a b b"]
+    assert runez.flattened("a b b", separator="+", unique=True) == ["a b b"]
 
     # Unique
     assert runez.flattened(["a", ["a", ["b", ["b", "c"]]]]) == ["a", "a", "b", "b", "c"]
-    assert runez.flattened(["a", ["a", ["b", ["b", "c"]]]], split=runez.UNIQUE) == ["a", "b", "c"]
+    assert runez.flattened(["a", ["a", ["b", ["b", "c"]]]], unique=True) == ["a", "b", "c"]
 
-    assert runez.flattened(["a b", None, ["a b c"], "a"], split=runez.UNIQUE) == ["a b", None, "a b c", "a"]
-    assert runez.flattened(["a b", None, ["a b c"], "a"], split=(" ", runez.UNIQUE)) == ["a", "b", None, "c"]
-    assert runez.flattened(["a b", None, ["a b c"], "a"], split=(" ", runez.SANITIZED | runez.UNIQUE)) == ["a", "b", "c"]
+    assert runez.flattened(["a b", None, ["a b c"], "a"], unique=True) == ["a b", None, "a b c", "a"]
+    assert runez.flattened(["a b", None, ["a b c"], "a"], separator=" ", unique=True) == ["a", "b", None, "c"]
+    assert runez.flattened(["a b", None, ["a b c"], "a"], separator=" ", sanitized=True, unique=True) == ["a", "b", "c"]
 
 
-def test_formatted():
+def test_expanded():
     class Record(object):
         basename = "my-name"
         filename = "{basename}.txt"
 
-    assert runez.formatted("{filename}", Record) == "my-name.txt"
-    assert runez.formatted("{basename}/{filename}", Record) == "my-name/my-name.txt"
+    assert runez.expanded("{filename}", Record) == "my-name.txt"
+    assert runez.expanded("{basename}/{filename}", Record) == "my-name/my-name.txt"
 
-    assert runez.formatted("") == ""
-    assert runez.formatted("", Record) == ""
-    assert runez.formatted("{not_there}", Record) is None
-    assert runez.formatted("{not_there}", Record, name="susan") is None
-    assert runez.formatted("{not_there}", Record, not_there="psyched!") == "psyched!"
-    assert runez.formatted("{not_there}", Record, strict=False) == "{not_there}"
+    assert runez.expanded("") == ""
+    assert runez.expanded("", Record) == ""
+    assert runez.expanded("{not_there}", Record) is None
+    assert runez.expanded("{not_there}", Record, name="susan") is None
+    assert runez.expanded("{not_there}", Record, not_there="psyched!") == "psyched!"
+    assert runez.expanded("{not_there}", Record, strict=False) == "{not_there}"
 
     deep = dict(a="a", b="b", aa="{a}", bb="{b}", ab="{aa}{bb}", ba="{bb}{aa}", abba="{ab}{ba}", deep="{abba}")
-    assert runez.formatted("{deep}", deep, max_depth=-1) == "{deep}"
-    assert runez.formatted("{deep}", deep, max_depth=0) == "{deep}"
-    assert runez.formatted("{deep}", deep, max_depth=1) == "{abba}"
-    assert runez.formatted("{deep}", deep, max_depth=2) == "{ab}{ba}"
-    assert runez.formatted("{deep}", deep, max_depth=3) == "{aa}{bb}{bb}{aa}"
-    assert runez.formatted("{deep}", deep, max_depth=4) == "{a}{b}{b}{a}"
-    assert runez.formatted("{deep}", deep, max_depth=5) == "abba"
-    assert runez.formatted("{deep}", deep, max_depth=6) == "abba"
+    assert runez.expanded("{deep}", deep, max_depth=-1) == "{deep}"
+    assert runez.expanded("{deep}", deep, max_depth=0) == "{deep}"
+    assert runez.expanded("{deep}", deep, max_depth=1) == "{abba}"
+    assert runez.expanded("{deep}", deep, max_depth=2) == "{ab}{ba}"
+    assert runez.expanded("{deep}", deep, max_depth=3) == "{aa}{bb}{bb}{aa}"
+    assert runez.expanded("{deep}", deep, max_depth=4) == "{a}{b}{b}{a}"
+    assert runez.expanded("{deep}", deep, max_depth=5) == "abba"
+    assert runez.expanded("{deep}", deep, max_depth=6) == "abba"
 
     cycle = dict(a="{b}", b="{a}")
-    assert runez.formatted("{a}", cycle, max_depth=0) == "{a}"
-    assert runez.formatted("{a}", cycle, max_depth=1) == "{b}"
-    assert runez.formatted("{a}", cycle, max_depth=2) == "{a}"
-    assert runez.formatted("{a}", cycle, max_depth=3) == "{b}"
+    assert runez.expanded("{a}", cycle, max_depth=0) == "{a}"
+    assert runez.expanded("{a}", cycle, max_depth=1) == "{b}"
+    assert runez.expanded("{a}", cycle, max_depth=2) == "{a}"
+    assert runez.expanded("{a}", cycle, max_depth=3) == "{b}"
 
-    assert runez.formatted("{filename}") == "{filename}"
+    assert runez.expanded("{filename}") == "{filename}"
 
 
 def test_get_version():
@@ -300,7 +300,7 @@ def test_system():
     assert bool(runez.UNSET) is False
     assert str(runez.UNSET) == "UNSET"
 
-    assert runez.quoted(None) is None
+    assert runez.quoted(None) == "None"
     assert runez.quoted("") == ""
     assert runez.quoted(" ") == '" "'
     assert runez.quoted('"') == '"'
@@ -308,14 +308,16 @@ def test_system():
     assert runez.quoted('a="b"') == 'a="b"'
     assert runez.quoted('foo a="b"') == """'foo a="b"'"""
 
-    assert runez.represented_args(None) == ""
-    assert runez.represented_args([]) == ""
-    assert runez.represented_args([0, 1, 2]) == "0 1 2"
-    assert runez.represented_args(["foo", {}, 0, [1, 2], {3: 4}, 5]) == 'foo {} 0 "[1, 2]" "{3: 4}" 5'
+    assert runez.quoted([]) == ""
+    assert runez.quoted([0, 1, 2]) == "0 1 2"
+    assert runez.quoted(["foo", {}, 0, [1, 2], {3: 4}, 5]) == 'foo {} 0 "[1, 2]" "{3: 4}" 5'
 
-    # Edge cases with test_stringified()
-    assert runez.stringified(5, converter=lambda x: None) == "5"
-    assert runez.stringified(5, converter=lambda x: x) == "5"
+    assert runez.stringified(None) == "None"
+    assert runez.stringified(5) == "5"
+    assert runez.stringified(b"foo") == "foo"
+    assert runez.stringified([1, 2]) == "[1, 2]"
+    assert runez.stringified([1, 2], converter=lambda x: None) == "[1, 2]"  # If converter returns None, we keep the value
+    assert runez.stringified(5, converter=lambda x: x) == "5"  # No-op converter
 
     assert runez.system._formatted_string() == ""
     assert runez.system._formatted_string("test") == "test"

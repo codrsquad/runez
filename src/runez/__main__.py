@@ -50,7 +50,7 @@ def cmd_colors():
         print("Backend: %s" % runez.color.backend)
         show_fgcolors(border=args.border)
         if args.bg:
-            for name in runez.flattened(args.bg, split=","):
+            for name in runez.flattened(args.bg, separator=","):
                 color = runez.color.bg.get(name)
                 if color is None:
                     print("Unknown bg color '%s'" % name)
