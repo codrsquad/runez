@@ -132,9 +132,8 @@ def run_cmds(prog=None):
     epilog = PrettyTable(2)
     epilog.header[0].style = "bold"
     for cmd, func in available_commands.items():
-        epilog.add_row(cmd, first_line(func.__doc__, default=""))
+        epilog.add_row(" " + cmd, first_line(func.__doc__, default=""))
 
-    epilog = runez.indented(epilog, indent=2)
     epilog = "Available commands:\n%s" % epilog
     # noinspection PyTypeChecker
     parser = argparse.ArgumentParser(

@@ -123,19 +123,6 @@ def header(text, border="--"):
     return fmt.format(decorated=decorated, hr=border[0] * len(decorated))
 
 
-def indented(text, indent=2):
-    """
-    Args:
-        text: Text to indent
-        indent (int): Number of spaces to indent with
-
-    Returns:
-        (str): All lines in `text` indented with `indent`
-    """
-    indent = " " * indent
-    return "\n".join("%s%s" % (indent, line) for line in stringified(text).splitlines())
-
-
 class PrettyBorder(Slotted):
     # top, mid, bottom, cell, header, header-cell
     __slots__ = ["t", "m", "b", "c", "h", "hc", "pad"]

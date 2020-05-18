@@ -20,7 +20,7 @@ from runez.path import basename, ensure_folder, parent_folder
 from runez.program import check_pid, dev_folder, find_parent_folder, is_executable, is_younger, make_executable, program_path
 from runez.program import require_installed, run, which
 from runez.prompt import ask_once
-from runez.represent import align, header, indented, PrettyTable
+from runez.represent import align, header, PrettyTable
 from runez.serialize import json_sanitized, read_json, represented_json, save_json, Serializable
 from runez.system import abort, capped, decode, expanded, flattened, quoted, short, stringified
 from runez.system import AdaptedProperty, Anchored, CaptureOutput, CurrentFolder, Slotted, TempArgv, TrackedOutput, Undefined, UNSET
@@ -47,7 +47,7 @@ __all__ = [
     "check_pid", "dev_folder", "find_parent_folder", "is_executable", "is_younger", "make_executable", "program_path",
     "require_installed", "run", "which",
     "ask_once",
-    "align", "header", "indented", "PrettyTable",
+    "align", "header", "PrettyTable",
     "json_sanitized", "read_json", "represented_json", "save_json", "Serializable",
     "abort", "capped", "decode", "expanded", "flattened", "quoted", "short", "stringified",
     "AdaptedProperty", "Anchored", "CaptureOutput", "CurrentFolder", "Slotted", "TempArgv", "TrackedOutput", "Undefined", "UNSET",
