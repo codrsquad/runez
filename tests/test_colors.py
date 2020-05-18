@@ -30,14 +30,14 @@ def test_colors():
         assert runez.blue("") == ""
         assert runez.plain("hello") == "hello"
         assert runez.yellow("hello") == "\x1b[33mhello\x1b[39m"
-        assert runez.yellow("hello", shorten=4) == "\x1b[33mh...\x1b[39m"
+        assert runez.yellow("hello", size=4) == "\x1b[33mh...\x1b[39m"
         assert runez.bold(1) == "\x1b[1m1\x1b[22m"
 
         assert runez.color.bg.get(None) is None
         assert runez.color.bg.get("blue") is runez.color.bg.blue
 
         assert runez.dim("") == ""
-        assert runez.dim("hello", shorten=4) == "\x1b[2mh...\x1b[22m"
+        assert runez.dim("hello", size=4) == "\x1b[2mh...\x1b[22m"
 
     assert not runez.is_coloring()
     assert runez.black("") == ""

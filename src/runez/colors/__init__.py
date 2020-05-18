@@ -136,15 +136,15 @@ class Renderable(object):
     def __repr__(self):
         return self.name
 
-    def __call__(self, text, shorten=None):
+    def __call__(self, text, size=None):
         """
         Allows for convenient call of the form:
 
         >>> import runez
         >>> print(runez.blue("foo"))
         """
-        if shorten:
-            text = short(text, size=shorten)
+        if size:
+            text = short(text, size=size)
 
         else:
             text = stringified(text)

@@ -2,78 +2,78 @@ from runez.colors import ColorManager
 
 
 # Colors
-def black(text, shorten=None):
-    return ColorManager.fg.black(text, shorten=shorten)
+def black(text, size=None):
+    return ColorManager.fg.black(text, size=size)
 
 
-def blue(text, shorten=None):
-    return ColorManager.fg.blue(text, shorten=shorten)
+def blue(text, size=None):
+    return ColorManager.fg.blue(text, size=size)
 
 
-def brown(text, shorten=None):
-    return ColorManager.fg.brown(text, shorten=shorten)
+def brown(text, size=None):
+    return ColorManager.fg.brown(text, size=size)
 
 
-def gray(text, shorten=None):
-    return ColorManager.fg.gray(text, shorten=shorten)
+def gray(text, size=None):
+    return ColorManager.fg.gray(text, size=size)
 
 
-def green(text, shorten=None):
-    return ColorManager.fg.green(text, shorten=shorten)
+def green(text, size=None):
+    return ColorManager.fg.green(text, size=size)
 
 
-def orange(text, shorten=None):
-    return ColorManager.fg.orange(text, shorten=shorten)
+def orange(text, size=None):
+    return ColorManager.fg.orange(text, size=size)
 
 
-def plain(text, shorten=None):
-    return ColorManager.fg.plain(text, shorten=shorten)
+def plain(text, size=None):
+    return ColorManager.fg.plain(text, size=size)
 
 
-def purple(text, shorten=None):
-    return ColorManager.fg.purple(text, shorten=shorten)
+def purple(text, size=None):
+    return ColorManager.fg.purple(text, size=size)
 
 
-def red(text, shorten=None):
-    return ColorManager.fg.red(text, shorten=shorten)
+def red(text, size=None):
+    return ColorManager.fg.red(text, size=size)
 
 
-def teal(text, shorten=None):
-    return ColorManager.fg.teal(text, shorten=shorten)
+def teal(text, size=None):
+    return ColorManager.fg.teal(text, size=size)
 
 
-def white(text, shorten=None):
-    return ColorManager.fg.white(text, shorten=shorten)
+def white(text, size=None):
+    return ColorManager.fg.white(text, size=size)
 
 
-def yellow(text, shorten=None):
-    return ColorManager.fg.yellow(text, shorten=shorten)
+def yellow(text, size=None):
+    return ColorManager.fg.yellow(text, size=size)
 
 
 # Styles
-def blink(text, shorten=None):
-    return ColorManager.style.blink(text, shorten=shorten)
+def blink(text, size=None):
+    return ColorManager.style.blink(text, size=size)
 
 
-def bold(text, shorten=None):
-    return ColorManager.style.bold(text, shorten=shorten)
+def bold(text, size=None):
+    return ColorManager.style.bold(text, size=size)
 
 
-def dim(text, shorten=None):
-    return ColorManager.style.dim(text, shorten=shorten)
+def dim(text, size=None):
+    return ColorManager.style.dim(text, size=size)
 
 
-def invert(text, shorten=None):
-    return ColorManager.style.invert(text, shorten=shorten)
+def invert(text, size=None):
+    return ColorManager.style.invert(text, size=size)
 
 
-def italic(text, shorten=None):
-    return ColorManager.style.italic(text, shorten=shorten)
+def italic(text, size=None):
+    return ColorManager.style.italic(text, size=size)
 
 
-def strikethrough(text, shorten=None):
-    return ColorManager.style.strikethrough(text, shorten=shorten)
+def strikethrough(text, size=None):
+    return ColorManager.style.strikethrough(text, size=size)
 
 
-def underline(text, shorten=None):
-    return ColorManager.style.underline(text, shorten=shorten)
+def underline(text, size=None):
+    return ColorManager.style.underline(text, size=size)
