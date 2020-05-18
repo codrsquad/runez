@@ -8,7 +8,7 @@ Example usage:
 
 import re
 
-from runez.system import current_test, is_tty, shortened, Slotted, stringified
+from runez.system import current_test, is_tty, short, Slotted, stringified
 
 
 RE_ANSI_ESCAPE = re.compile("\x1b\\[[;\\d]*[A-Za-z]")
@@ -144,7 +144,7 @@ class Renderable(object):
         >>> print(runez.blue("foo"))
         """
         if shorten:
-            text = shortened(text, size=shorten)
+            text = short(text, size=shorten)
 
         else:
             text = stringified(text)

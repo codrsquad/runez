@@ -10,7 +10,7 @@ import os
 
 import runez.schema
 from runez.path import ensure_folder
-from runez.system import abort, is_dryrun, LOG, resolved_path, short, shortened, string_type, stringified, UNSET
+from runez.system import abort, is_dryrun, LOG, resolved_path, short, string_type, stringified, UNSET
 
 
 Serializable = None  # type: type # Set to runez.Serializable class once parsing of runez.serialize.py is past that class definition
@@ -119,16 +119,16 @@ class DefaultBehavior(object):
     def __repr__(self):
         result = []
         if self.strict:
-            result.append("strict: %s" % shortened(self.strict))
+            result.append("strict: %s" % short(self.strict))
 
         if self.extras:
-            result.append("extras: %s" % shortened(self.extras))
+            result.append("extras: %s" % short(self.extras))
 
         if self.ignored_extras:
-            result.append("ignored extras: %s" % shortened(self.ignored_extras))
+            result.append("ignored extras: %s" % short(self.ignored_extras))
 
         if self.hook:
-            result.append("hook: %s" % shortened(self.hook))
+            result.append("hook: %s" % short(self.hook))
 
         if result:
             return ", ".join(result)

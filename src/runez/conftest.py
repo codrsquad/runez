@@ -23,7 +23,8 @@ from runez.file import TempFolder
 from runez.logsetup import LogManager
 from runez.program import find_parent_folder, which
 from runez.represent import header
-from runez.system import _get_abort_exception, CaptureOutput, current_test, expanded, flattened, is_dryrun, LOG, quoted, shortened, Slotted, string_type, stringified, TempArgv, TrackedOutput, UNSET
+from runez.system import _get_abort_exception, CaptureOutput, Slotted, TempArgv, TrackedOutput
+from runez.system import current_test, expanded, flattened, is_dryrun, LOG, quoted, short, string_type, stringified, UNSET
 
 try:
     from click import BaseCommand as _ClickCommand
@@ -441,8 +442,8 @@ class ClickRunner(object):
 
             elif expected in contents:
                 i = contents.index(expected)
-                pre = shortened(contents[:i], 32)
-                post = shortened(contents[i + len(expected):], 32)
+                pre = short(contents[:i], size=32)
+                post = short(contents[i + len(expected):], size=32)
                 return Match(c, expected, pre=pre, post=post)
 
     def expect_messages(self, *expected, **kwargs):

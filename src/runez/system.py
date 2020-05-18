@@ -361,15 +361,15 @@ def quoted(items, adapter=UNSET, keep_empty=True, separator=" "):
     Returns:
         (str): Quoted if 'text' contains spaces
     """
-    if adapter is UNSET:
-        adapter = short
-
     if items is None or isinstance(items, string_type):
         items = [items]
 
     result = []
     for text in items:
-        if adapter is not None:
+        if adapter is UNSET:
+            text = Anchored.short(stringified(text))
+
+        elif adapter is not None:
             text = adapter(text)
 
         if text and " " in text:
@@ -401,29 +401,19 @@ def resolved_path(path, base=None):
     return os.path.abspath(path)
 
 
-def short(path, none="None"):
+def short(value, none="None", size=1024):
     """
     Args:
-        path (str | None): Path to textually represent in a shortened (yet meaningful) form
+        value: Value to textually represent in a shortened form
         none (str): String to use to represent `None`
+        size (int | None): Max chars
 
     Returns:
-        (str): Shorter version of `path` (relative to one of the current anchor folders)
+        (str): Leading part of text, with at most 'size' chars (when specified)
     """
-    return Anchored.short(path, none=none)
-
-
-def shortened(value, size=120):
-    """
-    Args:
-        value: Value to textually represent within `size` characters (stringified if necessary)
-        size (int): Max chars
-
-    Returns:
-        (str): Leading part of 'text' with at most 'size' chars
-    """
-    text = stringified(value, converter=_prettified).strip()
+    text = stringified(value, converter=_prettified, none=none).strip()
     text = RE_SPACES.sub(" ", text)
+    text = Anchored.short(text)
     if size and len(text) > size:
         return "%s..." % text[:size - 3]
 
@@ -575,8 +565,8 @@ class Anchored(object):
     This allows to conveniently shorten paths, and show more readable relative paths
     """
 
-    paths = []  # Folder paths that can be used to shorten paths, via short()
-    home = os.path.expanduser("~")
+    _home = None
+    _paths = []  # Currently stacked anchored folders that can be simplified away, via short()
 
     def __init__(self, folder):
         self.folder = resolved_path(folder)
@@ -593,7 +583,7 @@ class Anchored(object):
         Args:
             *anchors (str | list): Optional paths to use as anchors for short()
         """
-        cls.paths = sorted(flattened(anchors, sanitized=True, unique=True), reverse=True)
+        cls._paths = sorted(flattened(anchors, sanitized=True, unique=True), reverse=True)
 
     @classmethod
     def add(cls, anchors):
@@ -601,7 +591,7 @@ class Anchored(object):
         Args:
             anchors (str | list): Optional paths to use as anchors for short()
         """
-        cls.set(cls.paths, anchors)
+        cls.set(cls._paths, anchors)
 
     @classmethod
     def pop(cls, anchors):
@@ -610,30 +600,27 @@ class Anchored(object):
             anchors (str | list): Optional paths to use as anchors for short()
         """
         for anchor in flattened(anchors, sanitized=True, unique=True):
-            if anchor in cls.paths:
-                cls.paths.remove(anchor)
+            if anchor in cls._paths:
+                cls._paths.remove(anchor)
 
     @classmethod
-    def short(cls, path, none="None"):
+    def short(cls, text):
         """
-        Example:
-            short("examined /Users/joe/foo") => "examined ~/foo"
-
         Args:
-            path: Path to represent in its short form
-            none (str): String to use to represent `None`
+            text (str): Text where to shorten paths
 
         Returns:
             (str): Short form, using '~' if applicable
         """
-        path = stringified(path, none=none)
-        if cls.paths:
-            for p in cls.paths:
-                if p:
-                    path = path.replace(p + os.path.sep, "")
+        if cls._home is None:
+            cls._home = os.path.expanduser("~")
 
-        path = path.replace(cls.home, "~")
-        return path
+        if cls._paths:
+            for p in cls._paths:
+                if p:
+                    text = text.replace(p + os.path.sep, "")
+
+        return text.replace(cls._home, "~")
 
 
 class CapturedStream(object):

@@ -32,28 +32,6 @@ def test_abort(logged):
         assert runez.abort("oops", logger=None) == "1"
 
 
-def test_anchored(temp_folder):
-    assert runez.resolved_path(None) is None
-    assert runez.resolved_path("some-file") == os.path.join(temp_folder, "some-file")
-    assert runez.resolved_path("some-file", base="bar") == os.path.join(temp_folder, "bar", "some-file")
-
-    assert runez.short(None) == "None"
-    assert runez.short("") == ""
-    assert runez.short(os.path.join(temp_folder, "some-file")) == "some-file"
-
-    assert runez.quoted(["ls", os.path.join(temp_folder, "some-file") + " bar", "-a"]) == 'ls "some-file bar" -a'
-
-    user_path = runez.resolved_path("~/some-folder/bar")
-    current_path = runez.resolved_path("./some-folder/bar")
-
-    assert user_path != "~/some-folder/bar"
-    assert runez.short(user_path) == "~/some-folder/bar"
-    assert runez.short(current_path) == "some-folder/bar"
-
-    with runez.Anchored(os.getcwd()):
-        assert runez.short(current_path) == os.path.join("some-folder", "bar")
-
-
 def test_capture_scope():
     with runez.CaptureOutput() as logged:
         print("on stdout")
@@ -236,25 +214,40 @@ def test_get_version():
         assert "Can't determine version for runez" in logged
 
 
-def test_shortened():
-    assert runez.shortened(None) == "None"
-    assert runez.shortened("") == ""
-    assert runez.shortened(5) == "5"
-    assert runez.shortened(" some text ") == "some text"
-    assert runez.shortened(" \n  some \n  long text", size=9) == "some l..."
-    assert runez.shortened(" \n  some \n  long text", size=8) == "some ..."
-    assert runez.shortened(" a \n\n  \n  b ") == "a b"
+def test_shortening():
+    assert runez.short(None) == "None"
+    assert runez.short("") == ""
+    assert runez.short(5) == "5"
+    assert runez.short(" some text ") == "some text"
+    assert runez.short(" \n  some \n  long text", size=9) == "some l..."
+    assert runez.short(" \n  some \n  long text", size=8) == "some ..."
+    assert runez.short(" a \n\n  \n  b ") == "a b"
 
-    assert runez.shortened([1, "b"]) == "[1, b]"
-    assert runez.shortened((1, {"b": ["c", {"d", "e"}]})) == "(1, {b: [c, {d, e}]})"
+    assert runez.short([1, "b"]) == "[1, b]"
+    assert runez.short((1, {"b": ["c", {"d", "e"}]})) == "(1, {b: [c, {d, e}]})"
 
     complex = {"a \n b": [1, None, "foo \n ,", {"a2": runez.abort, "c": runez.Anchored}], None: datetime.date(2019, 1, 1)}
-    assert runez.shortened(complex) == "{None: 2019-01-01, a b: [1, None, foo ,, {a2: function 'abort', c: class runez.system.Anchored}]}"
-    assert runez.shortened(complex, size=32) == "{None: 2019-01-01, a b: [1, N..."
+    assert runez.short(complex) == "{None: 2019-01-01, a b: [1, None, foo ,, {a2: function 'abort', c: class runez.system.Anchored}]}"
+    assert runez.short(complex, size=32) == "{None: 2019-01-01, a b: [1, N..."
 
-    assert runez.shortened(" some  text ", size=32) == "some text"
-    assert runez.shortened(" some  text ", size=7) == "some..."
-    assert runez.shortened(" some  text ", size=0) == "some text"
+    assert runez.short(" some  text ", size=32) == "some text"
+    assert runez.short(" some  text ", size=7) == "some..."
+    assert runez.short(" some  text ", size=0) == "some text"
+
+    # Backwards compat, remove when all callers adapted
+    assert runez.shortened(" some  text ", 7) == "some..."
+
+    with runez.TempFolder() as tmp:
+        assert runez.short(os.path.join(tmp, "some-file")) == "some-file"
+
+        user_path = runez.resolved_path("~/some-folder/bar")
+        current_path = runez.resolved_path("./some-folder/bar")
+        assert user_path != "~/some-folder/bar"
+        assert runez.short(user_path) == "~/some-folder/bar"
+        assert runez.short(current_path) == "some-folder/bar"
+
+        with runez.Anchored(os.getcwd()):
+            assert runez.short(current_path) == os.path.join("some-folder", "bar")
 
 
 def test_system():
@@ -303,6 +296,7 @@ def test_system():
     assert runez.quoted(None) == "None"
     assert runez.quoted("") == ""
     assert runez.quoted(" ") == '" "'
+    assert runez.quoted(" ", adapter=runez.short) == ""
     assert runez.quoted('"') == '"'
     assert runez.quoted("a b") == '"a b"'
     assert runez.quoted('a="b"') == 'a="b"'
@@ -329,6 +323,14 @@ def test_system():
     assert runez.system._formatted_string("test", None) == "test"
 
     assert "test_system.py" in runez.current_test()
+
+
+def test_path_resolution(temp_folder):
+    assert runez.resolved_path(None) is None
+    assert runez.resolved_path("some-file") == os.path.join(temp_folder, "some-file")
+    assert runez.resolved_path("some-file", base="bar") == os.path.join(temp_folder, "bar", "some-file")
+
+    assert runez.quoted(["ls", os.path.join(temp_folder, "some-file") + " bar", "-a", " foo "]) == 'ls "some-file bar" -a " foo "'
 
 
 def test_temp_folder():

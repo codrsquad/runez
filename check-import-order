@@ -29,7 +29,7 @@ def main():
     project = os.path.dirname(os.path.abspath(__file__))
     path = os.path.join(project, "src/runez/__init__.py")
     is_continuation = False
-    imported = [["DRYRUN"]]
+    imported = []
     declared = []
     with open(path) as fh:
         for line in fh:
@@ -48,6 +48,7 @@ def main():
             if line.startswith('    "'):
                 declared.append(get_names(line))
 
+    declared.pop(0)  # First line doesn't count, it just declares what's defined in runez.__init__ itself
     if len(imported) != len(declared):
         sys.exit("Line count differs: %s imported, %s declared" % (len(imported), len(declared)))
 

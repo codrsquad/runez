@@ -5,17 +5,41 @@ History
 2.0
 ---
 
-* ``flattened()`` now has boolean optional parameters (instead of previously ``split`` enum, removed: ``SANITIZED, SHELL, UNIQUE``)
+* ``flattened()`` now has boolean optional parameters (instead of previously ``split`` enum)
 
 * ``quoted()`` can quote a single string, or a list of strings
 
-* Removed ``represented_args()``, now ``quoted()`` can be used instead
+* Renamed:
 
-* Renamed ``formatted()`` -> ``expanded()``
+    * ``formatted()`` -> ``expanded()``
+    * ``shortened()`` -> ``short()``
 
-* Not-so-useful functions are not exposed in ``runez.`` anymore:
+* ``first_line()`` applies now to file, or list of strings, replaces ``first_meaningful_line()``
 
+* ``readline()`` enhanced, can now ignore empty lines, and return up to N first lines
+
+* Added ``PrettyTable``, more flexible than the now abandoned and similar https://pypi.org/project/PrettyTable
+
+* Added ``runez.inspector`` module, which mostly acts on context (auto-detects caller), and provide a few relevant features:
+
+    * ``auto_import_siblings()``: automatically finds all siblings of calling module, and ensure
+      every single one is ``import``-ed, this is useful to avoid having to manually register ``click``
+      sub-commands of a large group
+    * ``run_cmds()``: poor man's ``click``-replacement, finds all ``cmd_`` functions in caller module
+      and makes a multi-command out of them, with ``--help`` etc
+
+* Relevant click decorators are not exposed anymore by default, and auto-apply themselves:
+
+    * ``@runez.click.color()``
+    * ``@runez.click.config()``
+    * ``@runez.click.dryrun()``
+
+* Not-so-useful functions were removed, or not exposed in ``runez.`` anymore:
+
+    * ``SANITIZED, SHELL, UNIQUE``, function ``flattened()`` now accepts more explicit boolean flags
+    * ``represented_args()``: now ``quoted()`` can be used instead
     * ``set_dryrun()`` (better applied via ``runez.log.setup()``)
+    * ``class_descendants()``: not so useful after all, using decorators is better
 
 * Internal refactor to minimize import time (import time now tested, must be less than 3x slower than ``import sys``)
 
