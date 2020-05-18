@@ -107,11 +107,12 @@ def abort(*args, **kwargs):
         if isinstance(fatal, type) and issubclass(fatal, BaseException):
             raise fatal(code)
 
-        if AbortException is not None:
-            if isinstance(AbortException, type) and issubclass(AbortException, BaseException):
-                raise AbortException(code)
+        exception = _LateImport.abort_exception()
+        if exception is not None:
+            if isinstance(exception, type) and issubclass(exception, BaseException):
+                raise exception(code)
 
-            return AbortException(code)
+            return exception(code)  # assume callable
 
     return return_value
 
@@ -306,14 +307,6 @@ def get_version(mod, default="0.0.0", logger=LOG.warning):
         return default
 
 
-def is_dryrun():
-    """
-    Returns:
-        (bool): Same as runez.DRYRUN, but as a function (and with late import)
-    """
-    return _get_runez().DRYRUN
-
-
 def is_tty():
     """
     Returns:
@@ -398,21 +391,6 @@ def short(value, size=1024, none="None"):
         return "%s..." % text[:size - 3]
 
     return text
-
-
-def set_dryrun(dryrun):
-    """Set runez.DRYRUN, and return its previous value (useful for context managers)
-
-    Args:
-        dryrun (bool): New value for runez.DRYRUN
-
-    Returns:
-        (bool): Old value
-    """
-    r = _get_runez()
-    old = r.DRYRUN
-    r.DRYRUN = bool(dryrun)
-    return old
 
 
 def stringified(value, converter=None, none="None"):
@@ -726,7 +704,7 @@ class CaptureOutput(object):
             Anchored.add(self.anchors)
 
         if self.dryrun is not None:
-            self.dryrun = set_dryrun(self.dryrun)
+            self.dryrun = _LateImport.set_dryrun(self.dryrun)
 
         if self.seed_logging and not self._has_stream_handler():
             # Define a logging handler, IsolatedLogSetup cleared them all
@@ -751,7 +729,7 @@ class CaptureOutput(object):
             Anchored.pop(self.anchors)
 
         if self.dryrun is not None:
-            set_dryrun(self.dryrun)
+            _LateImport.set_dryrun(self.dryrun)
 
 
 class CurrentFolder(object):
@@ -1143,8 +1121,52 @@ class ThreadGlobalContext(object):
             self._gpayload = values or {}
 
 
-# We have to import 'runez' late when running in runez itself (because runez.__init__ imports everything to expose it)
-_runez_module = None
+class _LateImport:
+    """
+    We have to import 'runez' late when running in runez itself (because runez.__init__ imports everything to expose it)
+
+    This internal class allows to make global settings such as runez.DRYRUN usable internally:
+    - without having to `import runez` internally (can't do that due to circular import)
+    - respecting any external modifications clients may have done (like: runez.DRYRUN = foo)
+    """
+    _runez = None
+
+    @classmethod
+    def _runez_module(cls):
+        if cls._runez is None:
+            import runez
+
+            cls._runez = runez
+
+        return cls._runez
+
+    @classmethod
+    def abort_exception(cls):
+        """AbortException can be modified from client"""
+        return cls._runez_module().system.AbortException
+
+    @classmethod
+    def is_dryrun(cls):
+        """
+        Returns:
+            (bool): Same as runez.DRYRUN, but as a function (and with late import)
+        """
+        return cls._runez_module().DRYRUN
+
+    @classmethod
+    def set_dryrun(cls, dryrun):
+        """Set runez.DRYRUN, and return its previous value (useful for context managers)
+
+        Args:
+            dryrun (bool): New value for runez.DRYRUN
+
+        Returns:
+            (bool): Old value
+        """
+        r = cls._runez_module()
+        old = r.DRYRUN
+        r.DRYRUN = bool(dryrun)
+        return old
 
 
 def _find_value(key, *args):
@@ -1199,11 +1221,6 @@ def _formatted_string(*args):
         return message
 
 
-def _get_abort_exception():
-    """AbortException can be modified from client"""
-    return _get_runez().system.AbortException
-
-
 def _get_value(obj, key):
     """Get a value for 'key' from 'obj', if possible"""
     if obj is not None:
@@ -1219,16 +1236,6 @@ def _get_value(obj, key):
             return obj.get(key)
 
         return getattr(obj, key, None)
-
-
-def _get_runez():
-    global _runez_module
-    if _runez_module is None:
-        import runez
-
-        _runez_module = runez
-
-    return _runez_module
 
 
 def _is_actual_caller_frame(f):

@@ -5,7 +5,7 @@ import tempfile
 import time
 
 from runez.path import ensure_folder, parent_folder
-from runez.system import abort, Anchored, decode, is_dryrun, LOG, resolved_path, set_dryrun, short, SYMBOLIC_TMP, UNSET
+from runez.system import _LateImport, abort, Anchored, decode, LOG, resolved_path, short, SYMBOLIC_TMP, UNSET
 
 
 def copy(source, destination, ignore=None, adapter=None, fatal=True, logger=LOG.debug):
@@ -40,7 +40,7 @@ def delete(path, fatal=True, logger=LOG.debug):
     if not islink and (not path or not os.path.exists(path)):
         return 0
 
-    if is_dryrun():
+    if _LateImport.is_dryrun():
         LOG.debug("Would delete %s", short(path))
         return 1
 
@@ -217,9 +217,9 @@ class TempFolder(object):
 
     def __enter__(self):
         if self.dryrun is not None:
-            self.dryrun = set_dryrun(self.dryrun)
+            self.dryrun = _LateImport.set_dryrun(self.dryrun)
 
-        if not is_dryrun():
+        if not _LateImport.is_dryrun():
             # Use realpath() to properly resolve for example symlinks on OSX temp paths
             self.tmp_folder = os.path.realpath(tempfile.mkdtemp())
             if self.follow:
@@ -243,7 +243,7 @@ class TempFolder(object):
             shutil.rmtree(self.tmp_folder)
 
         if self.dryrun is not None:
-            set_dryrun(self.dryrun)
+            _LateImport.set_dryrun(self.dryrun)
 
 
 def touch(path, fatal=True, logger=None):
@@ -276,7 +276,7 @@ def write(path, contents, fatal=True, logger=None):
         return 0
 
     path = resolved_path(path)
-    if is_dryrun():
+    if _LateImport.is_dryrun():
         action = "write %s bytes to" % len(contents) if contents else "touch"
         LOG.debug("Would %s %s", action, short(path))
         return 1
@@ -353,7 +353,7 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True,
             "Can't %s %s %s %s: source contained in destination", action, short(source), indicator, short(destination), fatal=(fatal, -1)
         )
 
-    if is_dryrun():
+    if _LateImport.is_dryrun():
         LOG.debug("Would %s %s %s %s", action, short(source), indicator, short(destination))
         return 1
 

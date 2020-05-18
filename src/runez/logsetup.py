@@ -22,7 +22,7 @@ from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone
 from runez.path import basename as get_basename, ensure_folder, parent_folder
 from runez.program import dev_folder, program_path
-from runez.system import expanded, flattened, is_dryrun, LOG, quoted, set_dryrun, Slotted, ThreadGlobalContext, UNSET, WINDOWS
+from runez.system import _LateImport, expanded, flattened, LOG, quoted, Slotted, ThreadGlobalContext, UNSET, WINDOWS
 
 
 ORIGINAL_CF = logging.currentframe
@@ -230,7 +230,7 @@ class LogManager(object):
     @classmethod
     def set_debug(cls, debug):
         """Useful only as simple callback function, use rune.log.setup() for regular usage"""
-        if debug is None and is_dryrun():
+        if debug is None and _LateImport.is_dryrun():
             debug = True
 
         cls.set_debug_dryrun(debug=debug)
@@ -240,7 +240,7 @@ class LogManager(object):
     def set_dryrun(cls, dryrun):
         """Useful only as simple callback function, use rune.log.setup() for regular usage"""
         cls.set_debug_dryrun(dryrun=dryrun)
-        return is_dryrun()
+        return _LateImport.is_dryrun()
 
     @classmethod
     def set_file_location(cls, file_location):
@@ -261,7 +261,7 @@ class LogManager(object):
                 # as many of the "Would ..." messages are at debug level
                 debug = True
 
-            set_dryrun(dryrun)
+            _LateImport.set_dryrun(dryrun)
 
         if debug is not UNSET:
             cls.debug = debug

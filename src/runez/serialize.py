@@ -10,7 +10,7 @@ import os
 
 import runez.schema
 from runez.path import ensure_folder
-from runez.system import abort, is_dryrun, LOG, resolved_path, short, string_type, stringified, UNSET
+from runez.system import _LateImport, abort, LOG, resolved_path, short, string_type, stringified, UNSET
 
 
 Serializable = None  # type: type # Set to runez.Serializable class once parsing of runez.serialize.py is past that class definition
@@ -698,7 +698,7 @@ def save_json(data, path, fatal=True, logger=None, sort_keys=True, indent=2, kee
     try:
         path = resolved_path(path)
         ensure_folder(path, fatal=fatal, logger=None)
-        if is_dryrun():
+        if _LateImport.is_dryrun():
             LOG.info("Would save %s", short(path))
             return 1
 

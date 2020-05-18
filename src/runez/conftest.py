@@ -23,8 +23,8 @@ from runez.file import TempFolder
 from runez.logsetup import LogManager
 from runez.program import find_parent_folder, which
 from runez.represent import header
-from runez.system import _get_abort_exception, CaptureOutput, Slotted, TempArgv, TrackedOutput
-from runez.system import current_test, expanded, flattened, is_dryrun, LOG, quoted, short, string_type, stringified, UNSET
+from runez.system import _LateImport, CaptureOutput, Slotted, TempArgv, TrackedOutput
+from runez.system import current_test, expanded, flattened, LOG, quoted, short, string_type, stringified, UNSET
 
 try:
     from click import BaseCommand as _ClickCommand
@@ -92,7 +92,7 @@ def verify_abort(func, *args, **kwargs):
     Returns:
         (str): Chatter from call to 'func', if it did indeed raise
     """
-    expected_exception = kwargs.pop("expected_exception", _get_abort_exception())
+    expected_exception = kwargs.pop("expected_exception", _LateImport.abort_exception())
     with CaptureOutput() as logged:
         try:
             value = func(*args, **kwargs)
@@ -357,7 +357,7 @@ class ClickRunner(object):
 
         self.args = flattened(args, shellify=True)
         with IsolatedLogSetup(adjust_tmp=False):
-            with CaptureOutput(dryrun=is_dryrun(), seed_logging=True) as logged:
+            with CaptureOutput(dryrun=_LateImport.is_dryrun(), seed_logging=True) as logged:
                 self.logged = logged
                 runner = ClickWrapper.new_runner(self.main)
                 result = runner.invoke(self.main, args=self.args)

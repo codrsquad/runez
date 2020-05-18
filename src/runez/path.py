@@ -4,7 +4,7 @@ Convenience methods for file/folder operations
 
 import os
 
-from runez.system import abort, is_dryrun, LOG, resolved_path, short
+from runez.system import _LateImport, abort, LOG, resolved_path, short
 
 
 def basename(path, extension_marker="."):
@@ -39,7 +39,7 @@ def ensure_folder(path, folder=False, fatal=True, logger=LOG.debug, dryrun=None)
         folder (bool): If True, 'path' refers to a folder (file assumed otherwise)
         fatal (bool | None): Abort execution on failure if True
         logger (callable | None): Logger to use
-        dryrun (bool | None): If specified, override global is_dryrun()
+        dryrun (bool | None): If specified, override global runez.DRYRUN setting
 
     Returns:
          (int): 1 if effectively done, 0 if no-op, -1 on failure
@@ -60,7 +60,7 @@ def ensure_folder(path, folder=False, fatal=True, logger=LOG.debug, dryrun=None)
         return 0
 
     if dryrun is None:
-        dryrun = is_dryrun()
+        dryrun = _LateImport.is_dryrun()
 
     if dryrun:
         LOG.debug("Would create %s", short(folder))
