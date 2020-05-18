@@ -3,7 +3,6 @@ See some example behaviors of runez
 """
 
 import argparse
-import sys
 
 import runez
 from runez.inspector import ImportTime, run_cmds
@@ -61,9 +60,7 @@ def cmd_colors():
 
 
 def cmd_import_speed():
-    if sys.version_info[:2] >= (3, 7):
-        pass
-
+    """Show average import time of top-level python packages installed in this venv"""
     parser = argparse.ArgumentParser(description="Show average import time of top-level python packages installed in this venv")
     parser.add_argument("--border", choices=runez.represent.NAMED_BORDERS, default="reddit", help="Use custom border.")
     parser.add_argument("name", nargs="+", help="Names of modules to show.")
