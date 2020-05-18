@@ -110,7 +110,7 @@ def settings(help=None, width=140, **attrs):
         help = ["-h", "--help"]
 
     context_settings = attrs.pop("context_settings", {})
-    context_settings["help_option_names"] = flattened(help, separator=" ")
+    context_settings["help_option_names"] = flattened(help, split=" ")
     context_settings["max_content_width"] = width
 
     return dict(context_settings=context_settings, **attrs)
@@ -169,12 +169,12 @@ class _ConfigOption(object):
         self.name = "--%s" % attrs.get("name", "config")
         self.prefix = attrs.pop("prefix", None)
         self.propsfs = attrs.pop("propsfs", None)
-        self.separator = attrs.pop("separator", None)
+        self.split = attrs.pop("split", None)
         self.set_global = not attrs.get("expose_value")
         self.tracer = attrs.pop("tracer", None)
 
     def _get_values(self, value):
-        value = flattened(value, separator=self.separator)
+        value = flattened(value, split=self.split)
         values = [t.partition("=") for t in value if t]
         values = dict((k, v) for k, _, v in values)
         if self.prefix:

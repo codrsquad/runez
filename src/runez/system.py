@@ -278,11 +278,11 @@ def first_line(text, keep_empty=False, strip=True, default=None):
     return default
 
 
-def flattened(value, separator=None, sanitized=False, shellify=False, unique=False):
+def flattened(value, split=None, sanitized=False, shellify=False, unique=False):
     """
     Args:
         value: Possibly nested arguments (sequence of lists, nested lists, ...)
-        separator (str | None): If provided, split strings by given separator
+        split (str | None): If provided, split strings by given character
         sanitized (bool): If True, filter out None values
         shellify (bool): If True, filter out sequences of the form ["-f", None] (handy for simplified cmd line specification)
         unique (bool): If True, ensure every value appears only once
@@ -291,7 +291,7 @@ def flattened(value, separator=None, sanitized=False, shellify=False, unique=Fal
         (list): Flattened list from 'value'
     """
     result = []
-    _flatten(result, value, separator, sanitized, shellify, unique)
+    _flatten(result, value, split, sanitized, shellify, unique)
     return result
 
 
@@ -342,7 +342,7 @@ def is_tty():
     return (sys.stdout.isatty() or "PYCHARM_HOSTED" in os.environ) and not current_test()
 
 
-def quoted(items, adapter=UNSET, keep_empty=True, separator=" "):
+def quoted(items, delimiter=" ", adapter=UNSET, keep_empty=True):
     """Quoted `items`, for those that contain whitespaces
 
     >>> quoted("foo")
@@ -354,9 +354,9 @@ def quoted(items, adapter=UNSET, keep_empty=True, separator=" "):
 
     Args:
         items (str | list | tuple | None): Text, or list of text to optionally quote
+        delimiter (str): Delimiter to use to join args back
         adapter (callable | None): Called for every item if provided, it should return a string
         keep_empty (bool): If False, skip empty items
-        separator (str): Separator to use to join args back as a string
 
     Returns:
         (str): Quoted if 'text' contains spaces
@@ -379,7 +379,7 @@ def quoted(items, adapter=UNSET, keep_empty=True, separator=" "):
         if keep_empty or text:
             result.append(text)
 
-    return separator.join(result)
+    return delimiter.join(result)
 
 
 def resolved_path(path, base=None):
@@ -401,12 +401,12 @@ def resolved_path(path, base=None):
     return os.path.abspath(path)
 
 
-def short(value, none="None", size=1024):
+def short(value, size=1024, none="None"):
     """
     Args:
         value: Value to textually represent in a shortened form
-        none (str): String to use to represent `None`
         size (int | None): Max chars
+        none (str): String to use to represent `None`
 
     Returns:
         (str): Leading part of text, with at most 'size' chars (when specified)
@@ -858,11 +858,11 @@ class Slotted(object):
 
         return cls(obj)
 
-    def represented_values(self, delimiter=", ", separator="=", include_none=True, name_formatter=None):
+    def represented_values(self, delimiter=", ", operator="=", include_none=True, name_formatter=None):
         """
         Args:
             delimiter (str): Delimiter used to separate field representation
-            separator (str): Separator for field=value pairs
+            operator (str): Operator to represent assignment (equal sign '=' by default)
             include_none (bool): Included `None` values?
             name_formatter (callable | None): If provided, called to transform 'field' for each field=value pair
 
@@ -876,7 +876,7 @@ class Slotted(object):
                 if name_formatter is not None:
                     name = name_formatter(name)
 
-                result.append("%s%s%s" % (name, separator, stringified(value)))
+                result.append("%s%s%s" % (name, operator, stringified(value)))
 
         return delimiter.join(result)
 
@@ -1174,7 +1174,7 @@ def _find_value(key, *args):
             return v
 
 
-def _flatten(result, value, separator, sanitized, shellify, unique):
+def _flatten(result, value, split, sanitized, shellify, unique):
     if value is None or value is UNSET:
         if shellify:
             # Convenience: allow to filter out ["--switch", None] easily
@@ -1188,12 +1188,12 @@ def _flatten(result, value, separator, sanitized, shellify, unique):
 
     elif isinstance(value, (list, tuple, set)):
         for item in value:
-            _flatten(result, item, separator, sanitized, shellify, unique)
+            _flatten(result, item, split, sanitized, shellify, unique)
 
         return
 
-    elif separator and isinstance(value, string_type) and separator in value:
-        _flatten(result, value.split(separator), separator, sanitized, shellify, unique)
+    elif split and isinstance(value, string_type) and split in value:
+        _flatten(result, value.split(split), split, sanitized, shellify, unique)
         return
 
     if shellify:

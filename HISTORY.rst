@@ -5,6 +5,13 @@ History
 2.0
 ---
 
+* Replaced named arg ``separator`` to be more indicative as to what it used for
+
+    * ``delimiter`` when the string is used to ``.join()`` a list of things back to a string
+      (eg: ``represented_bytesize(.., delimiter=" ")``)
+    * ``split`` when the character is used to split strings (eg: ``flatten(.., split=",")``
+
+
 * ``flattened()`` now has boolean optional parameters (instead of previously ``split`` enum)
 
 * ``quoted()`` can quote a single string, or a list of strings

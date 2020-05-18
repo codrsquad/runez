@@ -43,7 +43,7 @@ def echo(text):
 @runez.click.command()
 @runez.click.version()
 @runez.click.color("-x", expose_value=True)
-@runez.click.config("-c", expose_value=True, default="a=b,c=d", separator=",", env="MY_PROG", propsfs=True)
+@runez.click.config("-c", expose_value=True, default="a=b,c=d", split=",", env="MY_PROG", propsfs=True)
 @runez.click.debug()
 @runez.click.dryrun()
 @runez.click.log()
@@ -123,7 +123,7 @@ def test_config(logged):
 
     with patch.dict(os.environ, {"MY_PROG_A": "via env"}, clear=True):
         propsfs = runez.conftest.test_resource("sample")
-        config = sample_config(env="MY_PROG", default="x=y", propsfs=propsfs, separator=",")
+        config = sample_config(env="MY_PROG", default="x=y", propsfs=propsfs, split=",")
         c1 = config(None, None, "")
         assert str(c1) == "--config, MY_PROG_* env vars, propsfs, --config default"
         assert logged.pop()

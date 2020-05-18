@@ -15,42 +15,42 @@ RE_UNDERSCORED_NUMBERS = re.compile(r"([0-9])_([0-9])")  # py2 does not parse nu
 TRUE_TOKENS = {"on", "true", "y", "yes"}
 
 
-def represented_bytesize(size, unit="B", base=1024, separator=" ", prefixes=DEFAULT_UNITS):
+def represented_bytesize(size, unit="B", base=1024, delimiter=" ", prefixes=DEFAULT_UNITS):
     """Human friendly byte size representation
 
     >>> represented_bytesize(1024)
     '1 KB'
     >>> represented_bytesize(10_000_000_000)
     '9 GB'
-    >>> represented_bytesize(10_000_000_000, unit="b", separator="", base=1000)
+    >>> represented_bytesize(10_000_000_000, unit="b", delimiter="", base=1000)
     '10Gb'
 
     Args:
         size (int | float): Size to represent
         unit (str): Unit symbol
         base (int): Base to represent it in (example: 1024 for bytes, 1000 for bits)
-        separator (str): Separator to use between number and units
+        delimiter (str): Delimiter to use between number and units
         prefixes (str): Prefixes to use per power (kilo, mega, giga, tera, peta, ...)
 
     Returns:
         (str): Human friendly byte size representation
     """
-    return _represented_with_units(size, unit, base, separator, prefixes)
+    return _represented_with_units(size, unit, base, delimiter, prefixes)
 
 
-def represented_with_units(size, unit="", base=1000, separator="", prefixes=DEFAULT_UNITS):
+def represented_with_units(size, unit="", base=1000, delimiter="", prefixes=DEFAULT_UNITS):
     """
     Args:
         size (int | float): Size to represent
         unit (str): Unit symbol
         base (int): Base to represent it in (example: 1024 for bytes, 1000 for bits)
-        separator (str): Separator to use between number and units
+        delimiter (str): Delimiter to use between number and units
         prefixes (str): Prefixes to use per power (kilo, mega, giga, tera, peta, ...)
 
     Returns:
         (str): Human friendly representation with units, avoids having to read/parse visually large numbers
     """
-    return _represented_with_units(size, unit, base, separator, prefixes)
+    return _represented_with_units(size, unit, base, delimiter, prefixes)
 
 
 def to_boolean(value):
@@ -176,23 +176,23 @@ def affixed(text, prefix=None, suffix=None, normalize=None):
     return text
 
 
-def camel_cased(text, separator=""):
+def camel_cased(text, delimiter=""):
     """
     Args:
         text (str): Text to camel case
-        separator (str): Separator to use to join the words back
+        delimiter (str): Delimiter to use to join the words back
 
     Returns:
         (str): Camel-cased text
     """
-    return wordified(text, separator=separator, normalize=str.title)
+    return wordified(text, delimiter=delimiter, normalize=str.title)
 
 
-def entitled(text, separator=" "):
+def entitled(text, delimiter=" "):
     """
     Args:
         text (str): Text to turn into title
-        separator (str): Separator to use to join the words back
+        delimiter (str): Delimiter to use to join the words back
 
     Returns:
         (str): First letter (of 1st word only) upper-cased
@@ -201,7 +201,7 @@ def entitled(text, separator=" "):
     if strings:
         strings[0] = strings[0].title()
 
-    return separator.join(strings)
+    return delimiter.join(strings)
 
 
 def identifiers(text):
@@ -279,11 +279,11 @@ def snakified(text, normalize=str.upper):
     return wordified(text, normalize=normalize)
 
 
-def wordified(text, separator="_", normalize=None):
+def wordified(text, delimiter="_", normalize=None):
     """
     Args:
         text (str | None): Text to process as words
-        separator (str): Separator to use to join the words back
+        delimiter (str): Delimiter to use to join the words back
         normalize (callable | None): Optional function to apply on each word
 
     Returns:
@@ -292,7 +292,7 @@ def wordified(text, separator="_", normalize=None):
     if text is None:
         return None
 
-    return separator.join(words(text, normalize=normalize))
+    return delimiter.join(words(text, normalize=normalize))
 
 
 def words(text, normalize=None, split="_"):
@@ -317,7 +317,7 @@ def words(text, normalize=None, split="_"):
         return result
 
     strings = [s.strip() for s in RE_WORDS.split(stringified(text))]
-    strings = [s for s in flattened(strings, separator=split) if s]
+    strings = [s for s in flattened(strings, split=split) if s]
     if normalize:
         strings = [normalize(s) for s in strings]
 
@@ -413,17 +413,17 @@ def _float_from_text(text, lenient=True, default=None):
     return default
 
 
-def _represented_with_units(size, unit, base, separator, prefixes, exponent=0):
+def _represented_with_units(size, unit, base, delimiter, prefixes, exponent=0):
     if not base:
         return "%s" % size
 
     if size >= base and exponent < len(prefixes):
         size = float(size) / base
-        return _represented_with_units(size, unit, base, separator, prefixes, exponent=exponent + 1)
+        return _represented_with_units(size, unit, base, delimiter, prefixes, exponent=exponent + 1)
 
     if exponent == 0:
         if unit:
-            return "%s%s%s" % (size, separator, unit)
+            return "%s%s%s" % (size, delimiter, unit)
 
         return "%s" % size
 
@@ -432,4 +432,4 @@ def _represented_with_units(size, unit, base, separator, prefixes, exponent=0):
     if "." in represented_size:
         represented_size = represented_size.strip("0").strip(".")
 
-    return "%s%s%s%s" % (represented_size, separator, prefixes[exponent - 1], unit)
+    return "%s%s%s%s" % (represented_size, delimiter, prefixes[exponent - 1], unit)

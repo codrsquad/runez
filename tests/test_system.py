@@ -140,21 +140,21 @@ def test_flattened():
     assert runez.flattened([None, "-f", "b", None], shellify=True) == ["-f", "b"]
     assert runez.flattened(["a", "-f", None, "c"], shellify=True) == ["a", "c"]
 
-    # Splitting on separator
+    # Splitting on a given char
     assert runez.flattened("a b b") == ["a b b"]
-    assert runez.flattened("a b b", separator=" ") == ["a", "b", "b"]
-    assert runez.flattened("a b b", separator=" ", unique=True) == ["a", "b"]
+    assert runez.flattened("a b b", split=" ") == ["a", "b", "b"]
+    assert runez.flattened("a b b", split=" ", unique=True) == ["a", "b"]
     assert runez.flattened("a b b", unique=True) == ["a b b"]
-    assert runez.flattened("a b b", separator="", unique=True) == ["a b b"]
-    assert runez.flattened("a b b", separator="+", unique=True) == ["a b b"]
+    assert runez.flattened("a b b", split="", unique=True) == ["a b b"]
+    assert runez.flattened("a b b", split="+", unique=True) == ["a b b"]
 
     # Unique
     assert runez.flattened(["a", ["a", ["b", ["b", "c"]]]]) == ["a", "a", "b", "b", "c"]
     assert runez.flattened(["a", ["a", ["b", ["b", "c"]]]], unique=True) == ["a", "b", "c"]
 
     assert runez.flattened(["a b", None, ["a b c"], "a"], unique=True) == ["a b", None, "a b c", "a"]
-    assert runez.flattened(["a b", None, ["a b c"], "a"], separator=" ", unique=True) == ["a", "b", None, "c"]
-    assert runez.flattened(["a b", None, ["a b c"], "a"], separator=" ", sanitized=True, unique=True) == ["a", "b", "c"]
+    assert runez.flattened(["a b", None, ["a b c"], "a"], split=" ", unique=True) == ["a", "b", None, "c"]
+    assert runez.flattened(["a b", None, ["a b c"], "a"], split=" ", sanitized=True, unique=True) == ["a", "b", "c"]
 
 
 def test_expanded():
@@ -235,6 +235,7 @@ def test_shortening():
     assert runez.short(" some  text ", size=0) == "some text"
 
     # Backwards compat, remove when all callers adapted
+    assert runez.shortened(" some  text ", size=7) == "some..."
     assert runez.shortened(" some  text ", 7) == "some..."
 
     with runez.TempFolder() as tmp:

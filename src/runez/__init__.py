@@ -56,8 +56,4 @@ __all__ = [
 ]
 
 DRYRUN = False
-
-
-# For temporary backwards compatibility
-def shortened(value, size=120):
-    return short(value, size=size)
+shortened = short  # For temporary backwards compatibility

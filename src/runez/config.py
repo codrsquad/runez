@@ -56,9 +56,9 @@ class Configuration:
     def __len__(self):
         return sum(len(p) for p in self.providers)
 
-    def overview(self, separator=", "):
+    def overview(self, delimiter=", "):
         """str: A short overview of current providers"""
-        return separator.join(p.overview() for p in self.providers)
+        return delimiter.join(p.overview() for p in self.providers)
 
     def _trace(self, message):
         if self.tracer:

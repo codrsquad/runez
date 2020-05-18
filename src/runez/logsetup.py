@@ -443,7 +443,7 @@ class LogManager(object):
         if not markers or not used_formats:
             return False
 
-        return any(marker in used_formats for marker in flattened(markers, separator=" "))
+        return any(marker in used_formats for marker in flattened(markers, split=" "))
 
     @classmethod
     def enable_faulthandler(cls, signum=getattr(signal, "SIGUSR1", None)):

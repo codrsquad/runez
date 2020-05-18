@@ -150,7 +150,7 @@ def local_timezone():
         return ""
 
 
-def represented_duration(seconds, span=UNSET, separator=" "):
+def represented_duration(seconds, span=UNSET, delimiter=" "):
     """
     Args:
         seconds (int | float | None): Duration in seconds
@@ -160,7 +160,7 @@ def represented_duration(seconds, span=UNSET, separator=" "):
                            0: all parts, short form, example: 1h 2m 5s 20ms
                            < 0: N most significant parts, short form, example: 1h 5s
                            UNSET: use `DEFAULT_DURATION_SPAN` (which can set globally per app, for convenience)
-        separator (str): Separator to use between parts
+        delimiter (str): Delimiter to use between parts
 
     Returns:
         (str): Human friendly duration representation
@@ -224,7 +224,7 @@ def represented_duration(seconds, span=UNSET, separator=" "):
     if span:
         result = result[:span]
 
-    return separator.join(result)
+    return delimiter.join(result)
 
 
 def timezone_from_text(value, default=UNSET):

@@ -156,7 +156,7 @@ def test_wordification():
     assert runez.words(["a", [None, "b,c"], 1]) == ["a", "b", "c", "1"]
 
     assert runez.wordified(None) is None
-    assert runez.wordified("Hello_There", separator="-") == "Hello-There"
+    assert runez.wordified("Hello_There", delimiter="-") == "Hello-There"
 
     assert runez.snakified("my-key") == "MY_KEY"
     assert runez.camel_cased("my-key") == "MyKey"

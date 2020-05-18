@@ -141,7 +141,7 @@ class PrettyBorder(Slotted):
     __slots__ = ["t", "m", "b", "c", "h", "hc", "pad"]
 
     def __repr__(self):
-        return self.represented_values(delimiter=",", separator=":", include_none=False)
+        return self.represented_values(delimiter=",", operator=":", include_none=False)
 
     def set_pad(self, value):
         self.pad = to_int(value)
@@ -227,7 +227,7 @@ class PrettyHeader(PrettyCustomizable):
             return
 
         if isinstance(value, string_type):
-            for t in flattened(value, separator=","):
+            for t in flattened(value, split=","):
                 self.add_column(t)
 
         elif isinstance(value, int):
@@ -368,7 +368,7 @@ class _PTBorderChars(Slotted):
         return super(_PTBorderChars, self)._values_from_object(obj)
 
     def __repr__(self):
-        return self.represented_values(delimiter="", separator="", include_none=False, name_formatter=lambda x: "")
+        return self.represented_values(delimiter="", operator="", include_none=False, name_formatter=lambda x: "")
 
 
 class _PTTable(object):
