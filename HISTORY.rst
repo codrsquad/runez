@@ -25,6 +25,7 @@ History
 
     * ``heartbeat``, use ``from runez.heartbeat import ...``
     * ``prompt``, use ``from runez.prompt import ...``
+    * ``represent``, use ``from runez.render import ...``
     * ``schema``, use ``from runez.schema import ...``
     * ``thread``, use ``from runez.thread import ...``
     * ``set_dryrun`` (better applied via ``runez.log.setup()``)
@@ -41,6 +42,9 @@ History
     * ``program_path``, use ``runez.program.program_path``
     * ``require_installed``, use ``runez.program.require_installed``
     * ``terminal_width``, use ``runez.program.terminal_width``
+    * ``align``, use ``from runez.render import Align``
+    * ``header``, use ``from runez.render import Header``
+    * ``PrettyTable``, use ``from runez.render import PrettyTable``
     * ``json_sanitized``, use ``runez.serialize.json_sanitized``
 
 * Enhanced:

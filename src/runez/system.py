@@ -104,15 +104,11 @@ def abort(*args, **kwargs):
             sys.stderr.write("%s\n" % _formatted_string(*args))
 
     if fatal:
-        if isinstance(fatal, type) and issubclass(fatal, BaseException):
-            raise fatal(code)
-
-        exception = _LateImport.abort_exception()
+        exception = _LateImport.abort_exception(override=fatal)
         if exception is not None:
-            if isinstance(exception, type) and issubclass(exception, BaseException):
-                raise exception(code)
-
-            return exception(code)  # assume callable
+            # Raising exception from dedicated function, to reduce stack trace shown when a test fails
+            _raise(exception, code)
+            return exception(code)  # Assume callable if we could not rais
 
     return return_value
 
@@ -1141,8 +1137,11 @@ class _LateImport:
         return cls._runez
 
     @classmethod
-    def abort_exception(cls):
+    def abort_exception(cls, override=None):
         """AbortException can be modified from client"""
+        if isinstance(override, type) and issubclass(override, BaseException):
+            return override
+
         return cls._runez_module().system.AbortException
 
     @classmethod
@@ -1269,6 +1268,11 @@ def _prettified(value):
 
     if callable(value):
         return "function '%s'" % value.__name__
+
+
+def _raise(exception, code):
+    if isinstance(exception, type) and issubclass(exception, BaseException):
+        raise exception(code)
 
 
 def _rformat(key, value, definitions, max_depth):

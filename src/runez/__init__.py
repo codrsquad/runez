@@ -17,7 +17,6 @@ from runez.file import copy, delete, move, readlines, symlink, TempFolder, touch
 from runez.logsetup import LogManager as log
 from runez.path import basename, ensure_folder, parent_folder
 from runez.program import check_pid, is_executable, make_executable, run, which
-from runez.represent import align, header, PrettyTable
 from runez.serialize import read_json, represented_json, save_json, Serializable
 from runez.system import abort, decode, expanded, flattened, quoted, short, stringified
 from runez.system import AdaptedProperty, Anchored, CaptureOutput, CurrentFolder, Slotted, TempArgv, TrackedOutput, Undefined, UNSET
@@ -40,7 +39,6 @@ __all__ = [
     "log",
     "basename", "ensure_folder", "parent_folder",
     "check_pid", "is_executable", "make_executable", "run", "which",
-    "align", "header", "PrettyTable",
     "read_json", "represented_json", "save_json", "Serializable",
     "abort", "decode", "expanded", "flattened", "quoted", "short", "stringified",
     "AdaptedProperty", "Anchored", "CaptureOutput", "CurrentFolder", "Slotted", "TempArgv", "TrackedOutput", "Undefined", "UNSET",

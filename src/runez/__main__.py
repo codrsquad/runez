@@ -6,11 +6,12 @@ import argparse
 
 import runez
 from runez.inspector import ImportTime, run_cmds
+from runez.render import NAMED_BORDERS, PrettyTable
 
 
 def show_fgcolors(bg=runez.plain, border=None):
     print("")
-    table = runez.PrettyTable("Color,Blink,Bold,Dim,Invert,Italic,Strikethrough,Underline", border=border)
+    table = PrettyTable("Color,Blink,Bold,Dim,Invert,Italic,Strikethrough,Underline", border=border)
     table.header.style = "bold"
     for color in runez.color.fg:
         color_name = color.name
@@ -32,7 +33,7 @@ def show_fgcolors(bg=runez.plain, border=None):
 def cmd_colors():
     """Show a coloring sample"""
     parser = argparse.ArgumentParser(description="Show a coloring sample")
-    parser.add_argument("--border", choices=runez.represent.NAMED_BORDERS, help="Use custom border.")
+    parser.add_argument("--border", choices=NAMED_BORDERS, help="Use custom border.")
     parser.add_argument("--color", action="store_true", help="Use colors (on by default on ttys).")
     parser.add_argument("--no-color", action="store_true", help="Do not use colors (even if on tty).")
     parser.add_argument("--bg", help="Show bg variant(s) (comma-separated list of color names).")
@@ -62,7 +63,7 @@ def cmd_colors():
 def cmd_import_speed():
     """Show average import time of top-level python packages installed in this venv"""
     parser = argparse.ArgumentParser(description="Show average import time of top-level python packages installed in this venv")
-    parser.add_argument("--border", choices=runez.represent.NAMED_BORDERS, default="reddit", help="Use custom border.")
+    parser.add_argument("--border", choices=NAMED_BORDERS, default="reddit", help="Use custom border.")
     parser.add_argument("name", nargs="+", help="Names of modules to show.")
     args = parser.parse_args()
     names = runez.flattened(args.name, split=",")
@@ -81,7 +82,7 @@ def cmd_import_speed():
         if slowest is None or t.cumulative > slowest.cumulative:
             slowest = t
 
-    table = runez.PrettyTable("Module,Cumulative,Elapsed,Vs fastest,Note", border=args.border)
+    table = PrettyTable("Module,Cumulative,Elapsed,Vs fastest,Note", border=args.border)
     for t in times:
         if t.cumulative is None:
             c = e = f = None

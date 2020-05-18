@@ -12,7 +12,7 @@ import time
 
 from runez.convert import to_int
 from runez.program import run
-from runez.represent import PrettyTable
+from runez.render import PrettyTable
 from runez.system import CaptureOutput, find_caller_frame, first_line
 
 

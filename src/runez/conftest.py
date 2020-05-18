@@ -22,7 +22,7 @@ from runez.colors import ActivateColors
 from runez.file import TempFolder
 from runez.logsetup import LogManager
 from runez.program import find_parent_folder, which
-from runez.represent import header
+from runez.render import Header
 from runez.system import _LateImport, CaptureOutput, Slotted, TempArgv, TrackedOutput
 from runez.system import current_test, expanded, flattened, LOG, quoted, short, string_type, stringified, UNSET
 
@@ -375,7 +375,7 @@ class ClickRunner(object):
 
         if self.logged:
             WrappedHandler.remove_accumulated_logs()
-            title = header("Captured output for: %s" % quoted(self.args), border="==")
+            title = Header.aerated("Captured output for: %s" % quoted(self.args), border="==")
             LOG.info("\n%s\nmain: %s\nexit_code: %s\n%s\n", title, self.main, self.exit_code, self.logged)
 
     @property

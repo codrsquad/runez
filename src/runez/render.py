@@ -21,8 +21,8 @@ NAMED_BORDERS = dict(
 )
 
 
-class align:
-    """Text alignment functions gathered in a class to minimize imports"""
+class Align:
+    """Text alignment functions, in a class for clean import and contextualized short names"""
 
     @staticmethod
     def left(text, width, fill=""):
@@ -80,7 +80,7 @@ class align:
             return name
 
         if name:
-            func = getattr(align, name.lower(), None)
+            func = getattr(Align, name.lower(), None)
             if func:
                 return func
 
@@ -93,34 +93,38 @@ class align:
         if callable(default):
             return default
 
-        func = getattr(align, default.lower(), None)
+        func = getattr(Align, default.lower(), None)
         if func:
             return func
 
         raise ValueError("Invalid default horizontal alignment '%s'" % default)
 
 
-def header(text, border="--"):
-    """
-    Args:
-        text (str): Text to turn into a header
-        border (str): Characters to use to decorate header
+class Header:
+    """Simple textual header functions, in a class for clean import and contextualized short names"""
 
-    Returns:
-        (str): Decorated
-    """
-    if not text or not border:
-        return text
+    @classmethod
+    def aerated(cls, text, border="--"):
+        """
+        Args:
+            text (str): Text to turn into a header
+            border (str): Characters to use to decorate header
 
-    if border.endswith(" "):
-        decorated = "%s%s" % (border, text)
-        fmt = "{decorated}\n{hr}"
+        Returns:
+            (str): 'text' decorated with simple border
+        """
+        if not text or not border:
+            return text
 
-    else:
-        decorated = "%s %s %s" % (border, text, border)
-        fmt = "{hr}\n{decorated}\n{hr}"
+        if border.endswith(" "):
+            decorated = "%s%s" % (border, text)
+            fmt = "{decorated}\n{hr}"
 
-    return fmt.format(decorated=decorated, hr=border[0] * len(decorated))
+        else:
+            decorated = "%s %s %s" % (border, text, border)
+            fmt = "{hr}\n{decorated}\n{hr}"
+
+        return fmt.format(decorated=decorated, hr=border[0] * len(decorated))
 
 
 class PrettyBorder(Slotted):
@@ -165,7 +169,7 @@ class PrettyCustomizable(object):
     - header: applies to header row only
     - header.column: applies to all cells within a column (including header cells)
     """
-    align = AdaptedProperty("align", caster=align.cast, doc="Horizontal alignment to use (left, center or right)")
+    align = AdaptedProperty("align", caster=Align.cast, doc="Horizontal alignment to use (left, center or right)")
     style = AdaptedProperty("style", caster=cast_style, doc="Style")
     width = AdaptedProperty("width", caster=int, doc="Desired width")
 
@@ -187,7 +191,7 @@ class PrettyCustomizable(object):
 
     @staticmethod
     def merged(*chain):
-        values = dict(align=align.left)
+        values = dict(align=Align.left)
         for item in chain:
             if item is not None:
                 values.update(item.to_dict())
