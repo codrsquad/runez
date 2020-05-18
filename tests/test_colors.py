@@ -17,15 +17,15 @@ def test_colors():
     with pytest.raises(ValueError):
         runez.colors.cast_style("foo")
 
-    assert not runez.is_coloring()
+    assert not runez.color.is_coloring()
     with runez.ActivateColors(terminal.Ansi16Backend):
         # Check that backend can be passed as class (flavor auto-determined in that case)
-        assert runez.is_coloring()
+        assert runez.color.is_coloring()
         assert "ansi16" in runez.color.backend.name
 
-    assert not runez.is_coloring()
+    assert not runez.color.is_coloring()
     with runez.ActivateColors(terminal.Ansi16Backend(flavor="neutral")):
-        assert runez.is_coloring()
+        assert runez.color.is_coloring()
         assert runez.red(None) == "\x1b[31mNone\x1b[39m"
         assert runez.blue("") == ""
         assert runez.plain("hello") == "hello"
@@ -39,7 +39,7 @@ def test_colors():
         assert runez.dim("") == ""
         assert runez.dim("hello", size=4) == "\x1b[2mh...\x1b[22m"
 
-    assert not runez.is_coloring()
+    assert not runez.color.is_coloring()
     assert runez.black("") == ""
     assert runez.blue("") == ""
     assert runez.brown("") == ""
@@ -71,21 +71,21 @@ def check_flavor(expected, term=None, fgbg=None):
     if fgbg:
         env["COLORFGBG"] = fgbg
 
-    assert not runez.is_coloring()
+    assert not runez.color.is_coloring()
     with patch.dict(os.environ, env, clear=True):
         with runez.ActivateColors():
-            assert runez.is_coloring()
+            assert runez.color.is_coloring()
             assert runez.color.backend.name == expected
 
     # Verify testing defaults were restored
-    assert not runez.is_coloring()
+    assert not runez.color.is_coloring()
     assert runez.color.backend.name == "plain"
 
 
 @patch("runez.colors.current_test", return_value=None)
 def test_default(*_):
     # Default: not coloring, neutral flavor
-    assert not runez.is_coloring()
+    assert not runez.color.is_coloring()
     assert runez.color.backend.name == "plain"
     assert runez.blue("hello") == "hello"
 

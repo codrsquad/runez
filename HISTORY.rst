@@ -2,54 +2,68 @@
 History
 =======
 
-2.0
----
+2.0.0
+-----
+
+* Internal refactor to minimize import time (import time now tested, must be less than 3x slower than ``import sys``)
+
+* Renamed:
+
+    * ``first_meaningful_line()`` -> ``first_line()`` applies to strings or list (not file anymore)
+    * ``formatted()`` -> ``expanded()``
+    * ``shortened()`` -> ``short()``
+    * ``represented_args()`` -> ``quoted()`` (can quote a single string, or a list of strings)
 
 * Replaced named arg ``separator`` to be more indicative as to what it used for
 
     * ``delimiter`` when the string is used to ``.join()`` a list of things back to a string
       (eg: ``represented_bytesize(.., delimiter=" ")``)
     * ``split`` when the character is used to split strings (eg: ``flatten(.., split=",")``
+    * ``flattened()`` now has boolean optional parameters (instead of previously ``split`` enum)
 
+* Reduced number of things exported at top-level, removed:
 
-* ``flattened()`` now has boolean optional parameters (instead of previously ``split`` enum)
-
-* ``quoted()`` can quote a single string, or a list of strings
-
-* Renamed:
-
-    * ``formatted()`` -> ``expanded()``
-    * ``shortened()`` -> ``short()``
-
-* ``first_line()`` applies now to file, or list of strings, replaces ``first_meaningful_line()``
-
-* ``readline()`` enhanced, can now ignore empty lines, and return up to N first lines
-
-* Added ``PrettyTable``, more flexible than the now abandoned and similar https://pypi.org/project/PrettyTable
-
-* Added ``runez.inspector`` module, which mostly acts on context (auto-detects caller), and provide a few relevant features:
-
-    * ``auto_import_siblings()``: automatically finds all siblings of calling module, and ensure
-      every single one is ``import``-ed, this is useful to avoid having to manually register ``click``
-      sub-commands of a large group
-    * ``run_cmds()``: poor man's ``click``-replacement, finds all ``cmd_`` functions in caller module
-      and makes a multi-command out of them, with ``--help`` etc
-
-* Relevant click decorators are not exposed anymore by default, and auto-apply themselves:
-
-    * ``@runez.click.color()``
-    * ``@runez.click.config()``
-    * ``@runez.click.dryrun()``
-
-* Not-so-useful functions were removed, or not exposed in ``runez.`` anymore:
-
+    * ``heartbeat``, use ``from runez.heartbeat import ...``
+    * ``prompt``, use ``from runez.prompt import ...``
+    * ``schema``, use ``from runez.schema import ...``
+    * ``thread``, use ``from runez.thread import ...``
+    * ``set_dryrun`` (better applied via ``runez.log.setup()``)
     * ``SANITIZED, SHELL, UNIQUE``, function ``flattened()`` now accepts more explicit boolean flags
-    * ``represented_args()``: now ``quoted()`` can be used instead
-    * ``set_dryrun()`` (better applied via ``runez.log.setup()``)
     * ``class_descendants()``: not so useful after all, using decorators is better
 
-* Internal refactor to minimize import time (import time now tested, must be less than 3x slower than ``import sys``)
+    * ``capped``, use ``runez.config.capped``
+    * ``ActivateColors``, use ``runez.colors.ActivateColors``
+    * ``is_coloring``, use ``runez.color.is_coloring``
+    * ``ini_to_dict``, use ``runez.file.ini_to_dict``
+    * ``is_younger``, use ``runez.file.is_younger``
+    * ``dev_folder``, use ``runez.program.dev_folder``
+    * ``find_parent_folder``, use ``runez.program.find_parent_folder``
+    * ``program_path``, use ``runez.program.program_path``
+    * ``require_installed``, use ``runez.program.require_installed``
+    * ``terminal_width``, use ``runez.program.terminal_width``
+    * ``json_sanitized``, use ``runez.serialize.json_sanitized``
 
+* Enhanced:
+
+    * ``quoted()`` can quote a single string, or a list of strings
+    * ``readline()`` can now ignore empty lines, and return up to N first lines
+
+    * Relevant click decorators are not exposed anymore by default, and auto-apply themselves:
+
+        * ``@runez.click.color()``
+        * ``@runez.click.config()``
+        * ``@runez.click.dryrun()``
+
+* Added:
+
+    * ``PrettyTable``, more flexible than the now abandoned and similar https://pypi.org/project/PrettyTable
+    * ``runez.inspector`` module, which mostly acts on context (auto-detects caller), and provide a few relevant features:
+
+        * ``auto_import_siblings()``: automatically finds all siblings of calling module, and ensure
+          every single one is ``import``-ed, this is useful to avoid having to manually register ``click``
+          sub-commands of a large group
+        * ``run_cmds()``: poor man's ``click``-replacement, finds all ``cmd_`` functions in caller module
+          and makes a multi-command out of them, with ``--help`` etc
 
 
 1.8.1 (2019-05-07)

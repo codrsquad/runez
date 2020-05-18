@@ -2,8 +2,8 @@ import io
 import os
 import shutil
 import tempfile
+import time
 
-from runez.convert import to_int
 from runez.path import ensure_folder, parent_folder
 from runez.system import abort, Anchored, decode, is_dryrun, LOG, resolved_path, set_dryrun, short, SYMBOLIC_TMP, UNSET
 
@@ -112,6 +112,22 @@ def ini_to_dict(data, keep_empty=False, default=None):
     return result
 
 
+def is_younger(path, age):
+    """
+    Args:
+        path (str): Path to file
+        age (int | float): How many seconds to consider the file too old
+
+    Returns:
+        (bool): True if file exists and is younger than 'age' seconds
+    """
+    try:
+        return time.time() - os.path.getmtime(path) < age
+
+    except (OSError, IOError, TypeError):
+        return False
+
+
 def readlines(data, first=None, keep_empty=True, strip=True, errors=None, fatal=UNSET, logger=UNSET):
     """Yield the `first` N lines from `data`
 
@@ -148,22 +164,6 @@ def readlines(data, first=None, keep_empty=True, strip=True, errors=None, fatal=
 
         if fatal:
             abort("Can't readlines() from %s: %s", short(data), e, fatal=fatal, logger=logger)
-
-
-def _readlines(data, first, keep_empty, strip):
-    for line in data:
-        line = decode(line)
-        if strip:
-            line = line.strip()
-
-        if keep_empty or line:
-            if first is not None:
-                if first == 0:
-                    return
-
-                first -= 1
-
-            yield line
 
 
 def move(source, destination, adapter=None, fatal=True, logger=LOG.debug):
@@ -244,23 +244,6 @@ class TempFolder(object):
 
         if self.dryrun is not None:
             set_dryrun(self.dryrun)
-
-
-def terminal_width(default=None):
-    """Get the width (number of columns) of the terminal window.
-
-    Args:
-        default: Default to use if terminal width could not be determined
-
-    Returns:
-        (int): Determined terminal width, if possible
-    """
-    for func in (_tw_shutil, _tw_env):
-        columns = func()
-        if columns is not None:
-            return columns
-
-    return to_int(default)
 
 
 def touch(path, fatal=True, logger=None):
@@ -402,13 +385,17 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True,
         return abort("Can't %s %s %s %s: %s", action, short(source), indicator, short(destination), e, fatal=(fatal, -1))
 
 
-def _tw_shutil():
-    try:
-        return shutil.get_terminal_size().columns
+def _readlines(data, first, keep_empty, strip):
+    for line in data:
+        line = decode(line)
+        if strip:
+            line = line.strip()
 
-    except Exception:
-        return None
+        if keep_empty or line:
+            if first is not None:
+                if first == 0:
+                    return
 
+                first -= 1
 
-def _tw_env():
-    return to_int(os.environ.get("COLUMNS"))
+            yield line

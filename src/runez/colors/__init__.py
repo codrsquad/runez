@@ -109,14 +109,6 @@ class ColorManager(object):
         return prev
 
 
-def is_coloring():
-    """
-    Returns:
-        (bool): True if tty coloring is currently activated
-    """
-    return ColorManager.is_coloring()
-
-
 def uncolored(text):
     """
     Args:

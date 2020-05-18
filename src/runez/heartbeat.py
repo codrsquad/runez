@@ -26,7 +26,7 @@ from runez.system import LOG
 DEFAULT_FREQUENCY = 60
 
 
-class Task(object):
+class HeartbeatTask(object):
     """Task to be executed periodically"""
 
     def __init__(self, name=None, frequency=None):
@@ -99,12 +99,12 @@ class Heartbeat(object):
     def add_task(cls, task, frequency=None):
         """
         Args:
-            task (Task | callable): Add 'task' to the list of tasks to run periodically
+            task (HeartbeatTask | callable): Add 'task' to the list of tasks to run periodically
             frequency (int | float | None): How often to execute this task, in seconds
         """
         with cls._lock:
-            if not isinstance(task, Task):
-                t = Task(name=task.__name__, frequency=frequency)
+            if not isinstance(task, HeartbeatTask):
+                t = HeartbeatTask(name=task.__name__, frequency=frequency)
                 t.execute, task = task, t
 
             if frequency:
@@ -115,7 +115,13 @@ class Heartbeat(object):
 
     @classmethod
     def resolved_task(cls, task):
-        """Task instance representing 'task', if any"""
+        """
+        Args:
+            task (HeartbeatTask | callable): Task reference to find
+
+        Returns:
+            (HeartbeatTask | None): Task instance representing 'task', if any
+        """
         for t in cls.tasks:
             if t is task or t.execute is task:
                 return t
@@ -124,10 +130,10 @@ class Heartbeat(object):
     def remove_task(cls, task):
         """
         Args:
-            task (Task | callable): Remove `task` from the list of tasks to run periodically
+            task (HeartbeatTask | callable): Remove `task` from the list of tasks to run periodically
         """
         with cls._lock:
-            if not isinstance(task, Task):
+            if not isinstance(task, HeartbeatTask):
                 task = cls.resolved_task(task)
 
             if task:
@@ -141,7 +147,7 @@ class Heartbeat(object):
             task.execute()
 
         except Exception as e:
-            LOG.warning("Task %s crashed:", task.name, exc_info=e)
+            LOG.warning("HeartbeatTask %s crashed:", task.name, exc_info=e)
 
         task.set_next_execution()
 

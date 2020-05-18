@@ -234,10 +234,6 @@ def test_shortening():
     assert runez.short(" some  text ", size=7) == "some..."
     assert runez.short(" some  text ", size=0) == "some text"
 
-    # Backwards compat, remove when all callers adapted
-    assert runez.shortened(" some  text ", size=7) == "some..."
-    assert runez.shortened(" some  text ", 7) == "some..."
-
     with runez.TempFolder() as tmp:
         assert runez.short(os.path.join(tmp, "some-file")) == "some-file"
 
@@ -252,11 +248,6 @@ def test_shortening():
 
 
 def test_system():
-    assert runez.capped(123, minimum=200) == 200
-    assert runez.capped(123, maximum=100) == 100
-    assert runez.capped(123, minimum=100, maximum=200) == 123
-    assert runez.capped(123, minimum=100, maximum=110) == 110
-
     assert runez.decode(None) is None
     assert runez.decode(" something ") == " something "
     assert runez.decode(" something ", strip=True) == "something"

@@ -11,6 +11,13 @@ import runez.conftest
 SAMPLES = runez.conftest.test_resource("sample")
 
 
+def test_capped():
+    assert runez.config.capped(123, minimum=200) == 200
+    assert runez.config.capped(123, maximum=100) == 100
+    assert runez.config.capped(123, minimum=100, maximum=200) == 123
+    assert runez.config.capped(123, minimum=100, maximum=110) == 110
+
+
 def test_no_implementation():
     config = runez.config.Configuration(providers=[runez.config.ConfigProvider()])
     assert str(config) == "config"

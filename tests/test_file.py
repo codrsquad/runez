@@ -32,8 +32,8 @@ k2 =
 
 
 def test_edge_cases():
-    assert runez.ini_to_dict(None) is None
-    assert runez.ini_to_dict("/dev/null/no-such-file", default=dict(a="b")) == dict(a="b")
+    assert runez.file.ini_to_dict(None) is None
+    assert runez.file.ini_to_dict("/dev/null/no-such-file", default=dict(a="b")) == dict(a="b")
 
     # Don't crash for no-ops
     assert runez.copy(None, None) == 0
@@ -45,8 +45,8 @@ def test_edge_cases():
     assert runez.delete("non-existing") == 0
 
     assert runez.touch(None) == 0
-    assert not runez.is_younger("", 1)
-    assert not runez.is_younger("/dev/null/not-there", 1)
+    assert not runez.file.is_younger("", 1)
+    assert not runez.file.is_younger("/dev/null/not-there", 1)
 
     assert list(runez.readlines(None, fatal=False)) == []
     with pytest.raises(TypeError):
@@ -61,22 +61,22 @@ def test_edge_cases():
 
 def test_ini_to_dict():
     expected = {None: {"root": "some-value"}, "": {"ek": "ev"}, "s1": {"k1": "v1"}, "s2": {"k2": ""}}
-    actual = runez.ini_to_dict(SAMPLE_CONF.splitlines(), keep_empty=True)
+    actual = runez.file.ini_to_dict(SAMPLE_CONF.splitlines(), keep_empty=True)
     assert actual == expected
 
     with runez.TempFolder():
         runez.write("test.ini", SAMPLE_CONF)
-        actual = runez.ini_to_dict("test.ini", keep_empty=True)
+        actual = runez.file.ini_to_dict("test.ini", keep_empty=True)
         assert actual == expected
 
         with open("test.ini") as fh:
-            actual = runez.ini_to_dict(fh, keep_empty=True)
+            actual = runez.file.ini_to_dict(fh, keep_empty=True)
             assert actual == expected
 
     del expected[None]
     del expected[""]
     del expected["s2"]
-    actual = runez.ini_to_dict(SAMPLE_CONF.splitlines(), keep_empty=False)
+    actual = runez.file.ini_to_dict(SAMPLE_CONF.splitlines(), keep_empty=False)
     assert actual == expected
 
 
@@ -156,8 +156,8 @@ def test_file_inspection(temp_folder, logged):
 
     assert list(runez.readlines("sample", first=1)) == [""]
     assert list(runez.readlines("sample", first=1, keep_empty=False)) == ["Fred"]
-    assert runez.is_younger("sample", age=10)
-    assert not runez.is_younger("sample", age=-1)
+    assert runez.file.is_younger("sample", age=10)
+    assert not runez.file.is_younger("sample", age=-1)
 
     # Verify that readlines() can ignore encoding errors
     with io.open("not-a-text-file", "wb") as fh:
@@ -211,24 +211,3 @@ def test_file_inspection(temp_folder, logged):
     assert not os.path.exists("x2/z2/sample2")
     assert runez.copy("x", "x2") == 1
     assert os.path.exists("x2/z2/sample2")
-
-
-def test_terminal_width():
-    with patch.dict(os.environ, {"COLUMNS": ""}, clear=True):
-        tw = runez.terminal_width()
-        if runez.PY2:
-            assert tw is None
-
-        else:
-            assert tw is not None
-
-        with patch("runez.file._tw_shutil", return_value=None):
-            assert runez.terminal_width() is None
-            assert runez.terminal_width(default=5) == 5
-
-        with patch("runez.file._tw_shutil", return_value=10):
-            assert runez.terminal_width() == 10
-            assert runez.terminal_width(default=5) == 10
-
-    with patch.dict(os.environ, {"COLUMNS": "25"}, clear=True):
-        assert runez.terminal_width() == 25

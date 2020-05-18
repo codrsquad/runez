@@ -7,8 +7,8 @@ import shutil
 import subprocess  # nosec
 import sys
 import tempfile
-import time
 
+from runez.convert import to_int
 from runez.system import _get_abort_exception, abort, decode, flattened, is_dryrun, LOG, quoted, short, WINDOWS
 
 
@@ -85,22 +85,6 @@ def is_executable(path):
         return bool(_windows_exe(path))
 
     return path and os.path.isfile(path) and os.access(path, os.X_OK)
-
-
-def is_younger(path, age):
-    """
-    Args:
-        path (str): Path to file
-        age (int | float): How many seconds to consider the file too old
-
-    Returns:
-        (bool): True if file exists and is younger than 'age' seconds
-    """
-    try:
-        return time.time() - os.path.getmtime(path) < age
-
-    except (OSError, IOError, TypeError):
-        return False
 
 
 def make_executable(path, fatal=True):
@@ -223,6 +207,23 @@ def run(program, *args, **kwargs):
                 raise
 
             return abort("%s failed: %s", short(program), e, exc_info=e, fatal=fatal)
+
+
+def terminal_width(default=None):
+    """Get the width (number of columns) of the terminal window.
+
+    Args:
+        default: Default to use if terminal width could not be determined
+
+    Returns:
+        (int): Determined terminal width, if possible
+    """
+    for func in (_tw_shutil, _tw_env):
+        columns = func()
+        if columns is not None:
+            return columns
+
+    return to_int(default)
 
 
 def which(program, ignore_own_venv=False):
@@ -366,3 +367,15 @@ class _WrappedArgs(object):
     def __exit__(self, *_):
         if self.tmp_folder:
             shutil.rmtree(self.tmp_folder)
+
+
+def _tw_shutil():
+    try:
+        return shutil.get_terminal_size().columns
+
+    except Exception:
+        return None
+
+
+def _tw_env():
+    return to_int(os.environ.get("COLUMNS"))

@@ -23,7 +23,7 @@ import os
 import sys
 
 from runez.convert import to_boolean, to_bytesize, to_float, to_int
-from runez.system import capped, decode, stringified
+from runez.system import decode, stringified
 
 
 class Configuration:
@@ -247,6 +247,26 @@ class Configuration:
 
 
 CONFIG = Configuration()  # Global config object, clients can decide to use this for simplicity
+
+
+def capped(value, minimum=None, maximum=None):
+    """
+    Args:
+        value: Value to cap
+        minimum: If specified, value should not be lower than this minimum
+        maximum: If specified, value should not be higher than this maximum
+
+    Returns:
+        `value` capped to `minimum` and `maximum` (if it is outside of those bounds)
+    """
+    if value is not None:
+        if minimum is not None and value < minimum:
+            return minimum
+
+        if maximum is not None and value > maximum:
+            return maximum
+
+    return value
 
 
 def get(key, default=None):

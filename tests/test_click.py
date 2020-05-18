@@ -35,7 +35,7 @@ def my_group():
 def echo(text):
     """Repeat provided text"""
     text = " ".join(text)
-    msg = "%s, color: %s, %s values, g.a=%s" % (text, runez.is_coloring(), len(runez.config.CONFIG), runez.config.get("g.a"))
+    msg = "%s, color: %s, %s values, g.a=%s" % (text, runez.color.is_coloring(), len(runez.config.CONFIG), runez.config.get("g.a"))
     msg += ", debug: %s, dryrun: %s, log: %s" % (runez.DRYRUN, runez.log.debug, runez.log.spec.file_location)
     print(msg)
 

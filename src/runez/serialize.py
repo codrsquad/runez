@@ -633,6 +633,7 @@ def read_json(path, default=None, fatal=True, logger=None):
     if not path or not os.path.exists(path):
         if default is None:
             return abort("No file %s", short(path), fatal=(fatal, default))
+
         return default
 
     try:

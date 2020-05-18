@@ -50,7 +50,7 @@ def main():
 
     declared.pop(0)  # First line doesn't count, it just declares what's defined in runez.__init__ itself
     if len(imported) != len(declared):
-        sys.exit("Line count differs: %s imported, %s declared" % (len(imported), len(declared)))
+        sys.exit("Line count differs in runez.__init__: %s imported, %s declared" % (len(imported), len(declared)))
 
     diffs = 0
     for i, imp in enumerate(imported):
@@ -64,11 +64,11 @@ def main():
             print("")
 
     if diffs:
-        print("Found %s diffs" % diffs)
+        print("Found %s diffs in runez.__init__" % diffs)
         sys.exit(1)
 
     else:
-        print("No diffs found, all %s orders match" % len(imported))
+        print("%s orders match in runez.__init__" % len(imported))
 
 
 if __name__ == "__main__":

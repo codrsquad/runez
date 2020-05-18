@@ -55,20 +55,41 @@ def test_executable(temp_folder):
         assert "does not exist, can't make it executable" in logged
 
 
+def test_terminal_width():
+    with patch.dict(os.environ, {"COLUMNS": ""}, clear=True):
+        tw = runez.program.terminal_width()
+        if runez.PY2:
+            assert tw is None
+
+        else:
+            assert tw is not None
+
+        with patch("runez.program._tw_shutil", return_value=None):
+            assert runez.program.terminal_width() is None
+            assert runez.program.terminal_width(default=5) == 5
+
+        with patch("runez.program._tw_shutil", return_value=10):
+            assert runez.program.terminal_width() == 10
+            assert runez.program.terminal_width(default=5) == 10
+
+    with patch.dict(os.environ, {"COLUMNS": "25"}, clear=True):
+        assert runez.program.terminal_width() == 25
+
+
 def test_which():
-    assert runez.dev_folder()
+    assert runez.program.dev_folder()
 
-    assert runez.find_parent_folder("", {"foo"}) is None
-    assert runez.find_parent_folder("/a/b//", {""}) is None
-    assert runez.find_parent_folder("/a/b", {"a"}) == "/a"
-    assert runez.find_parent_folder("/a/b//", {"a"}) == "/a"
-    assert runez.find_parent_folder("//a/b//", {"a"}) == "//a"
-    assert runez.find_parent_folder("/a/b", {"b"}) == "/a/b"
-    assert runez.find_parent_folder("/a/B", {"a", "b"}) == "/a/B"  # case insensitive
-    assert runez.find_parent_folder("/a/b", {"c"}) is None
-    assert runez.find_parent_folder("/dev/null", {"foo"}) is None
+    assert runez.program.find_parent_folder("", {"foo"}) is None
+    assert runez.program.find_parent_folder("/a/b//", {""}) is None
+    assert runez.program.find_parent_folder("/a/b", {"a"}) == "/a"
+    assert runez.program.find_parent_folder("/a/b//", {"a"}) == "/a"
+    assert runez.program.find_parent_folder("//a/b//", {"a"}) == "//a"
+    assert runez.program.find_parent_folder("/a/b", {"b"}) == "/a/b"
+    assert runez.program.find_parent_folder("/a/B", {"a", "b"}) == "/a/B"  # case insensitive
+    assert runez.program.find_parent_folder("/a/b", {"c"}) is None
+    assert runez.program.find_parent_folder("/dev/null", {"foo"}) is None
 
-    assert runez.program_path(path="/dev/null/some-program") == "/dev/null/some-program"
+    assert runez.program.program_path(path="/dev/null/some-program") == "/dev/null/some-program"
 
     assert runez.which(None) is None
     assert runez.which("/dev/null") is None
@@ -78,26 +99,26 @@ def test_which():
 
 def test_require_installed():
     with patch("runez.program.which", return_value="/bin/foo"):
-        assert runez.require_installed("foo") is True
+        assert runez.program.require_installed("foo") is True
 
     with patch("runez.program.which", return_value=None):
         with runez.CaptureOutput() as logged:
-            runez.require_installed("foo", fatal=False, platform="darwin")
+            runez.program.require_installed("foo", fatal=False, platform="darwin")
             assert "foo is not installed, run: `brew install foo`" in logged.pop()
 
-            runez.require_installed("foo", instructions="see http:...", fatal=False, platform="darwin")
+            runez.program.require_installed("foo", instructions="see http:...", fatal=False, platform="darwin")
             assert "foo is not installed, see http:..." in logged.pop()
 
-            runez.require_installed("foo", fatal=False, platform="linux")
+            runez.program.require_installed("foo", fatal=False, platform="linux")
             assert "foo is not installed, run: `apt install foo`" in logged.pop()
 
-            runez.require_installed("foo", instructions={"linux": "see http:..."}, fatal=False, platform="linux")
+            runez.program.require_installed("foo", instructions={"linux": "see http:..."}, fatal=False, platform="linux")
             assert "foo is not installed, see http:..." in logged.pop()
 
-            runez.require_installed("foo", instructions={"linux": "see http:..."}, fatal=False, platform=None)
+            runez.program.require_installed("foo", instructions={"linux": "see http:..."}, fatal=False, platform=None)
             assert "foo is not installed, on linux: see http:..." in logged.pop()
 
-            runez.require_installed("foo", fatal=False, platform=None)
+            runez.program.require_installed("foo", fatal=False, platform=None)
             message = logged.pop()
             assert "foo is not installed:\n" in message
             assert "- on darwin: run: `brew install foo`" in message

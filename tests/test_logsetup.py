@@ -8,14 +8,15 @@ from mock import patch
 
 import runez
 import runez.conftest
+from runez.logsetup import LogSpec
 
 
 LOG = logging.getLogger(__name__)
 
 
 def test_logspec(isolated_log_setup):
-    s1 = runez.LogSpec(runez.log._default_spec, appname="pytest")
-    s2 = runez.LogSpec(runez.log._default_spec, appname="pytest")
+    s1 = LogSpec(runez.log._default_spec, appname="pytest")
+    s2 = LogSpec(runez.log._default_spec, appname="pytest")
     assert s1 == s2
     assert s1.appname == "pytest"
     assert s1.timezone == "UTC"
