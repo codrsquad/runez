@@ -190,8 +190,14 @@ def test_failed_run(logged):
 
 @pytest.mark.skipif(runez.WINDOWS, reason="Not supported on windows")
 def test_wrapped_run():
+    original = ["python", "-mvenv", "foo"]
+    with patch.dict(os.environ, {}, clear=True):
+        with runez.program._WrappedArgs(original) as args:
+            assert args == original
+
     with patch.dict(os.environ, {"PYCHARM_HOSTED": "1"}):
-        a = runez.program._wrapped_args(["python", "-mvenv", "foo"])
-        assert len(a) == 5
-        assert a[0] == "/bin/sh"
-        assert os.path.basename(a[1]) == "pydev-wrapper.sh"
+        with runez.program._WrappedArgs(original) as args:
+            assert args
+            assert len(args) == 5
+            assert args[0] == "/bin/sh"
+            assert os.path.basename(args[1]) == "pydev-wrapper.sh"

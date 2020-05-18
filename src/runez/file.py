@@ -126,20 +126,20 @@ def readlines(data, first=None, keep_empty=True, strip=True, errors=None, fatal=
     """
     try:
         if isinstance(data, list):
-            for line in _readlines(data, first, keep_empty, strip, None):
+            for line in _readlines(data, first, keep_empty, strip):
                 yield line
 
             return
 
         if hasattr(data, "readline"):
-            for line in _readlines(data, first, keep_empty, strip, decode):
+            for line in _readlines(data, first, keep_empty, strip):
                 yield line
 
             return
 
         path = resolved_path(data)
         with io.open(path, errors=errors) as fh:
-            for line in _readlines(fh, first, keep_empty, strip, decode):
+            for line in _readlines(fh, first, keep_empty, strip):
                 yield line
 
     except Exception as e:
@@ -150,11 +150,9 @@ def readlines(data, first=None, keep_empty=True, strip=True, errors=None, fatal=
             abort("Can't readlines() from %s: %s", short(data), e, fatal=fatal, logger=logger)
 
 
-def _readlines(data, first, keep_empty, strip, adapter):
+def _readlines(data, first, keep_empty, strip):
     for line in data:
-        if adapter is not None:
-            line = adapter(line)
-
+        line = decode(line)
         if strip:
             line = line.strip()
 

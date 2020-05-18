@@ -3,8 +3,10 @@ Convenience methods for executing programs
 """
 
 import os
+import shutil
 import subprocess  # nosec
 import sys
+import tempfile
 import time
 
 from runez.system import _get_abort_exception, abort, decode, flattened, is_dryrun, LOG, quoted, short, WINDOWS
@@ -190,37 +192,37 @@ def run(program, *args, **kwargs):
     if not full_path:
         return abort("%s is not installed", short(program), fatal=fatal)
 
-    args = _wrapped_args([full_path] + args)
-    try:
-        path_env = kwargs.pop("path_env", None)
-        if path_env:
-            kwargs["env"] = _added_env_paths(path_env, env=kwargs.get("env"))
+    with _WrappedArgs([full_path] + args) as args:
+        try:
+            path_env = kwargs.pop("path_env", None)
+            if path_env:
+                kwargs["env"] = _added_env_paths(path_env, env=kwargs.get("env"))
 
-        p = subprocess.Popen(args, stdout=stdout, stderr=stderr, **kwargs)  # nosec
-        output, err = p.communicate()
-        output = decode(output, strip=True)
-        err = decode(err, strip=True)
+            p = subprocess.Popen(args, stdout=stdout, stderr=stderr, **kwargs)  # nosec
+            output, err = p.communicate()
+            output = decode(output, strip=True)
+            err = decode(err, strip=True)
 
-        if stdout is None and stderr is None:
-            if p.returncode and fatal:
-                return abort("%s exited with code %s" % (short(program), p.returncode), fatal=fatal, code=p.returncode)
-            return p.returncode
+            if stdout is None and stderr is None:
+                if p.returncode and fatal:
+                    return abort("%s exited with code %s" % (short(program), p.returncode), fatal=fatal, code=p.returncode)
+                return p.returncode
 
-        if p.returncode and fatal is not None:
-            note = ": %s\n%s" % (err, output) if output or err else ""
-            message = "%s exited with code %s%s" % (short(program), p.returncode, note.strip())
-            return abort(message, fatal=fatal, code=p.returncode)
+            if p.returncode and fatal is not None:
+                note = ": %s\n%s" % (err, output) if output or err else ""
+                message = "%s exited with code %s%s" % (short(program), p.returncode, note.strip())
+                return abort(message, fatal=fatal, code=p.returncode)
 
-        if include_error and err:
-            output = "%s\n%s" % (output, err)
+            if include_error and err:
+                output = "%s\n%s" % (output, err)
 
-        return output and output.strip()
+            return output and output.strip()
 
-    except Exception as e:
-        if isinstance(e, _get_abort_exception()):
-            raise
+        except Exception as e:
+            if isinstance(e, _get_abort_exception()):
+                raise
 
-        return abort("%s failed: %s", short(program), e, exc_info=e, fatal=fatal)
+            return abort("%s failed: %s", short(program), e, exc_info=e, fatal=fatal)
 
 
 def which(program, ignore_own_venv=False):
@@ -342,10 +344,25 @@ def _windows_exe(path):  # pragma: no cover
                 return fpath
 
 
-def _wrapped_args(args):
-    if not WINDOWS and "PYCHARM_HOSTED" in os.environ and len(args) > 1 and "python" in args[0] and args[1][:2] in ("-m", "-X"):
-        # Temporary workaround for https://youtrack.jetbrains.com/issue/PY-40692
-        wrapper = os.path.join(os.path.dirname(__file__), "pydev-wrapper.sh")
-        return ["/bin/sh", wrapper] + args
+class _WrappedArgs(object):
+    """Context manager to temporarily work around https://youtrack.jetbrains.com/issue/PY-40692"""
 
-    return args
+    def __init__(self, args):
+        self.args = args
+        self.tmp_folder = None
+
+    def __enter__(self):
+        args = self.args
+        if not WINDOWS and "PYCHARM_HOSTED" in os.environ and len(args) > 1 and "python" in args[0] and args[1][:2] in ("-m", "-X"):
+            self.tmp_folder = os.path.realpath(tempfile.mkdtemp())
+            wrapper = os.path.join(self.tmp_folder, "pydev-wrapper.sh")
+            with open(wrapper, "wt") as fh:
+                fh.write('exec "$@"\n')
+
+            args = ["/bin/sh", wrapper] + args
+
+        return args
+
+    def __exit__(self, *_):
+        if self.tmp_folder:
+            shutil.rmtree(self.tmp_folder)
