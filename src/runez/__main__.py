@@ -3,9 +3,10 @@ See some example behaviors of runez
 """
 
 import argparse
+import sys
 
 import runez
-from runez.inspector import run_cmds
+from runez.inspector import ImportTime, run_cmds
 
 
 def show_fgcolors(bg=runez.plain, border=None):
@@ -57,6 +58,54 @@ def cmd_colors():
 
                 else:
                     show_fgcolors(bg=color, border=args.border)
+
+
+def cmd_import_speed():
+    if sys.version_info[:2] >= (3, 7):
+        pass
+
+    parser = argparse.ArgumentParser(description="Show average import time of top-level python packages installed in this venv")
+    parser.add_argument("--border", choices=runez.represent.NAMED_BORDERS, default="reddit", help="Use custom border.")
+    parser.add_argument("name", nargs="+", help="Names of modules to show.")
+    args = parser.parse_args()
+    names = runez.flattened(args.name, split=",")
+    times = []
+    fastest = None
+    slowest = None
+    for name in names:
+        t = ImportTime(name)
+        times.append(t)
+        if t.cumulative is None:
+            continue
+
+        if fastest is None or (t.cumulative < fastest.cumulative):
+            fastest = t
+
+        if slowest is None or t.cumulative > slowest.cumulative:
+            slowest = t
+
+    table = runez.PrettyTable("Module,Cumulative,Elapsed,Vs fastest,Note", border=args.border)
+    for t in times:
+        if t.cumulative is None:
+            c = e = f = None
+
+        else:
+            factor = t.cumulative / fastest.cumulative
+            c = runez.represented_duration(t.cumulative / 1000000, span=-2)
+            e = runez.represented_duration(t.elapsed, span=-2)
+            f = "x%.2f" % factor
+            if t is fastest:
+                f = ""
+
+            elif t is slowest:
+                f = runez.red(f)
+
+            elif t.cumulative > fastest.cumulative * 2.9:
+                f = runez.yellow(f)
+
+        table.add_row(t.module_name, c, e, f, t.problem or "")
+
+    print(table)
 
 
 def main():

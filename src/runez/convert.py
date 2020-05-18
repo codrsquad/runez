@@ -415,7 +415,7 @@ def _float_from_text(text, lenient=True, default=None):
 
 def _represented_with_units(size, unit, base, delimiter, prefixes, exponent=0):
     if not base:
-        return "%s" % size
+        return "%g" % size
 
     if size >= base and exponent < len(prefixes):
         size = float(size) / base
@@ -423,9 +423,9 @@ def _represented_with_units(size, unit, base, delimiter, prefixes, exponent=0):
 
     if exponent == 0:
         if unit:
-            return "%s%s%s" % (size, delimiter, unit)
+            return "%g%s%s" % (size, delimiter, unit)
 
-        return "%s" % size
+        return "%g" % size
 
     fmt = "%.{precision}f".format(precision=0 if size > 9 else 1)
     represented_size = fmt % size

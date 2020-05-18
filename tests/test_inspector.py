@@ -1,9 +1,10 @@
 import os
+import sys
 
 import pytest
 from mock import MagicMock, patch
 
-from runez.inspector import auto_import_siblings
+from runez.inspector import auto_import_siblings, ImportTime
 from runez.system import _is_actual_caller_frame
 
 
@@ -50,7 +51,7 @@ def test_auto_import_siblings():
 
     with patch.dict(os.environ, {"TOX_WORK_DIR": "some-value"}, clear=True):
         imported = auto_import_siblings(skip=["tests.test_system", "tests.test_serialize"])
-        assert len(imported) == 22
+        assert len(imported) == 21
 
         assert "tests.conftest" in imported
         assert "tests.secondary" in imported
@@ -60,8 +61,29 @@ def test_auto_import_siblings():
         assert "tests.test_serialize" not in imported
 
     imported = auto_import_siblings(skip=["tests.secondary"])
-    assert len(imported) == 22
+    assert len(imported) == 21
     assert "tests.conftest" in imported
     assert "tests.secondary" not in imported
     assert "tests.secondary.test_import" not in imported
     assert "tests.test_system" in imported
+
+
+@pytest.mark.skipif(sys.version_info[:2] < (3, 7), reason="Available in 3.7+")
+def test_importtime():
+    """Verify that importing runez remains fast"""
+    tos = ImportTime("os")
+    tsys = ImportTime("sys")
+    trunez = ImportTime("runez")
+    assert "runez" in str(trunez)
+
+    assert trunez.cumulative < 3 * tos.cumulative
+    assert trunez.cumulative < 3 * tsys.cumulative
+
+    assert trunez.elapsed < 3 * tos.elapsed
+    assert trunez.elapsed < 3 * tsys.elapsed
+
+
+def test_importtime_command(cli):
+    cli.run("import-speed os sys foo_no_such_module runez")
+    assert cli.succeeded
+    assert "runez" in cli.logged.stdout

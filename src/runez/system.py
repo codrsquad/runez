@@ -630,7 +630,8 @@ class CapturedStream(object):
         self.name = name
         self.target = target
         self.buffer = StringIO()
-        self.capture_write = "_pytest" in stringified(self.target.__class__)
+        target_class = stringified(self.target.__class__).lower()
+        self.capture_write = "_pytest" in target_class or "wrapper" in target_class
         if self.capture_write and self.target.write.__name__ == self.captured_write.__name__:
             self.capture_write = False
 

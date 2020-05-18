@@ -7,9 +7,13 @@ Functions from this module must be explicitly imported, for example:
 """
 
 import os
+import sys
+import time
 
+from runez.convert import to_int
+from runez.program import run
 from runez.represent import PrettyTable
-from runez.system import find_caller_frame, first_line
+from runez.system import CaptureOutput, find_caller_frame, first_line
 
 
 def auto_import_siblings(auto_clean="TOX_WORK_DIR", skip=None):
@@ -76,6 +80,10 @@ def auto_import_siblings(auto_clean="TOX_WORK_DIR", skip=None):
             imported.append(module_name)
 
     return imported
+
+
+def python_version():
+    return ".".join(str(s) for s in sys.version_info[:2])
 
 
 def run_cmds(prog=None):
@@ -150,6 +158,53 @@ def run_cmds(prog=None):
     except KeyboardInterrupt:  # pragma: no cover
         sys.stderr.write("\nAborted\n")
         sys.exit(1)
+
+
+class ImportTime(object):
+    """Measure average import time of a given top-level package, works with 3.7+ only"""
+
+    def __init__(self, module_name, iterations=5):
+        self.module_name = module_name
+        self.elapsed = None
+        self.cumulative = None
+        self.problem = None
+        if sys.version_info[:2] < (3, 7):
+            self.problem = "-Ximporttime is not available in python %s, can't measure import-time speed" % python_version()
+            return
+
+        cumulative = 0
+        started = time.time()
+        for _ in range(iterations):
+            c = self._get_importtime()
+            if c is None:
+                return
+
+            cumulative += c
+
+        self.elapsed = time.time() - started
+        self.cumulative = cumulative / iterations
+
+    def __repr__(self):
+        return "%s %s" % (self.module_name, self.cumulative)
+
+    def _get_importtime(self):
+        with CaptureOutput(seed_logging=True) as logged:
+            output = run(sys.executable, "-Ximporttime", "-c", "import %s" % self.module_name, fatal=False, include_error=True)
+            if output is False:
+                lines = logged.contents().strip().splitlines()
+                self.problem = lines[-1] if lines else "-Ximporttime failed"
+                return None
+
+            cumulative = None
+            for line in output.splitlines():
+                stime, cumulative, mod_name = line.split("|")
+                mod_name = mod_name.strip()
+                if self.module_name in mod_name:
+                    value = to_int(stime.partition(":")[2])
+                    assert value is not None, line
+
+            cumulative = to_int(cumulative)
+            return cumulative
 
 
 def _clean_files(folder, extension):
