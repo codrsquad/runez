@@ -18,7 +18,7 @@ History
 
     * ``delimiter`` when the string is used to ``.join()`` a list of things back to a string
       (eg: ``represented_bytesize(.., delimiter=" ")``)
-    * ``split`` when the character is used to split strings (eg: ``flatten(.., split=",")``
+    * ``split`` when the character is used to split strings (eg: ``flattened(.., split=",")``
     * ``flattened()`` now has boolean optional parameters (instead of previously ``split`` enum)
 
 * Reduced number of things exported at top-level, removed:
@@ -31,6 +31,8 @@ History
     * ``set_dryrun`` (better applied via ``runez.log.setup()``)
     * ``SANITIZED, SHELL, UNIQUE``, function ``flattened()`` now accepts more explicit boolean flags
     * ``class_descendants()``: not so useful after all, using decorators is better
+
+    * ``auto_import_siblings``, use ``from runez.inspector import auto_import_siblings``
 
     * ``capped``, use ``runez.config.capped``
     * ``ActivateColors``, use ``runez.colors.ActivateColors``
@@ -51,7 +53,7 @@ History
 * Enhanced:
 
     * ``quoted()`` can quote a single string, or a list of strings
-    * ``readline()`` can now ignore empty lines, and return up to N first lines
+    * ``readlines()`` can now ignore empty lines, and return up to N first lines
 
     * Relevant click decorators are not exposed anymore by default, and auto-apply themselves:
 
