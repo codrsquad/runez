@@ -144,7 +144,6 @@ def test_file_inspection(temp_folder, logged):
 
     sample = runez.conftest.test_resource("sample.txt")
     assert len(list(runez.readlines(sample))) == 4
-    assert len(list(runez.readlines(sample, keep_empty=False))) == 2
     assert len(list(runez.readlines(sample, first=1))) == 1
     assert not logged
 
@@ -154,8 +153,7 @@ def test_file_inspection(temp_folder, logged):
     assert list(runez.readlines("sample")) == content
     assert "bytes to sample" in logged.pop()  # Writing 13 bytes on linux... but 14 on windows...
 
-    assert list(runez.readlines("sample", first=1)) == [""]
-    assert list(runez.readlines("sample", first=1, keep_empty=False)) == ["Fred"]
+    assert list(runez.readlines("sample", first=2)) == ["", "Fred"]
     assert runez.file.is_younger("sample", age=10)
     assert not runez.file.is_younger("sample", age=-1)
 
@@ -164,7 +162,6 @@ def test_file_inspection(temp_folder, logged):
         fh.write(b"\x89 hello\nworld")
 
     assert list(runez.readlines("not-a-text-file", first=1, errors="ignore")) == [" hello"]
-    assert list(runez.readlines("not-a-text-file", first=1, strip=True, errors="ignore")) == ["hello"]
     assert not logged
 
     assert runez.copy("bar", "baz", fatal=False) == -1

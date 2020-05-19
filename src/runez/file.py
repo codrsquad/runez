@@ -78,7 +78,8 @@ def ini_to_dict(data, keep_empty=False, default=None):
     try:
         section_key = None
         section = None
-        for line in readlines(data, keep_empty=keep_empty, strip=True):
+        for line in readlines(data):
+            line = line.strip()
             if "#" in line:
                 i = line.index("#")
                 line = line[:i].strip()
@@ -128,34 +129,32 @@ def is_younger(path, age):
         return False
 
 
-def readlines(data, first=None, keep_empty=True, strip=False, errors=None, fatal=UNSET, logger=UNSET):
+def readlines(data, first=None, errors=None, fatal=UNSET, logger=UNSET):
     """Yield the `first` N lines from `data`
 
     Args:
         data (str | file | TextIO | list): Path to file, or object to return lines from
         first (int | None): Return only the 'first' lines when specified
-        keep_empty (bool): If False, skip empty lines
-        strip (bool): If True, strip lines from leading/trailing spaces/newlines
         errors (str | None): Optional string specifying how encoding errors are to be handled
         fatal (bool): If True: abort() on error, if UNSET: pass-through original exception
         logger (callable | None): Logger to use to report crashes
     """
     try:
         if isinstance(data, list):
-            for line in _readlines(data, first, keep_empty, strip):
+            for line in _readlines(data, first):
                 yield line
 
             return
 
         if hasattr(data, "readline"):
-            for line in _readlines(data, first, keep_empty, strip):
+            for line in _readlines(data, first):
                 yield line
 
             return
 
         path = resolved_path(data)
         with io.open(path, errors=errors) as fh:
-            for line in _readlines(fh, first, keep_empty, strip):
+            for line in _readlines(fh, first):
                 yield line
 
     except Exception as e:
@@ -385,20 +384,14 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True,
         return abort("Can't %s %s %s %s: %s", action, short(source), indicator, short(destination), e, fatal=(fatal, -1))
 
 
-def _readlines(data, first, keep_empty, strip):
+def _readlines(data, first):
+    if not first:
+        first = -1
+
     for line in data:
-        line = decode(line)
-        if strip:
-            line = line.strip()
+        line = decode(line).rstrip()
+        if first == 0:
+            return
 
-        else:
-            line = line.rstrip("\r\n")
-
-        if keep_empty or line:
-            if first is not None:
-                if first == 0:
-                    return
-
-                first -= 1
-
-            yield line
+        first -= 1
+        yield line

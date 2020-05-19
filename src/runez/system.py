@@ -659,7 +659,7 @@ class CaptureOutput(object):
 
     def _has_stream_handler(self):
         for h in logging.root.handlers:
-            if isinstance(h, logging.StreamHandler) and not hasattr(h, "isolation"):
+            if isinstance(h, logging.StreamHandler) or getattr(h, "isolation", None) == 0:
                 return True
 
     def __enter__(self):

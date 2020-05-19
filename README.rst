@@ -86,7 +86,7 @@ File operations::
     runez.delete("foo")
 
     runez.write("foo", "bar\nbaz\n")
-    lines = runez.readlines("foo")
+    content = "\n".join(runez.readlines("foo", first=10))
 
     full_path = runez.resolved_path("foo/bar")
     folder = runez.parent_folder(full_path)
