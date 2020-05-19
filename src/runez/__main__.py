@@ -3,31 +3,12 @@ See some example behaviors of runez
 """
 
 import argparse
+import os
+import sys
 
 import runez
 from runez.inspector import ImportTime, run_cmds
 from runez.render import NAMED_BORDERS, PrettyTable
-
-
-def show_fgcolors(bg=runez.plain, border=None):
-    print("")
-    table = PrettyTable("Color,Blink,Bold,Dim,Invert,Italic,Strikethrough,Underline", border=border)
-    table.header.style = "bold"
-    for color in runez.color.fg:
-        color_name = color.name
-        text = color(color.name)
-        if text[0] == "\033":
-            i = text.index("m", 1)
-            text = "%s %s" % (color_name, text[2:i])
-
-        line = [bg(color(text))]
-        for style in runez.color.style:
-            # text = "%s %s" % (style.name, color_name)
-            line.append(bg(style(color(color_name))))
-
-        table.add_row(line)
-
-    print(table)
 
 
 def cmd_colors():
@@ -49,7 +30,7 @@ def cmd_colors():
 
     with runez.ActivateColors(enable=enable_colors, flavor=args.flavor):
         print("Backend: %s" % runez.color.backend)
-        show_fgcolors(border=args.border)
+        _show_fgcolors(border=args.border)
         if args.bg:
             for name in runez.flattened(args.bg, split=","):
                 color = runez.color.bg.get(name)
@@ -57,21 +38,32 @@ def cmd_colors():
                     print("Unknown bg color '%s'" % name)
 
                 else:
-                    show_fgcolors(bg=color, border=args.border)
+                    _show_fgcolors(bg=color, border=args.border)
 
 
 def cmd_import_speed():
     """Show average import time of top-level python packages installed in this venv"""
     parser = argparse.ArgumentParser(description="Show average import time of top-level python packages installed in this venv")
+    parser.add_argument("--all", action="store_true", help="Show all.")
     parser.add_argument("--border", choices=NAMED_BORDERS, default="reddit", help="Use custom border.")
-    parser.add_argument("name", nargs="+", help="Names of modules to show.")
+    parser.add_argument("name", nargs="*", help="Names of modules to show (by default: all).")
     args = parser.parse_args()
-    names = runez.flattened(args.name, split=",")
+    names = []
+    if args.name:
+        names.extend(runez.flattened(args.name, split=","))
+
+    if args.all:
+        names.extend(_all_deps())
+
+    if not names:
+        sys.exit("Please specify module names, or use --all")
+
+    names = sorted(runez.flattened(names, unique=True))
     times = []
     fastest = None
     slowest = None
     for name in names:
-        t = ImportTime(name)
+        t = ImportTime(name, iterations=3)
         times.append(t)
         if t.cumulative is None:
             continue
@@ -82,7 +74,10 @@ def cmd_import_speed():
         if slowest is None or t.cumulative > slowest.cumulative:
             slowest = t
 
-    table = PrettyTable("Module,Cumulative,Elapsed,Vs fastest,Note", border=args.border)
+    table = PrettyTable("Module,-X cumulative,Elapsed,Vs fastest,Note", border=args.border)
+    mid = slowest and slowest.cumulative or 0  # Don't fail if no slowest or fastest...
+    mid -= fastest and fastest.cumulative or 0
+    mid *= 0.5
     for t in times:
         if t.cumulative is None:
             c = e = f = None
@@ -98,8 +93,8 @@ def cmd_import_speed():
             elif t is slowest:
                 f = runez.red(f)
 
-            elif t.cumulative > fastest.cumulative * 2.9:
-                f = runez.yellow(f)
+            elif t.cumulative > mid:  # pragma: no cover
+                f = runez.orange(f)
 
         table.add_row(t.module_name, c, e, f, t.problem or "")
 
@@ -108,6 +103,68 @@ def cmd_import_speed():
 
 def main():
     run_cmds()
+
+
+def _show_fgcolors(bg=runez.plain, border=None):
+    print("")
+    table = PrettyTable("Color,Blink,Bold,Dim,Invert,Italic,Strikethrough,Underline", border=border)
+    table.header.style = "bold"
+    for color in runez.color.fg:
+        color_name = color.name
+        text = color(color.name)
+        if text[0] == "\033":
+            i = text.index("m", 1)
+            text = "%s %s" % (color_name, text[2:i])
+
+        line = [bg(color(text))]
+        for style in runez.color.style:
+            # text = "%s %s" % (style.name, color_name)
+            line.append(bg(style(color(color_name))))
+
+        table.add_row(line)
+
+    print(table)
+
+
+def _all_deps():
+    """All dependencies in current venv"""
+    import pkg_resources
+    import sysconfig
+
+    result = []
+    base = sysconfig.get_path("purelib")
+    ws = pkg_resources.WorkingSet([base])
+    for dist in ws:
+        if _is_interesting_dist(dist.key):
+            top_level = _find_top_level(base, dist)
+            if top_level:
+                result.append(top_level)
+
+    return result
+
+
+# Usual dev libs that are not interesting for --all import times, they import ultra fast...
+# They can always be stated as argument explicitly to show their import times anyway
+DEV_LIBS = """
+attrs coverage mock more-itertools packaging pip pluggy py pyparsing python-dateutil setuptools six wcwidth wheel zipp
+binaryornot cookiecutter click future
+"""
+DEV_LIBS = set(runez.flattened(DEV_LIBS.splitlines(), split=" "))
+
+
+def _is_interesting_dist(key):
+    if key.startswith("pytest") or key.startswith("importlib"):
+        return False
+
+    return key not in DEV_LIBS
+
+
+def _find_top_level(base, dist):
+    name = dist.key.replace("-", "_").replace(".", "_")
+    top_level = os.path.join(base, "%s-%s.dist-info" % (name, dist.version), "top_level.txt")
+    for line in runez.readlines(top_level, fatal=False):
+        if not line.startswith("_") and line:
+            return line
 
 
 if __name__ == "__main__":

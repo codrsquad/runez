@@ -84,6 +84,12 @@ def test_importtime():
 
 
 def test_importtime_command(cli):
-    cli.run("import-speed os sys foo_no_such_module runez")
+    cli.run("import-speed")
+    assert cli.failed
+    assert "Please specify module names, or use --all" in cli.logged
+
+    cli.run("import-speed --all runez foo_no_such_module runez")
     assert cli.succeeded
-    assert "runez" in cli.logged.stdout
+    lines = cli.logged.stdout.contents().splitlines()
+    assert len([s for s in lines if "runez" in s]) == 1
+    assert len([s for s in lines if "foo_no_such_module" in s]) == 1
