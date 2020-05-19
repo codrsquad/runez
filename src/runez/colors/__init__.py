@@ -8,7 +8,7 @@ Example usage:
 
 import re
 
-from runez.system import current_test, is_tty, short, Slotted, stringified
+from runez.system import _LateImport, is_tty, short, Slotted, stringified
 
 
 RE_ANSI_ESCAPE = re.compile("\x1b\\[[;\\d]*[A-Za-z]")
@@ -18,7 +18,7 @@ class ActivateColors(object):
     """Context manager for temporarily overriding coloring"""
 
     def __init__(self, enable=True, flavor=None):
-        if enable is True and current_test():
+        if enable is True and _LateImport.current_test():
             # This allows to have easily reproducible tests (same color backend used in tests by default)
             enable = "testing"
 
@@ -216,6 +216,3 @@ def _detect_backend(enable, flavor=None):
             return usable[0]
 
     return PlainBackend()
-
-
-ColorManager.activate_colors()

@@ -77,20 +77,6 @@ def test_terminal_width():
 
 
 def test_which():
-    assert runez.program.dev_folder()
-
-    assert runez.program.find_parent_folder("", {"foo"}) is None
-    assert runez.program.find_parent_folder("/a/b//", {""}) is None
-    assert runez.program.find_parent_folder("/a/b", {"a"}) == "/a"
-    assert runez.program.find_parent_folder("/a/b//", {"a"}) == "/a"
-    assert runez.program.find_parent_folder("//a/b//", {"a"}) == "//a"
-    assert runez.program.find_parent_folder("/a/b", {"b"}) == "/a/b"
-    assert runez.program.find_parent_folder("/a/B", {"a", "b"}) == "/a/B"  # case insensitive
-    assert runez.program.find_parent_folder("/a/b", {"c"}) is None
-    assert runez.program.find_parent_folder("/dev/null", {"foo"}) is None
-
-    assert runez.program.program_path(path="/dev/null/some-program") == "/dev/null/some-program"
-
     assert runez.which(None) is None
     assert runez.which("/dev/null") is None
     assert runez.which("dev/null") is None

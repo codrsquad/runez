@@ -14,6 +14,20 @@ from runez.logsetup import LogSpec
 LOG = logging.getLogger(__name__)
 
 
+def test_find_parent_folder():
+    assert "test_logsetup.py" in runez.log.current_test()
+    assert runez.log.dev_folder()
+    assert runez.log.find_parent_folder("", {"foo"}) is None
+    assert runez.log.find_parent_folder("/a/b//", {""}) is None
+    assert runez.log.find_parent_folder("/a/b", {"a"}) == "/a"
+    assert runez.log.find_parent_folder("/a/b//", {"a"}) == "/a"
+    assert runez.log.find_parent_folder("//a/b//", {"a"}) == "//a"
+    assert runez.log.find_parent_folder("/a/b", {"b"}) == "/a/b"
+    assert runez.log.find_parent_folder("/a/B", {"a", "b"}) == "/a/B"  # case insensitive
+    assert runez.log.find_parent_folder("/a/b", {"c"}) is None
+    assert runez.log.find_parent_folder("/dev/null", {"foo"}) is None
+
+
 def test_logspec(isolated_log_setup):
     s1 = LogSpec(runez.log._default_spec, appname="pytest")
     s2 = LogSpec(runez.log._default_spec, appname="pytest")

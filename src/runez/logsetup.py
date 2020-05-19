@@ -21,8 +21,7 @@ except ImportError:
 from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone
 from runez.path import basename as get_basename, ensure_folder, parent_folder
-from runez.program import dev_folder, program_path
-from runez.system import _LateImport, expanded, flattened, LOG, quoted, Slotted, ThreadGlobalContext, UNSET, WINDOWS
+from runez.system import _LateImport, expanded, find_caller_frame, flattened, LOG, quoted, Slotted, ThreadGlobalContext, UNSET, WINDOWS
 
 
 ORIGINAL_CF = logging.currentframe
@@ -361,6 +360,51 @@ class LogManager(object):
             cls.greet(greetings)
 
     @classmethod
+    def current_test(cls):
+        """
+        Returns:
+            (str): Not empty if we're currently running a test (such as via pytest)
+                   Actual value will be path to test_<name>.py file if user followed usual conventions,
+                   otherwise path to first found test-framework module
+        """
+        import re
+        regex = re.compile(r"^(.+\.|)(conftest|(test_|_pytest|unittest).+|.+_test)$")
+
+        def is_test_frame(f):
+            name = f.f_globals.get("__name__").lower()
+            if not name.startswith("runez"):
+                return regex.match(name) and f.f_globals.get("__file__")
+
+        return find_caller_frame(validator=is_test_frame)
+
+    @classmethod
+    def dev_folder(cls):
+        """
+        Returns:
+            (str | None): Path to development build folder, such as .venv, .tox etc, if any
+        """
+        return cls.find_parent_folder(sys.prefix, {"venv", ".venv", ".tox", "build"})
+
+    @classmethod
+    def find_parent_folder(cls, path, basenames):
+        """
+        Args:
+            path (str): Path to examine, first parent folder with basename in `basenames` is returned (case insensitive)
+            basenames (set): List of acceptable basenames (must be lowercase)
+
+        Returns:
+            (str | None): Path to first containing folder of `path` with one of the `basenames`
+        """
+        if not path or len(path) <= 1:
+            return None
+
+        dirpath, basename = os.path.split(path)
+        if basename and basename.lower() in basenames:
+            return path
+
+        return cls.find_parent_folder(dirpath, basenames)
+
+    @classmethod
     def greet(cls, greetings, logger=LOG.debug):
         """
         Args:
@@ -379,6 +423,17 @@ class LogManager(object):
         for h in logging.root.handlers:
             if h is not cls.console_handler and h is not cls.file_handler:
                 logging.root.removeHandler(h)
+
+    @classmethod
+    def program_path(cls, path=None):
+        """
+        Args:
+            path (str | None): Optional, path or name to consider (default: `sys.argv[0]`)
+
+        Returns:
+            (str): Path of currently running program
+        """
+        return path or sys.argv[0]
 
     @classmethod
     def reset(cls):
@@ -549,10 +604,10 @@ class LogManager(object):
     def _auto_fill_defaults(cls):
         """Late auto-filled missing defaults (caller's value kept if provided)"""
         if not cls.spec.appname:
-            cls.spec.appname = get_basename(program_path())
+            cls.spec.appname = get_basename(cls.program_path())
 
         if not cls.spec.dev:
-            cls.spec.dev = dev_folder()
+            cls.spec.dev = cls.dev_folder()
 
     @classmethod
     def _disable_faulthandler(cls):

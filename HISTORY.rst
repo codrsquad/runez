@@ -37,9 +37,10 @@ History
     * ``is_coloring``, use ``runez.color.is_coloring``
     * ``ini_to_dict``, use ``runez.file.ini_to_dict``
     * ``is_younger``, use ``runez.file.is_younger``
-    * ``dev_folder``, use ``runez.program.dev_folder``
-    * ``find_parent_folder``, use ``runez.program.find_parent_folder``
-    * ``program_path``, use ``runez.program.program_path``
+    * ``current_test``, use ``runez.log.current_test``
+    * ``dev_folder``, use ``runez.log.dev_folder``
+    * ``find_parent_folder``, use ``runez.log.find_parent_folder``
+    * ``program_path``, use ``runez.log.program_path``
     * ``require_installed``, use ``runez.program.require_installed``
     * ``terminal_width``, use ``runez.program.terminal_width``
     * ``align``, use ``from runez.render import Align``

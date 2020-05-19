@@ -46,33 +46,6 @@ def check_pid(pid):
         return False
 
 
-def dev_folder():
-    """
-    Returns:
-        (str | None): Path to development build folder, such as .venv, .tox etc, if any
-    """
-    return find_parent_folder(sys.prefix, {"venv", ".venv", ".tox", "build"})
-
-
-def find_parent_folder(path, basenames):
-    """
-    Args:
-        path (str): Path to examine, first parent folder with basename in `basenames` is returned (case insensitive)
-        basenames (set): List of acceptable basenames (must be lowercase)
-
-    Returns:
-        (str | None): Path to first containing folder of `path` with one of the `basenames`
-    """
-    if not path or len(path) <= 1:
-        return None
-
-    dirpath, basename = os.path.split(path)
-    if basename and basename.lower() in basenames:
-        return path
-
-    return find_parent_folder(dirpath, basenames)
-
-
 def is_executable(path):
     """
     Args:
@@ -112,20 +85,6 @@ def make_executable(path, fatal=True):
 
     except Exception as e:
         return abort("Can't chmod %s: %s", short(path), e, fatal=(fatal, -1))
-
-
-def program_path(path=None):
-    """
-    Args:
-        path (str | None): Optional, path or name to consider (default: `sys.argv[0]`)
-
-    Returns:
-        (str): Path of currently running program
-    """
-    if path is None:
-        path = sys.argv[0]
-
-    return which(path) or path
 
 
 def run(program, *args, **kwargs):

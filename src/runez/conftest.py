@@ -21,10 +21,9 @@ import runez.config
 from runez.colors import ActivateColors
 from runez.file import TempFolder
 from runez.logsetup import LogManager
-from runez.program import find_parent_folder, which
 from runez.render import Header
 from runez.system import _LateImport, CaptureOutput, Slotted, TempArgv, TrackedOutput
-from runez.system import current_test, expanded, flattened, LOG, quoted, short, string_type, stringified, UNSET
+from runez.system import expanded, flattened, LOG, quoted, short, string_type, stringified, UNSET
 
 try:
     from click import BaseCommand as _ClickCommand
@@ -41,6 +40,8 @@ TMP = tempfile.gettempdir()
 logging.root.setLevel(logging.DEBUG)
 
 if sys.argv and "pycharm" in sys.argv[0].lower():  # pragma: no cover, ignore PyCharm's special wrapper "_jb_pytest_runner"...
+    from runez.program import which
+
     pt = which("pytest")
     if pt:
         sys.argv[0] = pt
@@ -64,7 +65,7 @@ def tests_folder():
     Returns:
         (str | None): Path to project's tests/ folder, if we're currently running a test from there
     """
-    return find_parent_folder(current_test(), {"tests"})
+    return LogManager.find_parent_folder(LogManager.current_test(), {"tests"})
 
 
 def test_resource(*relative_path):

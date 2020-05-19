@@ -82,24 +82,24 @@ def check_flavor(expected, term=None, fgbg=None):
     assert runez.color.backend.name == "plain"
 
 
-@patch("runez.colors.current_test", return_value=None)
-def test_default(*_):
+def test_default():
     # Default: not coloring, neutral flavor
     assert not runez.color.is_coloring()
     assert runez.color.backend.name == "plain"
     assert runez.blue("hello") == "hello"
 
-    check_flavor("ansi16 neutral")
-    check_flavor("ansi16 light", fgbg="15;0")
-    check_flavor("ansi16 dark", fgbg="15;9")
+    with patch("runez.colors._LateImport.current_test", return_value=None):  # simulate not running in test
+        check_flavor("ansi16 neutral")
+        check_flavor("ansi16 light", fgbg="15;0")
+        check_flavor("ansi16 dark", fgbg="15;9")
 
-    check_flavor("ansi256 neutral", term="xterm-256color")
-    check_flavor("ansi256 light", term="xterm-256color", fgbg="15;0")
-    check_flavor("ansi256 dark", term="xterm-256color", fgbg="15;9")
+        check_flavor("ansi256 neutral", term="xterm-256color")
+        check_flavor("ansi256 light", term="xterm-256color", fgbg="15;0")
+        check_flavor("ansi256 dark", term="xterm-256color", fgbg="15;9")
 
-    check_flavor("truecolor neutral", term="truecolor")
-    check_flavor("truecolor light", term="truecolor", fgbg="15;0")
-    check_flavor("truecolor dark", term="truecolor", fgbg="15;9")
+        check_flavor("truecolor neutral", term="truecolor")
+        check_flavor("truecolor light", term="truecolor", fgbg="15;0")
+        check_flavor("truecolor dark", term="truecolor", fgbg="15;9")
 
 
 def check_usable(names, env):

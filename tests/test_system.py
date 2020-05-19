@@ -260,7 +260,7 @@ def test_system():
     assert runez.decode(b" something ", strip=True) == "something"
 
     # Ensure we stop once callstack is exhausted
-    assert runez.click.find_caller_frame(lambda f: None, maximum=None) is None
+    assert runez.system.find_caller_frame(lambda f: None, maximum=None) is None
 
     assert runez.first_line(None) is None
     assert runez.first_line("") is None
@@ -279,6 +279,8 @@ def test_system():
     assert runez.first_line([" ", "b"]) == "b"
     assert runez.first_line([" ", "b"], default="foo") == "b"
     assert runez.first_line([" ", "b"], keep_empty=True) == ""
+
+    assert not runez.is_tty()  # False when testing
 
     # Verify that UNSET behaves as expected: evaluates to falsy, has correct representation
     assert not runez.UNSET
@@ -313,8 +315,6 @@ def test_system():
     assert runez.system._formatted_string(None) is None
     assert runez.system._formatted_string(None, "bar") is None
     assert runez.system._formatted_string("test", None) == "test"
-
-    assert "test_system.py" in runez.current_test()
 
 
 def test_path_resolution(temp_folder):

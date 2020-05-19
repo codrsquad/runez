@@ -113,24 +113,6 @@ def abort(*args, **kwargs):
     return return_value
 
 
-def current_test():
-    """
-    Returns:
-        (str): Not empty if we're currently running a test (such as via pytest)
-               Actual value will be path to test_<name>.py file if user followed usual conventions,
-               otherwise path to first found test-framework module
-    """
-    import re
-    regex = re.compile(r"^(.+\.|)(conftest|(test_|_pytest|unittest).+|.+_test)$")
-
-    def is_test_frame(f):
-        name = f.f_globals.get("__name__").lower()
-        if not name.startswith("runez"):
-            return regex.match(name) and f.f_globals.get("__file__")
-
-    return find_caller_frame(validator=is_test_frame)
-
-
 def decode(value, strip=False):
     """Python 2/3 friendly decoding of output.
 
@@ -308,7 +290,7 @@ def is_tty():
     Returns:
         (bool): True if current stdout is a tty
     """
-    return (sys.stdout.isatty() or "PYCHARM_HOSTED" in os.environ) and not current_test()
+    return (sys.stdout.isatty() or "PYCHARM_HOSTED" in os.environ) and not _LateImport.current_test()
 
 
 def quoted(items, delimiter=" ", adapter=UNSET, keep_empty=True):
@@ -1143,6 +1125,10 @@ class _LateImport:
             return override
 
         return cls._runez_module().system.AbortException
+
+    @classmethod
+    def current_test(cls):
+        return cls._runez_module().log.current_test()
 
     @classmethod
     def is_dryrun(cls):
