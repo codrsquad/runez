@@ -180,7 +180,7 @@ class ImportTime(object):
         self.cumulative = cumulative / iterations
 
     def __repr__(self):
-        return "%s %s" % (self.module_name, self.cumulative)
+        return "%s %.3g" % (self.module_name, self.elapsed or 0)
 
     def _get_importtime(self):
         with CaptureOutput(seed_logging=True) as logged:

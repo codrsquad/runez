@@ -75,15 +75,13 @@ def cmd_import_speed():
             slowest = t
 
     table = PrettyTable("Module,-X cumulative,Elapsed,Vs fastest,Note", border=args.border)
-    mid = slowest and slowest.cumulative or 0  # Don't fail if no slowest or fastest...
-    mid -= fastest and fastest.cumulative or 0
-    mid *= 0.5
+    mid = _get_mid(times) or 0
     for t in times:
         if t.cumulative is None:
             c = e = f = None
 
         else:
-            factor = t.cumulative / fastest.cumulative
+            factor = t.elapsed / fastest.elapsed
             c = runez.represented_duration(t.cumulative / 1000000, span=-2)
             e = runez.represented_duration(t.elapsed, span=-2)
             f = "x%.2f" % factor
@@ -93,12 +91,19 @@ def cmd_import_speed():
             elif t is slowest:
                 f = runez.red(f)
 
-            elif t.cumulative > mid:  # pragma: no cover
+            elif t.elapsed and t.elapsed > mid:
                 f = runez.orange(f)
 
         table.add_row(t.module_name, c, e, f, t.problem or "")
 
     print(table)
+
+
+def _get_mid(times):
+    times = [t for t in times if t.elapsed]
+    if times:
+        times = sorted(times, key=lambda x: -x.elapsed)  # Don't fail if no elapsed available
+        return times[int(len(times) / 2)].elapsed
 
 
 def main():

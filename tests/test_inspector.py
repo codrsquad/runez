@@ -88,7 +88,7 @@ def test_importtime_command(cli):
     assert cli.failed
     assert "Please specify module names, or use --all" in cli.logged
 
-    cli.run("import-speed --all runez foo_no_such_module runez")
+    cli.run("import-speed --all six wheel runez foo_no_such_module runez")
     assert cli.succeeded
     lines = cli.logged.stdout.contents().splitlines()
     assert len([s for s in lines if "runez" in s]) == 1
