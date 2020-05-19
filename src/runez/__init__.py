@@ -11,11 +11,11 @@ from runez.convert import affixed, camel_cased, entitled, identifiers, snakified
 from runez.convert import plural, represented_bytesize, represented_with_units
 from runez.convert import to_boolean, to_bytesize, to_float, to_int, unitized
 from runez.date import date_from_epoch, datetime_from_epoch, elapsed, local_timezone, represented_duration, \
-    timezone, timezone_from_text, to_date, to_datetime, to_epoch, to_epoch_ms, to_seconds
+    timezone, timezone_from_text, to_date, to_datetime, to_epoch, to_epoch_ms, to_seconds, UTC
 from runez.file import copy, delete, move, readlines, symlink, TempFolder, touch, write
 from runez.logsetup import LogManager as log
 from runez.path import basename, ensure_folder, parent_folder
-from runez.program import check_pid, is_executable, make_executable, run, which
+from runez.program import check_pid, is_executable, make_executable, run, terminal_width, which
 from runez.serialize import read_json, represented_json, save_json, Serializable
 from runez.system import abort, decode, expanded, flattened, quoted, short, stringified
 from runez.system import AdaptedProperty, Anchored, CaptureOutput, CurrentFolder, Slotted, TempArgv, TrackedOutput, Undefined, UNSET
@@ -32,11 +32,11 @@ __all__ = [
     "plural", "represented_bytesize", "represented_with_units",
     "to_boolean", "to_bytesize", "to_float", "to_int", "unitized",
     "date_from_epoch", "datetime_from_epoch", "elapsed", "local_timezone", "represented_duration",
-    "timezone", "timezone_from_text", "to_date", "to_datetime", "to_epoch", "to_epoch_ms", "to_seconds",
+    "timezone", "timezone_from_text", "to_date", "to_datetime", "to_epoch", "to_epoch_ms", "to_seconds", "UTC",
     "copy", "delete", "move", "readlines", "symlink", "TempFolder", "touch", "write",
     "log",
     "basename", "ensure_folder", "parent_folder",
-    "check_pid", "is_executable", "make_executable", "run", "which",
+    "check_pid", "is_executable", "make_executable", "run", "terminal_width", "which",
     "read_json", "represented_json", "save_json", "Serializable",
     "abort", "decode", "expanded", "flattened", "quoted", "short", "stringified",
     "AdaptedProperty", "Anchored", "CaptureOutput", "CurrentFolder", "Slotted", "TempArgv", "TrackedOutput", "Undefined", "UNSET",

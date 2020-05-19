@@ -78,7 +78,7 @@ def ini_to_dict(data, keep_empty=False, default=None):
     try:
         section_key = None
         section = None
-        for line in readlines(data, keep_empty=keep_empty):
+        for line in readlines(data, keep_empty=keep_empty, strip=True):
             if "#" in line:
                 i = line.index("#")
                 line = line[:i].strip()
@@ -128,7 +128,7 @@ def is_younger(path, age):
         return False
 
 
-def readlines(data, first=None, keep_empty=True, strip=True, errors=None, fatal=UNSET, logger=UNSET):
+def readlines(data, first=None, keep_empty=True, strip=False, errors=None, fatal=UNSET, logger=UNSET):
     """Yield the `first` N lines from `data`
 
     Args:
@@ -390,6 +390,9 @@ def _readlines(data, first, keep_empty, strip):
         line = decode(line)
         if strip:
             line = line.strip()
+
+        else:
+            line = line.rstrip("\r\n")
 
         if keep_empty or line:
             if first is not None:

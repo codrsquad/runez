@@ -163,7 +163,8 @@ def test_file_inspection(temp_folder, logged):
     with io.open("not-a-text-file", "wb") as fh:
         fh.write(b"\x89 hello\nworld")
 
-    assert list(runez.readlines("not-a-text-file", first=1, errors="ignore")) == ["hello"]
+    assert list(runez.readlines("not-a-text-file", first=1, errors="ignore")) == [" hello"]
+    assert list(runez.readlines("not-a-text-file", first=1, strip=True, errors="ignore")) == ["hello"]
     assert not logged
 
     assert runez.copy("bar", "baz", fatal=False) == -1

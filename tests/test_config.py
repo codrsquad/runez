@@ -98,6 +98,16 @@ def test_samples():
         assert config.get_json("some-string", default={"a": "b"}) == {"a": "b"}
         assert config.get_json("some-string", default='{"a": "b"}') == {"a": "b"}
 
+        additional = runez.config.DictProvider({"some-string": "foo", "x": "y"})
+        config.add(additional, front=True)
+
+        values = config.values
+        assert len(values) == 4
+        assert values["sample.json"]
+        assert values["some-int"] == "123"
+        assert values["some-string"] == "foo"
+        assert values["x"] == "y"
+
 
 def test_json():
     assert runez.config.from_json(None) is None

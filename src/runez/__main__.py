@@ -75,6 +75,7 @@ def cmd_import_speed():
             slowest = t
 
     table = PrettyTable("Module,-X cumulative,Elapsed,Vs fastest,Note", border=args.border)
+    table.header[3].align = "center"
     mid = _get_mid(times) or 0
     for t in times:
         if t.cumulative is None:

@@ -36,7 +36,6 @@ History
     * ``ActivateColors``, use ``runez.colors.ActivateColors``
     * ``is_coloring``, use ``runez.color.is_coloring``
     * ``SECONDS_IN_ONE_*``, use ``runez.date.SECONDS_IN_ONE_*``
-    * ``UTC``, use ``runez.date.UTC``
     * ``ini_to_dict``, use ``runez.file.ini_to_dict``
     * ``is_younger``, use ``runez.file.is_younger``
     * ``current_test``, use ``runez.log.current_test``
@@ -44,7 +43,6 @@ History
     * ``find_parent_folder``, use ``runez.log.find_parent_folder``
     * ``program_path``, use ``runez.log.program_path``
     * ``require_installed``, use ``runez.program.require_installed``
-    * ``terminal_width``, use ``runez.program.terminal_width``
     * ``align``, use ``from runez.render import Align``
     * ``header``, use ``from runez.render import Header``
     * ``PrettyTable``, use ``from runez.render import PrettyTable``

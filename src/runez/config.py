@@ -23,6 +23,7 @@ import os
 import sys
 
 from runez.convert import to_boolean, to_bytesize, to_float, to_int
+from runez.file import readlines
 from runez.system import decode, stringified
 
 
@@ -55,6 +56,17 @@ class Configuration:
 
     def __len__(self):
         return sum(len(p) for p in self.providers)
+
+    @property
+    def values(self):
+        """dict: values in this provider"""
+        result = {}
+        for p in reversed(self.providers):
+            v = p.values
+            if v is not None:
+                result.update(v)
+
+        return result
 
     def overview(self, delimiter=", "):
         """str: A short overview of current providers"""
@@ -373,6 +385,10 @@ class ConfigProvider:
     def __len__(self):
         return 0
 
+    @property
+    def values(self):
+        """dict: values in this provider"""
+
     def overview(self):
         """str: A short overview of this provider"""
         return "%s: %s values" % (self.provider_id(), len(self))
@@ -414,6 +430,17 @@ class PropsfsProvider(ConfigProvider):
         except (OSError, IOError):
             return 0
 
+    @property
+    def values(self):
+        """dict: values in this provider"""
+        result = {}
+        names = os.listdir(self.folder)
+        for name in names:
+            path = os.path.join(self.folder, name)
+            result[name] = "\n".join(readlines(path, errors="ignore", fatal=False))
+
+        return result
+
     def overview(self):
         """str: A short overview of this provider"""
         return "%s: %s" % (self, self.folder)
@@ -442,6 +469,11 @@ class DictProvider(ConfigProvider):
 
     def __len__(self):
         return len(self._values)
+
+    @property
+    def values(self):
+        """dict: values in this provider"""
+        return self._values
 
     def provider_id(self):
         return self.name
