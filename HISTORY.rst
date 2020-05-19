@@ -35,6 +35,8 @@ History
     * ``capped``, use ``runez.config.capped``
     * ``ActivateColors``, use ``runez.colors.ActivateColors``
     * ``is_coloring``, use ``runez.color.is_coloring``
+    * ``SECONDS_IN_ONE_*``, use ``runez.date.SECONDS_IN_ONE_*``
+    * ``UTC``, use ``runez.date.UTC``
     * ``ini_to_dict``, use ``runez.file.ini_to_dict``
     * ``is_younger``, use ``runez.file.is_younger``
     * ``current_test``, use ``runez.log.current_test``

@@ -61,9 +61,9 @@ def test_date():
     assert str(dd) == "datetime"
     assert dd.problem(None) is None
     assert dd.problem({}) == "expecting datetime, got '{}'"
-    assert dd.converted(0) == datetime.datetime(1970, 1, 1, tzinfo=runez.UTC)
-    assert dd.converted("2019-09-02") == datetime.datetime(2019, 9, 2, tzinfo=runez.UTC)
-    assert dd.converted("2019-09-02 01:02:03") == datetime.datetime(2019, 9, 2, 1, 2, 3, tzinfo=runez.UTC)
+    assert dd.converted(0) == datetime.datetime(1970, 1, 1, tzinfo=runez.date.UTC)
+    assert dd.converted("2019-09-02") == datetime.datetime(2019, 9, 2, tzinfo=runez.date.UTC)
+    assert dd.converted("2019-09-02 01:02:03") == datetime.datetime(2019, 9, 2, 1, 2, 3, tzinfo=runez.date.UTC)
 
 
 def test_dict():

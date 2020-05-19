@@ -30,7 +30,7 @@ def test_date_formats():
         assert str(runez.to_date("1y1w")) == "2018-08-25"
         assert str(runez.to_date(" 1y 1w ")) == "2018-08-25"
 
-        assert str(runez.to_datetime("1y", tz=runez.UTC)) == "2018-09-01 14:11:00+00:00"
+        assert str(runez.to_datetime("1y", tz=runez.date.UTC)) == "2018-09-01 14:11:00+00:00"
 
 
 def test_elapsed():
@@ -54,8 +54,8 @@ def test_elapsed():
     assert runez.to_datetime(dt) is dt
 
     check_date("2019-09-01 02:00:12 +02:00", runez.datetime_from_epoch(1567296012, tz=runez.timezone_from_text("0200", default=None)))
-    check_date("2019-09-01 00:00:12 UTC", runez.datetime_from_epoch(1567296012, tz=runez.UTC))
-    check_date("2019-09-01 00:00:12 UTC", runez.datetime_from_epoch(1567296012000, tz=runez.UTC, in_ms=True))
+    check_date("2019-09-01 00:00:12 UTC", runez.datetime_from_epoch(1567296012, tz=runez.date.UTC))
+    check_date("2019-09-01 00:00:12 UTC", runez.datetime_from_epoch(1567296012000, tz=runez.date.UTC, in_ms=True))
 
     with freeze_time("2019-09-01 00:00:12"):
         assert runez.elapsed(datetime.datetime(2019, 9, 1, second=34)) == -22
@@ -66,7 +66,7 @@ def test_epoch():
     assert runez.to_epoch(None) is None
 
     d = datetime.date(2019, 9, 1)
-    dt27 = datetime.datetime(2019, 9, 1, second=27, tzinfo=runez.UTC)
+    dt27 = datetime.datetime(2019, 9, 1, second=27, tzinfo=runez.date.UTC)
     assert runez.to_epoch(d) == 1567296000
     assert runez.to_epoch(d, in_ms=True) == 1567296000000
     assert runez.to_epoch(dt27) == 1567296027
@@ -91,19 +91,19 @@ def test_represented_duration():
     assert runez.represented_duration(3667, span=-2) == "1h 1m"
     assert runez.represented_duration(3667, span=None) == "1 hour 1 minute 7 seconds"
 
-    h2 = 2 * runez.SECONDS_IN_ONE_HOUR
-    d8 = 8 * runez.SECONDS_IN_ONE_DAY
+    h2 = 2 * runez.date.SECONDS_IN_ONE_HOUR
+    d8 = 8 * runez.date.SECONDS_IN_ONE_DAY
     a_week_plus = d8 + h2 + 13 + 0.00001
     assert runez.represented_duration(a_week_plus, span=None) == "1 week 1 day 2 hours 13 seconds 10 μs"
     assert runez.represented_duration(a_week_plus, span=-2, delimiter="+") == "1w+1d"
     assert runez.represented_duration(a_week_plus, span=3) == "1 week 1 day 2 hours"
     assert runez.represented_duration(a_week_plus, span=0) == "1w 1d 2h 13s 10μs"
 
-    five_weeks_plus = (5 * 7 + 3) * runez.SECONDS_IN_ONE_DAY + runez.SECONDS_IN_ONE_HOUR + 5 + 0.0002
+    five_weeks_plus = (5 * 7 + 3) * runez.date.SECONDS_IN_ONE_DAY + runez.date.SECONDS_IN_ONE_HOUR + 5 + 0.0002
     assert runez.represented_duration(five_weeks_plus, span=-2, delimiter=", ") == "5w, 3d"
     assert runez.represented_duration(five_weeks_plus, span=0, delimiter=", ") == "5w, 3d, 1h, 5s, 200μs"
 
-    assert runez.represented_duration(752 * runez.SECONDS_IN_ONE_DAY, span=3) == "2 years 3 weeks 1 day"
+    assert runez.represented_duration(752 * runez.date.SECONDS_IN_ONE_DAY, span=3) == "2 years 3 weeks 1 day"
 
 
 def test_timezone():
@@ -117,12 +117,12 @@ def test_timezone():
     assert runez.timezone_from_text("-00: 00", default=None) is None
     assert runez.timezone_from_text(" +00 00", default=None) is None
 
-    assert runez.timezone_from_text(" Z", default=None) == runez.UTC
-    assert runez.timezone_from_text("UTC ", default=None) == runez.UTC
-    assert runez.timezone_from_text(" 0000  ", default=None) == runez.UTC
-    assert runez.timezone_from_text("+0000", default=None) == runez.UTC
-    assert runez.timezone_from_text(" -00:00", default=None) == runez.UTC
-    assert runez.timezone_from_text("+0100", default=None) != runez.UTC
+    assert runez.timezone_from_text(" Z", default=None) == runez.date.UTC
+    assert runez.timezone_from_text("UTC ", default=None) == runez.date.UTC
+    assert runez.timezone_from_text(" 0000  ", default=None) == runez.date.UTC
+    assert runez.timezone_from_text("+0000", default=None) == runez.date.UTC
+    assert runez.timezone_from_text(" -00:00", default=None) == runez.date.UTC
+    assert runez.timezone_from_text("+0100", default=None) != runez.date.UTC
 
     epoch = 1568332800
     assert runez.to_date(epoch) == dt(2019, 9, 13)
@@ -136,7 +136,7 @@ def test_timezone():
     assert runez.to_datetime(epoch) == dt(2019, 9, 13, 4, 13, 20)
 
     tz1 = runez.timezone(datetime.timedelta(seconds=12 * 60))
-    dtutc = runez.datetime_from_epoch(epoch, tz=runez.UTC)
+    dtutc = runez.datetime_from_epoch(epoch, tz=runez.date.UTC)
     dt1 = runez.datetime_from_epoch(epoch, tz=tz1)
     eutc = runez.to_epoch(dtutc)
     et1 = runez.to_epoch(dt1)
@@ -165,7 +165,7 @@ def test_to_date():
     assert runez.to_datetime("2019-01-02 03:04:05").tzinfo is runez.date.DEFAULT_TIMEZONE
     assert runez.to_datetime("2019-01-02 03:04:05", tz=tz1).tzinfo is tz1
     assert runez.to_datetime("2019-01-02 03:04:05 -00:12").tzinfo == tz1
-    assert runez.to_datetime("2019-01-02 03:04:05 UTC").tzinfo is runez.UTC
+    assert runez.to_datetime("2019-01-02 03:04:05 UTC").tzinfo is runez.date.UTC
 
     d0 = runez.to_datetime("2019-01-02 03:04:05  UTC")
     d1 = runez.to_datetime(" 2019-01-02 03:04:05 -00:00 ")
@@ -219,7 +219,7 @@ def test_to_seconds():
     assert datetime.timedelta(seconds=runez.to_seconds(" 1w 1s ")) == datetime.timedelta(days=7, seconds=1)
 
     assert runez.to_seconds(datetime.timedelta(minutes=60)) == 3600
-    assert runez.to_seconds(runez.UTC.offset) == 0
+    assert runez.to_seconds(runez.date.UTC.offset) == 0
     assert runez.to_seconds(runez.timezone_from_text("+0100", default=None).offset) == 3600
 
     with freeze_time("2020-01-02 00:00:12"):
