@@ -360,8 +360,10 @@ class ClickRunner(object):
         with IsolatedLogSetup(adjust_tmp=False):
             with CaptureOutput(dryrun=_LateImport.is_dryrun(), seed_logging=True) as logged:
                 self.logged = logged
+                origina_handlers = list(logging.root.handlers)  # Invocations may add their own logging
                 runner = ClickWrapper.new_runner(self.main)
                 result = runner.invoke(self.main, args=self.args)
+                logging.root.handlers = origina_handlers  # Restore logging as we manage it, to avoid duplicate output
                 if result.output:
                     logged.stdout.buffer.write(result.output)
 

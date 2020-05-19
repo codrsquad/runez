@@ -6,14 +6,16 @@ Functions from this module must be explicitly imported, for example:
 >>> from runez.inspector import auto_import_siblings
 """
 
+import argparse
 import os
 import sys
 import time
 
 from runez.convert import to_int
+from runez.logsetup import LogManager
 from runez.program import run
 from runez.render import PrettyTable
-from runez.system import CaptureOutput, find_caller_frame, first_line
+from runez.system import CaptureOutput, find_caller_frame, first_line, TempArgv
 
 
 def auto_import_siblings(auto_clean="TOX_WORK_DIR", skip=None):
@@ -111,11 +113,6 @@ def run_cmds(prog=None):
     Args:
         prog (str | None): The name of the program (default: sys.argv[0])
     """
-    import argparse
-    import sys
-
-    import runez
-
     caller = find_caller_frame()
     f_globals = caller.f_globals
     available_commands = {}
@@ -146,12 +143,11 @@ def run_cmds(prog=None):
     parser.add_argument("command", choices=available_commands, metavar="command", help="Command to run.")
     parser.add_argument("args", nargs=argparse.REMAINDER, help="Passed-through to command")
     args = parser.parse_args()
-
-    runez.log.setup(debug=args.debug)
+    LogManager.setup(debug=args.debug)
 
     try:
         func = available_commands[args.command]
-        with runez.TempArgv(args.args):
+        with TempArgv(args.args):
             func()
 
     except KeyboardInterrupt:  # pragma: no cover
