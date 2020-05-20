@@ -171,7 +171,7 @@ class ImportTime(object):
         started = time.time()
         for _ in range(iterations):
             c = self._get_importtime()
-            if c is None:
+            if not c:
                 return
 
             cumulative += c
@@ -190,14 +190,12 @@ class ImportTime(object):
             self.problem = lines[-1] if lines else "-Ximporttime failed"
             return None
 
-        cumulative = None
+        cumulative = 0
         for line in error.splitlines():
-            _, c, mod_name = line.split("|")
-            mod_name = mod_name.strip()
-            if self.module_name == mod_name:
-                cumulative = c
+            c = to_int(line.split("|")[1])
+            if c:
+                cumulative = max(cumulative, c)
 
-        cumulative = to_int(cumulative)
         return cumulative
 
 
