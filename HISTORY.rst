@@ -2,11 +2,13 @@
 History
 =======
 
-2.0.3 (2020-05-20)
+2.0.4 (2020-05-20)
 ------------------
 
 * ``runez.run()`` now returns a ``RunResult`` object when called with ``fatal=None``,
   with fields: ``.output``, ``.error`` and ``.exit_code``
+
+* Removed ``include_error`` kwarg from ``runez.run()``, ``RunResult.full_output`` can now be used instead
 
 
 2.0.2 (2020-05-19)

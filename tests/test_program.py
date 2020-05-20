@@ -19,26 +19,41 @@ def test_capture():
     with runez.CaptureOutput(dryrun=True) as logged:
         r = runez.run(CHATTER, "silent-fail", fatal=None)
         assert r.succeeded
-        assert not r.error
         assert "Would run:" in r.output
+        assert r.error == ""
+        assert "Would run:" in logged.pop()
+
+        r = runez.run(CHATTER, "silent-fail", stdout=None, stderr=None, fatal=None)
+        assert r.succeeded
+        assert r.output is None
+        assert r.error is None
+        assert "Would run:" in logged.pop()
 
     with runez.CaptureOutput(seed_logging=True) as logged:
         # Test success
         assert runez.run(CHATTER, "hello", fatal=False) == "hello"
         assert runez.run(CHATTER, "hello", fatal=True) == "hello"
         assert "chatter hello" in logged.pop()
-        assert runez.run(CHATTER, "hello", stdout=None) == 0
+        assert runez.run(CHATTER, stdout=None) == 0
+
+        r = runez.run(CHATTER, stdout=None, stderr=None, fatal=None)
+        assert str(r) == "RunResult(exit_code=0)"
+        assert r.succeeded
+        assert r.output is None
+        assert r.error is None
+        assert r.full_output is None
+
         r = runez.run(CHATTER, "hello", fatal=None, path_env={"PATH": ":."})
         assert str(r) == "RunResult(exit_code=0)"
         assert r.succeeded
         assert r.output == "hello"
-        assert not r.error
+        assert r.error == ""
         assert r.full_output == "hello"
 
         # Test stderr
         r = runez.run(CHATTER, "complain", fatal=None)
         assert r.succeeded
-        assert not r.output
+        assert r.output == ""
         assert r.error == "complaining"
         assert r.full_output == "complaining"
 
@@ -47,13 +62,13 @@ def test_capture():
         assert str(r) == "RunResult(exit_code=1)"
         assert r.failed
         assert "exited with code" in r.error
-        assert not r.output
+        assert r.output == ""
         assert r.full_output == r.error
 
         r = runez.run(CHATTER, "fail", fatal=None)
         assert r.failed
         assert r.error == "failed"
-        assert not r.output
+        assert r.output == ""
         assert r.full_output == "failed"
 
         assert runez.run("/dev/null", fatal=False) is False
@@ -64,7 +79,7 @@ def test_capture():
             r = runez.run("python", "--version", fatal=None)
             assert r.failed
             assert r.error == "python failed: testing"
-            assert not r.output
+            assert r.output is None
             assert r.full_output == "python failed: testing"
 
         # Test convenience arg None filtering

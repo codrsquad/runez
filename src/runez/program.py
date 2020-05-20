@@ -126,7 +126,10 @@ def run(program, *args, **kwargs):
         logger(message)
 
     if dryrun:
-        return _run_result(fatal, 0, stdout, output=message)
+        if stdout is None:
+            message = None  # Properly simulate non-dryrun result
+
+        return _run_result(fatal, 0, stdout, output=message, error=None if stderr is None else "")
 
     if not full_path:
         return _run_result(fatal, 1, stdout, error="%s is not installed" % short(program))
@@ -172,8 +175,9 @@ class RunResult(object):
 
     @property
     def full_output(self):
-        output = "%s\n%s" % (self.output or "", self.error or "")
-        return output.strip()
+        if self.output is not None or self.error is not None:
+            output = "%s\n%s" % (self.output or "", self.error or "")
+            return output.strip()
 
     @property
     def failed(self):
