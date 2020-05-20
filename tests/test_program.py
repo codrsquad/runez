@@ -5,6 +5,7 @@ from mock import patch
 
 import runez
 from runez.conftest import test_resource, verify_abort
+from runez.program import RunResult
 
 
 CHATTER = test_resource("chatter")
@@ -17,13 +18,14 @@ def test_capture():
         assert runez.which("chatter") == CHATTER
 
     with runez.CaptureOutput(dryrun=True) as logged:
-        r = runez.run(CHATTER, "silent-fail", fatal=None)
+        # Dryrun mode doesn't fail (since it doesn't actually run the program)
+        r = runez.run(CHATTER, "silent-fail", fatal=True)
         assert r.succeeded
         assert "Would run:" in r.output
         assert r.error == ""
         assert "Would run:" in logged.pop()
 
-        r = runez.run(CHATTER, "silent-fail", stdout=None, stderr=None, fatal=None)
+        r = runez.run(CHATTER, "silent-fail", stdout=None, stderr=None, fatal=True)
         assert r.succeeded
         assert r.output is None
         assert r.error is None
@@ -31,19 +33,19 @@ def test_capture():
 
     with runez.CaptureOutput(seed_logging=True) as logged:
         # Test success
-        assert runez.run(CHATTER, "hello", fatal=False) == "hello"
-        assert runez.run(CHATTER, "hello", fatal=True) == "hello"
+        assert runez.run(CHATTER, "hello", fatal=False) == RunResult("hello", "", 0)
+        assert runez.run(CHATTER, "hello", fatal=True) == RunResult("hello", "", 0)
         assert "chatter hello" in logged.pop()
-        assert runez.run(CHATTER, stdout=None) == 0
+        assert runez.run(CHATTER, stdout=None) == RunResult(None, "", 0)
 
-        r = runez.run(CHATTER, stdout=None, stderr=None, fatal=None)
+        r = runez.run(CHATTER, stdout=None, stderr=None)
         assert str(r) == "RunResult(exit_code=0)"
         assert r.succeeded
         assert r.output is None
         assert r.error is None
         assert r.full_output is None
 
-        r = runez.run(CHATTER, "hello", fatal=None, path_env={"PATH": ":."})
+        r = runez.run(CHATTER, "hello", path_env={"PATH": ":."})
         assert str(r) == "RunResult(exit_code=0)"
         assert r.succeeded
         assert r.output == "hello"
@@ -51,40 +53,44 @@ def test_capture():
         assert r.full_output == "hello"
 
         # Test stderr
-        r = runez.run(CHATTER, "complain", fatal=None)
+        r = runez.run(CHATTER, "complain")
         assert r.succeeded
         assert r.output == ""
         assert r.error == "complaining"
         assert r.full_output == "complaining"
 
         # Test failure
-        r = runez.run(CHATTER, "silent-fail", fatal=None)
+        assert "ERROR" in verify_abort(runez.run, CHATTER, "fail")
+
+        r = runez.run(CHATTER, "silent-fail", fatal=False)
         assert str(r) == "RunResult(exit_code=1)"
         assert r.failed
         assert "exited with code" in r.error
         assert r.output == ""
         assert r.full_output == r.error
 
-        r = runez.run(CHATTER, "fail", fatal=None)
+        r = runez.run(CHATTER, "fail", fatal=False)
         assert r.failed
         assert r.error == "failed"
         assert r.output == ""
         assert r.full_output == "failed"
 
-        assert runez.run("/dev/null", fatal=False) is False
-        assert runez.run("/dev/null", fatal=None) == runez.program.RunResult(None, "/dev/null is not installed", 1)
-        assert "ERROR" in verify_abort(runez.run, CHATTER, "fail", fatal=True)
+        assert runez.run("/dev/null", fatal=False) == RunResult(None, "/dev/null is not installed", 1)
+        assert "/dev/null is not installed" in verify_abort(runez.run, "/dev/null")
 
         with patch("subprocess.Popen", side_effect=Exception("testing")):
-            r = runez.run("python", "--version", fatal=None)
+            r = runez.run("python", "--version", fatal=False)
             assert r.failed
             assert r.error == "python failed: testing"
             assert r.output is None
             assert r.full_output == "python failed: testing"
 
+            with pytest.raises(Exception):
+                runez.run("python", "--version")
+
         # Test convenience arg None filtering
         logged.clear()
-        assert runez.run(CHATTER, "hello", "-a", 0, "-b", None, 1, 2, None, "foo bar") == "hello -a 0 1 2 foo bar"
+        assert runez.run(CHATTER, "hello", "-a", 0, "-b", None, 1, 2, None, "foo bar") == RunResult("hello -a 0 1 2 foo bar", "", 0)
         assert 'chatter hello -a 0 1 2 "foo bar"' in logged.pop()
 
 

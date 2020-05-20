@@ -91,31 +91,27 @@ def run(program, *args, **kwargs):
     """
     Run 'program' with 'args'
 
-    Special optional keyword arguments:
-    - dryrun (bool): When True (defaults to runez.DRYRUN), do not really run but call logger("Would run: ...") instead
+    Keyword Args:
+        dryrun (bool): When True, do not really run but call logger("Would run: ...") instead [default: runez.DRYRUN]
+        fatal (bool): If True: abort() on error [default: True]
+        logger (callable | None): When provided, call logger("Running: ...") [default: LOG.debug]
+        path_env (dict | None): Allows to inject PATH-like env vars, see `_added_env_paths()`
+        stdout (int | IO[Any] | None): Passed-through to subprocess.Popen, [default: subprocess.PIPE]
+        stderr (int | IO[Any] | None): Passed-through to subprocess.Popen, [default: subprocess.PIPE]
 
-    - fatal (bool | None):
-        - When None: return triplet (output, error, exit_code)
-        - When False:
-            - if run was NOT successful: return False
-            - if run was successful:
-                - return output if output was captured (ie: named arg stdout= was NOT given)
-                - return exit code if stdout was was NOT captured (ie: stdout=None was explicitly given)
-        - When True:
-            - raise runez.system.AbortException(), and log error if it was captured
+    Args:
+        *args: Command line args to call 'program' with
+        **kwargs: Passed through to `subprocess.Popen`
 
-    - logger (callable | None): When provided (defaults to LOG.debug), call logger("Running: ...")
-
-    - path_env (dict | None): Allows to inject PATH-like env vars, see `_added_env_paths()`
-
-    - stdout, stderr: Passed through to `subprocess.Popen` (defaults to subprocess.PIPE for captured output)
+    Returns:
+        (RunResult): Run outcome, use .failed, .succeeded, .output, .error etc to inspect the outcome
     """
     args = flattened(args, shellify=True)
     full_path = which(program)
 
-    logger = kwargs.pop("logger", LOG.debug)
-    fatal = kwargs.pop("fatal", True)
     dryrun = kwargs.pop("dryrun", _LateImport.is_dryrun())
+    fatal = kwargs.pop("fatal", True)
+    logger = kwargs.pop("logger", LOG.debug)
     stdout = kwargs.pop("stdout", subprocess.PIPE)
     stderr = kwargs.pop("stderr", subprocess.PIPE)
 
@@ -125,46 +121,87 @@ def run(program, *args, **kwargs):
     if logger:
         logger(message)
 
-    if dryrun:
-        if stdout is None:
-            message = None  # Properly simulate non-dryrun result
+    path_env = kwargs.pop("path_env", None)
+    if path_env:
+        kwargs["env"] = _added_env_paths(path_env, env=kwargs.get("env"))
 
-        return _run_result(fatal, 0, stdout, output=message, error=None if stderr is None else "")
+    audit = RunAudit(full_path or program, args, dryrun, kwargs)
+    result = RunResult(None, None, 1, audit=audit)
+    if dryrun:
+        result.exit_code = 0
+        if stdout is not None:
+            result.output = message  # Properly simulate a successful run
+
+        if stdout is not None:
+            result.error = ""
+
+        return result
 
     if not full_path:
-        return _run_result(fatal, 1, stdout, error="%s is not installed" % short(program))
+        result.error = "%s is not installed" % short(program)
+        if fatal:
+            abort(result.error, fatal=fatal, code=1)
+
+        return result
 
     with _WrappedArgs([full_path] + args) as args:
-        exit_code = 1
-        output = error = exc_info = None
         try:
-            path_env = kwargs.pop("path_env", None)
-            if path_env:
-                kwargs["env"] = _added_env_paths(path_env, env=kwargs.get("env"))
-
             p = subprocess.Popen(args, stdout=stdout, stderr=stderr, **kwargs)  # nosec
-            output, error = p.communicate()
-            output = decode(output, strip=True)
-            error = decode(error, strip=True)
-            exit_code = p.returncode
-            if not error and exit_code:
-                error = "%s exited with code %s" % (short(program), exit_code)
+            out, err = p.communicate()
+            result.output = decode(out, strip=True)
+            result.error = decode(err, strip=True)
+            result.exit_code = p.returncode
+            if not result.error and result.exit_code:
+                result.error = "%s exited with code %s" % (short(program), result.exit_code)
 
         except Exception as e:
-            exc_info = e
-            if not error:
-                error = "%s failed: %s" % (short(program), e)
+            if fatal:
+                # Don't re-wrap with an abort(), let original stacktrace show through
+                raise
 
-        return _run_result(fatal, exit_code, stdout, output=output, error=error, exc_info=exc_info)
+            result.exc_info = e
+            if not result.error:
+                result.error = "%s failed: %s" % (short(program), e)
+
+        if fatal and result.exit_code:
+            abort(result.error, fatal=fatal, code=result.exit_code, exc_info=result.exc_info)
+
+        return result
+
+
+class RunAudit(object):
+    """Provided as given by original code, for convenient reference"""
+
+    def __init__(self, program, args, dryrun, kwargs):
+        """
+        Args:
+            program (str): Program as given by caller (or full path when available)
+            args (list): Args given by caller
+            dryrun (bool): Was this a dryrun?
+            kwargs (dict): Keyword args passed-through to subporcess.Popen()
+        """
+        self.program = program
+        self.args = args
+        self.dryrun = dryrun
+        self.kwargs = kwargs
 
 
 class RunResult(object):
     """Holds a runez.run() result when `fatal=None` was used"""
 
-    def __init__(self, output, error, code):
+    def __init__(self, output, error, code, audit=None):
+        """
+        Args:
+            output (str | None): Captured output (on stdout), if any
+            error (str | None): Captured error output (on stderr), if any
+            code (int): Exit code
+            audit (RunAudit): Optional audit object recording what run this was related to
+        """
         self.output = output
         self.error = error
         self.exit_code = code
+        self.exc_info = None  # Exception that occurred during the run, if any
+        self.audit = audit
 
     def __repr__(self):
         return "RunResult(exit_code=%s)" % self.exit_code
@@ -311,22 +348,6 @@ def _install_instructions(instructions_dict, platform):
         text = "\n- ".join("on %s: %s" % (k, v) for k, v in instructions_dict.items())
 
     return text
-
-
-def _run_result(fatal, code, stdout, output=None, error=None, exc_info=None):
-    if fatal is None:
-        return RunResult(output, error, code)
-
-    if fatal and code:
-        return abort(error, fatal=True, code=code, exc_info=exc_info)
-
-    if stdout is None:
-        return code  # stdout was not captured, return exit code
-
-    if code:
-        return False  # If run was not successful, simply return False if caller stated fatal=False
-
-    return output.strip()
 
 
 def _tw_shutil():
