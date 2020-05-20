@@ -176,7 +176,7 @@ class ImportTime(object):
 
             cumulative += c
 
-        self.elapsed = time.time() - started
+        self.elapsed = (time.time() - started) / iterations
         self.cumulative = cumulative / iterations
 
     def __repr__(self):
