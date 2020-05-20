@@ -4,36 +4,65 @@ import pytest
 from mock import patch
 
 import runez
-from runez.conftest import verify_abort
+from runez.conftest import test_resource, verify_abort
 
 
-CHATTER = """
-#!/bin/bash
-
-echo "$@"
-ls
-ls some-file
-echo
-"""
+CHATTER = test_resource("chatter")
 
 
 @pytest.mark.skipif(runez.WINDOWS, reason="Not supported on windows")
-def test_capture(temp_folder, logged):
-    chatter = runez.resolved_path("chatter")
-    assert runez.write(chatter, CHATTER.strip(), fatal=False) == 1
-    assert runez.make_executable(chatter, fatal=False) == 1
+def test_capture():
+    with runez.CurrentFolder(os.path.dirname(CHATTER)):
+        # Check which finds programs in current folder
+        assert runez.which("chatter") == CHATTER
 
-    assert runez.run(chatter, fatal=False) == "chatter"
-    assert "Running: chatter" in logged.pop()
+    with runez.CaptureOutput(dryrun=True) as logged:
+        r = runez.run(CHATTER, "silent-fail", fatal=None)
+        assert r.succeeded
+        assert not r.error
+        assert "Would run:" in r.output
 
-    r = runez.run(chatter, include_error=True, fatal=False)
-    assert r.startswith("chatter")
-    assert "No such file" in r
-    assert "Running: chatter" in logged.pop()
+    with runez.CaptureOutput(seed_logging=True) as logged:
+        # Test success
+        assert runez.run(CHATTER, "hello", fatal=False) == "hello"
+        assert runez.run(CHATTER, "hello", fatal=True) == "hello"
+        assert "chatter hello" in logged.pop()
+        assert runez.run(CHATTER, "hello", stdout=None) == 0
+        r = runez.run(CHATTER, "hello", fatal=None, path_env={"PATH": ":."})
+        assert str(r) == "hello"
+        assert r.succeeded
+        assert not r.error
 
-    r = runez.run(chatter, "hello", "-a", 0, "-b", None, 1, 2, None, "foo bar", fatal=False)
-    assert r.startswith("hello -a 0 1 2 foo bar")
-    assert 'Running: chatter hello -a 0 1 2 "foo bar"' in logged.pop()
+        # Test stderr
+        assert runez.run(CHATTER, "complain", fatal=None) == runez.program.RunResult("", "complaining", 0)
+        assert runez.run(CHATTER, "complain", include_error=True) == "complaining"
+
+        # Test failure
+        r = runez.run(CHATTER, "silent-fail", fatal=None)
+        assert not str(r)
+        assert r.failed
+        assert "exited with code" in r.error
+        assert not r.output
+
+        r = runez.run(CHATTER, "fail", fatal=None)
+        assert r.failed
+        assert r.error == "failed"
+        assert not r.output
+
+        assert runez.run("/dev/null", fatal=False) is False
+        assert runez.run("/dev/null", fatal=None) == runez.program.RunResult(None, "/dev/null is not installed", 1)
+        assert "ERROR" in verify_abort(runez.run, CHATTER, "fail", fatal=True)
+
+        with patch("subprocess.Popen", side_effect=Exception("testing")):
+            r = runez.run("python", "--version", fatal=None)
+            assert r.failed
+            assert r.error == "python failed: testing"
+            assert not r.output
+
+        # Test convenience arg None filtering
+        logged.clear()
+        assert runez.run(CHATTER, "hello", "-a", 0, "-b", None, 1, 2, None, "foo bar") == "hello -a 0 1 2 foo bar"
+        assert 'chatter hello -a 0 1 2 "foo bar"' in logged.pop()
 
 
 @pytest.mark.skipif(runez.WINDOWS, reason="Not supported on windows")
@@ -117,81 +146,6 @@ def test_pids():
 
     assert runez.check_pid(os.getpid())
     assert not runez.check_pid(1)
-
-
-@pytest.mark.skipif(runez.WINDOWS, reason="Not supported on windows")
-def test_run(temp_folder):
-    ls = runez.which("ls")
-    runez.write("foo", "#!/bin/sh\necho hello")
-    os.chmod("foo", 0o755)
-
-    with runez.CaptureOutput(dryrun=True) as logged:
-        assert "Would run: /dev/null" in runez.run("/dev/null", fatal=False)
-        assert "Would run: /dev/null" in logged.pop()
-
-        assert runez.run("foo", stdout=None, stderr=None) == 0
-        assert "Would run: foo" in runez.run("foo")
-
-        assert runez.run(ls, ".", stdout=None, stderr=None) == 0
-
-        assert "Would run:" in runez.run(ls, "--invalid-flag", None, ".")
-        assert "Would run: %s ." % ls in logged.pop()
-
-    with runez.CaptureOutput() as logged:
-        assert runez.run("/dev/null", fatal=False) is False
-        assert runez.run("/dev/null", fatal=None) == (None, "/dev/null is not installed", 1)
-
-        assert runez.run("foo", stdout=None, stderr=None) == 0
-        assert runez.run("foo") == "hello"
-
-        # Success not influenced by `fatal`
-        assert runez.run(ls, ".", stdout=None, stderr=None) == 0
-        assert runez.run(ls, ".", stdout=None, stderr=None, fatal=None) == (None, None, 0)
-        assert runez.run(ls, ".", stdout=None, stderr=None, fatal=False) == 0
-        assert runez.run(ls, ".", stdout=None, stderr=None, fatal=True) == 0
-
-        # Failure is influenced by `fatal`
-        _, err, exit_code = runez.run(ls, "--foo", ".", stdout=None, stderr=None, fatal=None)
-        assert "exited with code" in err
-        assert isinstance(exit_code, int) and exit_code != 0
-
-        exit_code = runez.run(ls, "--foo", ".", stdout=None, stderr=None, fatal=False)
-        assert isinstance(exit_code, int) and exit_code != 0
-
-        assert "exited with code" in verify_abort(runez.run, ls, "--foo", ".", stdout=None, stderr=None, fatal=True)
-
-        assert runez.touch("sample") == 1
-        files = runez.run(ls, "--invalid-flag", None, ".", path_env={"PATH": ":."})
-        assert "foo" in files
-        assert "sample" in files
-        assert "Running: %s ." % ls in logged.pop()
-
-        assert runez.run(ls, "some-file", fatal=False) is False
-        assert "Running: %s some-file" % ls in logged
-
-
-def test_python_run():
-    with runez.CaptureOutput():
-        # Success not influenced by `fatal`
-        assert runez.run("python", "--version", stdout=None, stderr=None) == 0
-        assert runez.run("python", "--version", stdout=None, stderr=None, fatal=None) == (None, None, 0)
-        assert runez.run("python", "--version", stdout=None, stderr=None, fatal=False) == 0
-        assert runez.run("python", "--version", stdout=None, stderr=None, fatal=True) == 0
-
-        # Failure is influenced by `fatal`
-        _, err, exit_code = runez.run("python", "--invalid-flag", stdout=None, stderr=None, fatal=None)
-        assert err
-        assert isinstance(exit_code, int) and exit_code != 0
-
-        exit_code = runez.run("python", "--invalid-flag", stdout=None, stderr=None, fatal=False)
-        assert isinstance(exit_code, int) and exit_code != 0
-
-        assert "exited with code" in verify_abort(runez.run, "python", "--invalid-flag", stdout=None, stderr=None, fatal=True)
-
-
-def test_failed_run(logged):
-    with patch("subprocess.Popen", side_effect=Exception("testing")):
-        assert runez.run("python", "--version", fatal=False) is False
 
 
 @pytest.mark.skipif(runez.WINDOWS, reason="Not supported on windows")

@@ -2,8 +2,15 @@
 History
 =======
 
-2.0.0
------
+2.0.3 (2020-05-20)
+------------------
+
+* ``runez.run()`` now returns a ``RunResult`` object when called with ``fatal=None``,
+  with fields: ``.output``, ``.error`` and ``.exit_code``
+
+
+2.0.2 (2020-05-19)
+------------------
 
 * Internal refactor to minimize import time (import time now tested, must be less than 3x slower than ``import sys``)
 

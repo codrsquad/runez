@@ -183,15 +183,14 @@ class ImportTime(object):
         return "%s %.3g" % (self.module_name, self.elapsed or 0)
 
     def _get_importtime(self):
-        # python -Ximporttime outputs to stderr
-        _, error, exit_code = run(sys.executable, "-Ximporttime", "-c", "import %s" % self.module_name, fatal=None)
-        if exit_code:
-            lines = error.strip().splitlines()
+        result = run(sys.executable, "-Ximporttime", "-c", "import %s" % self.module_name, fatal=None)
+        if result.failed:
+            lines = result.error.splitlines()
             self.problem = lines[-1] if lines else "-Ximporttime failed"
             return None
 
         cumulative = 0
-        for line in error.splitlines():
+        for line in result.error.splitlines():  # python -Ximporttime outputs to stderr
             c = to_int(line.split("|")[1])
             if c:
                 cumulative = max(cumulative, c)

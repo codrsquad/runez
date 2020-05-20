@@ -117,14 +117,14 @@ def run(program, *args, **kwargs):
     fatal = kwargs.pop("fatal", True)
     dryrun = kwargs.pop("dryrun", _LateImport.is_dryrun())
     include_error = kwargs.pop("include_error", False)
+    stdout = kwargs.pop("stdout", subprocess.PIPE)
+    stderr = kwargs.pop("stderr", subprocess.PIPE)
 
     message = "Would run" if dryrun else "Running"
     message = "%s: %s %s" % (message, short(full_path or program), quoted(args))
+    message = message.strip()
     if logger:
         logger(message)
-
-    stdout = kwargs.pop("stdout", subprocess.PIPE)
-    stderr = kwargs.pop("stderr", subprocess.PIPE)
 
     if dryrun:
         return _run_result(fatal, 0, stdout, output=message)
@@ -149,14 +149,35 @@ def run(program, *args, **kwargs):
                 error = "%s exited with code %s" % (short(program), exit_code)
 
         except Exception as e:
-            if isinstance(e, _LateImport.abort_exception()):
-                raise
-
             exc_info = e
             if not error:
                 error = "%s failed: %s" % (short(program), e)
 
         return _run_result(fatal, exit_code, stdout, output=output, error=error, include_error=include_error, exc_info=exc_info)
+
+
+class RunResult(object):
+    """Holds a runez.run() result when `fatal=None` was used"""
+
+    def __init__(self, output, error, code):
+        self.output = output
+        self.error = error
+        self.exit_code = code
+
+    def __repr__(self):
+        return self.output or ""
+
+    def __eq__(self, other):
+        if isinstance(other, RunResult):
+            return self.output == other.output and self.error == other.error and self.exit_code == other.exit_code
+
+    @property
+    def failed(self):
+        return self.exit_code != 0
+
+    @property
+    def succeeded(self):
+        return self.exit_code == 0
 
 
 def terminal_width(default=None):
@@ -286,7 +307,7 @@ def _install_instructions(instructions_dict, platform):
 
 def _run_result(fatal, code, stdout, output=None, error=None, include_error=False, exc_info=None):
     if fatal is None:
-        return output, error, code
+        return RunResult(output, error, code)
 
     if fatal and code:
         return abort(error, fatal=True, code=code, exc_info=exc_info)
