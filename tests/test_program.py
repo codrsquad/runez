@@ -29,25 +29,32 @@ def test_capture():
         assert "chatter hello" in logged.pop()
         assert runez.run(CHATTER, "hello", stdout=None) == 0
         r = runez.run(CHATTER, "hello", fatal=None, path_env={"PATH": ":."})
-        assert str(r) == "hello"
+        assert str(r) == "RunResult(exit_code=0)"
         assert r.succeeded
+        assert r.output == "hello"
         assert not r.error
+        assert r.full_output == "hello"
 
         # Test stderr
-        assert runez.run(CHATTER, "complain", fatal=None) == runez.program.RunResult("", "complaining", 0)
-        assert runez.run(CHATTER, "complain", include_error=True) == "complaining"
+        r = runez.run(CHATTER, "complain", fatal=None)
+        assert r.succeeded
+        assert not r.output
+        assert r.error == "complaining"
+        assert r.full_output == "complaining"
 
         # Test failure
         r = runez.run(CHATTER, "silent-fail", fatal=None)
-        assert not str(r)
+        assert str(r) == "RunResult(exit_code=1)"
         assert r.failed
         assert "exited with code" in r.error
         assert not r.output
+        assert r.full_output == r.error
 
         r = runez.run(CHATTER, "fail", fatal=None)
         assert r.failed
         assert r.error == "failed"
         assert not r.output
+        assert r.full_output == "failed"
 
         assert runez.run("/dev/null", fatal=False) is False
         assert runez.run("/dev/null", fatal=None) == runez.program.RunResult(None, "/dev/null is not installed", 1)
@@ -58,6 +65,7 @@ def test_capture():
             assert r.failed
             assert r.error == "python failed: testing"
             assert not r.output
+            assert r.full_output == "python failed: testing"
 
         # Test convenience arg None filtering
         logged.clear()

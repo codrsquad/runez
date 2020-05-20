@@ -116,7 +116,6 @@ def run(program, *args, **kwargs):
     logger = kwargs.pop("logger", LOG.debug)
     fatal = kwargs.pop("fatal", True)
     dryrun = kwargs.pop("dryrun", _LateImport.is_dryrun())
-    include_error = kwargs.pop("include_error", False)
     stdout = kwargs.pop("stdout", subprocess.PIPE)
     stderr = kwargs.pop("stderr", subprocess.PIPE)
 
@@ -153,7 +152,7 @@ def run(program, *args, **kwargs):
             if not error:
                 error = "%s failed: %s" % (short(program), e)
 
-        return _run_result(fatal, exit_code, stdout, output=output, error=error, include_error=include_error, exc_info=exc_info)
+        return _run_result(fatal, exit_code, stdout, output=output, error=error, exc_info=exc_info)
 
 
 class RunResult(object):
@@ -165,11 +164,16 @@ class RunResult(object):
         self.exit_code = code
 
     def __repr__(self):
-        return self.output or ""
+        return "RunResult(exit_code=%s)" % self.exit_code
 
     def __eq__(self, other):
         if isinstance(other, RunResult):
             return self.output == other.output and self.error == other.error and self.exit_code == other.exit_code
+
+    @property
+    def full_output(self):
+        output = "%s\n%s" % (self.output or "", self.error or "")
+        return output.strip()
 
     @property
     def failed(self):
@@ -305,7 +309,7 @@ def _install_instructions(instructions_dict, platform):
     return text
 
 
-def _run_result(fatal, code, stdout, output=None, error=None, include_error=False, exc_info=None):
+def _run_result(fatal, code, stdout, output=None, error=None, exc_info=None):
     if fatal is None:
         return RunResult(output, error, code)
 
@@ -317,9 +321,6 @@ def _run_result(fatal, code, stdout, output=None, error=None, include_error=Fals
 
     if code:
         return False  # If run was not successful, simply return False if caller stated fatal=False
-
-    if include_error and error:
-        output = "%s\n%s" % (output or "", error)
 
     return output.strip()
 
