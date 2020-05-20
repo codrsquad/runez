@@ -15,7 +15,7 @@ from runez.convert import to_int
 from runez.logsetup import LogManager
 from runez.program import run
 from runez.render import PrettyTable
-from runez.system import CaptureOutput, find_caller_frame, first_line, TempArgv
+from runez.system import find_caller_frame, first_line, TempArgv
 
 
 def auto_import_siblings(auto_clean="TOX_WORK_DIR", skip=None):
@@ -183,23 +183,22 @@ class ImportTime(object):
         return "%s %.3g" % (self.module_name, self.elapsed or 0)
 
     def _get_importtime(self):
-        with CaptureOutput(seed_logging=True) as logged:
-            output = run(sys.executable, "-Ximporttime", "-c", "import %s" % self.module_name, fatal=False, include_error=True)
-            if output is False:
-                lines = logged.contents().strip().splitlines()
-                self.problem = lines[-1] if lines else "-Ximporttime failed"
-                return None
+        # python -Ximporttime outputs to stderr
+        _, error, exit_code = run(sys.executable, "-Ximporttime", "-c", "import %s" % self.module_name, fatal=None)
+        if exit_code:
+            lines = error.strip().splitlines()
+            self.problem = lines[-1] if lines else "-Ximporttime failed"
+            return None
 
-            cumulative = None
-            for line in output.splitlines():
-                stime, cumulative, mod_name = line.split("|")
-                mod_name = mod_name.strip()
-                if self.module_name in mod_name:
-                    value = to_int(stime.partition(":")[2])
-                    assert value is not None, line
+        cumulative = None
+        for line in error.splitlines():
+            _, c, mod_name = line.split("|")
+            mod_name = mod_name.strip()
+            if self.module_name == mod_name:
+                cumulative = c
 
-            cumulative = to_int(cumulative)
-            return cumulative
+        cumulative = to_int(cumulative)
+        return cumulative
 
 
 def _clean_files(folder, extension):

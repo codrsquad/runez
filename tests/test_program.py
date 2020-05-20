@@ -139,19 +139,20 @@ def test_run(temp_folder):
 
     with runez.CaptureOutput() as logged:
         assert runez.run("/dev/null", fatal=False) is False
-        assert "/dev/null is not installed" in logged.pop()
+        assert runez.run("/dev/null", fatal=None) == (None, "/dev/null is not installed", 1)
 
         assert runez.run("foo", stdout=None, stderr=None) == 0
         assert runez.run("foo") == "hello"
 
         # Success not influenced by `fatal`
         assert runez.run(ls, ".", stdout=None, stderr=None) == 0
-        assert runez.run(ls, ".", stdout=None, stderr=None, fatal=None) == 0
+        assert runez.run(ls, ".", stdout=None, stderr=None, fatal=None) == (None, None, 0)
         assert runez.run(ls, ".", stdout=None, stderr=None, fatal=False) == 0
         assert runez.run(ls, ".", stdout=None, stderr=None, fatal=True) == 0
 
         # Failure is influenced by `fatal`
-        exit_code = runez.run(ls, "--foo", ".", stdout=None, stderr=None, fatal=None)
+        _, err, exit_code = runez.run(ls, "--foo", ".", stdout=None, stderr=None, fatal=None)
+        assert "exited with code" in err
         assert isinstance(exit_code, int) and exit_code != 0
 
         exit_code = runez.run(ls, "--foo", ".", stdout=None, stderr=None, fatal=False)
@@ -167,20 +168,19 @@ def test_run(temp_folder):
 
         assert runez.run(ls, "some-file", fatal=False) is False
         assert "Running: %s some-file" % ls in logged
-        assert "exited with code" in logged
-        assert "No such file" in logged.pop()
 
 
 def test_python_run():
     with runez.CaptureOutput():
         # Success not influenced by `fatal`
         assert runez.run("python", "--version", stdout=None, stderr=None) == 0
-        assert runez.run("python", "--version", stdout=None, stderr=None, fatal=None) == 0
+        assert runez.run("python", "--version", stdout=None, stderr=None, fatal=None) == (None, None, 0)
         assert runez.run("python", "--version", stdout=None, stderr=None, fatal=False) == 0
         assert runez.run("python", "--version", stdout=None, stderr=None, fatal=True) == 0
 
         # Failure is influenced by `fatal`
-        exit_code = runez.run("python", "--invalid-flag", stdout=None, stderr=None, fatal=None)
+        _, err, exit_code = runez.run("python", "--invalid-flag", stdout=None, stderr=None, fatal=None)
+        assert err
         assert isinstance(exit_code, int) and exit_code != 0
 
         exit_code = runez.run("python", "--invalid-flag", stdout=None, stderr=None, fatal=False)
@@ -192,7 +192,6 @@ def test_python_run():
 def test_failed_run(logged):
     with patch("subprocess.Popen", side_effect=Exception("testing")):
         assert runez.run("python", "--version", fatal=False) is False
-        assert "python failed: testing" in logged
 
 
 @pytest.mark.skipif(runez.WINDOWS, reason="Not supported on windows")

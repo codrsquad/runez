@@ -95,21 +95,20 @@ def run(program, *args, **kwargs):
     - dryrun (bool): When True (defaults to runez.DRYRUN), do not really run but call logger("Would run: ...") instead
 
     - fatal (bool | None):
-        - when program invocation succeeds:
-            - return output if available (ie: if stdout/stderr were not explicitly provided as None)
-            - return exit code otherwise
-        - when program invocation fails:
-            - with fatal=None: Return `None` on failure
-            - with fatal=False: Return False on failure
-            - with fatal=True: Raise runez.system.AbortException(exit_code) on failure
-
-    - include_error (bool): When True, include stderr contents in returned string
+        - When None: return triplet (output, error, exit_code)
+        - When False:
+            - if run was NOT successful: return False
+            - if run was successful:
+                - return output if output was captured (ie: named arg stdout= was NOT given)
+                - return exit code if stdout was was NOT captured (ie: stdout=None was explicitly given)
+        - When True:
+            - raise runez.system.AbortException(), and log error if it was captured
 
     - logger (callable | None): When provided (defaults to LOG.debug), call logger("Running: ...")
 
     - path_env (dict | None): Allows to inject PATH-like env vars, see `_added_env_paths()`
 
-    - stdout, stderr: Passed through to `subprocess.Popen`, when both are None causes this function to return exit code instead of output
+    - stdout, stderr: Passed through to `subprocess.Popen` (defaults to subprocess.PIPE for captured output)
     """
     args = flattened(args, shellify=True)
     full_path = which(program)
@@ -128,44 +127,36 @@ def run(program, *args, **kwargs):
     stderr = kwargs.pop("stderr", subprocess.PIPE)
 
     if dryrun:
-        if stdout is None and stderr is None:
-            return 0
-        return message
+        return _run_result(fatal, 0, stdout, output=message)
 
     if not full_path:
-        return abort("%s is not installed", short(program), fatal=fatal)
+        return _run_result(fatal, 1, stdout, error="%s is not installed" % short(program))
 
     with _WrappedArgs([full_path] + args) as args:
+        exit_code = 1
+        output = error = exc_info = None
         try:
             path_env = kwargs.pop("path_env", None)
             if path_env:
                 kwargs["env"] = _added_env_paths(path_env, env=kwargs.get("env"))
 
             p = subprocess.Popen(args, stdout=stdout, stderr=stderr, **kwargs)  # nosec
-            output, err = p.communicate()
+            output, error = p.communicate()
             output = decode(output, strip=True)
-            err = decode(err, strip=True)
-
-            if stdout is None and stderr is None:
-                if p.returncode and fatal:
-                    return abort("%s exited with code %s" % (short(program), p.returncode), fatal=fatal, code=p.returncode)
-                return p.returncode
-
-            if p.returncode and fatal is not None:
-                note = ": %s\n%s" % (err, output) if output or err else ""
-                message = "%s exited with code %s%s" % (short(program), p.returncode, note.strip())
-                return abort(message, fatal=fatal, code=p.returncode)
-
-            if include_error and err:
-                output = "%s\n%s" % (output, err)
-
-            return output and output.strip()
+            error = decode(error, strip=True)
+            exit_code = p.returncode
+            if not error and exit_code:
+                error = "%s exited with code %s" % (short(program), exit_code)
 
         except Exception as e:
             if isinstance(e, _LateImport.abort_exception()):
                 raise
 
-            return abort("%s failed: %s", short(program), e, exc_info=e, fatal=fatal)
+            exc_info = e
+            if not error:
+                error = "%s failed: %s" % (short(program), e)
+
+        return _run_result(fatal, exit_code, stdout, output=output, error=error, include_error=include_error, exc_info=exc_info)
 
 
 def terminal_width(default=None):
@@ -293,6 +284,37 @@ def _install_instructions(instructions_dict, platform):
     return text
 
 
+def _run_result(fatal, code, stdout, output=None, error=None, include_error=False, exc_info=None):
+    if fatal is None:
+        return output, error, code
+
+    if fatal and code:
+        return abort(error, fatal=True, code=code, exc_info=exc_info)
+
+    if stdout is None:
+        return code  # stdout was not captured, return exit code
+
+    if code:
+        return False  # If run was not successful, simply return False if caller stated fatal=False
+
+    if include_error and error:
+        output = "%s\n%s" % (output or "", error)
+
+    return output.strip()
+
+
+def _tw_shutil():
+    try:
+        return shutil.get_terminal_size().columns
+
+    except Exception:
+        return None
+
+
+def _tw_env():
+    return to_int(os.environ.get("COLUMNS"))
+
+
 def _windows_exe(path):  # pragma: no cover
     if path:
         for extension in (".exe", ".bat"):
@@ -326,15 +348,3 @@ class _WrappedArgs(object):
     def __exit__(self, *_):
         if self.tmp_folder:
             shutil.rmtree(self.tmp_folder)
-
-
-def _tw_shutil():
-    try:
-        return shutil.get_terminal_size().columns
-
-    except Exception:
-        return None
-
-
-def _tw_env():
-    return to_int(os.environ.get("COLUMNS"))
