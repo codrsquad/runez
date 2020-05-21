@@ -187,7 +187,7 @@ class RunAudit(object):
 
 
 class RunResult(object):
-    """Holds a runez.run() result when `fatal=None` was used"""
+    """Holds result of a runez.run()"""
 
     def __init__(self, output, error, code, audit=None):
         """
@@ -209,6 +209,9 @@ class RunResult(object):
     def __eq__(self, other):
         if isinstance(other, RunResult):
             return self.output == other.output and self.error == other.error and self.exit_code == other.exit_code
+
+    def __bool__(self):
+        return self.exit_code == 0
 
     @property
     def full_output(self):

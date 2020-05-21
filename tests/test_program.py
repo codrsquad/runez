@@ -39,6 +39,9 @@ def test_capture():
         assert runez.run(CHATTER, stdout=None) == RunResult(None, "", 0)
 
         r = runez.run(CHATTER, stdout=None, stderr=None)
+        if not runez.PY2:  # __bool__ not respected in PY2... no point trying to fix it
+            assert r
+
         assert str(r) == "RunResult(exit_code=0)"
         assert r.succeeded
         assert r.output is None
@@ -80,6 +83,9 @@ def test_capture():
 
         with patch("subprocess.Popen", side_effect=Exception("testing")):
             r = runez.run("python", "--version", fatal=False)
+            if not runez.PY2:  # __bool__ not respected in PY2... no point trying to fix it
+                assert not r
+
             assert r.failed
             assert r.error == "python failed: testing"
             assert r.output is None

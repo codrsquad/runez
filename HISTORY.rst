@@ -2,6 +2,12 @@
 History
 =======
 
+2.0.6 (2020-05-20)
+------------------
+
+* Fixed docstrings, ``RunResult`` properly evaluates to true-ish on success
+
+
 2.0.5 (2020-05-20)
 ------------------
 
