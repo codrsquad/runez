@@ -357,7 +357,8 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True,
         return 1
 
     if must_exist and not os.path.exists(source):
-        return abort("%s does not exist, can't %s to %s", short(source), action.title(), short(destination), fatal=(fatal, -1))
+        message = "%s does not exist, can't %s to %s" % (short(source), action.lower(), short(destination))
+        return abort(message, fatal=(fatal, -1), logger=logger)
 
     try:
         # Ensure parent folder exists
