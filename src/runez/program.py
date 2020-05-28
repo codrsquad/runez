@@ -144,15 +144,13 @@ def run(program, *args, **kwargs):
 
         return result
 
-    with _WrappedArgs([full_path] + args) as args:
+    with _WrappedArgs([full_path] + args) as wrapped_args:
         try:
-            p = subprocess.Popen(args, stdout=stdout, stderr=stderr, **kwargs)  # nosec
+            p = subprocess.Popen(wrapped_args, stdout=stdout, stderr=stderr, **kwargs)  # nosec
             out, err = p.communicate()
             result.output = decode(out, strip=True)
             result.error = decode(err, strip=True)
             result.exit_code = p.returncode
-            if not result.error and result.exit_code:
-                result.error = "%s exited with code %s" % (short(program), result.exit_code)
 
         except Exception as e:
             if fatal:
@@ -164,7 +162,16 @@ def run(program, *args, **kwargs):
                 result.error = "%s failed: %s" % (short(program), e)
 
         if fatal and result.exit_code:
-            abort(result.error, fatal=fatal, code=result.exit_code, exc_info=result.exc_info)
+            message = ["Run failed: %s %s" % (short(full_path or program), quoted(args))]
+            if result.error:
+                message.append("\nstderr:\n%s" % result.error)
+
+            if result.output:
+                message.append("\nstdout:\n%s" % result.output)
+
+            LOG.error("\n".join(message))
+            message = "%s exited with code %s" % (short(program), result.exit_code)
+            abort(message, fatal=fatal, code=result.exit_code, exc_info=result.exc_info)
 
         return result
 
@@ -215,8 +222,9 @@ class RunResult(object):
 
     @property
     def full_output(self):
+        """Full output, error first"""
         if self.output is not None or self.error is not None:
-            output = "%s\n%s" % (self.output or "", self.error or "")
+            output = "%s\n%s" % (self.error or "", self.output or "")
             return output.strip()
 
     @property
@@ -263,7 +271,7 @@ def which(program, ignore_own_venv=False):
 
         return program if is_executable(program) else None
 
-    for p in os.environ.get("PATH", "").split(os.path.pathsep):
+    for p in os.environ.get("PATH", "").split(os.pathsep):
         fp = os.path.join(p, program)
         if WINDOWS:  # pragma: no cover
             fp = _windows_exe(fp)

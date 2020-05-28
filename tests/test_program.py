@@ -68,15 +68,15 @@ def test_capture():
         r = runez.run(CHATTER, "silent-fail", fatal=False)
         assert str(r) == "RunResult(exit_code=1)"
         assert r.failed
-        assert "exited with code" in r.error
+        assert r.error == ""
         assert r.output == ""
         assert r.full_output == r.error
 
         r = runez.run(CHATTER, "fail", fatal=False)
         assert r.failed
         assert r.error == "failed"
-        assert r.output == ""
-        assert r.full_output == "failed"
+        assert r.output == "hello there"
+        assert r.full_output == "failed\nhello there"
 
         assert runez.run("/dev/null", fatal=False) == RunResult(None, "/dev/null is not installed", 1)
         assert "/dev/null is not installed" in verify_abort(runez.run, "/dev/null")

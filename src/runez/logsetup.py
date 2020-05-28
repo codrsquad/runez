@@ -371,9 +371,9 @@ class LogManager(object):
         regex = re.compile(r"^(.+\.|)(conftest|(test_|_pytest|unittest).+|.+_test)$")
 
         def is_test_frame(f):
-            name = f.f_globals.get("__name__").lower()
-            if not name.startswith("runez"):
-                return regex.match(name) and f.f_globals.get("__file__")
+            name = f.f_globals.get("__name__")
+            if name and not name.startswith("runez"):
+                return regex.match(name.lower()) and f.f_globals.get("__file__")
 
         return find_caller_frame(validator=is_test_frame)
 

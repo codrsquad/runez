@@ -8,6 +8,7 @@ from runez.system import AdaptedProperty, flattened, Slotted, string_type, strin
 NAMED_BORDERS = dict(
     ascii="rstgrid,t:+++=,m:+++-",
     compact="c:   ,h:   -",
+    colon="c: : ,h: : -",
     dashed=u"t:┌┬┐┄,m:├┼┤┄,b:└┴┘┄,c:┆┆┆,h:┝┿┥━",
     dots="t:....,b::::.,c::::,h:.:..",
     empty="",
@@ -222,7 +223,7 @@ class PrettyHeader(PrettyCustomizable):
                 self.add_column(t)
 
         elif isinstance(value, int):
-            self.accomodate(value)
+            self.accommodate(value)
 
         elif hasattr(value, "__iter__"):
             for x in value:
@@ -245,7 +246,32 @@ class PrettyHeader(PrettyCustomizable):
     def shown_columns(self):
         return [c for c in self._columns if c.shown]
 
-    def accomodate(self, size):
+    def column(self, identifier):
+        """
+        Args:
+            identifier (str | int): Header title, or column index
+
+        Returns:
+            (PrettyColumn | None): Corresponding column, if any
+        """
+        if isinstance(identifier, int) and abs(identifier) < len(self._columns):
+            return self._columns[identifier]
+
+        for c in self._columns:
+            if identifier == c.text:
+                return c
+
+    def hide(self, *ids):
+        """Hide all columns with 'ids'"""
+        for i in ids:
+            self.column(i).shown = False
+
+    def show(self, *ids):
+        """Show all columns with 'ids'"""
+        for i in ids:
+            self.column(i).shown = True
+
+    def accommodate(self, size):
         """
         Args:
             size (int): Ensure that we have at least 'size' columns
@@ -295,17 +321,18 @@ class PrettyTable(PrettyCustomizable):
         return stringified(value, none=self.missing)
 
     def add_row(self, *values):
-        """Add one rowwith given 'values'"""
+        """Add one row with given 'values'"""
         row = flattened(values)
-        self.header.accomodate(len(row))
+        self.header.accommodate(len(row))
         self._rows.append(row)
 
     def add_rows(self, *rows):
-        """Add multiple row at once"""
+        """Add multiple rows at once"""
         for row in rows:
             self.add_row(row)
 
     def get_string(self):
+        """Table rendered as a string"""
         t = _PTTable(self)
         result = t.get_string()
         return result

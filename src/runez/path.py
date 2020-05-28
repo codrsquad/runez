@@ -7,7 +7,7 @@ import os
 from runez.system import _LateImport, abort, LOG, resolved_path, short
 
 
-def basename(path, extension_marker="."):
+def basename(path, extension_marker=os.extsep):
     """Base name of given `path`, ignoring extension if `extension_marker` is provided
 
     Args:
@@ -26,7 +26,7 @@ def basename(path, extension_marker="."):
         if pre:
             return pre
 
-        return "%s%s" % (extension_marker, post)
+        return result  # We have a basename starting with '.'
 
     return result
 

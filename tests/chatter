@@ -3,6 +3,7 @@
 if [[ $1 == "silent-fail" ]]; then
     exit 1
 elif [[ $1 == "fail" ]]; then
+    echo "hello there"
     >&2 echo "failed"
     exit 1
 elif [[ $1 == "complain" ]]; then

@@ -71,7 +71,7 @@ def test_pretty_table():
     with pytest.raises(IndexError):
         t.header[0].style = "bold"  # Header columns are not auto-accommodated when accessing by index
 
-    t.header.accomodate(2)
+    t.header.accommodate(2)
     assert len(t.header) == 2
     t.header[0].style = "bold"
 
@@ -104,6 +104,16 @@ def test_pretty_table():
 
     t.missing = "*"
     t.style = "bold"
-    t.header.columns[-2].shown = False
+    assert t.header.column("foo") is None
+    assert t.header.column("x") is t.header.columns[-2]
+    assert t.header.column(-55) is None
+    with pytest.raises(IndexError):
+        assert t.header.columns[-55]
+
+    t.header.show("x")
+    assert t.header.column("x").shown is True
+    t.header.hide(-2)
+    assert t.header.column("x").shown is False
+
     s = t.get_string()
     assert s == " 1  2    3  y \n a  b    c  * \n d  e  foo  * "
