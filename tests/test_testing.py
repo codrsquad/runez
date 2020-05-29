@@ -45,7 +45,7 @@ def test_success(cli):
     assert cli.project_folder == project_folder
     assert runez.conftest.project_folder() == project_folder
     assert cli.tests_folder == tests
-    assert cli.test_resource("foo.txt") == os.path.join(tests, "foo.txt")
+    assert cli.resource_path("foo.txt") == os.path.join(tests, "foo.txt")
 
     cli.run("--dryrun hello")
     assert cli.succeeded

@@ -104,16 +104,30 @@ def test_pretty_table():
 
     t.missing = "*"
     t.style = "bold"
-    assert t.header.column("foo") is None
-    assert t.header.column("x") is t.header.columns[-2]
-    assert t.header.column(-55) is None
-    with pytest.raises(IndexError):
-        assert t.header.columns[-55]
+    assert t.header["x"] is t.header.columns[-2]
 
-    t.header.show("x")
-    assert t.header.column("x").shown is True
-    t.header.hide(-2)
-    assert t.header.column("x").shown is False
+    assert t.header["x"].shown is True
+    t.header.hide(-2, 0, "y")
+    assert t.header[0].shown is False
+    assert t.header["x"].shown is False
+    assert t.header["y"].shown is False
 
     s = t.get_string()
-    assert s == " 1  2    3  y \n a  b    c  * \n d  e  foo  * "
+    assert s == " 2    3 \n b    c \n e  foo "
+
+    assert t.header[0].shown is False
+    with pytest.raises(KeyError):
+        t.header.show(0, "foo")
+
+    # Successfully shown column 0, but failed after that on "foo"
+    assert t.header[0].shown is True
+
+    assert str(t.header[0]) == "[c0] '1'"
+    t.header[0].text = None
+    assert str(t.header[0]) == "[c0]"
+
+    with pytest.raises(IndexError):
+        _ = t.header.columns[-55]
+
+    with pytest.raises(KeyError):
+        _ = t.header["foo"]

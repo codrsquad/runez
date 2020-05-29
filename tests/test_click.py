@@ -122,7 +122,7 @@ def test_config(logged):
         assert "Adding config provider PYTEST_*" in logged.pop()
 
     with patch.dict(os.environ, {"MY_PROG_A": "via env"}, clear=True):
-        propsfs = runez.conftest.test_resource("sample")
+        propsfs = runez.conftest.resource_path("sample")
         config = sample_config(env="MY_PROG", default="x=y", propsfs=propsfs, split=",")
         c1 = config(None, None, "")
         assert str(c1) == "--config, MY_PROG_* env vars, propsfs, --config default"

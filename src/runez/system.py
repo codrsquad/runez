@@ -88,7 +88,7 @@ def abort(*args, **kwargs):
     code = kwargs.pop("code", 1)
     logger = kwargs.pop("logger", UNSET)
     if logger is UNSET:
-        logger = LOG.error if code else LOG.info
+        logger = LOG.error if code else LOG.debug
 
     fatal = kwargs.pop("fatal", True)
     return_value = fatal
@@ -649,6 +649,7 @@ class CaptureOutput(object):
         self.stderr = stderr
         self.anchors = anchors
         self.dryrun = dryrun
+        self.debug = UNSET
         self.seed_logging = seed_logging
         self.handler = None
 
@@ -682,7 +683,7 @@ class CaptureOutput(object):
             Anchored.add(self.anchors)
 
         if self.dryrun is not None:
-            self.dryrun = _LateImport.set_dryrun(self.dryrun)
+            self.dryrun, self.debug = _LateImport.set_dryrun(self.dryrun)
 
         if self.seed_logging and not self._has_stream_handler():
             # Define a logging handler, IsolatedLogSetup cleared them all
@@ -707,7 +708,7 @@ class CaptureOutput(object):
             Anchored.pop(self.anchors)
 
         if self.dryrun is not None:
-            _LateImport.set_dryrun(self.dryrun)
+            _LateImport.set_dryrun(self.dryrun, debug=self.debug)
 
 
 class CurrentFolder(object):
@@ -1131,6 +1132,20 @@ class _LateImport:
         return cls._runez_module().log.current_test()
 
     @classmethod
+    def handle_dryrun(cls, dryrun, logger, message):
+        if dryrun is UNSET:
+            dryrun = cls.is_dryrun()
+
+        if dryrun:
+            if logger is not None:
+                if callable(message):
+                    message = message()  # Allow message to be late-called function
+
+                LOG.debug("Would %s" % message)
+
+            return True
+
+    @classmethod
     def is_dryrun(cls):
         """
         Returns:
@@ -1139,19 +1154,24 @@ class _LateImport:
         return cls._runez_module().DRYRUN
 
     @classmethod
-    def set_dryrun(cls, dryrun):
+    def set_dryrun(cls, dryrun, debug=UNSET):
         """Set runez.DRYRUN, and return its previous value (useful for context managers)
 
         Args:
-            dryrun (bool): New value for runez.DRYRUN
+            dryrun (bool | None): New value for runez.DRYRUN
+            debug (bool | UNSET): New value for runez.log.debug
 
         Returns:
-            (bool): Old value
+            (bool, bool): Old values for dryrun and debug
         """
         r = cls._runez_module()
-        old = r.DRYRUN
+        old_dryrun = r.DRYRUN
+        old_debug = r.log.debug
         r.DRYRUN = bool(dryrun)
-        return old
+        if debug is not UNSET:
+            r.log.debug = debug
+
+        return old_dryrun, old_debug
 
 
 def _find_value(key, *args):

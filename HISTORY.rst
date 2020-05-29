@@ -2,10 +2,11 @@
 History
 =======
 
-2.0.8 (2020-05-27)
+2.0.9 (2020-05-29)
 ------------------
 
-* Bug fixes
+* Bug fixes, renamed ``test_resource`` to ``resource_path`` (in ``runez.conftest``),
+  to avoid pytest thinking it is a test function when imported
 
 
 2.0.6 (2020-05-20)

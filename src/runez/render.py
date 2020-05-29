@@ -210,6 +210,13 @@ class PrettyColumn(PrettyCustomizable):
         self.text = None if text is None else stringified(text)
         self.shown = True
 
+    def __repr__(self):
+        cid = "[c%s]" % self.index
+        if self.text is None:
+            return cid
+
+        return "%s '%s'" % (cid, self.text)
+
 
 class PrettyHeader(PrettyCustomizable):
     def __init__(self, value=None):
@@ -232,8 +239,22 @@ class PrettyHeader(PrettyCustomizable):
         else:
             raise ValueError("Invalid header '%s'" % value)
 
-    def __getitem__(self, item):
-        return self._columns[item]
+    def __getitem__(self, identifier):
+        """
+        Args:
+            identifier (str | int): Header title, or column index
+
+        Returns:
+            (PrettyColumn): Corresponding column
+        """
+        if isinstance(identifier, int):
+            return self._columns[identifier]
+
+        for c in self._columns:
+            if identifier == c.text:
+                return c
+
+        raise KeyError("No header column '%s'" % identifier)
 
     def __len__(self):
         return len(self._columns)
@@ -246,30 +267,15 @@ class PrettyHeader(PrettyCustomizable):
     def shown_columns(self):
         return [c for c in self._columns if c.shown]
 
-    def column(self, identifier):
-        """
-        Args:
-            identifier (str | int): Header title, or column index
-
-        Returns:
-            (PrettyColumn | None): Corresponding column, if any
-        """
-        if isinstance(identifier, int) and abs(identifier) < len(self._columns):
-            return self._columns[identifier]
-
-        for c in self._columns:
-            if identifier == c.text:
-                return c
-
     def hide(self, *ids):
         """Hide all columns with 'ids'"""
         for i in ids:
-            self.column(i).shown = False
+            self[i].shown = False
 
     def show(self, *ids):
         """Show all columns with 'ids'"""
         for i in ids:
-            self.column(i).shown = True
+            self[i].shown = True
 
     def accommodate(self, size):
         """
@@ -400,17 +406,17 @@ class _PTTable(object):
         shown_columns = header.shown_columns
         self.columns = [_PTColumn(self, c) for c in shown_columns]
         self.column_count = len(self.columns)
-        header_text = [c.text for c in shown_columns]
-        header_shown = header.shown and any(header_text)
-        self.header_row = self.new_row(header_text, header=header) if header_shown else None
+        header_shown = header.shown and any(c.text for c in shown_columns)
+        header_row = [c.text for c in parent.header.columns]
+        self.header_row = self.new_row(header_row, header=header) if header_shown else None
         self.rows = [self.new_row(r) for r in parent.rows]
 
     def new_row(self, values, header=None):
         row = []
         nvalues = len(values)
-        for i in range(self.column_count):
+        for column in self.columns:
+            i = column.index
             value = values[i] if i < nvalues else None
-            column = self.columns[i]
             cell = _PTCell(column, value, header)
             row.append(cell)
 
@@ -448,6 +454,14 @@ class _PTColumn(object):
         self.pcolumn = pcolumn
         self.text_width = 0
         self.allocated_width = 0
+
+    def __repr__(self):  # pragma: no cover
+        return "%s" % self.pcolumn
+
+    @property
+    def index(self):
+        """Index in main table"""
+        return self.pcolumn.index
 
     def update_width(self, width):
         self.text_width = max(self.text_width, width)

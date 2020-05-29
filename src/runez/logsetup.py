@@ -254,13 +254,16 @@ class LogManager(object):
             debug (bool): Enable debug level logging (overrides other specified levels)
             dryrun (bool): Enable dryrun
         """
-        if dryrun is not UNSET:
-            if dryrun and (debug is None or debug is UNSET):
-                # Automatically turn debug on (if not explicitly specified) with dryrun,
-                # as many of the "Would ..." messages are at debug level
-                debug = True
+        if dryrun is UNSET:
+            dryrun = _LateImport.is_dryrun()
 
+        else:
             _LateImport.set_dryrun(dryrun)
+
+        if dryrun and (debug is None or debug is UNSET):
+            # Automatically turn debug on (if not explicitly specified) with dryrun,
+            # as many of the "Would ..." messages are at debug level
+            debug = True
 
         if debug is not UNSET:
             cls.debug = debug

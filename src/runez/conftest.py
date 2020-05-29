@@ -68,7 +68,7 @@ def tests_folder():
     return LogManager.find_parent_folder(LogManager.current_test(), {"tests"})
 
 
-def test_resource(*relative_path):
+def resource_path(*relative_path):
     """
     Args:
         *relative_path: Path relative to project's tests/ folder
@@ -325,7 +325,7 @@ class ClickRunner(object):
     def assert_printed(self, expected):
         self.logged.assert_printed(expected)
 
-    def test_resource(self, *relative_path):
+    def resource_path(self, *relative_path):
         """
         Args:
             *relative_path: Path relative to project's tests/ folder
@@ -333,7 +333,7 @@ class ClickRunner(object):
         Returns:
             (str | None): Full path, if we're currently running a test from a tests/ subfolder
         """
-        return test_resource(*relative_path)
+        return resource_path(*relative_path)
 
     def run(self, *args, **kwargs):
         """

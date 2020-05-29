@@ -1,14 +1,15 @@
+import logging
 import os
 
 import pytest
 from mock import patch
 
 import runez
-from runez.conftest import test_resource, verify_abort
+from runez.conftest import resource_path, verify_abort
 from runez.program import RunResult
 
 
-CHATTER = test_resource("chatter")
+CHATTER = resource_path("chatter")
 
 
 @pytest.mark.skipif(runez.WINDOWS, reason="Not supported on windows")
@@ -104,19 +105,33 @@ def test_capture():
 def test_executable(temp_folder):
     with runez.CaptureOutput(dryrun=True) as logged:
         assert runez.make_executable("some-file") == 1
-        assert "Would make some-file executable" in logged
-
-    assert runez.touch("some-file") == 1
-    assert runez.make_executable("some-file") == 1
-    assert runez.is_executable("some-file")
-    assert runez.make_executable("some-file") == 0
-
-    assert runez.delete("some-file") == 1
-    assert not runez.is_executable("some-file")
+        assert not logged
+        assert runez.make_executable("some-file", logger=logging.debug) == 1
+        assert "Would make some-file executable" in logged.pop()
 
     with runez.CaptureOutput() as logged:
+        assert runez.touch("some-file") == 1
+        assert not logged
+        assert runez.delete("some-file") == 1
+        assert "Deleting some-file" in logged.pop()
+        assert runez.touch("some-file", logger=logging.debug) == 1
+        assert "Touching some-file" in logged.pop()
+        assert runez.make_executable("some-file", logger=logging.debug) == 1
+        assert "Made 'some-file' executable" in logged.pop()
+        assert runez.is_executable("some-file")
+        assert runez.make_executable("some-file") == 0
+        assert not logged
+
+        assert runez.touch("some-file", logger=None) == 1
+        assert runez.delete("some-file", logger=None) == 1
+        assert not runez.is_executable("some-file")
+        assert not logged
+
         assert runez.make_executable("/dev/null/some-file", fatal=False) == -1
-        assert "does not exist, can't make it executable" in logged
+        assert "does not exist, can't make it executable" in logged.pop()
+
+        assert runez.make_executable("/dev/null/some-file", fatal=False, logger=None) == -1
+        assert not logged
 
 
 def test_terminal_width():

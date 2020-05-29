@@ -106,7 +106,8 @@ def test_setup(temp_log):
         assert runez.log.faulthandler_signum is None
 
     cwd = os.getcwd()
-    assert not runez.DRYRUN
+    assert runez.DRYRUN is False
+    assert runez.log.debug is None
     with runez.TempFolder(dryrun=False):
         assert not runez.log.debug
 
@@ -143,9 +144,9 @@ def test_setup(temp_log):
 
         # Change format
         runez.log.setup(console_format="%(levelname)s - %(message)s")
-        assert not runez.log.debug
-        logging.info("hello")
-        assert "INFO - hello" in temp_log.stdout.pop()
+        assert runez.log.debug  # Debug mode re-established because implied by dryrun mode
+        logging.debug("hello")
+        assert "DEBUG - hello" in temp_log.stdout.pop()
         assert not temp_log.stderr
 
         if not runez.WINDOWS and runez.logsetup.faulthandler:
@@ -153,7 +154,9 @@ def test_setup(temp_log):
             runez.log.enable_faulthandler()
             assert runez.log.faulthandler_signum
 
-    assert not runez.DRYRUN
+    # Verify things were properly restored
+    assert runez.DRYRUN is False
+    assert runez.log.debug is None
     assert os.getcwd() == cwd
 
 

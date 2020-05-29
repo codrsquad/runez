@@ -552,7 +552,7 @@ class Serializable(object):
         return self.__class__.from_dict(self.to_dict())
 
     @classmethod
-    def from_json(cls, path, default=None, fatal=True, logger=None):
+    def from_json(cls, path, default=None, fatal=True, logger=UNSET):
         """
         Args:
             path (str): Path to json file
@@ -618,7 +618,7 @@ class Serializable(object):
 runez.schema.Serializable = Serializable
 
 
-def read_json(path, default=None, fatal=True, logger=None):
+def read_json(path, default=None, fatal=True, logger=UNSET):
     """
     Args:
         path (str | None): Path to file to deserialize
@@ -632,7 +632,7 @@ def read_json(path, default=None, fatal=True, logger=None):
     path = resolved_path(path)
     if not path or not os.path.exists(path):
         if default is None:
-            return abort("No file %s", short(path), fatal=(fatal, default))
+            return abort("No file %s", short(path), fatal=(fatal, default), logger=logger)
 
         return default
 
@@ -640,7 +640,8 @@ def read_json(path, default=None, fatal=True, logger=None):
         with io.open(path) as fh:
             data = json.load(fh)
             if default is not None and type(data) != type(default):
-                return abort("Wrong type %s for %s, expecting %s", type(data), short(path), type(default), fatal=(fatal, default))
+                message = "Unexpected type %s in %s, expecting %s" % (type(data), short(path), type(default))
+                return abort(message, fatal=(fatal, default), logger=logger)
 
             if logger:
                 logger("Read %s", short(path))
@@ -648,7 +649,7 @@ def read_json(path, default=None, fatal=True, logger=None):
             return data
 
     except Exception as e:
-        return abort("Couldn't read %s: %s", short(path), e, fatal=(fatal, default))
+        return abort("Couldn't read %s: %s", short(path), e, fatal=(fatal, default), logger=logger)
 
 
 def represented_json(data, sort_keys=True, indent=2, keep_none=False, **kwargs):

@@ -8,7 +8,7 @@ import runez
 import runez.conftest
 
 
-SAMPLES = runez.conftest.test_resource("sample")
+SAMPLES = runez.conftest.resource_path("sample")
 
 
 def test_capped():

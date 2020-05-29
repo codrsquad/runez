@@ -121,7 +121,7 @@ def test_json(temp_folder):
         assert "Read " in logged.pop()
 
         assert runez.read_json("sample.json", default=[], fatal=False) == []
-        assert "Wrong type" in logged.pop()
+        assert "Unexpected type" in logged.pop()
 
 
 class SomeSerializable(runez.Serializable, with_behavior(strict=True)):
@@ -267,10 +267,17 @@ def test_serialization(logged):
     assert obj == obj2
 
     if not runez.WINDOWS:
-        path = "/dev/null/not-there"
-        obj3 = SomeSerializable.from_json(path, fatal=False)
+        obj3 = SomeSerializable.from_json("/dev/null/not-there", fatal=False)
         assert "No file /dev/null/not-there" in logged.pop()
+        assert obj == obj3  # Object is at its default state
 
+        # Be quiet with fatal=None or logger=None
+        obj3 = SomeSerializable.from_json("/dev/null/not-there", fatal=None)
+        assert not logged
+        assert obj == obj3
+
+        obj3 = SomeSerializable.from_json("/dev/null/not-there", fatal=False, logger=None)
+        assert not logged
         assert obj == obj3
 
 

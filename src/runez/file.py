@@ -41,7 +41,9 @@ def delete(path, fatal=True, logger=LOG.debug):
         return 0
 
     if _LateImport.is_dryrun():
-        LOG.debug("Would delete %s", short(path))
+        if logger:
+            LOG.debug("Would delete %s", short(path))
+
         return 1
 
     if logger:
@@ -60,13 +62,14 @@ def delete(path, fatal=True, logger=LOG.debug):
         return abort("Can't delete %s: %s", short(path), e, fatal=(fatal, -1))
 
 
-def ini_to_dict(data, keep_empty=False, default=None):
+def ini_to_dict(data, keep_empty=False, default=None, logger=UNSET):
     """Contents of an INI-style config file as a dict of dicts: section -> key -> value
 
     Args:
         data (str | file | TextIO | list | None): Path to file, or file object, or lines to parse
         keep_empty (bool): If True, keep definitions with empty values
         default (dict | None): Object to return if conf couldn't be read
+        logger (callable | None): Logger to use to report failures, or trace usage
 
     Returns:
         (dict): Dict of section -> key -> value
@@ -78,7 +81,7 @@ def ini_to_dict(data, keep_empty=False, default=None):
     try:
         section_key = None
         section = None
-        for line in readlines(data):
+        for line in readlines(data, logger=logger):
             line = line.strip()
             if "#" in line:
                 i = line.index("#")
@@ -113,11 +116,12 @@ def ini_to_dict(data, keep_empty=False, default=None):
     return result
 
 
-def is_younger(path, age):
+def is_younger(path, age, default=False):
     """
     Args:
         path (str): Path to file
         age (int | float): How many seconds to consider the file too old
+        default (bool): Returned when file is not present
 
     Returns:
         (bool): True if file exists and is younger than 'age' seconds
@@ -126,7 +130,7 @@ def is_younger(path, age):
         return time.time() - os.path.getmtime(path) < age
 
     except (OSError, IOError, TypeError):
-        return False
+        return default
 
 
 def readlines(data, first=None, errors=None, fatal=UNSET, logger=UNSET):
@@ -210,13 +214,14 @@ class TempFolder(object):
         """
         self.anchor = anchor
         self.dryrun = dryrun
+        self.debug = UNSET
         self.follow = follow
         self.old_cwd = None
         self.tmp_folder = None
 
     def __enter__(self):
         if self.dryrun is not None:
-            self.dryrun = _LateImport.set_dryrun(self.dryrun)
+            self.dryrun, self.debug = _LateImport.set_dryrun(self.dryrun)
 
         if not _LateImport.is_dryrun():
             # Use realpath() to properly resolve for example symlinks on OSX temp paths
@@ -242,7 +247,7 @@ class TempFolder(object):
             shutil.rmtree(self.tmp_folder)
 
         if self.dryrun is not None:
-            _LateImport.set_dryrun(self.dryrun)
+            _LateImport.set_dryrun(self.dryrun, debug=self.debug)
 
 
 def touch(path, fatal=True, logger=None):
@@ -259,7 +264,17 @@ def touch(path, fatal=True, logger=None):
     return write(path, None, fatal=fatal, logger=logger)
 
 
-def write(path, contents, fatal=True, logger=None):
+def _describe_write(path, contents, dryrun):
+    if contents:
+        action = "%s %s bytes to" % ("write" if dryrun else "Writing", len(contents))
+
+    else:
+        action = "touch" if dryrun else "Touching"
+
+    return "%s %s" % (action, short(path))
+
+
+def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
     """Write `contents` to file with `path`
 
     Args:
@@ -275,14 +290,12 @@ def write(path, contents, fatal=True, logger=None):
         return 0
 
     path = resolved_path(path)
-    if _LateImport.is_dryrun():
-        action = "write %s bytes to" % len(contents) if contents else "touch"
-        LOG.debug("Would %s %s", action, short(path))
+    if _LateImport.handle_dryrun(dryrun, logger, _describe_write(path, contents, True)):
         return 1
 
     ensure_folder(path, fatal=fatal, logger=logger)
-    if logger and contents:
-        logger("Writing %s bytes to %s", len(contents), short(path))
+    if logger:
+        logger(_describe_write(path, contents, False))
 
     try:
         with io.open(path, "wt") as fh:
@@ -353,7 +366,9 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True,
         )
 
     if _LateImport.is_dryrun():
-        LOG.debug("Would %s %s %s %s", action, short(source), indicator, short(destination))
+        if logger:
+            LOG.debug("Would %s %s %s %s", action, short(source), indicator, short(destination))
+
         return 1
 
     if must_exist and not os.path.exists(source):
@@ -366,8 +381,7 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True,
 
         if logger:
             note = adapter(source, destination, fatal=fatal, logger=logger) if adapter else ""
-            if logger:
-                logger("%s %s %s %s%s", action.title(), short(source), indicator, short(destination), note)
+            logger("%s %s %s %s%s", action.title(), short(source), indicator, short(destination), note)
 
         if ignore is not None:
             if callable(ignore):

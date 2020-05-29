@@ -9,7 +9,7 @@ import sys
 import tempfile
 
 from runez.convert import to_int
-from runez.system import _LateImport, abort, decode, flattened, LOG, quoted, short, WINDOWS
+from runez.system import _LateImport, abort, decode, flattened, LOG, quoted, short, UNSET, WINDOWS
 
 
 DEFAULT_INSTRUCTIONS = {
@@ -60,11 +60,12 @@ def is_executable(path):
     return path and os.path.isfile(path) and os.access(path, os.X_OK)
 
 
-def make_executable(path, fatal=True):
+def make_executable(path, fatal=True, logger=UNSET):
     """
     Args:
         path (str): chmod file with 'path' as executable
         fatal (bool | None): Abort execution on failure if True
+        logger (callable | None): Logger to use
 
     Returns:
         (int): 1 if effectively done, 0 if no-op, -1 on failure
@@ -73,18 +74,23 @@ def make_executable(path, fatal=True):
         return 0
 
     if _LateImport.is_dryrun():
-        LOG.debug("Would make %s executable", short(path))
+        if logger:
+            LOG.debug("Would make %s executable", short(path))
+
         return 1
 
     if not os.path.exists(path):
-        return abort("%s does not exist, can't make it executable", short(path), fatal=(fatal, -1))
+        return abort("%s does not exist, can't make it executable", short(path), fatal=(fatal, -1), logger=logger)
 
     try:
         os.chmod(path, 0o755)  # nosec
+        if logger:
+            logger("Made '%s' executable", short(path))
+
         return 1
 
     except Exception as e:
-        return abort("Can't chmod %s: %s", short(path), e, fatal=(fatal, -1))
+        return abort("Can't chmod %s: %s", short(path), e, fatal=(fatal, -1), logger=logger)
 
 
 def run(program, *args, **kwargs):
