@@ -228,31 +228,28 @@ class LogManager(object):
 
     @classmethod
     def set_debug(cls, debug):
-        """Useful only as simple callback function, use rune.log.setup() for regular usage"""
-        if debug is None and _LateImport.is_dryrun():
-            debug = True
-
-        cls.set_debug_dryrun(debug=debug)
+        """Useful only as simple callback function, use runez.log.setup() for regular usage"""
+        cls.set_dryrun_debug(debug=debug)
         return cls.debug
 
     @classmethod
     def set_dryrun(cls, dryrun):
-        """Useful only as simple callback function, use rune.log.setup() for regular usage"""
-        cls.set_debug_dryrun(dryrun=dryrun)
+        """Useful only as simple callback function, use runez.log.setup() for regular usage"""
+        cls.set_dryrun_debug(dryrun=dryrun)
         return _LateImport.is_dryrun()
 
     @classmethod
     def set_file_location(cls, file_location):
-        """Useful only as simple callback function, use rune.log.setup() for regular usage"""
+        """Useful only as simple callback function, use runez.log.setup() for regular usage"""
         LogManager.spec.set(file_location=file_location)
         return cls.spec.file_location
 
     @classmethod
-    def set_debug_dryrun(cls, debug=UNSET, dryrun=UNSET):
+    def set_dryrun_debug(cls, dryrun=UNSET, debug=UNSET):
         """
         Args:
-            debug (bool): Enable debug level logging (overrides other specified levels)
             dryrun (bool): Enable dryrun
+            debug (bool): Enable debug level logging (overrides other specified levels)
         """
         if dryrun is UNSET:
             dryrun = _LateImport.is_dryrun()
@@ -316,7 +313,7 @@ class LogManager(object):
             tmp (str | None): Optional temp folder to use (auto determined)
         """
         with cls._lock:
-            cls.set_debug_dryrun(debug=debug, dryrun=dryrun)
+            cls.set_dryrun_debug(dryrun=dryrun, debug=debug)
             cls.spec.set(
                 appname=appname,
                 basename=basename,

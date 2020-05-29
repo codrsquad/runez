@@ -4,6 +4,7 @@ import shutil
 import tempfile
 import time
 
+from runez.convert import represented_bytesize
 from runez.path import ensure_folder, parent_folder
 from runez.system import _LateImport, abort, Anchored, decode, LOG, resolved_path, short, SYMBOLIC_TMP, UNSET
 
@@ -205,11 +206,11 @@ def symlink(source, destination, adapter=None, must_exist=True, fatal=True, logg
 class TempFolder(object):
     """Context manager for obtaining a temp folder"""
 
-    def __init__(self, anchor=True, dryrun=None, follow=True):
+    def __init__(self, anchor=True, dryrun=UNSET, follow=True):
         """
         Args:
             anchor (bool): If True, short-ify paths relative to used temp folder
-            dryrun (bool): Override dryrun (if provided)
+            dryrun (bool): Optionally override current dryrun setting
             follow (bool): If True, change working dir to temp folder (and restore)
         """
         self.anchor = anchor
@@ -220,9 +221,7 @@ class TempFolder(object):
         self.tmp_folder = None
 
     def __enter__(self):
-        if self.dryrun is not None:
-            self.dryrun, self.debug = _LateImport.set_dryrun(self.dryrun)
-
+        self.dryrun, self.debug = _LateImport.set_dryrun(self.dryrun)
         if not _LateImport.is_dryrun():
             # Use realpath() to properly resolve for example symlinks on OSX temp paths
             self.tmp_folder = os.path.realpath(tempfile.mkdtemp())
@@ -237,6 +236,7 @@ class TempFolder(object):
         return tmp
 
     def __exit__(self, *_):
+        _LateImport.set_dryrun(self.dryrun, debug=self.debug)
         if self.anchor:
             Anchored.pop(self.tmp_folder or SYMBOLIC_TMP)
 
@@ -245,9 +245,6 @@ class TempFolder(object):
 
         if self.tmp_folder:
             shutil.rmtree(self.tmp_folder)
-
-        if self.dryrun is not None:
-            _LateImport.set_dryrun(self.dryrun, debug=self.debug)
 
 
 def touch(path, fatal=True, logger=None):
@@ -264,16 +261,6 @@ def touch(path, fatal=True, logger=None):
     return write(path, None, fatal=fatal, logger=logger)
 
 
-def _describe_write(path, contents, dryrun):
-    if contents:
-        action = "%s %s bytes to" % ("write" if dryrun else "Writing", len(contents))
-
-    else:
-        action = "touch" if dryrun else "Touching"
-
-    return "%s %s" % (action, short(path))
-
-
 def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
     """Write `contents` to file with `path`
 
@@ -282,6 +269,7 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
         contents (str | None): Contents to write (only touch file if None)
         fatal (bool | None): Abort execution on failure if True
         logger (callable | None): Logger to use
+        dryrun (bool): Optionally override current dryrun setting
 
     Returns:
         (int): 1 if effectively done, 0 if no-op, -1 on failure
@@ -290,12 +278,13 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
         return 0
 
     path = resolved_path(path)
-    if _LateImport.handle_dryrun(dryrun, logger, _describe_write(path, contents, True)):
+    byte_size = represented_bytesize(len(contents), unit="bytes") if contents else ""
+    if _LateImport.handle_dryrun(dryrun, logger, lambda: "%s %s" % ("write %s to" % byte_size if byte_size else "touch", short(path))):
         return 1
 
     ensure_folder(path, fatal=fatal, logger=logger)
     if logger:
-        logger(_describe_write(path, contents, False))
+        logger("%s %s" % ("Writing %s to" % byte_size if byte_size else "Touching", short(path)))
 
     try:
         with io.open(path, "wt") as fh:

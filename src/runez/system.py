@@ -635,14 +635,14 @@ class CaptureOutput(object):
 
     _capture_stack = []  # Shared across all objects, tracks possibly nested CaptureOutput buffers
 
-    def __init__(self, stdout=True, stderr=True, anchors=None, dryrun=None, seed_logging=False):
+    def __init__(self, stdout=True, stderr=True, anchors=None, dryrun=UNSET, seed_logging=False):
         """Context manager allowing to temporarily grab stdout/stderr/log output.
 
         Args:
             stdout (bool): Capture stdout?
             stderr (bool): Capture stderr?
             anchors (str | list | None): Optional paths to use as anchors for `runez.short()`
-            dryrun (bool | None): Override dryrun (when explicitly specified, ie not None)
+            dryrun (bool): Optionally override current dryrun setting
             seed_logging (bool): If True, ensure there is at least one logging handler configured
         """
         self.stdout = stdout
@@ -668,6 +668,7 @@ class CaptureOutput(object):
         Returns:
             (TrackedOutput): Object holding captured stdout/stderr/log output
         """
+        self.dryrun, self.debug = _LateImport.set_dryrun(self.dryrun)
         self.tracked = TrackedOutput(
             CapturedStream("stdout", sys.stdout) if self.stdout else None,
             CapturedStream("stderr", sys.stderr) if self.stderr else None,
@@ -682,9 +683,6 @@ class CaptureOutput(object):
         if self.anchors:
             Anchored.add(self.anchors)
 
-        if self.dryrun is not None:
-            self.dryrun, self.debug = _LateImport.set_dryrun(self.dryrun)
-
         if self.seed_logging and not self._has_stream_handler():
             # Define a logging handler, IsolatedLogSetup cleared them all
             self.handler = logging.StreamHandler(stream=self.tracked.captured[-1].buffer)
@@ -695,6 +693,7 @@ class CaptureOutput(object):
         return self.tracked
 
     def __exit__(self, *args):
+        _LateImport.set_dryrun(self.dryrun, debug=self.debug)
         if self.tracked.captured:
             self._capture_stack.pop()
 
@@ -706,9 +705,6 @@ class CaptureOutput(object):
 
         if self.anchors:
             Anchored.pop(self.anchors)
-
-        if self.dryrun is not None:
-            _LateImport.set_dryrun(self.dryrun, debug=self.debug)
 
 
 class CurrentFolder(object):
@@ -1158,7 +1154,7 @@ class _LateImport:
         """Set runez.DRYRUN, and return its previous value (useful for context managers)
 
         Args:
-            dryrun (bool | None): New value for runez.DRYRUN
+            dryrun (bool | UNSET): New value for runez.DRYRUN
             debug (bool | UNSET): New value for runez.log.debug
 
         Returns:
@@ -1167,7 +1163,9 @@ class _LateImport:
         r = cls._runez_module()
         old_dryrun = r.DRYRUN
         old_debug = r.log.debug
-        r.DRYRUN = bool(dryrun)
+        if dryrun is not UNSET:
+            r.DRYRUN = bool(dryrun)
+
         if debug is not UNSET:
             r.log.debug = debug
 
