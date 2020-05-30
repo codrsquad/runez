@@ -80,7 +80,7 @@ def make_executable(path, fatal=True, logger=UNSET):
         return 1
 
     if not os.path.exists(path):
-        return abort("%s does not exist, can't make it executable", short(path), fatal=(fatal, -1), logger=logger)
+        return abort("%s does not exist, can't make it executable" % short(path), return_value=-1, fatal=fatal, logger=logger)
 
     try:
         os.chmod(path, 0o755)  # nosec
@@ -90,7 +90,7 @@ def make_executable(path, fatal=True, logger=UNSET):
         return 1
 
     except Exception as e:
-        return abort("Can't chmod %s: %s", short(path), e, fatal=(fatal, -1), logger=logger)
+        return abort("Can't chmod %s" % short(path), exc_info=e, return_value=-1, fatal=fatal, logger=logger)
 
 
 def run(program, *args, **kwargs):
@@ -146,7 +146,7 @@ def run(program, *args, **kwargs):
     if not full_path:
         result.error = "%s is not installed" % short(program)
         if fatal:
-            abort(result.error, fatal=fatal, code=1)
+            abort(result.error, code=1, fatal=fatal)
 
         return result
 
@@ -177,7 +177,7 @@ def run(program, *args, **kwargs):
 
             LOG.error("\n".join(message))
             message = "%s exited with code %s" % (short(program), result.exit_code)
-            abort(message, fatal=fatal, code=result.exit_code, exc_info=result.exc_info)
+            abort(message, code=result.exit_code, exc_info=result.exc_info, fatal=fatal)
 
         return result
 
@@ -292,7 +292,7 @@ def which(program, ignore_own_venv=False):
     return None
 
 
-def require_installed(program, instructions=None, fatal=True, platform=sys.platform):
+def require_installed(program, instructions=None, platform=sys.platform, fatal=True):
     """
     Args:
         program (str): Program to check
@@ -301,11 +301,11 @@ def require_installed(program, instructions=None, fatal=True, platform=sys.platf
                                    - None if `program` can simply be install via `brew install <program>`
                                    - A word (without spaces) to refer to "usual" package (brew on OSX, apt on Linux etc)
                                    - A dict with instructions per `sys.platform`
-        fatal (bool): If True, raise `runez.system.AbortException` when `program` is not installed
         platform (str | None): Override sys.platform, if provided
+        fatal (bool): If True, raise `runez.system.AbortException` when `program` is not installed
 
     Returns:
-        (bool): True if installed, False otherwise (and fatal=False)
+        (bool): True if installed, False otherwise (when fatal=False)
     """
     if which(program) is None:
         if not instructions:
@@ -323,7 +323,7 @@ def require_installed(program, instructions=None, fatal=True, platform=sys.platf
                 message += ", %s" % instructions
 
         message = message.format(program=program)
-        return abort(message, fatal=(fatal, False))
+        return abort(message, return_value=False, fatal=fatal)
 
     return True
 

@@ -55,7 +55,7 @@ def ensure_folder(path, folder=False, fatal=True, logger=LOG.debug, dryrun=UNSET
 
     if os.path.isdir(folder):
         if not os.access(folder, os.W_OK):
-            return abort("Folder %s is not writable", folder, fatal=(fatal, -1), logger=logger)
+            return abort("Folder %s is not writable" % folder, return_value=-1, fatal=fatal, logger=logger)
 
         return 0
 
@@ -74,7 +74,7 @@ def ensure_folder(path, folder=False, fatal=True, logger=LOG.debug, dryrun=UNSET
         return 1
 
     except Exception as e:
-        return abort("Can't create folder %s: %s", short(folder), e, fatal=(fatal, -1), logger=logger)
+        return abort("Can't create folder %s" % short(folder), exc_info=e, return_value=-1, fatal=fatal, logger=logger)
 
 
 def parent_folder(path, base=None):

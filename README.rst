@@ -37,9 +37,9 @@ Features
 
 - Takes care of most edge cases, with nice errors
 
-    - Functions can be called without checking for return code etc (abort by default, with nice error)
+  - Functions can be called without checking for return code etc (abort by default, with nice error)
 
-    - They can also be called with ``fatal=False``, in which case the return value will indicate whether call succeeded or not
+  - They can also be called with ``fatal=False``, in which case the return value will indicate whether call succeeded or not
 
 - Support for ``dryrun`` mode (show what would be done, but don't do it)
 
@@ -99,6 +99,59 @@ Installation
 ============
 
 As usual, available on pypi_: ``pip install runez``
+
+
+Philosophy
+==========
+
+``runez`` tries to provide a consistent interface across functions.
+Here are the main tenets for functions involving I/O (such as writing, reading, copy-ing files etc):
+
+All IO-related functions **NOT returning content** (``run()``, ``delete()``, ...)
+have this common signature: ``fatal=True, logger=UNSET, dryrun=UNSET``
+
+- ``fatal``: decides whether operation should raise an exception on failure or not
+
+  - ``fatal=True`` (default): raise an exception on failure, ``LOG.error()`` a meaningful error
+
+  - ``fatal=False``: don't raise on failure, ``LOG.error()`` a meaningful error
+
+  - ``fatal=None``: don't raise on failure, don't log anything
+
+  - In non-fatal mode, calls try to return a usable value appropriate for the call (see docstring of each function)
+
+- ``logger``: decides how chatty the operation should be
+
+  - ``LOG.error()`` is used for failures, except when ``fatal`` is not True AND provided``logger`` is a callable
+
+  - ``logger=UNSET`` (default):
+
+    - ``LOG.debug("Running: ...")`` to trace activity
+
+    - ``LOG.debug("Would run: ...")`` in dryrun mode
+
+  - ``logger=mylogger``: call provided ``mylogger()`` to trace activity (example: ``logger=MY_LOGGER.info``)
+
+    - ``mylogger("Running: ...")`` to trace activity
+
+    - ``mylogger("Would run: ...")`` in dryrun mode
+
+  - ``logger=None``: Don't log anything (even errors)
+
+- ``dryrun`` allows to override current ``runez.DRYRUN`` setting just for this call
+
+
+
+All IO-related functions **returning content** (``read_json()``, ``readlines()``, ...)
+use a simpler convention based on: ``default=UNSET``,
+which decides whether operation should raise an exception on failure or not:
+
+- When ``default`` is **NOT provided**, the function call will abort on failure with an exception,
+  logging a meaningful error via ``LOG.error()``
+
+- When ``default`` **is provided** (even if ``None``), the function call will NOT abort,
+  but return the specified ``default`` instead, it is up to the caller to log anything
+  in that case (no log chatter comes from ``runez`` in that case, at all)
 
 
 .. _pypi: https://pypi.org/

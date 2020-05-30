@@ -93,7 +93,7 @@ def verify_abort(func, *args, **kwargs):
     Returns:
         (str): Chatter from call to 'func', if it did indeed raise
     """
-    expected_exception = kwargs.pop("expected_exception", _LateImport.abort_exception())
+    expected_exception = _LateImport.abort_exception(override=kwargs.get("fatal"))
     with CaptureOutput() as logged:
         try:
             value = func(*args, **kwargs)

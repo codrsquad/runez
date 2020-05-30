@@ -48,40 +48,30 @@ def test_edge_cases():
     assert not runez.file.is_younger("", 1)
     assert not runez.file.is_younger("/dev/null/not-there", 1)
 
-    assert list(runez.readlines(None, fatal=False)) == []
-    with pytest.raises(TypeError):
-        list(runez.readlines(None))
-
+    assert runez.readlines(None, fatal=False) is None
     with pytest.raises((OSError, IOError)):
-        list(runez.readlines("/dev/null/not-there"))
+        runez.readlines("/dev/null/not-there")
 
     with pytest.raises(runez.system.AbortException):
-        list(runez.readlines(None, fatal=True))
+        runez.readlines("/dev/null/not-there", fatal=True)
 
 
 def test_ini_to_dict():
     expected = {None: {"root": "some-value"}, "": {"ek": "ev"}, "s1": {"k1": "v1"}, "s2": {"k2": ""}}
-    actual = runez.file.ini_to_dict(SAMPLE_CONF.splitlines(), keep_empty=True)
-    assert actual == expected
-
     with runez.TempFolder():
         runez.write("test.ini", SAMPLE_CONF)
         actual = runez.file.ini_to_dict("test.ini", keep_empty=True)
         assert actual == expected
 
-        with open("test.ini") as fh:
-            actual = runez.file.ini_to_dict(fh, keep_empty=True)
-            assert actual == expected
-
-    del expected[None]
-    del expected[""]
-    del expected["s2"]
-    actual = runez.file.ini_to_dict(SAMPLE_CONF.splitlines(), keep_empty=False)
-    assert actual == expected
+        del expected[None]
+        del expected[""]
+        del expected["s2"]
+        actual = runez.file.ini_to_dict("test.ini", keep_empty=False)
+        assert actual == expected
 
 
 @patch("io.open", side_effect=Exception)
-@patch("os.unlink", side_effect=Exception)
+@patch("os.unlink", side_effect=Exception("bad unlink"))
 @patch("shutil.copy", side_effect=Exception)
 @patch("runez.open", side_effect=Exception)
 @patch("os.path.exists", return_value=True)
@@ -94,6 +84,7 @@ def test_failure(*_):
 
         assert runez.delete("some-file", fatal=False) == -1
         assert "Can't delete" in logged
+        assert "bad unlink" in logged.pop()
 
         assert runez.copy("some-file", "bar", fatal=False) == -1
         assert "Can't copy" in logged.pop()
@@ -143,17 +134,17 @@ def test_file_inspection(temp_folder, logged):
     assert "Deleting sample" in logged.pop()
 
     sample = runez.conftest.resource_path("sample.txt")
-    assert len(list(runez.readlines(sample))) == 4
-    assert len(list(runez.readlines(sample, first=1))) == 1
+    assert len(runez.readlines(sample)) == 4
+    assert len(runez.readlines(sample, first=1)) == 1
     assert not logged
 
-    content = list(runez.readlines(sample))
+    content = runez.readlines(sample)
     cc = "%s\n" % "\n".join(content)
     assert runez.write("sample", cc, fatal=False, logger=logging.debug) == 1
-    assert list(runez.readlines("sample")) == content
+    assert runez.readlines("sample") == content
     assert "bytes to sample" in logged.pop()  # Writing 13 bytes on linux... but 14 on windows...
 
-    assert list(runez.readlines("sample", first=2)) == ["", "Fred"]
+    assert runez.readlines("sample", first=2) == ["", "Fred"]
     assert runez.file.is_younger("sample", age=10)
     assert not runez.file.is_younger("sample", age=-1)
 
@@ -161,7 +152,7 @@ def test_file_inspection(temp_folder, logged):
     with io.open("not-a-text-file", "wb") as fh:
         fh.write(b"\x89 hello\nworld")
 
-    assert list(runez.readlines("not-a-text-file", first=1, errors="ignore")) == [" hello"]
+    assert runez.readlines("not-a-text-file", first=1, errors="ignore") == [" hello"]
     assert not logged
 
     assert runez.copy("bar", "baz", fatal=False) == -1

@@ -10,26 +10,31 @@ import runez
 from runez.conftest import verify_abort
 
 
-def failed_function(*args):
+def failed_function(message, fatal=True, logger=runez.UNSET):
     with patch("runez.system.logging.root") as root:
         root.handlers = None
-        runez.abort(*args)
+        runez.abort(message, fatal=fatal, logger=logger)
 
 
 def test_abort(logged):
-    assert runez.abort("aborted", fatal=(False, "some-return")) == "some-return"
+    assert runez.abort("aborted", return_value="some-return", fatal=False) == "some-return"
     assert "aborted" in logged.pop()
 
-    assert runez.abort("aborted", fatal=(False, "some-return"), code=0) == "some-return"
-    assert "aborted" in logged
-    assert "ERROR" not in logged.pop()
-
-    assert runez.abort("aborted", fatal=(None, "some-return")) == "some-return"
+    assert runez.abort("aborted", return_value="some-return", fatal=None) == "some-return"
     assert not logged
-    assert "stderr: oops" in verify_abort(failed_function, "oops")
 
-    with patch("runez.system.AbortException", side_effect=str):
-        assert runez.abort("oops", logger=None) == "1"
+    assert "stderr: oops" in verify_abort(failed_function, "oops")  # logger is UNSET -> log failure
+    assert "oops" not in verify_abort(failed_function, "oops", logger=None)  # logger is None -> don't log failure
+
+    # Verify experimental passing of exception via 'fatal' works
+    assert "stderr: oops" in verify_abort(failed_function, "oops", fatal=SystemExit, logger=None)  # log failure anyway due to sys.exit()
+
+    # Verify we still log failure when we're about to sys.exit(), even when logger given is explicitly None
+    prev = runez.system.AbortException
+    runez.system.AbortException = SystemExit
+    assert "stderr: oops" in verify_abort(failed_function, "oops", logger=None)  # logger is None -> log failure anyway
+    runez.system.AbortException = prev
+    assert not logged
 
 
 def test_capture_scope():
@@ -306,15 +311,6 @@ def test_system():
     assert runez.stringified([1, 2]) == "[1, 2]"
     assert runez.stringified([1, 2], converter=lambda x: None) == "[1, 2]"  # If converter returns None, we keep the value
     assert runez.stringified(5, converter=lambda x: x) == "5"  # No-op converter
-
-    assert runez.system._formatted_string() == ""
-    assert runez.system._formatted_string("test") == "test"
-    assert runez.system._formatted_string("test", "bar") == "test"
-    assert runez.system._formatted_string("test %s", "bar") == "test bar"
-    assert runez.system._formatted_string("test %s %s", "bar") == "test %s %s"
-    assert runez.system._formatted_string(None) is None
-    assert runez.system._formatted_string(None, "bar") is None
-    assert runez.system._formatted_string("test", None) == "test"
 
 
 def test_path_resolution(temp_folder):

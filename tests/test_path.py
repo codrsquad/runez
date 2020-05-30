@@ -27,8 +27,6 @@ def test_ensure_folder(temp_folder):
     with runez.CaptureOutput():
         assert runez.touch("sample") == 1
         assert "Can't create folder" in verify_abort(runez.ensure_folder, "sample", folder=True)
-        custom = verify_abort(runez.ensure_folder, "sample", folder=True, fatal=SystemExit, expected_exception=SystemExit)
-        assert "Can't create folder" in custom
         with pytest.raises(AssertionError):
             assert verify_abort(runez.ensure_folder, None)
 

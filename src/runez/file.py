@@ -17,8 +17,8 @@ def copy(source, destination, ignore=None, adapter=None, fatal=True, logger=LOG.
         destination (str | None): Destination file or folder
         ignore (callable | list | str | None): Names to be ignored
         adapter (callable | None): Optional function to call on 'source' before copy
-        fatal (bool | None): Abort execution on failure if True
-        logger (callable | None): Logger to use
+        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger (callable | None): Logger to use, or None to disable log chatter
 
     Returns:
         (int): 1 if effectively done, 0 if no-op, -1 on failure
@@ -30,8 +30,8 @@ def delete(path, fatal=True, logger=LOG.debug):
     """
     Args:
         path (str | None): Path to file or folder to delete
-        fatal (bool | None): Abort execution on failure if True
-        logger (callable | None): Logger to use
+        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger (callable | None): Logger to use, or None to disable log chatter
 
     Returns:
         (int): 1 if effectively done, 0 if no-op, -1 on failure
@@ -60,29 +60,29 @@ def delete(path, fatal=True, logger=LOG.debug):
         return 1
 
     except Exception as e:
-        return abort("Can't delete %s: %s", short(path), e, fatal=(fatal, -1))
+        return abort("Can't delete %s" % short(path), exc_info=e, return_value=-1, fatal=fatal)
 
 
-def ini_to_dict(data, keep_empty=False, default=None, logger=UNSET):
+def ini_to_dict(path, keep_empty=False, default=None, logger=UNSET):
     """Contents of an INI-style config file as a dict of dicts: section -> key -> value
 
     Args:
-        data (str | file | TextIO | list | None): Path to file, or file object, or lines to parse
+        path (str | None): Path to file to parse
         keep_empty (bool): If True, keep definitions with empty values
         default (dict | None): Object to return if conf couldn't be read
-        logger (callable | None): Logger to use to report failures, or trace usage
+        logger (callable | None): Logger to use, or None to disable log chatter
 
     Returns:
         (dict): Dict of section -> key -> value
     """
-    if not data:
+    if not path:
         return default
 
     result = {}
     try:
         section_key = None
         section = None
-        for line in readlines(data, logger=logger):
+        for line in readlines(path, logger=logger):
             line = line.strip()
             if "#" in line:
                 i = line.index("#")
@@ -134,40 +134,44 @@ def is_younger(path, age, default=False):
         return default
 
 
-def readlines(data, first=None, errors=None, fatal=UNSET, logger=UNSET):
-    """Yield the `first` N lines from `data`
-
+def readlines(path, default=UNSET, first=None, errors=None, fatal=UNSET, logger=UNSET):
+    """
     Args:
-        data (str | file | TextIO | list): Path to file, or object to return lines from
+        path (str | None): Path to file to read lines from
+        default (list | None): Default if file is not present, or it could not be read
         first (int | None): Return only the 'first' lines when specified
         errors (str | None): Optional string specifying how encoding errors are to be handled
-        fatal (bool): If True: abort() on error, if UNSET: pass-through original exception
-        logger (callable | None): Logger to use to report crashes
+        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger (callable | None): Logger to use, or None to disable log chatter
+
+    Returns:
+        (list): List of lines read, newlines and traling spaces stripped
     """
+    if not path:
+        return None
+
     try:
-        if isinstance(data, list):
-            for line in _readlines(data, first):
-                yield line
-
-            return
-
-        if hasattr(data, "readline"):
-            for line in _readlines(data, first):
-                yield line
-
-            return
-
-        path = resolved_path(data)
+        result = []
+        path = resolved_path(path)
         with io.open(path, errors=errors) as fh:
-            for line in _readlines(fh, first):
-                yield line
+            if not first:
+                first = -1
+
+            for line in fh:
+                if first == 0:
+                    return result
+
+                result.append(decode(line).rstrip())
+                first -= 1
+
+            return result
 
     except Exception as e:
         if fatal is UNSET:
             raise
 
         if fatal:
-            abort("Can't readlines() from %s: %s", short(data), e, fatal=fatal, logger=logger)
+            abort("Can't readlines() from %s" % short(path), exc_info=e, fatal=fatal, logger=logger)
 
 
 def move(source, destination, adapter=None, fatal=True, logger=LOG.debug):
@@ -177,8 +181,8 @@ def move(source, destination, adapter=None, fatal=True, logger=LOG.debug):
         source (str | None): Source file or folder
         destination (str | None): Destination file or folder
         adapter (callable): Optional function to call on 'source' before copy
-        fatal (bool | None): Abort execution on failure if True
-        logger (callable | None): Logger to use
+        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger (callable | None): Logger to use, or None to disable log chatter
 
     Returns:
         (int): 1 if effectively done, 0 if no-op, -1 on failure
@@ -194,8 +198,8 @@ def symlink(source, destination, adapter=None, must_exist=True, fatal=True, logg
         destination (str | None): Destination file or folder
         adapter (callable): Optional function to call on 'source' before copy
         must_exist (bool): If True, verify that source does indeed exist
-        fatal (bool | None): Abort execution on failure if True
-        logger (callable | None): Logger to use
+        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger (callable | None): Logger to use, or None to disable log chatter
 
     Returns:
         (int): 1 if effectively done, 0 if no-op, -1 on failure
@@ -252,8 +256,8 @@ def touch(path, fatal=True, logger=None):
 
     Args:
         path (str | None): Path to file to touch
-        fatal (bool | None): Abort execution on failure if True
-        logger (callable | None): Logger to use
+        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger (callable | None): Logger to use, or None to disable log chatter
 
     Returns:
         (int): 1 if effectively done, 0 if no-op, -1 on failure
@@ -267,8 +271,8 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
     Args:
         path (str | None): Path to file
         contents (str | None): Contents to write (only touch file if None)
-        fatal (bool | None): Abort execution on failure if True
-        logger (callable | None): Logger to use
+        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger (callable | None): Logger to use, or None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
 
     Returns:
@@ -297,7 +301,7 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
         return 1
 
     except Exception as e:
-        return abort("Can't write to %s: %s", short(path), e, fatal=(fatal, -1))
+        return abort("Can't write to %s" % short(path), exc_info=e, return_value=-1, fatal=fatal)
 
 
 def _copy(source, destination, ignore=None):
@@ -334,8 +338,8 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True,
         destination (str | None): Destination file or folder
         func (callable): Implementation function
         adapter (callable | None): Optional function to call on 'source' before copy
-        fatal (bool | None): Abort execution on failure if True
-        logger (callable | None): Logger to use
+        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger (callable | None): Logger to use, or None to disable log chatter
         must_exist (bool): If True, verify that source does indeed exist
         ignore (callable | list | str | None): Names to be ignored
 
@@ -350,9 +354,8 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True,
     psource = parent_folder(source)
     pdest = resolved_path(destination)
     if psource != pdest and psource.startswith(pdest):
-        return abort(
-            "Can't %s %s %s %s: source contained in destination", action, short(source), indicator, short(destination), fatal=(fatal, -1)
-        )
+        message = "Can't %s %s %s %s: source contained in destination" % (action, short(source), indicator, short(destination))
+        return abort(message, return_value=-1, fatal=fatal)
 
     if _LateImport.is_dryrun():
         if logger:
@@ -362,7 +365,7 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True,
 
     if must_exist and not os.path.exists(source):
         message = "%s does not exist, can't %s to %s" % (short(source), action.lower(), short(destination))
-        return abort(message, fatal=(fatal, -1), logger=logger)
+        return abort(message, return_value=-1, fatal=fatal, logger=logger)
 
     try:
         # Ensure parent folder exists
@@ -385,17 +388,5 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True,
         return 1
 
     except Exception as e:
-        return abort("Can't %s %s %s %s: %s", action, short(source), indicator, short(destination), e, fatal=(fatal, -1))
-
-
-def _readlines(data, first):
-    if not first:
-        first = -1
-
-    for line in data:
-        line = decode(line).rstrip()
-        if first == 0:
-            return
-
-        first -= 1
-        yield line
+        message = "Can't %s %s %s %s" % (action, short(source), indicator, short(destination))
+        return abort(message, exc_info=e, return_value=-1, fatal=fatal)

@@ -2,11 +2,28 @@
 History
 =======
 
-2.0.9 (2020-05-29)
+2.0.9 (2020-05-30)
 ------------------
 
+* Reviewed all IO related functions and made the respect the same signature, explained in doc:
+
+  * Functions not returning content (``run()``, ``delete()``, ...) all have this signature:
+    ``fatal=True, logger=UNSET, dryrun=UNSET``
+
+  * Functions returning content (``read_json()``, ``readlines()``, ...) are simplified to just a:
+    ``default=UNSET`` (aborts on failure when no ``default`` is specified,
+    ``default`` returned otherwise).
+
+* Simplified signatures of: ``read_json``, ``readlines``
+
+* Made ``readlines`` consistent with all other IO related functions
+
+* Defined signature of ``abort()``, not going via ``**kwargs`` anymore
+
+* Added adhoc "linter" to ensure IO related functions have a consistent signature
+
 * Bug fixes, renamed ``test_resource`` to ``resource_path`` (in ``runez.conftest``),
-  to avoid pytest thinking it is a test function when imported
+  to avoid pytest thinking it is a test function when imported.
 
 
 2.0.6 (2020-05-20)

@@ -1,0 +1,224 @@
+#!/usr/bin/env python3
+
+import ast
+import collections
+import os
+import re
+import sys
+
+
+RE_FROM = re.compile(r"^from .+ import (.+)$")
+RE_RENAMED = re.compile(r"^.+ as (.+)$")
+PROJECT = os.path.dirname(os.path.abspath(__file__))
+SRC = os.path.join(PROJECT, "src", "runez")
+
+IO_API_EXPECTED = collections.OrderedDict(fatal=True, logger="UNSET", dryrun="UNSET")
+EXPECTED_DRYRUN = collections.OrderedDict(dryrun="UNSET")
+IO_API_DOCSTRINGS = dict(
+    fatal="fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log",
+    logger="logger (callable | None): Logger to use, or None to disable log chatter",
+    dryrun="dryrun (bool): Optionally override current dryrun setting",
+)
+
+
+def get_names(line):
+    result = []
+    for item in line.strip("\\").split(","):
+        item = item.strip().strip('"')
+        if not item:
+            continue
+
+        m = RE_RENAMED.match(item)
+        if m:
+            item = m.group(1)
+
+        result.append(item)
+
+    return result
+
+
+def check_import_order():
+    """
+    Check that order of import in runez/__init__py matches the order in its __all__ declaration
+    This allows to have a consistent order, and makes sure no import was forgotten in __all__
+    """
+    path = os.path.join(SRC, "__init__.py")
+    is_continuation = False
+    imported = []
+    declared = []
+    with open(path) as fh:
+        for line in fh:
+            line = line.rstrip()
+            if is_continuation:
+                imported.append(get_names(line))
+                is_continuation = line.endswith("\\")
+                continue
+
+            m = RE_FROM.match(line)
+            if m:
+                imported.append(get_names(m.group(1)))
+                is_continuation = line.endswith("\\")
+                continue
+
+            if line.startswith('    "'):
+                declared.append(get_names(line))
+
+    declared.pop(0)  # First line doesn't count, it just declares what's defined in runez.__init__ itself
+    if len(imported) != len(declared):
+        sys.exit("Line count differs in runez.__init__: %s imported, %s declared" % (len(imported), len(declared)))
+
+    diffs = 0
+    for i, imp in enumerate(imported):
+        dec = declared[i]
+        if imp != dec:
+            diffs += 1
+            print("lines differ:")
+            print("  imported: %s" % ", ".join(imp))
+            print("vs")
+            print("  declared: %s" % ", ".join(dec))
+            print("")
+
+    if diffs:
+        print("Found %s diffs in runez.__init__" % diffs)
+
+    else:
+        print("%s orders match in runez.__init__" % len(imported))
+
+    return diffs
+
+
+def get_node_value(node: ast.AST):
+    """Human friendly short representation"""
+    if isinstance(node, ast.NameConstant):
+        return node.value
+
+    if isinstance(node, ast.Attribute):
+        return "%s.%s" % (get_node_value(node.value), node.attr)
+
+    if isinstance(node, ast.Name):
+        return node.id
+
+    if isinstance(node, ast.Num):
+        return node.n
+
+    if isinstance(node, ast.Str):
+        return node.s
+
+    if isinstance(node, ast.Call):
+        return node.func.id
+
+    return ast.dump(node)
+
+
+def named_arg_defaults(node: ast.FunctionDef):
+    """Named arguments from function definition 'node', in a handy ordered dict, values are the stated defaults in source code"""
+    result = collections.OrderedDict()
+    defaults = node.args.defaults
+    args = node.args.args[-len(defaults):]
+    for i, a in enumerate(args):
+        default = defaults[i]
+        v = get_node_value(default)
+        result[a.arg] = v
+
+    return result
+
+
+def signature_representation(sig: dict):
+    """One-liner representation of a simplified signature (similar to what it would be in code)"""
+    return ", ".join("%s=%s" % (k, v) for k, v in sig.items())
+
+
+def io_api_problem(sig: dict, expected: dict, docstring: str):
+    """Problem (if any) with function signature of an IO API"""
+    if sig != expected:
+        return "Bad IO API: %s" % signature_representation(expected)
+
+    if not docstring:
+        return "No docstring"
+
+    for k in expected:
+        v = IO_API_DOCSTRINGS[k]
+        if v not in docstring:
+            if len(expected) == 1:
+                general_dryrun = "dryrun (bool): Enable dryrun"
+                if general_dryrun in docstring:
+                    return None
+
+            return "Bad docstring for '%s', should be: %s" % (k, v)
+
+
+def function_id(path, node):
+    """Short reference where 'node' appears in file with 'path'"""
+    path = path[len(SRC) + 1:]
+    return "%s:%s %s()" % (path, node.lineno, node.name)
+
+
+def get_docstring(node: ast.FunctionDef):
+    """Docstring of a function defintion, this will crash if the function doesn't have one"""
+    first_statement = node.body[0]
+    if isinstance(first_statement, ast.Expr) and isinstance(first_statement.value, ast.Str):
+        return first_statement.value.s
+
+
+def FunctionDef_problem(path: str, node: ast.FunctionDef):
+    """Visitor for ast.FunctionDef nodes"""
+    if node.args.defaults:
+        sig = named_arg_defaults(node)
+        if node.name in ("__init__", "set_dryrun_debug"):
+            expected = EXPECTED_DRYRUN
+
+        else:
+            expected = IO_API_EXPECTED
+
+        if any(k in sig for k in expected):
+            docstring = get_docstring(node)
+            subset = collections.OrderedDict((k, v) for k, v in sig.items() if k in expected)
+            problem = io_api_problem(subset, expected, docstring)
+            if problem:
+                problem = "%s, %s" % (function_id(path, node), problem)
+                return problem
+
+
+def adhoc_lint_file(path):
+    """Quick and dirt home-made linter: visit all code of file with 'path' via AST visitor"""
+    errors = 0
+    with open(path) as fh:
+        content = "".join(fh.readlines())
+        tree = ast.parse(content, filename=path)
+        for node in ast.walk(tree):
+            # Quick visitor convention: functions with suffix _problem will count as validators
+            validator = globals().get("%s_problem" % node.__class__.__name__)
+            if validator:
+                problem = validator(path, node)
+                if problem:
+                    print(problem)
+                    errors += 1
+
+    return errors
+
+
+def adhoc_linter():
+    """Quick and dirt home-made linter: visit all files in this project via AST visitor"""
+    errors = 0
+    root = os.path.join(PROJECT, "src", "runez")
+    for root, dirs, files in os.walk(root):
+        if "__pycache__" in dirs:
+            dirs.remove("__pycache__")
+
+        for fname in files:
+            if fname.endswith(".py"):
+                errors += adhoc_lint_file(os.path.join(root, fname))
+
+    return errors
+
+
+def main():
+    errors = check_import_order()
+    # errors += adhoc_linter()
+    if errors:
+        print("\nFound %s errors" % errors)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

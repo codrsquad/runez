@@ -53,7 +53,7 @@ class Undefined(object):
 UNSET = Undefined()  # type: Undefined
 
 
-def abort(*args, **kwargs):
+def abort(message, code=1, exc_info=None, return_value=None, fatal=True, logger=UNSET):
     """General wrapper for optionally fatal calls
 
     >>> from runez import abort
@@ -67,50 +67,55 @@ def abort(*args, **kwargs):
     >>> abort("foo", fatal=False)  # Returns False
     foo
     False
-    >>> abort("foo", fatal=(False, None))  # Returns None
+    >>> abort("foo", fatal=False)  # Returns None
     foo
-    >>> abort("foo", fatal=(False, -1)) # Returns -1
+    >>> abort("foo", return_value=-1, fatal=False)  # Returns -1
     foo
     -1
     >>> # Not fatal, will not log/print any message:
     >>> abort("foo", fatal=None)  # Returns None
-    >>> abort("foo", fatal=(None, None))  # Returns None
-    >>> abort("foo", fatal=(None, -1))  # Returns -1
+    >>> abort("foo", return_value=-1, fatal=None)  # Returns -1
     -1
 
     Args:
-        *args: Args passed through for error reporting
-        **kwargs: Args passed through for error reporting
+        message (str): Message explaining why we're aborting
+        code (int): Exit code used when runez.system.AbortException is set to SystemExit
+        exc_info (Exception): Exception info to pass on to logger
+        return_value (Any): Value to return when `fatal` is not True
+        fatal (bool | None): True: abort execution, False: don't abort but log, None: don't abort, don't log
+        logger (callable | None): Logger to use, or None to disable log chatter
 
     Returns:
-        kwargs["return_value"] (default: -1) to signify failure to non-fatal callers
+        Given `return_value`
     """
-    code = kwargs.pop("code", 1)
-    logger = kwargs.pop("logger", UNSET)
-    if logger is UNSET:
-        logger = LOG.error if code else LOG.debug
+    if exc_info is not None:
+        message = "%s: %s" % (message, exc_info)
 
-    fatal = kwargs.pop("fatal", True)
-    return_value = fatal
-
-    if isinstance(fatal, tuple) and len(fatal) == 2:
-        fatal, return_value = fatal
-
-    if logger and fatal is not None and args:
-        if logging.root.handlers:
-            logger(*args, **kwargs)
-
-        else:
-            sys.stderr.write("%s\n" % _formatted_string(*args))
+    if logger is not None and fatal is not None:
+        _show_abort_message(logger, fatal, message, exc_info)
 
     if fatal:
         exception = _LateImport.abort_exception(override=fatal)
         if exception is not None:
+            if logger is None and exception is SystemExit:
+                _show_abort_message(logger, fatal, message, exc_info)  # Must show message if we're about to raise SystemExit
+
             # Raising exception from dedicated function, to reduce stack trace shown when a test fails
             _raise(exception, code)
-            return exception(code)  # Assume callable if we could not rais
 
     return return_value
+
+
+def _show_abort_message(logger, fatal, message, exc_info):
+    if logging.root.handlers:
+        if not fatal and callable(logger):
+            logger(message, exc_info=exc_info)
+
+        else:
+            LOG.error(message, exc_info=exc_info)
+
+    else:
+        sys.stderr.write("%s\n" % message)
 
 
 def decode(value, strip=False):
@@ -1128,16 +1133,27 @@ class _LateImport:
         return cls._runez_module().log.current_test()
 
     @classmethod
+    def expanded_message(cls, message):
+        if callable(message):
+            message = message()  # Allow message to be late-called function
+
+        return message
+
+    @classmethod
+    def handle_io_default(cls, default, message, exc_info=None):
+        if default is UNSET:
+            abort(cls.expanded_message(message), exc_info=exc_info)
+
+        return default
+
+    @classmethod
     def handle_dryrun(cls, dryrun, logger, message):
         if dryrun is UNSET:
             dryrun = cls.is_dryrun()
 
         if dryrun:
             if logger is not None:
-                if callable(message):
-                    message = message()  # Allow message to be late-called function
-
-                LOG.debug("Would %s" % message)
+                LOG.debug("Would %s" % cls.expanded_message(message))
 
             return True
 
@@ -1207,21 +1223,6 @@ def _flatten(result, value, split, sanitized, shellify, unique):
 
     if not unique or value not in result:
         result.append(value)
-
-
-def _formatted_string(*args):
-    if not args:
-        return ""
-
-    message = args[0]
-    if len(args) == 1:
-        return message
-
-    try:
-        return message % args[1:]
-
-    except TypeError:
-        return message
 
 
 def _get_value(obj, key):

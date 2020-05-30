@@ -552,19 +552,17 @@ class Serializable(object):
         return self.__class__.from_dict(self.to_dict())
 
     @classmethod
-    def from_json(cls, path, default=None, fatal=True, logger=UNSET):
+    def from_json(cls, path, default=UNSET):
         """
         Args:
             path (str): Path to json file
             default (dict | None): Default if file is not present, or if it's not json
-            fatal (bool | None): Abort execution on failure if True
-            logger (callable | None): Logger to use
 
         Returns:
             (cls): Deserialized object
         """
         result = cls()
-        data = read_json(path, default=default, fatal=fatal, logger=logger)
+        data = read_json(path, default=default)
         result.set_from_dict(data, source=short(path))
         return result
 
@@ -618,38 +616,25 @@ class Serializable(object):
 runez.schema.Serializable = Serializable
 
 
-def read_json(path, default=None, fatal=True, logger=UNSET):
+def read_json(path, default=UNSET):
     """
     Args:
         path (str | None): Path to file to deserialize
         default (dict | list | str | None): Default if file is not present, or if it's not json
-        fatal (bool | None): Abort execution on failure if True
-        logger (callable | None): Logger to use
 
     Returns:
         (dict | list | str): Deserialized data from file
     """
     path = resolved_path(path)
     if not path or not os.path.exists(path):
-        if default is None:
-            return abort("No file %s", short(path), fatal=(fatal, default), logger=logger)
-
-        return default
+        return _LateImport.handle_io_default(default, "No file %s" % short(path))
 
     try:
         with io.open(path) as fh:
-            data = json.load(fh)
-            if default is not None and type(data) != type(default):
-                message = "Unexpected type %s in %s, expecting %s" % (type(data), short(path), type(default))
-                return abort(message, fatal=(fatal, default), logger=logger)
-
-            if logger:
-                logger("Read %s", short(path))
-
-            return data
+            return json.load(fh)
 
     except Exception as e:
-        return abort("Couldn't read %s: %s", short(path), e, fatal=(fatal, default), logger=logger)
+        return _LateImport.handle_io_default(default, "Couldn't read %s" % short(path), exc_info=e)
 
 
 def represented_json(data, sort_keys=True, indent=2, keep_none=False, **kwargs):
@@ -694,7 +679,7 @@ def save_json(data, path, fatal=True, logger=None, sort_keys=True, indent=2, kee
         (int): 1 if saved, -1 if failed (when `fatal` is False)
     """
     if data is None or not path:
-        return abort("No file %s", short(path), fatal=fatal)
+        return abort("No file %s" % short(path), return_value=0, fatal=fatal)
 
     try:
         path = resolved_path(path)
@@ -717,4 +702,4 @@ def save_json(data, path, fatal=True, logger=None, sort_keys=True, indent=2, kee
         return 1
 
     except Exception as e:
-        return abort("Couldn't save %s: %s", short(path), e, fatal=(fatal, -1))
+        return abort("Couldn't save %s" % short(path), exc_info=e, return_value=-1, fatal=fatal)
