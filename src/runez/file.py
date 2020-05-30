@@ -125,7 +125,8 @@ def is_younger(path, age, default=False):
         (bool): True if file exists and is younger than 'age' seconds
     """
     try:
-        return time.time() - os.path.getmtime(path) < age
+        if age > 0:
+            return time.time() - os.path.getmtime(path) < age
 
     except (OSError, IOError, TypeError):
         return default

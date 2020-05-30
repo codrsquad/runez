@@ -44,6 +44,7 @@ def test_edge_cases():
     assert runez.delete("non-existing") == 0
 
     assert runez.touch(None) == 0
+    assert not runez.file.is_younger("", None)
     assert not runez.file.is_younger("", 1)
     assert not runez.file.is_younger("/dev/null/not-there", 1)
 

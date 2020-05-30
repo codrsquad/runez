@@ -21,11 +21,14 @@ DEFAULT_INSTRUCTIONS = {
 def check_pid(pid):
     """
     Args:
-        pid (int): Pid to examine
+        pid (int | None): Pid to examine
 
     Returns:
         (bool): True if process with pid exists
     """
+    if not pid:  # No support for kill pid 0, as that is not the intent of this function, and it's not cross platform
+        return False
+
     if WINDOWS:  # pragma: no cover
         import ctypes
 

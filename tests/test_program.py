@@ -191,11 +191,12 @@ def test_require_installed():
 
 
 def test_pids():
-    if not runez.WINDOWS:
-        assert runez.check_pid(0)
+    assert not runez.check_pid(None)
+    assert not runez.check_pid(0)
+    assert not runez.check_pid("foo")  # garbage given, don't crash
 
     assert runez.check_pid(os.getpid())
-    assert not runez.check_pid(1)
+    assert not runez.check_pid(1)  # No privilege to do this (tests shouldn't run as root)
 
 
 @pytest.mark.skipif(runez.WINDOWS, reason="Not supported on windows")
