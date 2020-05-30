@@ -10,7 +10,7 @@ import os
 
 import runez.schema
 from runez.path import ensure_folder
-from runez.system import _LateImport, abort, LOG, resolved_path, short, string_type, stringified, UNSET
+from runez.system import _R, abort, LOG, resolved_path, short, string_type, stringified, UNSET
 
 
 Serializable = None  # type: type # Set to runez.Serializable class once parsing of runez.serialize.py is past that class definition
@@ -627,14 +627,14 @@ def read_json(path, default=UNSET):
     """
     path = resolved_path(path)
     if not path or not os.path.exists(path):
-        return _LateImport.handle_io_default(default, "No file %s" % short(path))
+        return _R.hiod(default, "No file %s" % short(path))
 
     try:
         with io.open(path) as fh:
             return json.load(fh)
 
     except Exception as e:
-        return _LateImport.handle_io_default(default, "Couldn't read %s" % short(path), exc_info=e)
+        return _R.hiod(default, "Couldn't read %s" % short(path), e=e)
 
 
 def represented_json(data, sort_keys=True, indent=2, keep_none=False, **kwargs):
@@ -684,7 +684,7 @@ def save_json(data, path, fatal=True, logger=None, sort_keys=True, indent=2, kee
     try:
         path = resolved_path(path)
         ensure_folder(path, fatal=fatal, logger=None)
-        if _LateImport.is_dryrun():
+        if _R.is_dryrun():
             LOG.info("Would save %s", short(path))
             return 1
 

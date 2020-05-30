@@ -88,7 +88,7 @@ def test_default():
     assert runez.color.backend.name == "plain"
     assert runez.blue("hello") == "hello"
 
-    with patch("runez.colors._LateImport.current_test", return_value=None):  # simulate not running in test
+    with patch("runez.colors._R.current_test", return_value=None):  # simulate not running in test
         check_flavor("ansi16 neutral")
         check_flavor("ansi16 light", fgbg="15;0")
         check_flavor("ansi16 dark", fgbg="15;9")

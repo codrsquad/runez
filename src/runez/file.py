@@ -6,7 +6,7 @@ import time
 
 from runez.convert import represented_bytesize
 from runez.path import ensure_folder, parent_folder
-from runez.system import _LateImport, abort, Anchored, decode, LOG, resolved_path, short, SYMBOLIC_TMP, UNSET
+from runez.system import _R, abort, Anchored, decode, LOG, resolved_path, short, SYMBOLIC_TMP, UNSET
 
 
 def copy(source, destination, ignore=None, adapter=None, fatal=True, logger=LOG.debug):
@@ -41,7 +41,7 @@ def delete(path, fatal=True, logger=LOG.debug):
     if not islink and (not path or not os.path.exists(path)):
         return 0
 
-    if _LateImport.is_dryrun():
+    if _R.is_dryrun():
         if logger:
             LOG.debug("Would delete %s", short(path))
 
@@ -225,8 +225,8 @@ class TempFolder(object):
         self.tmp_folder = None
 
     def __enter__(self):
-        self.dryrun, self.debug = _LateImport.set_dryrun(self.dryrun)
-        if not _LateImport.is_dryrun():
+        self.dryrun, self.debug = _R.set_dryrun(self.dryrun)
+        if not _R.is_dryrun():
             # Use realpath() to properly resolve for example symlinks on OSX temp paths
             self.tmp_folder = os.path.realpath(tempfile.mkdtemp())
             if self.follow:
@@ -240,7 +240,7 @@ class TempFolder(object):
         return tmp
 
     def __exit__(self, *_):
-        _LateImport.set_dryrun(self.dryrun, debug=self.debug)
+        _R.set_dryrun(self.dryrun, debug=self.debug)
         if self.anchor:
             Anchored.pop(self.tmp_folder or SYMBOLIC_TMP)
 
@@ -283,7 +283,7 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
 
     path = resolved_path(path)
     byte_size = represented_bytesize(len(contents), unit="bytes") if contents else ""
-    if _LateImport.handle_dryrun(dryrun, logger, lambda: "%s %s" % ("write %s to" % byte_size if byte_size else "touch", short(path))):
+    if _R.hdry(dryrun, logger, lambda: "%s %s" % ("write %s to" % byte_size if byte_size else "touch", short(path))):
         return 1
 
     ensure_folder(path, fatal=fatal, logger=logger)
@@ -357,7 +357,7 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True,
         message = "Can't %s %s %s %s: source contained in destination" % (action, short(source), indicator, short(destination))
         return abort(message, return_value=-1, fatal=fatal)
 
-    if _LateImport.is_dryrun():
+    if _R.is_dryrun():
         if logger:
             LOG.debug("Would %s %s %s %s", action, short(source), indicator, short(destination))
 

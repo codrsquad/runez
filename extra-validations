@@ -12,8 +12,8 @@ RE_RENAMED = re.compile(r"^.+ as (.+)$")
 PROJECT = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(PROJECT, "src", "runez")
 
-IO_API_EXPECTED = collections.OrderedDict(fatal=True, logger="UNSET", dryrun="UNSET")
-EXPECTED_DRYRUN = collections.OrderedDict(dryrun="UNSET")
+IO_API_NO_CONTENT = collections.OrderedDict(fatal=True, logger="UNSET", dryrun="UNSET")
+EXPECTED_DRYRUN_UNSET = collections.OrderedDict(dryrun="UNSET")
 IO_API_DOCSTRINGS = dict(
     fatal="fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log",
     logger="logger (callable | None): Logger to use, or None to disable log chatter",
@@ -131,7 +131,7 @@ def signature_representation(sig: dict):
 def io_api_problem(sig: dict, expected: dict, docstring: str):
     """Problem (if any) with function signature of an IO API"""
     if sig != expected:
-        return "Bad IO API: %s" % signature_representation(expected)
+        return "Bad IO API: %s" % signature_representation(sig)
 
     if not docstring:
         return "No docstring"
@@ -160,17 +160,28 @@ def get_docstring(node: ast.FunctionDef):
         return first_statement.value.s
 
 
+def expected_sig(path, node, sig):
+    if node.name == "__init__":
+        return EXPECTED_DRYRUN_UNSET if "dryrun" in sig else None
+
+    module_name = os.path.basename(path)[:-3]
+    if module_name == "logsetup":
+        return None
+
+    func_name = "%s.%s" % (module_name, node.name)
+    if func_name in ("system.abort", "system.get_version"):
+        return None
+
+    if "fatal" in sig or "logger" in sig or "dryrun" in sig:
+        return IO_API_NO_CONTENT
+
+
 def FunctionDef_problem(path: str, node: ast.FunctionDef):
     """Visitor for ast.FunctionDef nodes"""
     if node.args.defaults:
         sig = named_arg_defaults(node)
-        if node.name in ("__init__", "set_dryrun_debug"):
-            expected = EXPECTED_DRYRUN
-
-        else:
-            expected = IO_API_EXPECTED
-
-        if any(k in sig for k in expected):
+        expected = expected_sig(path, node, sig)
+        if expected:
             docstring = get_docstring(node)
             subset = collections.OrderedDict((k, v) for k, v in sig.items() if k in expected)
             problem = io_api_problem(subset, expected, docstring)

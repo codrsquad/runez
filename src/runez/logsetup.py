@@ -21,7 +21,7 @@ except ImportError:
 from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone
 from runez.path import basename as get_basename, ensure_folder, parent_folder
-from runez.system import _LateImport, expanded, find_caller_frame, flattened, LOG, quoted, Slotted, ThreadGlobalContext, UNSET, WINDOWS
+from runez.system import _R, expanded, find_caller_frame, flattened, LOG, quoted, Slotted, ThreadGlobalContext, UNSET, WINDOWS
 
 
 ORIGINAL_CF = logging.currentframe
@@ -236,7 +236,7 @@ class LogManager(object):
     def set_dryrun(cls, dryrun):
         """Useful only as simple callback function, use runez.log.setup() for regular usage"""
         cls.set_dryrun_debug(dryrun=dryrun)
-        return _LateImport.is_dryrun()
+        return _R.is_dryrun()
 
     @classmethod
     def set_file_location(cls, file_location):
@@ -252,10 +252,10 @@ class LogManager(object):
             debug (bool): Enable debug level logging (overrides other specified levels)
         """
         if dryrun is UNSET:
-            dryrun = _LateImport.is_dryrun()
+            dryrun = _R.is_dryrun()
 
         else:
-            _LateImport.set_dryrun(dryrun)
+            _R.set_dryrun(dryrun)
 
         if dryrun and (debug is None or debug is UNSET):
             # Automatically turn debug on (if not explicitly specified) with dryrun,

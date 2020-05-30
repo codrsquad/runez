@@ -4,7 +4,7 @@ Convenience methods for file/folder operations
 
 import os
 
-from runez.system import _LateImport, abort, LOG, resolved_path, short, UNSET
+from runez.system import _R, abort, LOG, resolved_path, short, UNSET
 
 
 def basename(path, extension_marker=os.extsep):
@@ -60,7 +60,7 @@ def ensure_folder(path, folder=False, fatal=True, logger=LOG.debug, dryrun=UNSET
         return 0
 
     if dryrun is UNSET:
-        dryrun = _LateImport.is_dryrun()
+        dryrun = _R.is_dryrun()
 
     if dryrun:
         LOG.debug("Would create %s", short(folder))

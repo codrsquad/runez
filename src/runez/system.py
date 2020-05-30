@@ -95,7 +95,7 @@ def abort(message, code=1, exc_info=None, return_value=None, fatal=True, logger=
         _show_abort_message(logger, fatal, message, exc_info)
 
     if fatal:
-        exception = _LateImport.abort_exception(override=fatal)
+        exception = _R.abort_exception(override=fatal)
         if exception is not None:
             if logger is None and exception is SystemExit:
                 _show_abort_message(logger, fatal, message, exc_info)  # Must show message if we're about to raise SystemExit
@@ -295,7 +295,7 @@ def is_tty():
     Returns:
         (bool): True if current stdout is a tty
     """
-    return (sys.stdout.isatty() or "PYCHARM_HOSTED" in os.environ) and not _LateImport.current_test()
+    return (sys.stdout.isatty() or "PYCHARM_HOSTED" in os.environ) and not _R.current_test()
 
 
 def quoted(items, delimiter=" ", adapter=UNSET, keep_empty=True):
@@ -673,7 +673,7 @@ class CaptureOutput(object):
         Returns:
             (TrackedOutput): Object holding captured stdout/stderr/log output
         """
-        self.dryrun, self.debug = _LateImport.set_dryrun(self.dryrun)
+        self.dryrun, self.debug = _R.set_dryrun(self.dryrun)
         self.tracked = TrackedOutput(
             CapturedStream("stdout", sys.stdout) if self.stdout else None,
             CapturedStream("stderr", sys.stderr) if self.stderr else None,
@@ -698,7 +698,7 @@ class CaptureOutput(object):
         return self.tracked
 
     def __exit__(self, *args):
-        _LateImport.set_dryrun(self.dryrun, debug=self.debug)
+        _R.set_dryrun(self.dryrun, debug=self.debug)
         if self.tracked.captured:
             self._capture_stack.pop()
 
@@ -1101,9 +1101,11 @@ class ThreadGlobalContext(object):
             self._gpayload = values or {}
 
 
-class _LateImport:
+class _R:
     """
-    We have to import 'runez' late when running in runez itself (because runez.__init__ imports everything to expose it)
+    Internal class to provide a late import of runez (after __init__ imported everything), and also holds some common stuff.
+    The name is intentionally short to avoid verbose/long lines calling it.
+    _R stands for "runez, internal class"
 
     This internal class allows to make global settings such as runez.DRYRUN usable internally:
     - without having to `import runez` internally (can't do that due to circular import)
@@ -1140,14 +1142,34 @@ class _LateImport:
         return message
 
     @classmethod
-    def handle_io_default(cls, default, message, exc_info=None):
+    def hiod(cls, default, message, e=None):
+        """Handle IO default
+
+        Args:
+            default (Any): The default value to return, if it is not UNSET
+            message (str): Message explaining failure
+            e (Exception): Exception, if this comes from a try/except block
+
+        Returns:
+            'default', if it is not UNSET
+        """
         if default is UNSET:
-            abort(cls.expanded_message(message), exc_info=exc_info)
+            abort(cls.expanded_message(message), exc_info=e)
 
         return default
 
     @classmethod
-    def handle_dryrun(cls, dryrun, logger, message):
+    def hdry(cls, dryrun, logger, message):
+        """Handle dryrun
+
+        Args:
+            logger (callable | None): Logger to use, or None to disable log chatter
+            dryrun (bool): Optionally override current dryrun setting
+            message (str | callable): Message to log
+
+        Returns:
+            (bool): True if we were indeed in dryrun mode, and we logged the message
+        """
         if dryrun is UNSET:
             dryrun = cls.is_dryrun()
 

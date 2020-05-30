@@ -9,7 +9,7 @@ import sys
 import tempfile
 
 from runez.convert import to_int
-from runez.system import _LateImport, abort, decode, flattened, LOG, quoted, short, UNSET, WINDOWS
+from runez.system import _R, abort, decode, flattened, LOG, quoted, short, UNSET, WINDOWS
 
 
 DEFAULT_INSTRUCTIONS = {
@@ -73,7 +73,7 @@ def make_executable(path, fatal=True, logger=UNSET):
     if is_executable(path):
         return 0
 
-    if _LateImport.is_dryrun():
+    if _R.is_dryrun():
         if logger:
             LOG.debug("Would make %s executable", short(path))
 
@@ -115,7 +115,7 @@ def run(program, *args, **kwargs):
     args = flattened(args, shellify=True)
     full_path = which(program)
 
-    dryrun = kwargs.pop("dryrun", _LateImport.is_dryrun())
+    dryrun = kwargs.pop("dryrun", _R.is_dryrun())
     fatal = kwargs.pop("fatal", True)
     logger = kwargs.pop("logger", LOG.debug)
     stdout = kwargs.pop("stdout", subprocess.PIPE)

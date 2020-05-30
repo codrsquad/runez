@@ -22,7 +22,7 @@ from runez.colors import ActivateColors
 from runez.file import TempFolder
 from runez.logsetup import LogManager
 from runez.render import Header
-from runez.system import _LateImport, CaptureOutput, Slotted, TempArgv, TrackedOutput
+from runez.system import _R, CaptureOutput, Slotted, TempArgv, TrackedOutput
 from runez.system import expanded, flattened, LOG, quoted, short, string_type, stringified, UNSET
 
 try:
@@ -93,7 +93,7 @@ def verify_abort(func, *args, **kwargs):
     Returns:
         (str): Chatter from call to 'func', if it did indeed raise
     """
-    expected_exception = _LateImport.abort_exception(override=kwargs.get("fatal"))
+    expected_exception = _R.abort_exception(override=kwargs.get("fatal"))
     with CaptureOutput() as logged:
         try:
             value = func(*args, **kwargs)
@@ -358,7 +358,7 @@ class ClickRunner(object):
 
         self.args = flattened(args, shellify=True)
         with IsolatedLogSetup(adjust_tmp=False):
-            with CaptureOutput(dryrun=_LateImport.is_dryrun(), seed_logging=True) as logged:
+            with CaptureOutput(dryrun=_R.is_dryrun(), seed_logging=True) as logged:
                 self.logged = logged
                 origina_handlers = list(logging.root.handlers)  # Invocations may add their own logging
                 runner = ClickWrapper.new_runner(self.main)
