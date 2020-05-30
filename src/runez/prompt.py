@@ -1,54 +1,43 @@
-import json
-import os
-
-from runez.system import abort, is_tty
+from runez.serialize import read_json, save_json
+from runez.system import _R, is_tty, resolved_path, stringified, UNSET
 
 
-def ask_once(name, instructions, serializer=str, fatal=True, base="~/.config", default=None):
+def ask_once(name, instructions, serializer=stringified, default=UNSET, base="~/.config"):
     """
     Args:
         name (str): Name under which to store provided answer (will be stored in ~/.config/<name>.json)
         instructions (str): Instructions to show to user when prompt is necessary
         serializer (callable): Function that will turn provided value into object to be stored
-        fatal (bool | None): Abort execution on failure if True
-        base (str): Base folder where to stored provided answer
         default: Default value to return if answer not available
+        base (str): Base folder where to stored provided answer
 
     Returns:
-        Value given by user, optionally wrapped via `serializer`
+        Value given by user (or 'default' if given), optionally wrapped via `serializer`
     """
-    path = os.path.join(base, name)
-    path = os.path.expanduser(path)
+    path = resolved_path(name, base=base)
     if not path.endswith(".json"):
         path += ".json"
 
+    existing = read_json(path, default=None)
+    if existing is not None:
+        return existing
+
+    if not is_tty():
+        return _R.hdef(default, "Can't prompt for %s, not on a tty" % name)
+
     try:
-        with open(path) as fh:
-            return json.load(fh)
+        provided = interactive_prompt(instructions)
+        if provided:
+            value = serializer(provided)
+            if value is not None and save_json(value, path, fatal=False) >= 0:
+                return value
 
-    except (OSError, IOError):
-        pass
+            return _R.hdef(default, "Invalid value provided for %s" % name)
 
-    reason = "can't ask for value, not on a tty"
-    if is_tty():
-        try:
-            reason = "no value provided"
-            provided = interactive_prompt(instructions)
-            if provided:
-                value = serializer(provided)
-                if value is not None:
-                    with open(path, "wt") as fh:
-                        json.dump(value, fh, sort_keys=True, indent=2)
-                        fh.write("\n")
+        return _R.hdef(default, "No value provided for %s" % name)
 
-                    return value
-
-                reason = "invalid value provided"
-
-        except KeyboardInterrupt:
-            reason = "cancelled by user"
-
-    return abort(reason, return_value=default, fatal=fatal)
+    except KeyboardInterrupt:
+        return _R.hdef(default, "Cancelled by user")
 
 
 def interactive_prompt(message):

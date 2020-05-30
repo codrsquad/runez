@@ -4,6 +4,7 @@ import pytest
 from mock import patch
 
 import runez
+from runez.conftest import verify_abort
 from runez.prompt import ask_once, interactive_prompt
 
 
@@ -15,8 +16,7 @@ def custom_serializer(value):
 
 
 def test_no_tty():
-    v = ask_once("test", "Please enter value: ", fatal=False)
-    assert v is None
+    assert ask_once("test", "Please enter value: ", default=None) is None
 
     with pytest.raises(runez.system.AbortException):
         ask_once("test", "Please enter value: ")
@@ -29,23 +29,26 @@ def test_no_tty():
 @patch("runez.prompt.is_tty", return_value=True)
 @patch("runez.prompt.interactive_prompt", side_effect=str)
 def test_with_tty(*_):
+    expected = {"value": "foo"}
     with runez.TempFolder() as tmp:
-        v = ask_once("test", "foo", serializer=custom_serializer, fatal=False, base=tmp)
-        assert v == {"value": "foo"}
+        assert ask_once("test", "foo", serializer=custom_serializer, base=tmp) == expected
 
-        # Verify that file was indeed stored
-        path = os.path.join(tmp, "test.json")
-        assert runez.read_json(path) == {"value": "foo"}
-
-        # Verify that returned value is the 1st one stored
-        v = ask_once("test", "bar", fatal=False, base=tmp)
-        assert v == {"value": "foo"}
+        assert runez.read_json("test.json") == expected
+        assert ask_once("test", "bar", base=tmp) == expected  # Ask a 2nd time, same response
 
         # Verify that if `serializer` returns None, value is not returned/stored
-        v = ask_once("test-invalid", "invalid", serializer=custom_serializer, fatal=False, base=tmp)
-        assert v is None
+        response = verify_abort(ask_once, "test-invalid", "invalid", serializer=custom_serializer, base=tmp)
+        assert "Invalid value provided" in response
+        assert not os.path.exists("test-invalid.json")
+
+        # Same, but don't raise exception (returns default)
+        assert ask_once("test-invalid", "invalid", serializer=custom_serializer, default=None, base=tmp) is None
+
+        # Simulate no value provided
+        response = verify_abort(ask_once, "test-invalid", "", serializer=custom_serializer, base=tmp)
+        assert "No value provided" in response
 
         # Simulate CTRL+C
         with patch("runez.prompt.interactive_prompt", side_effect=KeyboardInterrupt):
-            v = ask_once("test2", "test2", serializer=custom_serializer, fatal=False, base=tmp)
-            assert v is None
+            response = verify_abort(ask_once, "test2", "test2", serializer=custom_serializer, base=tmp)
+            assert "Cancelled by user" in response
