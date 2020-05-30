@@ -287,9 +287,7 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
         return 1
 
     ensure_folder(path, fatal=fatal, logger=logger)
-    if logger:
-        logger("%s %s" % ("Writing %s to" % byte_size if byte_size else "Touching", short(path)))
-
+    _R.hlog(logger, "%s %s" % ("Writing %s to" % byte_size if byte_size else "Touching", short(path)))
     try:
         with io.open(path, "wt") as fh:
             if contents is None:

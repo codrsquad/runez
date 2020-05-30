@@ -201,10 +201,16 @@ def adhoc_lint_file(path):
     errors = 0
     with open(path) as fh:
         lines = fh.readlines()
-        for i, line in enumerate(lines):
+        for i, line in enumerate(lines, start=1):
             if "fatal=fatal" in line and "logger=logger" not in line:
                 print("%s: logger not passed through" % path_reference(path, i))
                 errors += 1
+                continue
+
+            if "if logger:" in line:
+                print("%s: should call _R.hlog()" % path_reference(path, i))
+                errors += 1
+                continue
 
         content = "".join(lines)
         tree = ast.parse(content, filename=path)
