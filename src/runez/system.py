@@ -1338,12 +1338,12 @@ def _rformat(key, value, definitions, max_depth):
 
 
 def _show_abort_message(message, exc_info, fatal, logger):
-    if logging.root.handlers:
-        if not fatal and callable(logger):
-            logger(message, exc_info=exc_info)
+    if not fatal and callable(logger):
+        logger(message, exc_info=exc_info)
+        return
 
-        else:
-            LOG.error(message, exc_info=exc_info)
+    if logging.root.handlers:
+        LOG.error(message, exc_info=exc_info)
 
     else:
         sys.stderr.write("%s\n" % message)

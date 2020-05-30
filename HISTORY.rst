@@ -2,10 +2,10 @@
 History
 =======
 
-2.0.9 (2020-05-31)
+2.0.9 (2020-05-30)
 ------------------
 
-* Reviewed all IO related functions and made the respect the same signature, explained in doc:
+* Reviewed all IO related functions and made them respect the same signature, explained in doc:
 
   * Functions not returning content (``run()``, ``delete()``, ...) all have this signature:
     ``fatal=True, logger=UNSET, dryrun=UNSET``
@@ -14,7 +14,7 @@ History
     ``default=UNSET`` (aborts on failure when no ``default`` is specified,
     ``default`` returned otherwise).
 
-* Simplified signatures of: ensure_folder, ``read_json``, ``readlines``
+* Simplified signatures of: ``ensure_folder``, ``read_json``, ``readlines``
 
 * Made ``readlines`` consistent with all other IO related functions
 

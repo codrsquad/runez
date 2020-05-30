@@ -63,12 +63,13 @@ def is_executable(path):
     return path and os.path.isfile(path) and os.access(path, os.X_OK)
 
 
-def make_executable(path, fatal=True, logger=UNSET):
+def make_executable(path, fatal=True, logger=UNSET, dryrun=UNSET):
     """
     Args:
         path (str): chmod file with 'path' as executable
-        fatal (bool | None): Abort execution on failure if True
-        logger (callable | None): Logger to use
+        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger (callable | None): Logger to use, or None to disable log chatter
+        dryrun (bool): Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
@@ -76,10 +77,7 @@ def make_executable(path, fatal=True, logger=UNSET):
     if is_executable(path):
         return 0
 
-    if _R.is_dryrun():
-        if logger:
-            LOG.debug("Would make %s executable", short(path))
-
+    if _R.hdry(dryrun, logger, "make %s executable" % short(path)):
         return 1
 
     if not os.path.exists(path):
@@ -87,9 +85,7 @@ def make_executable(path, fatal=True, logger=UNSET):
 
     try:
         os.chmod(path, 0o755)  # nosec
-        if logger:
-            logger("Made '%s' executable", short(path))
-
+        _R.hlog(logger, "Made '%s' executable" % short(path))
         return 1
 
     except Exception as e:
@@ -115,31 +111,24 @@ def run(program, *args, **kwargs):
     Returns:
         (RunResult): Run outcome, use .failed, .succeeded, .output, .error etc to inspect the outcome
     """
-    args = flattened(args, shellify=True)
-    full_path = which(program)
-
-    dryrun = kwargs.pop("dryrun", _R.is_dryrun())
     fatal = kwargs.pop("fatal", True)
-    logger = kwargs.pop("logger", LOG.debug)
+    logger = kwargs.pop("logger", UNSET)
+    dryrun = kwargs.pop("dryrun", UNSET)
     stdout = kwargs.pop("stdout", subprocess.PIPE)
     stderr = kwargs.pop("stderr", subprocess.PIPE)
-
-    message = "Would run" if dryrun else "Running"
-    message = "%s: %s %s" % (message, short(full_path or program), quoted(args))
-    message = message.strip()
-    if logger:
-        logger(message)
-
     path_env = kwargs.pop("path_env", None)
     if path_env:
         kwargs["env"] = _added_env_paths(path_env, env=kwargs.get("env"))
 
-    audit = RunAudit(full_path or program, args, dryrun, kwargs)
-    result = RunResult(None, None, 1, audit=audit)
-    if dryrun:
+    args = flattened(args, shellify=True)
+    full_path = which(program)
+    result = RunResult(audit=RunAudit(full_path or program, args, kwargs))
+    description = "%s %s" % (short(full_path or program), quoted(args))
+    if _R.hdry(dryrun, logger, "run: %s" % description):
+        result.audit.dryrun = True
         result.exit_code = 0
         if stdout is not None:
-            result.output = message  # Properly simulate a successful run
+            result.output = "[dryrun] %s" % description  # Properly simulate a successful run
 
         if stdout is not None:
             result.error = ""
@@ -148,11 +137,9 @@ def run(program, *args, **kwargs):
 
     if not full_path:
         result.error = "%s is not installed" % short(program)
-        if fatal:
-            abort(result.error, code=1, fatal=fatal)
+        return abort(result.error, return_value=result, fatal=fatal, logger=logger)
 
-        return result
-
+    _R.hlog(logger, "Running: %s" % description)
     with _WrappedArgs([full_path] + args) as wrapped_args:
         try:
             p = subprocess.Popen(wrapped_args, stdout=stdout, stderr=stderr, **kwargs)  # nosec
@@ -171,16 +158,19 @@ def run(program, *args, **kwargs):
                 result.error = "%s failed: %s" % (short(program), e)
 
         if fatal and result.exit_code:
-            message = ["Run failed: %s %s" % (short(full_path or program), quoted(args))]
-            if result.error:
-                message.append("\nstderr:\n%s" % result.error)
+            if logger is not None:
+                # Log full output, unless user explicitly turned it off
+                message = ["Run failed: %s" % description]
+                if result.error:
+                    message.append("\nstderr:\n%s" % result.error)
 
-            if result.output:
-                message.append("\nstdout:\n%s" % result.output)
+                if result.output:
+                    message.append("\nstdout:\n%s" % result.output)
 
-            LOG.error("\n".join(message))
+                LOG.error("\n".join(message))
+
             message = "%s exited with code %s" % (short(program), result.exit_code)
-            abort(message, code=result.exit_code, exc_info=result.exc_info, fatal=fatal)
+            abort(message, code=result.exit_code, exc_info=result.exc_info, fatal=fatal, logger=logger)
 
         return result
 
@@ -188,24 +178,23 @@ def run(program, *args, **kwargs):
 class RunAudit(object):
     """Provided as given by original code, for convenient reference"""
 
-    def __init__(self, program, args, dryrun, kwargs):
+    def __init__(self, program, args, kwargs):
         """
         Args:
             program (str): Program as given by caller (or full path when available)
             args (list): Args given by caller
-            dryrun (bool): Was this a dryrun?
             kwargs (dict): Keyword args passed-through to subporcess.Popen()
         """
         self.program = program
         self.args = args
-        self.dryrun = dryrun
         self.kwargs = kwargs
+        self.dryrun = False  # Was this a dryrun?
 
 
 class RunResult(object):
     """Holds result of a runez.run()"""
 
-    def __init__(self, output, error, code, audit=None):
+    def __init__(self, output=None, error=None, code=1, audit=None):
         """
         Args:
             output (str | None): Captured output (on stdout), if any
@@ -295,8 +284,9 @@ def which(program, ignore_own_venv=False):
     return None
 
 
-def require_installed(program, instructions=None, platform=sys.platform, fatal=True):
-    """
+def require_installed(program, instructions=None, platform=sys.platform):
+    """Raise an expcetion if 'program' is not available on PATH, show instructions on how to install it
+
     Args:
         program (str): Program to check
         instructions (str | dict): Short instructions letting user know how to get `program` installed, example: `run: brew install foo`
@@ -304,8 +294,7 @@ def require_installed(program, instructions=None, platform=sys.platform, fatal=T
                                    - None if `program` can simply be install via `brew install <program>`
                                    - A word (without spaces) to refer to "usual" package (brew on OSX, apt on Linux etc)
                                    - A dict with instructions per `sys.platform`
-        platform (str | None): Override sys.platform, if provided
-        fatal (bool): If True, raise `runez.system.AbortException` when `program` is not installed
+        platform (str | None): Override sys.platform (for testing instructions rendering)
 
     Returns:
         (bool): True if installed, False otherwise (when fatal=False)
@@ -326,9 +315,7 @@ def require_installed(program, instructions=None, platform=sys.platform, fatal=T
                 message += ", %s" % instructions
 
         message = message.format(program=program)
-        return abort(message, return_value=False, fatal=fatal)
-
-    return True
+        abort(message)
 
 
 def _added_env_paths(env_vars, env=None):

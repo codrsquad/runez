@@ -112,9 +112,9 @@ have this common signature: ``fatal=True, logger=UNSET, dryrun=UNSET``
 
 - ``fatal``: decides whether operation should raise an exception on failure or not
 
-  - ``fatal=True`` (default): raise an exception on failure, ``LOG.error()`` a meaningful error
+  - ``fatal=True`` (default): raise an exception on failure, log a meaningful error
 
-  - ``fatal=False``: don't raise on failure, ``LOG.error()`` a meaningful error
+  - ``fatal=False``: don't raise on failure, log a meaningful error
 
   - ``fatal=None``: don't raise on failure, don't log anything
 
@@ -122,13 +122,13 @@ have this common signature: ``fatal=True, logger=UNSET, dryrun=UNSET``
 
 - ``logger``: decides how chatty the operation should be
 
-  - ``LOG.error()`` is used for failures, except when ``fatal`` is not True AND provided``logger`` is a callable
+  - ``LOG.error()`` is used for failures, except when ``fatal`` is not True AND provided ``logger`` is a callable
 
   - ``logger=UNSET`` (default):
 
     - ``LOG.debug("Running: ...")`` to trace activity
 
-    - ``LOG.debug("Would run: ...")`` in dryrun mode
+    - ``print("Would run: ...")`` in dryrun mode
 
   - ``logger=mylogger``: call provided ``mylogger()`` to trace activity (example: ``logger=MY_LOGGER.info``)
 
@@ -138,7 +138,7 @@ have this common signature: ``fatal=True, logger=UNSET, dryrun=UNSET``
 
   - ``logger=None``: Don't log anything (even errors)
 
-- ``dryrun`` allows to override current ``runez.DRYRUN`` setting just for this call
+- ``dryrun`` allows to override current ``runez.DRYRUN`` setting just for that call
 
 
 

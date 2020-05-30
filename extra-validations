@@ -239,13 +239,15 @@ def adhoc_linter():
             if fname.endswith(".py"):
                 errors += adhoc_lint_file(os.path.join(root, fname))
 
+    if not errors:
+        print("adhoc linter OK")
+
     return errors
 
 
 def main():
     errors = check_import_order()
-    if len(sys.argv) == 2 and sys.argv[1] == "-t":
-        errors += adhoc_linter()
+    errors += adhoc_linter()
 
     if errors:
         print("\nFound %s errors" % errors)

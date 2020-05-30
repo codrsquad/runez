@@ -22,7 +22,7 @@ def test_capture():
         # Dryrun mode doesn't fail (since it doesn't actually run the program)
         r = runez.run(CHATTER, "silent-fail", fatal=True)
         assert r.succeeded
-        assert "Would run:" in r.output
+        assert "[dryrun] " in r.output
         assert r.error == ""
         assert "Would run:" in logged.pop()
 
@@ -105,9 +105,9 @@ def test_capture():
 def test_executable(temp_folder):
     with runez.CaptureOutput(dryrun=True) as logged:
         assert runez.make_executable("some-file") == 1
-        assert not logged
-        assert runez.make_executable("some-file", logger=logging.debug) == 1
         assert "Would make some-file executable" in logged.pop()
+        assert runez.make_executable("some-file", logger=None) == 1
+        assert not logged
 
     with runez.CaptureOutput() as logged:
         assert runez.touch("some-file") == 1
@@ -162,32 +162,28 @@ def test_which():
     assert runez.which("python")
 
 
+def check_ri(platform, instructions=None):
+    return verify_abort(runez.program.require_installed, "foo", instructions=instructions, platform=platform)
+
+
 def test_require_installed():
     with patch("runez.program.which", return_value="/bin/foo"):
-        assert runez.program.require_installed("foo") is True
+        assert runez.program.require_installed("foo") is None  # Does not raise
 
     with patch("runez.program.which", return_value=None):
-        with runez.CaptureOutput() as logged:
-            runez.program.require_installed("foo", fatal=False, platform="darwin")
-            assert "foo is not installed, run: `brew install foo`" in logged.pop()
+        r = check_ri("darwin")
+        assert "foo is not installed, run: `brew install foo`" in r
 
-            runez.program.require_installed("foo", instructions="see http:...", fatal=False, platform="darwin")
-            assert "foo is not installed, see http:..." in logged.pop()
+        r = check_ri("linux")
+        assert "foo is not installed, run: `apt install foo`" in r
 
-            runez.program.require_installed("foo", fatal=False, platform="linux")
-            assert "foo is not installed, run: `apt install foo`" in logged.pop()
+        r = check_ri("darwin", instructions="custom instructions")
+        assert "foo is not installed, custom instructions" in r
 
-            runez.program.require_installed("foo", instructions={"linux": "see http:..."}, fatal=False, platform="linux")
-            assert "foo is not installed, see http:..." in logged.pop()
-
-            runez.program.require_installed("foo", instructions={"linux": "see http:..."}, fatal=False, platform=None)
-            assert "foo is not installed, on linux: see http:..." in logged.pop()
-
-            runez.program.require_installed("foo", fatal=False, platform=None)
-            message = logged.pop()
-            assert "foo is not installed:\n" in message
-            assert "- on darwin: run: `brew install foo`" in message
-            assert "- on linux: run: `apt install foo`" in message
+        r = check_ri(None)
+        assert "foo is not installed:\n" in r
+        assert "- on darwin: run: `brew install foo`" in r
+        assert "- on linux: run: `apt install foo`" in r
 
 
 def test_pids():
