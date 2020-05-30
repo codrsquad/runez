@@ -42,7 +42,7 @@ def ensure_folder(path, folder=False, fatal=True, logger=LOG.debug, dryrun=UNSET
         dryrun (bool): Optionally override current dryrun setting
 
     Returns:
-         (int): 1 if effectively done, 0 if no-op, -1 on failure
+        (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
     """
     if not path:
         return 0

@@ -202,7 +202,7 @@ def adhoc_lint_file(path):
     with open(path) as fh:
         lines = fh.readlines()
         for i, line in enumerate(lines, start=1):
-            if "fatal=fatal" in line and "logger=logger" not in line:
+            if "fatal=fatal" in line and "logger=" not in line:
                 print("%s: logger not passed through" % path_reference(path, i))
                 errors += 1
                 continue
@@ -243,7 +243,9 @@ def adhoc_linter():
 
 def main():
     errors = check_import_order()
-    # errors += adhoc_linter()
+    if len(sys.argv) == 2 and sys.argv[1] == "-t":
+        errors += adhoc_linter()
+
     if errors:
         print("\nFound %s errors" % errors)
         sys.exit(1)

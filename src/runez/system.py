@@ -1099,9 +1099,11 @@ class _R:
     - respecting any external modifications clients may have done (like: runez.DRYRUN = foo)
     """
     _runez = None
+    _schema = None
 
     @classmethod
     def _runez_module(cls):
+        """Late-imported runez module"""
         if cls._runez is None:
             import runez
 
@@ -1129,7 +1131,7 @@ class _R:
         return message
 
     @classmethod
-    def hiod(cls, default, message, e=None):
+    def hdef(cls, default, message, e=None):
         """Handle IO default
 
         Args:
@@ -1162,7 +1164,12 @@ class _R:
 
         if dryrun:
             if logger is not None:
-                LOG.debug("Would %s" % cls.expanded_message(message))
+                message = "Would %s" % cls.expanded_message(message)
+                if callable(logger):
+                    logger(message)
+
+                else:
+                    print(message)
 
             return True
 
@@ -1186,6 +1193,21 @@ class _R:
             (bool): Same as runez.DRYRUN, but as a function (and with late import)
         """
         return cls._runez_module().DRYRUN
+
+    @classmethod
+    def schema(cls):
+        """Late-imported schema"""
+        if cls._schema is None:
+            import runez.schema
+
+            cls._schema = runez.schema
+
+        return cls._schema
+
+    @classmethod
+    def serializable(cls):
+        """Late-imported Serializable class"""
+        return cls._runez_module().Serializable
 
     @classmethod
     def set_dryrun(cls, dryrun, debug=UNSET):

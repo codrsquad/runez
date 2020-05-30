@@ -3,9 +3,10 @@ Allows to define a simple one-level-at-a-time schema to help control (de)seriali
 
 Example:
 
->>> from runez.schema import Dict, Integer, Serializable, String
+>>> import runez
+>>> from runez.schema import Dict, Integer, String
 
->>> class MyClass(Serializable):
+>>> class MyClass(runez.Serializable):
 >>>     name = String(default="joe")  # All instances will get "joe" by default, and deserialization will ensure string
 >>>     map = Dict(String, Integer)  # No default value (ie: None), deserialization will ensure proper type is used
 """
@@ -14,10 +15,7 @@ import inspect
 
 from runez.convert import to_boolean, to_float, to_int
 from runez.date import to_date, to_datetime, UTC
-from runez.system import string_type, stringified
-
-
-Serializable = None  # type: type # Set to runez.Serializable class once parsing of runez.serialize.py is past that class definition
+from runez.system import _R, string_type, stringified
 
 
 class ValidationException(Exception):
@@ -72,7 +70,7 @@ def _determined_schema_type(value):
     if issubclass(value, string_type):
         return String()
 
-    if Serializable and issubclass(value, Serializable):
+    if issubclass(value, _R.serializable()):
         return MetaSerializable(value._meta)
 
     if issubclass(value, Any):

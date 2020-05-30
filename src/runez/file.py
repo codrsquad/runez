@@ -21,7 +21,7 @@ def copy(source, destination, ignore=None, adapter=None, fatal=True, logger=LOG.
         logger (callable | None): Logger to use, or None to disable log chatter
 
     Returns:
-        (int): 1 if effectively done, 0 if no-op, -1 on failure
+        (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
     """
     return _file_op(source, destination, _copy, adapter, fatal, logger, ignore=ignore)
 
@@ -34,7 +34,7 @@ def delete(path, fatal=True, logger=LOG.debug):
         logger (callable | None): Logger to use, or None to disable log chatter
 
     Returns:
-        (int): 1 if effectively done, 0 if no-op, -1 on failure
+        (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
     """
     path = resolved_path(path)
     islink = path and os.path.islink(path)
@@ -185,7 +185,7 @@ def move(source, destination, adapter=None, fatal=True, logger=LOG.debug):
         logger (callable | None): Logger to use, or None to disable log chatter
 
     Returns:
-        (int): 1 if effectively done, 0 if no-op, -1 on failure
+        (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
     """
     return _file_op(source, destination, _move, adapter, fatal, logger)
 
@@ -202,7 +202,7 @@ def symlink(source, destination, adapter=None, must_exist=True, fatal=True, logg
         logger (callable | None): Logger to use, or None to disable log chatter
 
     Returns:
-        (int): 1 if effectively done, 0 if no-op, -1 on failure
+        (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
     """
     return _file_op(source, destination, _symlink, adapter, fatal, logger, must_exist=must_exist)
 
@@ -260,7 +260,7 @@ def touch(path, fatal=True, logger=None):
         logger (callable | None): Logger to use, or None to disable log chatter
 
     Returns:
-        (int): 1 if effectively done, 0 if no-op, -1 on failure
+        (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
     """
     return write(path, None, fatal=fatal, logger=logger)
 
@@ -276,7 +276,7 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
         dryrun (bool): Optionally override current dryrun setting
 
     Returns:
-        (int): 1 if effectively done, 0 if no-op, -1 on failure
+        (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
     """
     if not path:
         return 0
@@ -345,7 +345,7 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True,
         ignore (callable | list | str | None): Names to be ignored
 
     Returns:
-        (int): 1 if effectively done, 0 if no-op, -1 on failure
+        (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
     """
     if not source or not destination or source == destination:
         return 0

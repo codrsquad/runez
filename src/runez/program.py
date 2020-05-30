@@ -68,7 +68,7 @@ def make_executable(path, fatal=True, logger=UNSET):
         logger (callable | None): Logger to use
 
     Returns:
-        (int): 1 if effectively done, 0 if no-op, -1 on failure
+        (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
     """
     if is_executable(path):
         return 0

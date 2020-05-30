@@ -8,12 +8,12 @@ import io
 import json
 import os
 
-import runez.schema
 from runez.path import ensure_folder
 from runez.system import _R, abort, LOG, resolved_path, short, string_type, stringified, UNSET
 
 
-Serializable = None  # type: type # Set to runez.Serializable class once parsing of runez.serialize.py is past that class definition
+K_INDENTED_SEPARATORS = (",", ": ")
+K_COMPACT_SEPARATORS = (", ", ": ")
 
 
 def _to_callable(value, fallback=None):
@@ -52,7 +52,8 @@ def is_serializable_descendant(base):
     Returns:
         (bool): True if `base` is a descendant of `Serializable` (but not `Serializable` itself)
     """
-    return Serializable is not None and base is not Serializable and issubclass(base, Serializable)
+    if "Serializable" in globals():  # We're doing a forward reference here, class is defined below
+        return base is not Serializable and issubclass(base, Serializable)
 
 
 def set_default_behavior(strict=UNSET, extras=UNSET):
@@ -102,7 +103,7 @@ class DefaultBehavior(object):
         if extras is UNSET:
             extras = self.extras
 
-        self.strict = _to_callable(strict, fallback=runez.schema.ValidationException)
+        self.strict = _to_callable(strict, fallback=_R.schema().ValidationException)
         self.hook = _to_callable(hook)  # Called if provided at the end of ClassMetaDescription initialization
         self.ignored_extras = None  # Internal, populated if given `extras` is a `tuple(callable, list)`
 
@@ -357,11 +358,11 @@ class ClassMetaDescription(object):
                     self.properties.append(key)
                     continue
 
-                schema_type = runez.schema.determined_schema_type(value, required=False)
+                schema_type = _R.schema().determined_schema_type(value, required=False)
                 if schema_type is not None:
-                    if isinstance(schema_type, runez.schema.UniqueIdentifier):
+                    if isinstance(schema_type, _R.schema().UniqueIdentifier):
                         if self.unique_identifier:
-                            raise runez.schema.ValidationException("Multiple unique ids specified for %s: %s and %s" % (
+                            raise _R.schema().ValidationException("Multiple unique ids specified for %s: %s and %s" % (
                                     self.qualified_name, self.unique_identifier, schema_type
                             ))
                         self.unique_identifier = key
@@ -401,12 +402,7 @@ class ClassMetaDescription(object):
             data (dict): Raw data, coming for example from a json file
             source (str | None): Optional, description of source where 'data' came from
         """
-        if data is None:
-            given = {}
-
-        else:
-            given = dict(data)
-
+        given = {} if data is None else dict(data)  # Copy of data
         for name, schema_type in self.attributes.items():
             value = given.pop(name, schema_type.default)
             problem = schema_type.problem(value)
@@ -585,12 +581,13 @@ class Serializable(object):
             source (str | None): Optional, description of source where 'data' came from
             merge (bool): If True, add `data` to existing fields
         """
-        if merge:
-            merged = self.to_dict()
-            merged.update(data)
-            data = merged
+        if data is not None:
+            if merge:
+                merged = self.to_dict()
+                merged.update(data)
+                data = merged
 
-        self._meta.set_from_dict(self, data, source=source)
+            self._meta.set_from_dict(self, data, source=source)
 
     def reset(self):
         """
@@ -599,21 +596,18 @@ class Serializable(object):
         for name, schema_type in self._meta.attributes.items():
             setattr(self, name, schema_type.default)
 
-    def to_dict(self, stringify=stringified, dt=str, keep_none=False):
+    def to_dict(self, dt=str, keep_none=False, stringify=stringified):
         """
         Args:
-            stringify (callable | None): Function to use to stringify non-builtin types
             dt (callable | None): Function to use to stringify dates
             keep_none (bool): If False, don't include None values
+            stringify (callable | None): Function to use to stringify non-builtin types
 
         Returns:
             (dict): This object serialized to a dict
         """
         raw = dict((name, getattr(self, name)) for name in self._meta.attributes)
         return json_sanitized(raw, stringify=stringify, dt=dt, keep_none=keep_none)
-
-
-runez.schema.Serializable = Serializable
 
 
 def read_json(path, default=UNSET):
@@ -627,79 +621,70 @@ def read_json(path, default=UNSET):
     """
     path = resolved_path(path)
     if not path or not os.path.exists(path):
-        return _R.hiod(default, "No file %s" % short(path))
+        return _R.hdef(default, "No file %s" % short(path))
 
     try:
         with io.open(path) as fh:
             return json.load(fh)
 
     except Exception as e:
-        return _R.hiod(default, "Couldn't read %s" % short(path), e=e)
+        return _R.hdef(default, "Couldn't read %s" % short(path), e=e)
 
 
-def represented_json(data, sort_keys=True, indent=2, keep_none=False, **kwargs):
+def represented_json(data, indent=2, keep_none=False, sort_keys=True, **kwargs):
     """
     Args:
         data (object | None): Data to serialize
-        sort_keys (bool): Whether keys should be sorted
         indent (int | None): Indentation to use, if None: use compact (one line) mode
         keep_none (bool): If False, don't include None values
+        sort_keys (bool): Whether keys should be sorted
         **kwargs: Passed through to `json.dumps()`
 
     Returns:
         (dict | list | str): Serialized `data`, with defaults that are usually desirable for a nice and clean looking json
     """
     data = json_sanitized(data, keep_none=keep_none)
-    if indent is None:
-        kwargs.setdefault("separators", (", ", ": "))
+    kwargs.setdefault("separators", K_INDENTED_SEPARATORS if indent else K_COMPACT_SEPARATORS)
+    rep = json.dumps(data, indent=indent, sort_keys=sort_keys, **kwargs)
+    if indent:
+        return "%s\n" % rep
 
-    else:
-        kwargs.setdefault("separators", (",", ": "))
-
-    rep = json.dumps(data, sort_keys=sort_keys, indent=indent, **kwargs)
-    if indent is None:
-        return rep
-
-    return "%s\n" % rep
+    return rep
 
 
-def save_json(data, path, fatal=True, logger=None, sort_keys=True, indent=2, keep_none=False, **kwargs):
+def save_json(data, path, indent=2, keep_none=False, sort_keys=True, fatal=True, logger=UNSET, dryrun=UNSET, **kwargs):
     """
     Args:
         data (object | None): Data to serialize and save
         path (str | None): Path to file where to save
-        fatal (bool | None): Abort execution on failure if True
-        logger (callable | None): Logger to use
-        sort_keys (bool): Save json with sorted keys
-        indent (int | None): Indentation to use
+        indent (int | None): Indentation to use, if None: use compact (one line) mode
         keep_none (bool): If False, don't include None values
+        sort_keys (bool): Whether keys should be sorted
+        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger (callable | None): Logger to use, or None to disable log chatter
+        dryrun (bool): Optionally override current dryrun setting
         **kwargs: Passed through to `json.dump()`
 
     Returns:
-        (int): 1 if saved, -1 if failed (when `fatal` is False)
+        (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
     """
     if data is None or not path:
-        return abort("No file %s" % short(path), return_value=0, fatal=fatal)
+        return 0
 
     try:
         path = resolved_path(path)
         ensure_folder(path, fatal=fatal, logger=None)
-        if _R.is_dryrun():
-            LOG.info("Would save %s", short(path))
+        if _R.hdry(dryrun, logger, "save %s" % short(path)):
             return 1
 
         data = json_sanitized(data, keep_none=keep_none)
-        if indent:
-            kwargs.setdefault("separators", (",", ": "))
-
+        kwargs.setdefault("separators", K_INDENTED_SEPARATORS if indent else K_COMPACT_SEPARATORS)
         with open(path, "wt") as fh:
-            json.dump(data, fh, sort_keys=sort_keys, indent=indent, **kwargs)
+            json.dump(data, fh, indent=indent, sort_keys=sort_keys, **kwargs)
             fh.write("\n")
 
-        if logger:
-            logger("Saved %s", short(path))
-
+        _R.hlog(logger, "Saved %s" % short(path))
         return 1
 
     except Exception as e:
-        return abort("Couldn't save %s" % short(path), exc_info=e, return_value=-1, fatal=fatal)
+        return abort("Couldn't save %s" % short(path), exc_info=e, return_value=-1, fatal=fatal, logger=logger)
