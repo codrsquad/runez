@@ -147,10 +147,16 @@ def io_api_problem(sig: dict, expected: dict, docstring: str):
             return "Bad docstring for '%s', should be: %s" % (k, v)
 
 
-def function_id(path, node):
+def path_reference(path, lineno, function_name=None):
     """Short reference where 'node' appears in file with 'path'"""
-    path = path[len(SRC) + 1:]
-    return "%s:%s %s()" % (path, node.lineno, node.name)
+    result = path[len(SRC) + 1:]
+    if lineno:
+        result += ":%s" % lineno
+
+    if function_name:
+        result += " %s()" % function_name
+
+    return result
 
 
 def get_docstring(node: ast.FunctionDef):
@@ -186,7 +192,7 @@ def FunctionDef_problem(path: str, node: ast.FunctionDef):
             subset = collections.OrderedDict((k, v) for k, v in sig.items() if k in expected)
             problem = io_api_problem(subset, expected, docstring)
             if problem:
-                problem = "%s, %s" % (function_id(path, node), problem)
+                problem = "%s: %s" % (path_reference(path, node.lineno, node.name), problem)
                 return problem
 
 
@@ -194,7 +200,13 @@ def adhoc_lint_file(path):
     """Quick and dirt home-made linter: visit all code of file with 'path' via AST visitor"""
     errors = 0
     with open(path) as fh:
-        content = "".join(fh.readlines())
+        lines = fh.readlines()
+        for i, line in enumerate(lines):
+            if "fatal=fatal" in line and "logger=logger" not in line:
+                print("%s: logger not passed through" % path_reference(path, i))
+                errors += 1
+
+        content = "".join(lines)
         tree = ast.parse(content, filename=path)
         for node in ast.walk(tree):
             # Quick visitor convention: functions with suffix _problem will count as validators

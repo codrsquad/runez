@@ -92,30 +92,17 @@ def abort(message, code=1, exc_info=None, return_value=None, fatal=True, logger=
         message = "%s: %s" % (message, exc_info)
 
     if logger is not None and fatal is not None:
-        _show_abort_message(logger, fatal, message, exc_info)
+        _show_abort_message(message, exc_info, fatal, logger)
 
     if fatal:
         exception = _R.abort_exception(override=fatal)
         if exception is not None:
             if logger is None and exception is SystemExit:
-                _show_abort_message(logger, fatal, message, exc_info)  # Must show message if we're about to raise SystemExit
+                _show_abort_message(message, exc_info, fatal, logger)  # Must show message if we're about to raise SystemExit
 
-            # Raising exception from dedicated function, to reduce stack trace shown when a test fails
-            _raise(exception, code)
+            _raise(exception, code)  # Raise from dedicated function to reduce stack trace shown in tests
 
     return return_value
-
-
-def _show_abort_message(logger, fatal, message, exc_info):
-    if logging.root.handlers:
-        if not fatal and callable(logger):
-            logger(message, exc_info=exc_info)
-
-        else:
-            LOG.error(message, exc_info=exc_info)
-
-    else:
-        sys.stderr.write("%s\n" % message)
 
 
 def decode(value, strip=False):
@@ -1308,3 +1295,15 @@ def _rformat(key, value, definitions, max_depth):
         return _rformat(key, value, definitions, max_depth=max_depth - 1)
 
     return value
+
+
+def _show_abort_message(message, exc_info, fatal, logger):
+    if logging.root.handlers:
+        if not fatal and callable(logger):
+            logger(message, exc_info=exc_info)
+
+        else:
+            LOG.error(message, exc_info=exc_info)
+
+    else:
+        sys.stderr.write("%s\n" % message)

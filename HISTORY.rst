@@ -2,7 +2,7 @@
 History
 =======
 
-2.0.9 (2020-05-30)
+2.0.9 (2020-05-31)
 ------------------
 
 * Reviewed all IO related functions and made the respect the same signature, explained in doc:

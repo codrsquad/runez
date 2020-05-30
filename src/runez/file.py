@@ -301,7 +301,7 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
         return 1
 
     except Exception as e:
-        return abort("Can't write to %s" % short(path), exc_info=e, return_value=-1, fatal=fatal)
+        return abort("Can't write to %s" % short(path), exc_info=e, return_value=-1, fatal=fatal, logger=logger)
 
 
 def _copy(source, destination, ignore=None):
@@ -310,10 +310,13 @@ def _copy(source, destination, ignore=None):
         if os.path.isdir(destination):
             for fname in os.listdir(source):
                 _copy(os.path.join(source, fname), os.path.join(destination, fname), ignore=ignore)
+
         else:
             if os.path.isfile(destination) or os.path.islink(destination):
                 os.unlink(destination)
+
             shutil.copytree(source, destination, symlinks=True, ignore=ignore)
+
     else:
         shutil.copy(source, destination)
 
@@ -389,4 +392,4 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True,
 
     except Exception as e:
         message = "Can't %s %s %s %s" % (action, short(source), indicator, short(destination))
-        return abort(message, exc_info=e, return_value=-1, fatal=fatal)
+        return abort(message, exc_info=e, return_value=-1, fatal=fatal, logger=logger)
