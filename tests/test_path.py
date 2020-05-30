@@ -1,7 +1,5 @@
 import os
 
-import pytest
-
 import runez
 from runez.conftest import verify_abort
 
@@ -21,15 +19,11 @@ def test_basename():
 def test_ensure_folder(temp_folder):
     assert runez.ensure_folder(None) == 0
     assert runez.ensure_folder("") == 0
-
-    assert runez.ensure_folder("some-folder") == 0  # 'some-folder' would be in temp_folder, which already exists
+    assert runez.ensure_folder(".") == 0
 
     with runez.CaptureOutput():
         assert runez.touch("sample") == 1
-        assert "Can't create folder" in verify_abort(runez.ensure_folder, "sample", folder=True)
-        with pytest.raises(AssertionError):
-            assert verify_abort(runez.ensure_folder, None)
-
+        assert "Can't create folder" in verify_abort(runez.ensure_folder, "sample")
         assert runez.delete("sample") == 1
         assert os.getcwd() == temp_folder
 

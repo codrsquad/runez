@@ -8,7 +8,7 @@ import io
 import json
 import os
 
-from runez.path import ensure_folder
+from runez.path import ensure_folder, parent_folder
 from runez.system import _R, abort, LOG, resolved_path, short, string_type, stringified, UNSET
 
 
@@ -673,7 +673,7 @@ def save_json(data, path, indent=2, keep_none=False, sort_keys=True, fatal=True,
 
     try:
         path = resolved_path(path)
-        ensure_folder(path, fatal=fatal, logger=None)
+        ensure_folder(parent_folder(path), fatal=fatal, logger=None)
         if _R.hdry(dryrun, logger, "save %s" % short(path)):
             return 1
 

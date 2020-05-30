@@ -32,8 +32,7 @@ k2 =
 
 
 def test_edge_cases():
-    assert runez.file.ini_to_dict(None) is None
-    assert runez.file.ini_to_dict("/dev/null/no-such-file", default=dict(a="b")) == dict(a="b")
+    assert runez.file.ini_to_dict(None, default=None) is None
 
     # Don't crash for no-ops
     assert runez.copy(None, None) == 0
@@ -48,12 +47,9 @@ def test_edge_cases():
     assert not runez.file.is_younger("", 1)
     assert not runez.file.is_younger("/dev/null/not-there", 1)
 
-    assert runez.readlines(None, fatal=False) is None
-    with pytest.raises((OSError, IOError)):
-        runez.readlines("/dev/null/not-there")
-
+    assert runez.readlines(None, default=None) is None
     with pytest.raises(runez.system.AbortException):
-        runez.readlines("/dev/null/not-there", fatal=True)
+        runez.readlines("/dev/null/not-there")
 
 
 def test_ini_to_dict():
@@ -79,15 +75,19 @@ def test_ini_to_dict():
 @patch("os.path.getsize", return_value=10)
 def test_failure(*_):
     with runez.CaptureOutput() as logged:
-        assert runez.write("bar", "some content", fatal=False)
-        assert "Can't write" in logged.pop()
+        assert runez.copy("some-file", "bar", fatal=False) == -1
+        assert "Can't copy" in logged.pop()
 
         assert runez.delete("some-file", fatal=False) == -1
         assert "Can't delete" in logged
         assert "bad unlink" in logged.pop()
 
-        assert runez.copy("some-file", "bar", fatal=False) == -1
-        assert "Can't copy" in logged.pop()
+        with pytest.raises(runez.system.AbortException):
+            runez.file.ini_to_dict("bar")
+        assert "Couldn't read" in logged.pop()
+
+        assert runez.write("bar", "some content", fatal=False)
+        assert "Can't write" in logged.pop()
 
         if not runez.WINDOWS:
             assert runez.make_executable("some-file", fatal=False) == -1
@@ -96,7 +96,7 @@ def test_failure(*_):
 
 def test_file_operations(temp_folder):
     with runez.CaptureOutput(dryrun=True) as logged:
-        assert runez.ensure_folder("some-folder", folder=True, fatal=False) == 1
+        assert runez.ensure_folder("some-folder", fatal=False) == 1
         assert "Would create" in logged.pop()
 
         assert runez.touch("some-file", logger=logging.debug) == 1
@@ -129,7 +129,7 @@ def test_file_inspection(temp_folder, logged):
     assert runez.delete("sample") == 1
     assert "Deleting sample" in logged.pop()
 
-    assert runez.ensure_folder("sample", folder=True) == 1
+    assert runez.ensure_folder("sample") == 1
     assert runez.delete("sample") == 1
     assert "Deleting sample" in logged.pop()
 

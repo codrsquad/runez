@@ -14,7 +14,7 @@ History
     ``default=UNSET`` (aborts on failure when no ``default`` is specified,
     ``default`` returned otherwise).
 
-* Simplified signatures of: ``read_json``, ``readlines``
+* Simplified signatures of: ensure_folder, ``read_json``, ``readlines``
 
 * Made ``readlines`` consistent with all other IO related functions
 

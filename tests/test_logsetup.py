@@ -307,10 +307,8 @@ def test_auto_location_not_writable(temp_log):
             console_format="%(name)s f:%(filename)s mod:%(module)s func:%(funcName)s %(levelname)s - %(message)s",
             console_level=logging.DEBUG,
         )
-
         assert "runez f:logsetup.py mod:logsetup func:greet DEBUG" in temp_log.stderr
         assert "Logging to: no usable locations" in temp_log.stderr
-
         assert runez.log.file_handler is None
 
 
@@ -321,10 +319,7 @@ def test_file_location_not_writable(temp_log):
         console_level=logging.DEBUG,
         file_location="/dev/null/somewhere.log",
     )
-
-    assert "DEBUG Can't create folder /dev/null" in temp_log.stderr
-    assert "DEBUG Logging to: /dev/null/somewhere.log is not usable" in temp_log.stderr
-
+    assert "DEBUG Logging to: given location '/dev/null/somewhere.log' is not usable" in temp_log.stderr
     assert runez.log.file_handler is None
 
 

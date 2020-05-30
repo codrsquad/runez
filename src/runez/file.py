@@ -6,32 +6,33 @@ import time
 
 from runez.convert import represented_bytesize
 from runez.path import ensure_folder, parent_folder
-from runez.system import _R, abort, Anchored, decode, LOG, resolved_path, short, SYMBOLIC_TMP, UNSET
+from runez.system import _R, abort, Anchored, decode, resolved_path, short, SYMBOLIC_TMP, UNSET
 
 
-def copy(source, destination, ignore=None, adapter=None, fatal=True, logger=LOG.debug):
+def copy(source, destination, ignore=None, fatal=True, logger=UNSET, dryrun=UNSET):
     """Copy source -> destination
 
     Args:
         source (str | None): Source file or folder
         destination (str | None): Destination file or folder
         ignore (callable | list | str | None): Names to be ignored
-        adapter (callable | None): Optional function to call on 'source' before copy
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | None): Logger to use, or None to disable log chatter
+        dryrun (bool): Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
     """
-    return _file_op(source, destination, _copy, adapter, fatal, logger, ignore=ignore)
+    return _file_op(source, destination, _copy, fatal, logger, dryrun, ignore=ignore)
 
 
-def delete(path, fatal=True, logger=LOG.debug):
+def delete(path, fatal=True, logger=UNSET, dryrun=UNSET):
     """
     Args:
         path (str | None): Path to file or folder to delete
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | None): Logger to use, or None to disable log chatter
+        dryrun (bool): Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
@@ -41,15 +42,10 @@ def delete(path, fatal=True, logger=LOG.debug):
     if not islink and (not path or not os.path.exists(path)):
         return 0
 
-    if _R.is_dryrun():
-        if logger:
-            LOG.debug("Would delete %s", short(path))
-
+    if _R.hdry(dryrun, logger, "delete %s" % short(path)):
         return 1
 
-    if logger:
-        logger("Deleting %s", short(path))
-
+    _R.hlog(logger, "Deleting %s" % short(path))
     try:
         if islink or os.path.isfile(path):
             os.unlink(path)
@@ -60,56 +56,57 @@ def delete(path, fatal=True, logger=LOG.debug):
         return 1
 
     except Exception as e:
-        return abort("Can't delete %s" % short(path), exc_info=e, return_value=-1, fatal=fatal)
+        return abort("Can't delete %s" % short(path), exc_info=e, return_value=-1, fatal=fatal, logger=logger)
 
 
-def ini_to_dict(path, keep_empty=False, default=None, logger=UNSET):
+def ini_to_dict(path, default=UNSET, keep_empty=False):
     """Contents of an INI-style config file as a dict of dicts: section -> key -> value
 
     Args:
         path (str | None): Path to file to parse
-        keep_empty (bool): If True, keep definitions with empty values
         default (dict | None): Object to return if conf couldn't be read
-        logger (callable | None): Logger to use, or None to disable log chatter
+        keep_empty (bool): If True, keep definitions with empty values
 
     Returns:
         (dict): Dict of section -> key -> value
     """
-    if not path:
+    try:
+        lines = readlines(path)
+
+    except BaseException:
+        if default is UNSET:
+            raise
+
         return default
 
     result = {}
-    try:
-        section_key = None
-        section = None
-        for line in readlines(path, logger=logger):
-            line = line.strip()
-            if "#" in line:
-                i = line.index("#")
-                line = line[:i].strip()
+    section_key = None
+    section = None
+    for line in lines:
+        line = line.strip()
+        if "#" in line:
+            i = line.index("#")
+            line = line[:i].strip()
 
-            if not line:
-                continue
+        if not line:
+            continue
 
-            if line.startswith("[") and line.endswith("]"):
-                section_key = line.strip("[]").strip()
-                section = result.get(section_key)
-                continue
+        if line.startswith("[") and line.endswith("]"):
+            section_key = line.strip("[]").strip()
+            section = result.get(section_key)
+            continue
 
-            if "=" not in line:
-                continue
+        if "=" not in line:
+            continue
 
-            if section is None:
-                section = result[section_key] = {}
+        if section is None:
+            section = result[section_key] = {}
 
-            key, _, value = line.partition("=")
-            key = key.strip()
-            value = value.strip()
-            if keep_empty or (key and value):
-                section[key] = value
-
-    except (OSError, IOError):
-        return default
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip()
+        if keep_empty or (key and value):
+            section[key] = value
 
     if not keep_empty:
         result = dict((k, v) for k, v in result.items() if k and v)
@@ -134,25 +131,23 @@ def is_younger(path, age, default=False):
         return default
 
 
-def readlines(path, default=UNSET, first=None, errors=None, fatal=UNSET, logger=UNSET):
+def readlines(path, default=UNSET, first=None, errors=None):
     """
     Args:
         path (str | None): Path to file to read lines from
         default (list | None): Default if file is not present, or it could not be read
         first (int | None): Return only the 'first' lines when specified
         errors (str | None): Optional string specifying how encoding errors are to be handled
-        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | None): Logger to use, or None to disable log chatter
 
     Returns:
-        (list): List of lines read, newlines and traling spaces stripped
+        (list): List of lines read, newlines and trailing spaces stripped
     """
-    if not path:
-        return None
+    path = resolved_path(path)
+    if not path or not os.path.exists(path):
+        return _R.hdef(default, "No file %s" % short(path))
 
     try:
         result = []
-        path = resolved_path(path)
         with io.open(path, errors=errors) as fh:
             if not first:
                 first = -1
@@ -167,44 +162,40 @@ def readlines(path, default=UNSET, first=None, errors=None, fatal=UNSET, logger=
             return result
 
     except Exception as e:
-        if fatal is UNSET:
-            raise
-
-        if fatal:
-            abort("Can't readlines() from %s" % short(path), exc_info=e, fatal=fatal, logger=logger)
+        return _R.hdef(default, "Couldn't read %s" % short(path), e=e)
 
 
-def move(source, destination, adapter=None, fatal=True, logger=LOG.debug):
+def move(source, destination, fatal=True, logger=UNSET, dryrun=UNSET):
     """Move `source` -> `destination`
 
     Args:
         source (str | None): Source file or folder
         destination (str | None): Destination file or folder
-        adapter (callable): Optional function to call on 'source' before copy
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | None): Logger to use, or None to disable log chatter
+        dryrun (bool): Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
     """
-    return _file_op(source, destination, _move, adapter, fatal, logger)
+    return _file_op(source, destination, _move, fatal, logger, dryrun)
 
 
-def symlink(source, destination, adapter=None, must_exist=True, fatal=True, logger=LOG.debug):
+def symlink(source, destination, must_exist=True, fatal=True, logger=UNSET, dryrun=UNSET):
     """Symlink `source` <- `destination`
 
     Args:
         source (str | None): Source file or folder
         destination (str | None): Destination file or folder
-        adapter (callable): Optional function to call on 'source' before copy
         must_exist (bool): If True, verify that source does indeed exist
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | None): Logger to use, or None to disable log chatter
+        dryrun (bool): Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
     """
-    return _file_op(source, destination, _symlink, adapter, fatal, logger, must_exist=must_exist)
+    return _file_op(source, destination, _symlink, fatal, logger, dryrun, must_exist=must_exist)
 
 
 class TempFolder(object):
@@ -251,18 +242,19 @@ class TempFolder(object):
             shutil.rmtree(self.tmp_folder)
 
 
-def touch(path, fatal=True, logger=None):
+def touch(path, fatal=True, logger=UNSET, dryrun=UNSET):
     """Touch file with `path`
 
     Args:
         path (str | None): Path to file to touch
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | None): Logger to use, or None to disable log chatter
+        dryrun (bool): Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
     """
-    return write(path, None, fatal=fatal, logger=logger)
+    return write(path, None, fatal=fatal, logger=logger, dryrun=dryrun)
 
 
 def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
@@ -286,7 +278,7 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
     if _R.hdry(dryrun, logger, lambda: "%s %s" % ("write %s to" % byte_size if byte_size else "touch", short(path))):
         return 1
 
-    ensure_folder(path, fatal=fatal, logger=logger)
+    ensure_folder(parent_folder(path), fatal=fatal, logger=logger, dryrun=dryrun)
     _R.hlog(logger, "%s %s" % ("Writing %s to" % byte_size if byte_size else "Touching", short(path)))
     try:
         with io.open(path, "wt") as fh:
@@ -331,16 +323,16 @@ def _symlink(source, destination):
     os.symlink(source, destination)
 
 
-def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True, ignore=None):
+def _file_op(source, destination, func, fatal, logger, dryrun, must_exist=True, ignore=None):
     """Call func(source, destination)
 
     Args:
         source (str | None): Source file or folder
         destination (str | None): Destination file or folder
         func (callable): Implementation function
-        adapter (callable | None): Optional function to call on 'source' before copy
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | None): Logger to use, or None to disable log chatter
+        dryrun (bool): Optionally override current dryrun setting
         must_exist (bool): If True, verify that source does indeed exist
         ignore (callable | list | str | None): Names to be ignored
 
@@ -352,16 +344,14 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True,
 
     action = func.__name__[1:]
     indicator = "<-" if action == "symlink" else "->"
+    description = "%s %s %s %s" % (action, short(source), indicator, short(destination))
     psource = parent_folder(source)
     pdest = resolved_path(destination)
     if psource != pdest and psource.startswith(pdest):
-        message = "Can't %s %s %s %s: source contained in destination" % (action, short(source), indicator, short(destination))
-        return abort(message, return_value=-1, fatal=fatal)
+        message = "Can't %s: source contained in destination" % description
+        return abort(message, return_value=-1, fatal=fatal, logger=logger)
 
-    if _R.is_dryrun():
-        if logger:
-            LOG.debug("Would %s %s %s %s", action, short(source), indicator, short(destination))
-
+    if _R.hdry(dryrun, logger, description):
         return 1
 
     if must_exist and not os.path.exists(source):
@@ -370,12 +360,8 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True,
 
     try:
         # Ensure parent folder exists
-        ensure_folder(destination, fatal=fatal, logger=None)
-
-        if logger:
-            note = adapter(source, destination, fatal=fatal, logger=logger) if adapter else ""
-            logger("%s %s %s %s%s", action.title(), short(source), indicator, short(destination), note)
-
+        ensure_folder(parent_folder(destination), fatal=fatal, logger=None, dryrun=dryrun)
+        _R.hlog(logger, lambda: "%s%s" % (description[0].upper(), description[1:]))
         if ignore is not None:
             if callable(ignore):
                 func(source, destination, ignore=ignore)
@@ -389,5 +375,5 @@ def _file_op(source, destination, func, adapter, fatal, logger, must_exist=True,
         return 1
 
     except Exception as e:
-        message = "Can't %s %s %s %s" % (action, short(source), indicator, short(destination))
+        message = "Can't %s" % description
         return abort(message, exc_info=e, return_value=-1, fatal=fatal, logger=logger)

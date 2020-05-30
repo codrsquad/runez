@@ -1175,7 +1175,7 @@ class _R:
 
     @classmethod
     def hlog(cls, logger, message):
-        """Handle optional logging calls via 'logger=' for IO related functions, making them consistent.
+        """Handle optional logging calls via 'logger=' for IO-related non-returning-content functions, making them consistent.
         This allows to have less repeated code out there, find all places where we do this,
         and ensure they all respect the same convention.
 
@@ -1183,8 +1183,13 @@ class _R:
             logger (callable | None): Logger to use, or None to disable log chatter
             message (str | callable): Message to log
         """
-        if logger:
-            logger(cls.expanded_message(message))
+        if logger is not None:
+            message = cls.expanded_message(message)
+            if callable(logger):
+                logger(message)
+
+            else:
+                LOG.debug(message)
 
     @classmethod
     def is_dryrun(cls):

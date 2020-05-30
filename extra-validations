@@ -201,13 +201,14 @@ def adhoc_lint_file(path):
     errors = 0
     with open(path) as fh:
         lines = fh.readlines()
+        module_name = path_reference(path, 0)
         for i, line in enumerate(lines, start=1):
             if "fatal=fatal" in line and "logger=" not in line:
                 print("%s: logger not passed through" % path_reference(path, i))
                 errors += 1
                 continue
 
-            if "if logger:" in line:
+            if module_name != "system.py" and "if logger:" in line:
                 print("%s: should call _R.hlog()" % path_reference(path, i))
                 errors += 1
                 continue

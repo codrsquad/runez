@@ -35,6 +35,12 @@ def sample_main():
     return " ".join(args)
 
 
+def test_edge_cases():
+    # verify_abort should complain about called function not having raised anything
+    with pytest.raises(AssertionError):
+        assert runez.conftest.verify_abort(sample_main)
+
+
 def test_success(cli):
     cli.main = sample_main
 

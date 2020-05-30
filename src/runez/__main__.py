@@ -46,6 +46,7 @@ def cmd_import_speed():
     parser = argparse.ArgumentParser(description="Show average import time of top-level python packages installed in this venv")
     parser.add_argument("--all", action="store_true", help="Show all.")
     parser.add_argument("--border", choices=NAMED_BORDERS, default="reddit", help="Use custom border.")
+    parser.add_argument("--iterations", "-i", type=int, default=3, help="Number of measurements to average.")
     parser.add_argument("name", nargs="*", help="Names of modules to show (by default: all).")
     args = parser.parse_args()
     names = []
@@ -63,7 +64,7 @@ def cmd_import_speed():
     fastest = None
     slowest = None
     for name in names:
-        t = ImportTime(name, iterations=3)
+        t = ImportTime(name, iterations=args.iterations)
         times.append(t)
         if t.cumulative is None:
             continue
@@ -168,7 +169,7 @@ def _is_interesting_dist(key):
 def _find_top_level(base, dist):
     name = dist.key.replace("-", "_").replace(".", "_")
     top_level = os.path.join(base, "%s-%s.dist-info" % (name, dist.version), "top_level.txt")
-    for line in runez.readlines(top_level, fatal=False):
+    for line in runez.readlines(top_level, default=[]):
         if not line.startswith("_") and line:
             return line
 

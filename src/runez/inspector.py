@@ -158,7 +158,7 @@ def run_cmds(prog=None):
 class ImportTime(object):
     """Measure average import time of a given top-level package, works with 3.7+ only"""
 
-    def __init__(self, module_name, iterations=5):
+    def __init__(self, module_name, iterations=3):
         self.module_name = module_name
         self.elapsed = None
         self.cumulative = None

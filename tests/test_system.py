@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import datetime
+import logging
 import os
 import sys
 
@@ -18,6 +19,13 @@ def failed_function(message, fatal=True, logger=runez.UNSET):
 
 def test_abort(logged):
     assert runez.abort("aborted", return_value="some-return", fatal=False) == "some-return"
+    assert "ERROR" in logged
+    assert "aborted" in logged.pop()
+
+    # User wants their own logger called
+    assert runez.abort("aborted", return_value="some-return", fatal=False, logger=logging.debug) == "some-return"
+    assert "ERROR" not in logged
+    assert "DEBUG" in logged
     assert "aborted" in logged.pop()
 
     assert runez.abort("aborted", return_value="some-return", fatal=None) == "some-return"
@@ -97,7 +105,7 @@ def test_capture_nested():
 def test_current_folder(temp_folder):
     sample = os.path.join(temp_folder, "sample")
     assert os.getcwd() == temp_folder
-    assert runez.ensure_folder("sample", folder=True) == 1
+    assert runez.ensure_folder("sample") == 1
 
     with runez.CurrentFolder("sample", anchor=False):
         cwd = os.getcwd()

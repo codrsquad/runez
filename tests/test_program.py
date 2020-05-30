@@ -111,7 +111,7 @@ def test_executable(temp_folder):
 
     with runez.CaptureOutput() as logged:
         assert runez.touch("some-file") == 1
-        assert not logged
+        assert "Touching some-file" in logged.pop()
         assert runez.delete("some-file") == 1
         assert "Deleting some-file" in logged.pop()
         assert runez.touch("some-file", logger=logging.debug) == 1

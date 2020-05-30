@@ -20,7 +20,7 @@ except ImportError:
 
 from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone
-from runez.path import basename as get_basename, ensure_folder, parent_folder
+from runez.path import basename as get_basename, parent_folder
 from runez.system import _R, expanded, find_caller_frame, flattened, LOG, quoted, Slotted, ThreadGlobalContext, UNSET, WINDOWS
 
 
@@ -123,22 +123,31 @@ class LogSpec(Slotted):
             location (str | None): Location to auto-complete with {basename}, if it points to a folder
 
         Returns:
-            str | None: {location}/{basename}
+            (str | None): {location}/{basename}
         """
         path = expanded(location, self, os.environ)
         if path:
             if os.path.isdir(path):
                 filename = expanded(self.basename, self)
-                if not filename:
+                if not filename or not is_writable_folder(path):
                     return None
 
-                path = os.path.join(path, filename)
+                return os.path.join(path, filename)
 
-            folder = parent_folder(parent_folder(path))
-            if folder and os.path.exists(folder):
-                # Try to auto-create log folder only if "grand parent" folder exists
-                if ensure_folder(path, fatal=False, logger=LOG.debug, dryrun=False) >= 0:
-                    return path
+            parent = parent_folder(path)
+            if not is_writable_folder(parent):
+                try:
+                    os.mkdir(parent)  # Create only one folder if possible (no mkdir -p)
+
+                except OSError:
+                    return None
+
+            if is_writable_folder(parent):
+                return path
+
+
+def is_writable_folder(path):
+    return path and os.path.isdir(path) and os.access(path, os.W_OK)
 
 
 class _ContextFilter(logging.Filter):
@@ -463,7 +472,7 @@ class LogManager(object):
                 location = "file log disabled"
 
             elif cls.spec.file_location:
-                location = "{file_location} is not usable"
+                location = "given location '{file_location}' is not usable"
 
             else:
                 location = "no usable locations from {locations}"

@@ -4,7 +4,7 @@ Convenience methods for file/folder operations
 
 import os
 
-from runez.system import _R, abort, LOG, resolved_path, short, UNSET
+from runez.system import _R, abort, resolved_path, short, UNSET
 
 
 def basename(path, extension_marker=os.extsep):
@@ -31,50 +31,32 @@ def basename(path, extension_marker=os.extsep):
     return result
 
 
-def ensure_folder(path, folder=False, fatal=True, logger=LOG.debug, dryrun=UNSET):
-    """Ensure folder exists
+def ensure_folder(path, fatal=True, logger=UNSET, dryrun=UNSET):
+    """Ensure folder with 'path' exists
 
     Args:
         path (str | None): Path to file or folder
-        folder (bool): If True, 'path' refers to a folder (file assumed otherwise)
-        fatal (bool | None): Abort execution on failure if True
-        logger (callable | None): Logger to use
+        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger (callable | None): Logger to use, or None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
     """
-    if not path:
+    path = resolved_path(path)
+    if not path or os.path.isdir(path):
         return 0
 
-    if folder:
-        folder = resolved_path(path)
-
-    else:
-        folder = parent_folder(path)
-
-    if os.path.isdir(folder):
-        if not os.access(folder, os.W_OK):
-            return abort("Folder %s is not writable" % folder, return_value=-1, fatal=fatal, logger=logger)
-
-        return 0
-
-    if dryrun is UNSET:
-        dryrun = _R.is_dryrun()
-
-    if dryrun:
-        LOG.debug("Would create %s", short(folder))
+    if _R.hdry(dryrun, logger, "create %s" % short(path)):
         return 1
 
     try:
-        os.makedirs(folder)
-        if logger:
-            logger("Created folder %s", short(folder))
-
+        os.makedirs(path)
+        _R.hlog(logger, "Created folder %s" % short(path))
         return 1
 
     except Exception as e:
-        return abort("Can't create folder %s" % short(folder), exc_info=e, return_value=-1, fatal=fatal, logger=logger)
+        return abort("Can't create folder %s" % short(path), exc_info=e, return_value=-1, fatal=fatal, logger=logger)
 
 
 def parent_folder(path, base=None):
