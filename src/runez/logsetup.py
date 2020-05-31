@@ -224,7 +224,7 @@ class LogManager(object):
     context = ThreadGlobalContext(_ContextFilter)
 
     # Below fields should be read-only for outside users, do not modify these
-    debug = None
+    debug = False
     console_handler = None  # type: Optional[logging.StreamHandler]
     file_handler = None  # type: Optional[logging.FileHandler] # File we're currently logging to (if any)
     handlers = None  # type: Optional[List[logging.Handler]]
@@ -238,13 +238,15 @@ class LogManager(object):
     @classmethod
     def set_debug(cls, debug):
         """Useful only as simple callback function, use runez.log.setup() for regular usage"""
-        cls.set_dryrun_debug(debug=debug)
+        if debug is not UNSET:
+            cls.debug = bool(debug)
+
         return cls.debug
 
     @classmethod
     def set_dryrun(cls, dryrun):
         """Useful only as simple callback function, use runez.log.setup() for regular usage"""
-        cls.set_dryrun_debug(dryrun=dryrun)
+        _R.set_dryrun(dryrun)
         return _R.is_dryrun()
 
     @classmethod
@@ -252,27 +254,6 @@ class LogManager(object):
         """Useful only as simple callback function, use runez.log.setup() for regular usage"""
         LogManager.spec.set(file_location=file_location)
         return cls.spec.file_location
-
-    @classmethod
-    def set_dryrun_debug(cls, dryrun=UNSET, debug=UNSET):
-        """
-        Args:
-            dryrun (bool): Enable dryrun
-            debug (bool): Enable debug level logging (overrides other specified levels)
-        """
-        if dryrun is UNSET:
-            dryrun = _R.is_dryrun()
-
-        else:
-            _R.set_dryrun(dryrun)
-
-        if dryrun and (debug is None or debug is UNSET):
-            # Automatically turn debug on (if not explicitly specified) with dryrun,
-            # as many of the "Would ..." messages are at debug level
-            debug = True
-
-        if debug is not UNSET:
-            cls.debug = debug
 
     @classmethod
     def setup(
@@ -322,7 +303,8 @@ class LogManager(object):
             tmp (str | None): Optional temp folder to use (auto determined)
         """
         with cls._lock:
-            cls.set_dryrun_debug(dryrun=dryrun, debug=debug)
+            cls.set_debug(debug)
+            cls.set_dryrun(dryrun)
             cls.spec.set(
                 appname=appname,
                 basename=basename,

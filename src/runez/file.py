@@ -211,13 +211,12 @@ class TempFolder(object):
         """
         self.anchor = anchor
         self.dryrun = dryrun
-        self.debug = UNSET
         self.follow = follow
         self.old_cwd = None
         self.tmp_folder = None
 
     def __enter__(self):
-        self.dryrun, self.debug = _R.set_dryrun(self.dryrun)
+        self.dryrun = _R.set_dryrun(self.dryrun)
         if not _R.is_dryrun():
             # Use realpath() to properly resolve for example symlinks on OSX temp paths
             self.tmp_folder = os.path.realpath(tempfile.mkdtemp())
@@ -232,7 +231,7 @@ class TempFolder(object):
         return tmp
 
     def __exit__(self, *_):
-        _R.set_dryrun(self.dryrun, debug=self.debug)
+        _R.set_dryrun(self.dryrun)
         if self.anchor:
             Anchored.pop(self.tmp_folder or SYMBOLIC_TMP)
 

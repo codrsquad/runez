@@ -106,45 +106,46 @@ def test_setup(temp_log):
         assert runez.log.faulthandler_signum is None
 
     cwd = os.getcwd()
-    assert runez.DRYRUN is False
-    assert runez.log.debug is None
+    assert not runez.DRYRUN
+    assert not runez.log.debug
     with runez.TempFolder(dryrun=False):
         assert not runez.log.debug
 
-        # Auto-debug on dryrun
+        # No auto-debug on dryrun
         runez.log.setup(dryrun=True, level=logging.INFO)
-        assert runez.log.debug
+        assert not runez.log.debug
+        assert runez.DRYRUN
+        logging.info("info")
         logging.debug("hello")
-        assert runez.log.debug
         assert not temp_log.stdout
-        assert "DEBUG hello" in temp_log.stderr.pop()
+        assert "hello" not in temp_log
+        assert "info" in temp_log.stderr.pop()
 
         # Second call without any customization is a no-op
         runez.log.setup()
-        assert runez.log.debug
+        assert not runez.log.debug
+        assert runez.DRYRUN
         logging.debug("hello")
-        assert not temp_log.stdout
-        assert "DEBUG hello" in temp_log.stderr.pop()
+        assert not temp_log
 
         # Change stream
         runez.log.setup(console_stream=sys.stdout)
-        logging.debug("hello")
-        assert "DEBUG hello" in temp_log.stdout.pop()
+        logging.info("hello")
         assert not temp_log.stderr
+        assert "INFO hello" in temp_log.stdout.pop()
 
         # Change logging level
-        runez.log.setup(debug=False, console_level=logging.INFO)
-        assert not runez.log.debug
-        logging.debug("hello")
-        assert not temp_log.stdout
-        assert not temp_log.stderr
+        runez.log.setup(console_level=logging.WARNING)
         logging.info("hello")
-        assert "INFO hello" in temp_log.stdout.pop()
+        assert not temp_log
+        logging.warning("hello")
+        assert "WARNING hello" in temp_log.stdout.pop()
         assert not temp_log.stderr
 
-        # Change format
-        runez.log.setup(console_format="%(levelname)s - %(message)s")
-        assert runez.log.debug  # Debug mode re-established because implied by dryrun mode
+        # Change format and enable debug
+        runez.log.setup(debug=True, console_format="%(levelname)s - %(message)s")
+        assert runez.log.debug
+        assert runez.log.console_handler.level == logging.DEBUG
         logging.debug("hello")
         assert "DEBUG - hello" in temp_log.stdout.pop()
         assert not temp_log.stderr
@@ -154,9 +155,12 @@ def test_setup(temp_log):
             runez.log.enable_faulthandler()
             assert runez.log.faulthandler_signum
 
-    # Verify things were properly restored
-    assert runez.DRYRUN is False
-    assert runez.log.debug is None
+        assert runez.log.debug is True
+        assert runez.DRYRUN is True
+
+    # Verify dryrun and current folder restored, but debug untouched
+    assert runez.log.debug
+    assert not runez.DRYRUN
     assert os.getcwd() == cwd
 
 

@@ -641,7 +641,6 @@ class CaptureOutput(object):
         self.stderr = stderr
         self.anchors = anchors
         self.dryrun = dryrun
-        self.debug = UNSET
         self.seed_logging = seed_logging
         self.handler = None
 
@@ -660,7 +659,7 @@ class CaptureOutput(object):
         Returns:
             (TrackedOutput): Object holding captured stdout/stderr/log output
         """
-        self.dryrun, self.debug = _R.set_dryrun(self.dryrun)
+        self.dryrun = _R.set_dryrun(self.dryrun)
         self.tracked = TrackedOutput(
             CapturedStream("stdout", sys.stdout) if self.stdout else None,
             CapturedStream("stderr", sys.stderr) if self.stderr else None,
@@ -685,7 +684,7 @@ class CaptureOutput(object):
         return self.tracked
 
     def __exit__(self, *args):
-        _R.set_dryrun(self.dryrun, debug=self.debug)
+        _R.set_dryrun(self.dryrun)
         if self.tracked.captured:
             self._capture_stack.pop()
 
@@ -1215,26 +1214,21 @@ class _R:
         return cls._runez_module().Serializable
 
     @classmethod
-    def set_dryrun(cls, dryrun, debug=UNSET):
+    def set_dryrun(cls, dryrun):
         """Set runez.DRYRUN, and return its previous value (useful for context managers)
 
         Args:
             dryrun (bool | UNSET): New value for runez.DRYRUN
-            debug (bool | UNSET): New value for runez.log.debug
 
         Returns:
-            (bool, bool): Old values for dryrun and debug
+            (bool): Old values for dryrun
         """
         r = cls._runez_module()
         old_dryrun = r.DRYRUN
-        old_debug = r.log.debug
         if dryrun is not UNSET:
             r.DRYRUN = bool(dryrun)
 
-        if debug is not UNSET:
-            r.log.debug = debug
-
-        return old_dryrun, old_debug
+        return old_dryrun
 
 
 def _find_value(key, *args):

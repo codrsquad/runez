@@ -36,7 +36,7 @@ def echo(text):
     """Repeat provided text"""
     text = " ".join(text)
     msg = "%s, color: %s, %s values, g.a=%s" % (text, runez.color.is_coloring(), len(runez.config.CONFIG), runez.config.get("g.a"))
-    msg += ", debug: %s, dryrun: %s, log: %s" % (runez.DRYRUN, runez.log.debug, runez.log.spec.file_location)
+    msg += ", debug: %s, dryrun: %s, log: %s" % (runez.log.debug, runez.DRYRUN, runez.log.spec.file_location)
     print(msg)
 
 
@@ -78,11 +78,11 @@ def test_group(cli):
 
     cli.run("--color echo hello")
     assert cli.succeeded
-    cli.assert_printed("hello, color: True, 0 values, g.a=None, debug: False, dryrun: None, log: None")
+    cli.assert_printed("hello, color: True, 0 values, g.a=None, debug: False, dryrun: False, log: None")
 
     cli.run("--no-color --dryrun -ca=b --config c=d --log foo echo hello")
     assert cli.succeeded
-    cli.assert_printed("hello, color: False, 2 values, g.a=b, debug: True, dryrun: True, log: foo")
+    cli.assert_printed("hello, color: False, 2 values, g.a=b, debug: False, dryrun: True, log: foo")
 
 
 def test_command(cli):
