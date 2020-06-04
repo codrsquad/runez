@@ -70,14 +70,9 @@ def ini_to_dict(path, default=UNSET, keep_empty=False):
     Returns:
         (dict): Dict of section -> key -> value
     """
-    try:
-        lines = readlines(path)
-
-    except BaseException:
-        if default is UNSET:
-            raise
-
-        return default
+    lines = readlines(path, default=None)
+    if lines is None:
+        return _R.hdef(default, "Couldn't read ini file '%s'" % short(path))
 
     result = {}
     section_key = None

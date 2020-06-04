@@ -53,18 +53,25 @@ def test_edge_cases():
         runez.readlines("/dev/null/not-there")
 
 
-def test_ini_to_dict():
-    expected = {None: {"root": "some-value"}, "": {"ek": "ev"}, "s1": {"k1": "v1"}, "s2": {"k2": ""}}
-    with runez.TempFolder():
-        runez.write("test.ini", SAMPLE_CONF)
-        actual = runez.file.ini_to_dict("test.ini", keep_empty=True)
-        assert actual == expected
+def test_ini_to_dict(temp_folder, logged):
+    foo = runez.file.ini_to_dict("foo", default={})
+    assert not logged
+    assert foo == {}
 
-        del expected[None]
-        del expected[""]
-        del expected["s2"]
-        actual = runez.file.ini_to_dict("test.ini", keep_empty=False)
-        assert actual == expected
+    expected = {None: {"root": "some-value"}, "": {"ek": "ev"}, "s1": {"k1": "v1"}, "s2": {"k2": ""}}
+    runez.write("test.ini", SAMPLE_CONF)
+    logged.pop()
+
+    actual = runez.file.ini_to_dict("test.ini", keep_empty=True)
+    assert not logged
+    assert actual == expected
+
+    del expected[None]
+    del expected[""]
+    del expected["s2"]
+    actual = runez.file.ini_to_dict("test.ini", keep_empty=False)
+    assert not logged
+    assert actual == expected
 
 
 @patch("io.open", side_effect=Exception)
@@ -85,7 +92,7 @@ def test_failure(*_):
 
         with pytest.raises(runez.system.AbortException):
             runez.file.ini_to_dict("bar")
-        assert "Couldn't read" in logged.pop()
+        assert "Couldn't read ini file" in logged.pop()
 
         assert runez.write("bar", "some content", fatal=False)
         assert "Can't write" in logged.pop()
