@@ -40,6 +40,15 @@ def group(help=None, width=140, **attrs):
     return click.group(**attrs)
 
 
+def border(*args, **attrs):
+    # No docstring, as all the possible values are shown in --help, trivial to guess what this is
+    from runez.render import NAMED_BORDERS  # Imported if used
+
+    attrs.setdefault("default", "reddit")
+    attrs.setdefault("type", click.Choice(NAMED_BORDERS))
+    return option(border, *args, **attrs)
+
+
 def color(*args, **attrs):
     """Use colors (on by default on ttys)"""
     attrs.setdefault("is_flag", "negatable")
@@ -133,13 +142,10 @@ def option(func, *args, **attrs):
             attrs["is_flag"] = True
             negatable = True
 
-        attrs.setdefault("help", func.__doc__)
-        attrs.setdefault("required", False)
-        if not attrs.get("is_flag"):
-            attrs.setdefault("show_default", True)
-            attrs.setdefault("metavar", name.replace("-", "_").upper())
-            attrs.setdefault("type", str)
+        if func.__doc__:
+            attrs.setdefault("help", func.__doc__)
 
+        attrs.setdefault("required", False)
         if not name.startswith("-"):
             if negatable:
                 name = "--%s/--no-%s" % (name, name)

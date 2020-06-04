@@ -109,6 +109,9 @@ def test_adapted_properties():
     assert s1b.prop3 is None
     assert s1b.prop4 == 4
 
+    s1b.set({"prop1a": "foo"})
+    assert s1b.prop1a == "foo"
+
 
 def test_slotted():
     s1a = Slotted1()

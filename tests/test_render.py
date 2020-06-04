@@ -35,14 +35,6 @@ def test_border():
     assert PrettyBorder.cast(t1) is t1
     assert PrettyBorder.cast("empty") == t1
 
-    # jira is a bit special with 2 delimiter chars
-    tj = PrettyBorder("jira")
-    assert str(tj) == "c:|||,hc:||||||,pad:1"
-
-    # Exercise dict-base setting, for coverage
-    tj2 = PrettyBorder(dict(c="|||", hc=dict(first="||", mid="||", last="||", h="")))
-    assert tj == tj2
-
     tc = PrettyBorder("compact")
     assert str(tc) == "c:   ,h:   -,pad:1"
 

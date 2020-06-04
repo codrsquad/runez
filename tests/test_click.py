@@ -42,12 +42,13 @@ def echo(text):
 
 @runez.click.command()
 @runez.click.version()
+@runez.click.border("-b")
 @runez.click.color("-x", expose_value=True)
 @runez.click.config("-c", expose_value=True, default="a=b,c=d", split=",", env="MY_PROG", propsfs=True)
 @runez.click.debug()
 @runez.click.dryrun()
 @runez.click.log()
-def say_hello(color, config, debug, log):
+def say_hello(border, color, config, debug, log):
     """Say hello"""
     # When --config is exposed, global config is NOT modified
     assert not runez.config.CONFIG.providers
@@ -56,7 +57,9 @@ def say_hello(color, config, debug, log):
     runez.config.CONFIG = config
     assert len(config.providers) == 4
     assert "propsfs" in config.overview()
-    msg = "color: %s, a=%s c=%s, debug: %s, dryrun: %s, log: %s" % (color, config.get("a"), config.get("c"), debug, runez.DRYRUN, log)
+    msg = "border: %s, color: %s, a=%s c=%s, debug: %s, dryrun: %s, log: %s" % (
+        border, color, config.get("a"), config.get("c"), debug, runez.DRYRUN, log
+    )
     print(msg)
 
 
@@ -87,25 +90,31 @@ def test_group(cli):
 
 def test_command(cli):
     cli.main = say_hello
+    cli.run("--help")
+    assert cli.succeeded
+    assert "--border" in cli.logged
+    assert "--color" in cli.logged
+    assert "--no-color" in cli.logged
+
     cli.expect_success("--version", "say-hello, version ")
     cli.expect_success(["--help"], "-x, --color / --no-color", "--log PATH", "Say hello")
 
     cli.run("--no-color")
     assert cli.succeeded
-    cli.assert_printed("color: False, a=b c=d, debug: None, dryrun: False, log: None")
+    cli.assert_printed("border: reddit, color: False, a=b c=d, debug: None, dryrun: False, log: None")
 
     cli.run("-x")
     assert cli.succeeded
     assert "color: True" in cli.logged.stdout
 
-    cli.run("--color --debug --config=a=x -c c=y --log=foo")
+    cli.run("--border github --color --debug --config=a=x -c c=y --log=foo")
     assert cli.succeeded
-    cli.assert_printed("color: True, a=x c=y, debug: True, dryrun: False, log: foo")
+    cli.assert_printed("border: github, color: True, a=x c=y, debug: True, dryrun: False, log: foo")
 
     with patch.dict(os.environ, {"MY_PROG_A": "some-value"}, clear=True):
         cli.run("")
         assert cli.succeeded
-        cli.assert_printed("color: None, a=some-value c=d, debug: None, dryrun: False, log: None")
+        cli.assert_printed("border: reddit, color: None, a=some-value c=d, debug: None, dryrun: False, log: None")
 
 
 def sample_config(**attrs):
