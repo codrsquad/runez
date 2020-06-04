@@ -92,10 +92,10 @@ def test_logspec(isolated_log_setup):
 def test_setup(temp_log):
     fmt = "%(asctime)s %(context)s%(levelname)s - %(message)s"
     assert runez.log.is_using_format("", fmt) is False
-    assert runez.log.is_using_format("%(lineno)d", fmt) is False
-    assert runez.log.is_using_format("%(context)s", fmt) is True
-    assert runez.log.is_using_format("%(context)s %(lineno)d", fmt) is True
-    assert runez.log.is_using_format("%(context)s", "") is False
+    assert runez.log.is_using_format("%(lineno)", fmt) is False
+    assert runez.log.is_using_format("%(context)", fmt) is True
+    assert runez.log.is_using_format("%(context) %(lineno)", fmt) is True
+    assert runez.log.is_using_format("%(context)", "") is False
 
     if not runez.WINDOWS:
         # signum=None is equivalent to disabling faulthandler

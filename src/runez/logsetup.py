@@ -625,7 +625,7 @@ class LogManager(object):
             LOG = logging.getLogger(__name__)
             LOG.info("hello")
         """
-        if cls.is_using_format("%(context)s"):
+        if cls.is_using_format("%(context)"):
             cls.context.enable(True)
             for handler in cls.handlers:
                 handler.addFilter(cls.context.filter)
@@ -636,14 +636,14 @@ class LogManager(object):
 
             cls.context.enable(False)
 
-        if cls.is_using_format("%(pathname)s %(filename)s %(funcName)s %(module)s"):
+        if cls.is_using_format("%(pathname) %(filename) %(funcName) %(module)"):
             logging._srcfile = cls._logging_snapshot._srcfile
 
         else:
             logging._srcfile = None
 
-        logging.logProcesses = cls.is_using_format("%(process)d")
-        logging.logThreads = cls.is_using_format("%(thread)d %(threadName)s")
+        logging.logProcesses = cls.is_using_format("%(process)")
+        logging.logThreads = cls.is_using_format("%(thread) %(threadName)")
 
         if cls._shortcuts_fixed:
             return
