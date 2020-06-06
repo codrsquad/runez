@@ -122,7 +122,7 @@ def test_executable(temp_folder):
         assert runez.make_executable("some-file") == 0
         assert not logged
 
-        assert runez.touch("some-file", logger=None) == 1
+        assert runez.touch("some-file", logger=False) == 1
         assert runez.delete("some-file", logger=None) == 1
         assert not runez.is_executable("some-file")
         assert not logged
@@ -132,6 +132,9 @@ def test_executable(temp_folder):
 
         assert runez.make_executable("/dev/null/some-file", fatal=False, logger=None) == -1
         assert not logged
+
+        assert runez.make_executable("/dev/null/some-file", fatal=False, logger=False) == -1
+        assert "/dev/null/some-file does not exist, can't make it executable" in logged.pop()
 
 
 def test_terminal_width():

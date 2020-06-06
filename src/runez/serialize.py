@@ -8,7 +8,7 @@ import io
 import json
 import os
 
-from runez.path import ensure_folder, parent_folder
+from runez.file import ensure_folder, parent_folder
 from runez.system import _R, abort, LOG, resolved_path, short, string_type, stringified, UNSET
 
 
@@ -661,7 +661,7 @@ def save_json(data, path, indent=2, keep_none=False, sort_keys=True, fatal=True,
         keep_none (bool): If False, don't include None values
         sort_keys (bool): Whether keys should be sorted
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | None): Logger to use, or None to disable log chatter
+        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
         **kwargs: Passed through to `json.dump()`
 
@@ -673,7 +673,7 @@ def save_json(data, path, indent=2, keep_none=False, sort_keys=True, fatal=True,
 
     try:
         path = resolved_path(path)
-        ensure_folder(parent_folder(path), fatal=fatal, logger=None)
+        ensure_folder(parent_folder(path), fatal=fatal, logger=False)
         if _R.hdry(dryrun, logger, "save %s" % short(path)):
             return 1
 

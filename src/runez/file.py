@@ -4,9 +4,32 @@ import shutil
 import tempfile
 import time
 
-from runez.convert import represented_bytesize
-from runez.path import ensure_folder, parent_folder
+from runez.convert import plural, represented_bytesize
 from runez.system import _R, abort, Anchored, decode, resolved_path, short, SYMBOLIC_TMP, UNSET
+
+
+def basename(path, extension_marker=os.extsep):
+    """Base name of given `path`, ignoring extension if `extension_marker` is provided
+
+    Args:
+        path (str | None): Path to consider
+        extension_marker (str | None): Also trim file extension, if marker provided
+
+    Returns:
+        (str): Basename part of path, without extension (if 'extension_marker' provided)
+    """
+    result = os.path.basename(path or "")
+    if extension_marker:
+        if extension_marker not in result:
+            return result
+
+        pre, _, post = result.rpartition(extension_marker)
+        if pre:
+            return pre
+
+        return result  # We have a basename starting with '.'
+
+    return result
 
 
 def copy(source, destination, ignore=None, fatal=True, logger=UNSET, dryrun=UNSET):
@@ -17,7 +40,7 @@ def copy(source, destination, ignore=None, fatal=True, logger=UNSET, dryrun=UNSE
         destination (str | None): Destination file or folder
         ignore (callable | list | str | None): Names to be ignored
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | None): Logger to use, or None to disable log chatter
+        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
 
     Returns:
@@ -31,7 +54,7 @@ def delete(path, fatal=True, logger=UNSET, dryrun=UNSET):
     Args:
         path (str | None): Path to file or folder to delete
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | None): Logger to use, or None to disable log chatter
+        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
 
     Returns:
@@ -57,6 +80,50 @@ def delete(path, fatal=True, logger=UNSET, dryrun=UNSET):
 
     except Exception as e:
         return abort("Can't delete %s" % short(path), exc_info=e, return_value=-1, fatal=fatal, logger=logger)
+
+
+def ensure_folder(path, clean=False, fatal=True, logger=UNSET, dryrun=UNSET):
+    """Ensure folder with 'path' exists
+
+    Args:
+        path (str | None): Path to file or folder
+        clean (bool): True: If True, ensure folder is clean (delete any file/folder it may have)
+        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+        dryrun (bool): Optionally override current dryrun setting
+
+    Returns:
+        (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
+    """
+    path = resolved_path(path)
+    if not path:
+        return 0
+
+    if os.path.isdir(path):
+        if not clean:
+            return 0
+
+        cleaned = 0
+        for fname in os.listdir(path):
+            cleaned += delete(os.path.join(path, fname), fatal=fatal, logger=False, dryrun=dryrun)
+
+        msg = "%s from %s" % (plural(cleaned, "file"), short(path))
+        if not _R.hdry(dryrun, logger, "clean %s" % msg):
+            _R.hlog(logger, "Cleaned %s" % msg)
+
+        return 1
+
+    if _R.hdry(dryrun, logger, "create %s" % short(path)):
+        return 1
+
+    try:
+        os.makedirs(path)
+        _R.hlog(logger, "Created folder %s" % short(path))
+
+        return 1
+
+    except Exception as e:
+        return abort("Can't create folder %s" % short(path), exc_info=e, return_value=-1, fatal=fatal, logger=logger)
 
 
 def ini_to_dict(path, default=UNSET, keep_empty=False):
@@ -127,6 +194,19 @@ def is_younger(path, age, default=False):
         return default
 
 
+def parent_folder(path, base=None):
+    """Parent folder of `path`, relative to `base`
+
+    Args:
+        path (str | None): Path to file or folder
+        base (str | None): Base folder to use for relative paths (default: current working dir)
+
+    Returns:
+        (str): Absolute path of parent folder
+    """
+    return path and os.path.dirname(resolved_path(path, base=base))
+
+
 def readlines(path, default=UNSET, first=None, errors=None):
     """
     Args:
@@ -168,7 +248,7 @@ def move(source, destination, fatal=True, logger=UNSET, dryrun=UNSET):
         source (str | None): Source file or folder
         destination (str | None): Destination file or folder
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | None): Logger to use, or None to disable log chatter
+        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
 
     Returns:
@@ -185,7 +265,7 @@ def symlink(source, destination, must_exist=True, fatal=True, logger=UNSET, dryr
         destination (str | None): Destination file or folder
         must_exist (bool): If True, verify that source does indeed exist
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | None): Logger to use, or None to disable log chatter
+        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
 
     Returns:
@@ -243,7 +323,7 @@ def touch(path, fatal=True, logger=UNSET, dryrun=UNSET):
     Args:
         path (str | None): Path to file to touch
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | None): Logger to use, or None to disable log chatter
+        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
 
     Returns:
@@ -259,7 +339,7 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
         path (str | None): Path to file
         contents (str | None): Contents to write (only touch file if None)
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | None): Logger to use, or None to disable log chatter
+        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
 
     Returns:
@@ -273,7 +353,7 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
     if _R.hdry(dryrun, logger, lambda: "%s %s" % ("write %s to" % byte_size if byte_size else "touch", short(path))):
         return 1
 
-    ensure_folder(parent_folder(path), fatal=fatal, logger=logger, dryrun=dryrun)
+    ensure_folder(parent_folder(path), fatal=fatal, logger=False, dryrun=dryrun)
     _R.hlog(logger, "%s %s" % ("Writing %s to" % byte_size if byte_size else "Touching", short(path)))
     try:
         with io.open(path, "wt") as fh:
@@ -326,7 +406,7 @@ def _file_op(source, destination, func, fatal, logger, dryrun, must_exist=True, 
         destination (str | None): Destination file or folder
         func (callable): Implementation function
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | None): Logger to use, or None to disable log chatter
+        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
         must_exist (bool): If True, verify that source does indeed exist
         ignore (callable | list | str | None): Names to be ignored
@@ -355,7 +435,7 @@ def _file_op(source, destination, func, fatal, logger, dryrun, must_exist=True, 
 
     try:
         # Ensure parent folder exists
-        ensure_folder(parent_folder(destination), fatal=fatal, logger=None, dryrun=dryrun)
+        ensure_folder(parent_folder(destination), fatal=fatal, logger=False, dryrun=dryrun)
         _R.hlog(logger, lambda: "%s%s" % (description[0].upper(), description[1:]))
         if ignore is not None:
             if callable(ignore):

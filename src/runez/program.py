@@ -68,7 +68,7 @@ def make_executable(path, fatal=True, logger=UNSET, dryrun=UNSET):
     Args:
         path (str): chmod file with 'path' as executable
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | None): Logger to use, or None to disable log chatter
+        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
 
     Returns:

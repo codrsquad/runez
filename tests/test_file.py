@@ -31,6 +31,18 @@ k2 =
 """
 
 
+def test_basename():
+    assert runez.basename(None) == ""
+    assert runez.basename("/some-folder/bar") == "bar"
+    assert runez.basename("/some-folder/.bar") == ".bar"
+    assert runez.basename("/some-folder/.bar.py") == ".bar"
+    assert runez.basename("/some-folder/.bar.baz.py") == ".bar.baz"
+    assert runez.basename("some-folder/bar.py") == "bar"
+    assert runez.basename("some-folder/bar.baz.pyc") == "bar.baz"
+
+    assert runez.basename("some-folder/bar.py", extension_marker=None) == "bar.py"
+
+
 def test_edge_cases():
     assert runez.file.ini_to_dict(None, default=None) is None
 
@@ -51,6 +63,35 @@ def test_edge_cases():
     assert runez.readlines(None, default=None) is None
     with pytest.raises(runez.system.AbortException):
         runez.readlines("/dev/null/not-there")
+
+
+def test_ensure_folder(temp_folder, logged):
+    assert runez.ensure_folder(None) == 0
+    assert runez.ensure_folder("") == 0
+    assert runez.ensure_folder(".") == 0
+
+    assert runez.touch("some-file") == 1
+    assert "Can't create folder" in runez.conftest.verify_abort(runez.ensure_folder, "some-file")
+
+    assert runez.ensure_folder("some-dir", dryrun=True) == 1
+    assert "Would create some-dir" in logged.pop()
+    assert runez.ensure_folder("some-dir") == 1
+    assert "Created folder some-dir" in logged.pop()
+
+    assert runez.ensure_folder("some-dir") == 0
+    assert not logged
+
+    assert runez.touch("some-dir/a/b") == 1
+    assert "Created folder" not in logged
+    assert "Touching some-dir/a/b" in logged.pop()
+    assert runez.ensure_folder("some-dir", clean=True, dryrun=True) == 1
+    assert "Would clean 1 file from some-dir" in logged.pop()
+
+    assert runez.touch("some-dir/b", logger=False) == 1
+    assert not logged
+
+    assert runez.ensure_folder("some-dir", clean=True) == 1
+    assert "Cleaned 2 files from some-dir" in logged
 
 
 def test_ini_to_dict(temp_folder, logged):
@@ -208,3 +249,16 @@ def test_file_inspection(temp_folder, logged):
     assert not os.path.exists("x2/z2/sample2")
     assert runez.copy("x", "x2") == 1
     assert os.path.exists("x2/z2/sample2")
+
+
+def test_parent_folder():
+    cwd = os.getcwd()
+
+    assert runez.parent_folder(None) is None
+    assert runez.parent_folder("././some-file") == cwd
+
+    if not runez.WINDOWS:
+        parent = runez.parent_folder("/logs/foo")
+        assert parent == "/logs"
+        assert runez.parent_folder(parent) == "/"
+        assert runez.parent_folder("/") == "/"

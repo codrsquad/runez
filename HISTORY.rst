@@ -2,8 +2,10 @@
 History
 =======
 
-2.0.12 (2020-06-04)
+2.0.13 (2020-06-06)
 -------------------
+
+* Added ``clean=True`` option to ``ensure_folder()``
 
 * Added ``click.border()`` option
 

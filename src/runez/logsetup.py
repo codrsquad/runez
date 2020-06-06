@@ -20,7 +20,7 @@ except ImportError:
 
 from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone
-from runez.path import basename as get_basename, parent_folder
+from runez.file import basename as get_basename, parent_folder
 from runez.system import _R, expanded, find_caller_frame, flattened, LOG, quoted, Slotted, ThreadGlobalContext, UNSET, WINDOWS
 
 

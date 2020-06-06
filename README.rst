@@ -130,6 +130,8 @@ have this common signature: ``fatal=True, logger=UNSET, dryrun=UNSET``
 
     - ``print("Would run: ...")`` in dryrun mode
 
+  - ``logger=False``: Log errors only (used internally, to avoid unnecessary log chatter when one operation calls another)
+
   - ``logger=mylogger``: call provided ``mylogger()`` to trace activity (example: ``logger=MY_LOGGER.info``)
 
     - ``mylogger("Running: ...")`` to trace activity

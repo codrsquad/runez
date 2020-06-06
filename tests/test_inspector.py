@@ -51,7 +51,7 @@ def test_auto_import_siblings():
 
     with patch.dict(os.environ, {"TOX_WORK_DIR": "some-value"}, clear=True):
         imported = auto_import_siblings(skip=["tests.test_system", "tests.test_serialize"])
-        assert len(imported) == 21
+        assert len(imported) == 20
 
         assert "tests.conftest" in imported
         assert "tests.secondary" in imported
@@ -61,7 +61,7 @@ def test_auto_import_siblings():
         assert "tests.test_serialize" not in imported
 
     imported = auto_import_siblings(skip=["tests.secondary"])
-    assert len(imported) == 21
+    assert len(imported) == 20
     assert "tests.conftest" in imported
     assert "tests.secondary" not in imported
     assert "tests.secondary.test_import" not in imported

@@ -1162,7 +1162,7 @@ class _R:
             dryrun = cls.is_dryrun()
 
         if dryrun:
-            if logger is not None:
+            if logger is not None and logger is not False:  # Accept UNSET
                 message = "Would %s" % cls.expanded_message(message)
                 if callable(logger):
                     logger(message)
@@ -1182,7 +1182,7 @@ class _R:
             logger (callable | None): Logger to use, or None to disable log chatter
             message (str | callable): Message to log
         """
-        if logger is not None:
+        if logger is not None and logger is not False:  # Accept UNSET
             message = cls.expanded_message(message)
             if callable(logger):
                 logger(message)

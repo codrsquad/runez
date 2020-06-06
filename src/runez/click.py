@@ -23,8 +23,8 @@ except ImportError:  # pragma: no cover, click used only if installed
 import runez.config
 from runez.colors import ColorManager
 from runez.convert import affixed
+from runez.file import basename
 from runez.logsetup import LogManager
-from runez.path import basename
 from runez.system import _is_actual_caller_frame, find_caller_frame, flattened, get_version, string_type
 
 

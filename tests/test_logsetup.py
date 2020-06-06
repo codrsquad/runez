@@ -305,7 +305,7 @@ def test_convenience(temp_log):
 
 
 def test_auto_location_not_writable(temp_log):
-    with patch("runez.path.os.access", return_value=False):
+    with patch("runez.file.os.access", return_value=False):
         runez.log.setup(
             greetings="Logging to: {location}",
             console_format="%(name)s f:%(filename)s mod:%(module)s func:%(funcName)s %(levelname)s - %(message)s",
