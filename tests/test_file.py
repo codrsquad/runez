@@ -83,7 +83,7 @@ def test_ensure_folder(temp_folder, logged):
 
     assert runez.touch("some-dir/a/b") == 1
     assert "Created folder" not in logged
-    assert "Touching some-dir/a/b" in logged.pop()
+    assert "Touched some-dir/a/b" in logged.pop()
     assert runez.ensure_folder("some-dir", clean=True, dryrun=True) == 1
     assert "Would clean 1 file from some-dir" in logged.pop()
 
@@ -176,11 +176,11 @@ def test_file_operations(temp_folder):
 def test_file_inspection(temp_folder, logged):
     assert runez.touch("sample") == 1
     assert runez.delete("sample") == 1
-    assert "Deleting sample" in logged.pop()
+    assert "Deleted sample" in logged.pop()
 
     assert runez.ensure_folder("sample") == 1
     assert runez.delete("sample") == 1
-    assert "Deleting sample" in logged.pop()
+    assert "Deleted sample" in logged.pop()
 
     sample = runez.conftest.resource_path("sample.txt")
     assert len(runez.readlines(sample)) == 4
@@ -191,7 +191,7 @@ def test_file_inspection(temp_folder, logged):
     cc = "%s\n" % "\n".join(content)
     assert runez.write("sample", cc, fatal=False, logger=logging.debug) == 1
     assert runez.readlines("sample") == content
-    assert "bytes to sample" in logged.pop()  # Writing 13 bytes on linux... but 14 on windows...
+    assert "bytes to sample" in logged.pop()  # Wrote 13 bytes on linux... but 14 on windows...
 
     assert runez.readlines("sample", first=2) == ["", "Fred"]
     assert runez.file.is_younger("sample", age=10)

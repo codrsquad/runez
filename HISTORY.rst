@@ -2,8 +2,10 @@
 History
 =======
 
-2.0.14 (2020-06-06)
+2.0.15 (2020-06-07)
 -------------------
+
+* More consistent debug logging on file operations
 
 * Corrected edge case in py2 with coloring of ``μ`` character in ``represented_duration()``
 

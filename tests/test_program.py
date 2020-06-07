@@ -111,11 +111,11 @@ def test_executable(temp_folder):
 
     with runez.CaptureOutput() as logged:
         assert runez.touch("some-file") == 1
-        assert "Touching some-file" in logged.pop()
+        assert "Touched some-file" in logged.pop()
         assert runez.delete("some-file") == 1
-        assert "Deleting some-file" in logged.pop()
+        assert "Deleted some-file" in logged.pop()
         assert runez.touch("some-file", logger=logging.debug) == 1
-        assert "Touching some-file" in logged.pop()
+        assert "Touched some-file" in logged.pop()
         assert runez.make_executable("some-file", logger=logging.debug) == 1
         assert "Made 'some-file' executable" in logged.pop()
         assert runez.is_executable("some-file")

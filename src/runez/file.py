@@ -68,7 +68,6 @@ def delete(path, fatal=True, logger=UNSET, dryrun=UNSET):
     if _R.hdry(dryrun, logger, "delete %s" % short(path)):
         return 1
 
-    _R.hlog(logger, "Deleting %s" % short(path))
     try:
         if islink or os.path.isfile(path):
             os.unlink(path)
@@ -76,6 +75,7 @@ def delete(path, fatal=True, logger=UNSET, dryrun=UNSET):
         else:
             shutil.rmtree(path)
 
+        _R.hlog(logger, "Deleted %s" % short(path))
         return 1
 
     except Exception as e:
@@ -354,7 +354,6 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
         return 1
 
     ensure_folder(parent_folder(path), fatal=fatal, logger=False, dryrun=dryrun)
-    _R.hlog(logger, "%s %s" % ("Writing %s to" % byte_size if byte_size else "Touching", short(path)))
     try:
         with io.open(path, "wt") as fh:
             if contents is None:
@@ -363,6 +362,7 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
             else:
                 fh.write(decode(contents))
 
+        _R.hlog(logger, "%s %s" % ("Wrote %s to" % byte_size if byte_size else "Touched", short(path)))
         return 1
 
     except Exception as e:
