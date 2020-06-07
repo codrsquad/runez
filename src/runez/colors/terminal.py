@@ -1,3 +1,5 @@
+#  -*- encoding: utf-8 -*-
+
 import os
 
 from runez.colors import NamedColors, NamedStyles, PlainBackend, Renderable
@@ -84,7 +86,7 @@ class AnsiColor(Renderable):
         r = (rgb & 0xff0000) >> 16
         g = (rgb & 0xff00) >> 8
         b = rgb & 0xff
-        base_fmt = "\033[{{start}}m{{{{}}}}\033[{end}m".format(end=offset + 9)
+        base_fmt = u"\033[{{start}}m{{{{}}}}\033[{end}m".format(end=offset + 9)
         brighten = None if flavor == "neutral" else flavor == "light"
         self.fmt = base_fmt.format(start=fmt(offset, r, g, b, brighten))
 
@@ -97,7 +99,7 @@ class AnsiStyle(Renderable):
         super(AnsiStyle, self).__init__(name)
         self.start = start
         self.end = end
-        self.fmt = "\033[%sm{}\033[%sm" % (start, end)
+        self.fmt = u"\033[%sm{}\033[%sm" % (start, end)
 
     def rendered(self, text):
         return self.fmt.format(text)

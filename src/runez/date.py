@@ -216,7 +216,7 @@ def represented_duration(seconds, span=UNSET, delimiter=" "):
         if milliseconds:
             result.append(_duration_span(milliseconds, "ms", short_form, immutable=True))
         if microseconds:
-            result.append(_duration_span(microseconds, "μs", short_form, immutable=True))
+            result.append(_duration_span(microseconds, u"μs", short_form, immutable=True))
 
     if not result:
         result.append(_duration_span(seconds, "second", short_form))

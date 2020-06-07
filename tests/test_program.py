@@ -106,7 +106,7 @@ def test_executable(temp_folder):
     with runez.CaptureOutput(dryrun=True) as logged:
         assert runez.make_executable("some-file") == 1
         assert "Would make some-file executable" in logged.pop()
-        assert runez.make_executable("some-file", logger=None) == 1
+        assert runez.make_executable("some-file", logger=False) == 1
         assert not logged
 
     with runez.CaptureOutput() as logged:
@@ -123,18 +123,18 @@ def test_executable(temp_folder):
         assert not logged
 
         assert runez.touch("some-file", logger=False) == 1
-        assert runez.delete("some-file", logger=None) == 1
+        assert runez.delete("some-file", logger=False) == 1
         assert not runez.is_executable("some-file")
         assert not logged
 
         assert runez.make_executable("/dev/null/some-file", fatal=False) == -1
         assert "does not exist, can't make it executable" in logged.pop()
 
-        assert runez.make_executable("/dev/null/some-file", fatal=False, logger=None) == -1
+        assert runez.make_executable("/dev/null/some-file", fatal=False, logger=None) == -1  # Don't log anything
         assert not logged
 
-        assert runez.make_executable("/dev/null/some-file", fatal=False, logger=False) == -1
-        assert "/dev/null/some-file does not exist, can't make it executable" in logged.pop()
+        assert runez.make_executable("/dev/null/some-file", fatal=False, logger=False) == -1  # Log errors only
+        assert "does not exist, can't make it executable" in logged.pop()
 
 
 def test_terminal_width():

@@ -80,9 +80,9 @@ def test_represented_duration():
 
     assert runez.represented_duration(0) == "0 seconds"
     assert runez.represented_duration(1) == "1 second"
-    assert runez.represented_duration(-1.00001) == "1 second 10 μs"
+    assert runez.represented_duration(-1.00001) == u"1 second 10 μs"
     assert runez.represented_duration(-180.00001) == "3 minutes"
-    assert runez.represented_duration(-180.00001, span=None) == "3 minutes 10 μs"
+    assert runez.represented_duration(-180.00001, span=None) == u"3 minutes 10 μs"
     assert runez.represented_duration(5.1) == "5 seconds 100 ms"
     assert runez.represented_duration(180.1) == "3 minutes"
 
@@ -94,14 +94,14 @@ def test_represented_duration():
     h2 = 2 * runez.date.SECONDS_IN_ONE_HOUR
     d8 = 8 * runez.date.SECONDS_IN_ONE_DAY
     a_week_plus = d8 + h2 + 13 + 0.00001
-    assert runez.represented_duration(a_week_plus, span=None) == "1 week 1 day 2 hours 13 seconds 10 μs"
+    assert runez.represented_duration(a_week_plus, span=None) == u"1 week 1 day 2 hours 13 seconds 10 μs"
     assert runez.represented_duration(a_week_plus, span=-2, delimiter="+") == "1w+1d"
     assert runez.represented_duration(a_week_plus, span=3) == "1 week 1 day 2 hours"
-    assert runez.represented_duration(a_week_plus, span=0) == "1w 1d 2h 13s 10μs"
+    assert runez.represented_duration(a_week_plus, span=0) == u"1w 1d 2h 13s 10μs"
 
     five_weeks_plus = (5 * 7 + 3) * runez.date.SECONDS_IN_ONE_DAY + runez.date.SECONDS_IN_ONE_HOUR + 5 + 0.0002
     assert runez.represented_duration(five_weeks_plus, span=-2, delimiter=", ") == "5w, 3d"
-    assert runez.represented_duration(five_weeks_plus, span=0, delimiter=", ") == "5w, 3d, 1h, 5s, 200μs"
+    assert runez.represented_duration(five_weeks_plus, span=0, delimiter=", ") == u"5w, 3d, 1h, 5s, 200μs"
 
     assert runez.represented_duration(752 * runez.date.SECONDS_IN_ONE_DAY, span=3) == "2 years 3 weeks 1 day"
 

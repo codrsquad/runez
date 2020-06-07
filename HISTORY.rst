@@ -2,8 +2,10 @@
 History
 =======
 
-2.0.13 (2020-06-06)
+2.0.14 (2020-06-06)
 -------------------
+
+* Corrected edge case in py2 with coloring of ``μ`` character in ``represented_duration()``
 
 * Added ``clean=True`` option to ``ensure_folder()``
 
@@ -41,15 +43,7 @@ History
 
 * Fixed docstrings, ``RunResult`` properly evaluates to true-ish on success
 
-
-2.0.5 (2020-05-20)
-------------------
-
 * ``runez.run()`` now always returns a ``RunResult``
-
-
-2.0.4 (2020-05-20)
-------------------
 
 * ``runez.run()`` now returns a ``RunResult`` object when called with ``fatal=None``,
   with fields: ``.output``, ``.error`` and ``.exit_code``
