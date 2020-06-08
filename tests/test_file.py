@@ -69,6 +69,10 @@ def test_ensure_folder(temp_folder, logged):
     assert runez.ensure_folder(None) == 0
     assert runez.ensure_folder("") == 0
     assert runez.ensure_folder(".") == 0
+    assert not logged
+
+    assert runez.ensure_folder(".", clean=True) == 0
+    assert not logged
 
     assert runez.touch("some-file") == 1
     assert "Can't create folder" in runez.conftest.verify_abort(runez.ensure_folder, "some-file")
@@ -90,7 +94,7 @@ def test_ensure_folder(temp_folder, logged):
     assert runez.touch("some-dir/b", logger=False) == 1
     assert not logged
 
-    assert runez.ensure_folder("some-dir", clean=True) == 1
+    assert runez.ensure_folder("some-dir", clean=True) == 2
     assert "Cleaned 2 files from some-dir" in logged
 
 

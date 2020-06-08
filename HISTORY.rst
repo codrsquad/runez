@@ -2,7 +2,7 @@
 History
 =======
 
-2.0.15 (2020-06-07)
+2.0.16 (2020-06-08)
 -------------------
 
 * More consistent debug logging on file operations

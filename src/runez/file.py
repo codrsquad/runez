@@ -93,7 +93,7 @@ def ensure_folder(path, clean=False, fatal=True, logger=UNSET, dryrun=UNSET):
         dryrun (bool): Optionally override current dryrun setting
 
     Returns:
-        (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
+        (int): In non-fatal mode, >=1: successfully done, 0: was no-op, -1: failed
     """
     path = resolved_path(path)
     if not path:
@@ -107,11 +107,12 @@ def ensure_folder(path, clean=False, fatal=True, logger=UNSET, dryrun=UNSET):
         for fname in os.listdir(path):
             cleaned += delete(os.path.join(path, fname), fatal=fatal, logger=False, dryrun=dryrun)
 
-        msg = "%s from %s" % (plural(cleaned, "file"), short(path))
-        if not _R.hdry(dryrun, logger, "clean %s" % msg):
-            _R.hlog(logger, "Cleaned %s" % msg)
+        if cleaned:
+            msg = "%s from %s" % (plural(cleaned, "file"), short(path))
+            if not _R.hdry(dryrun, logger, "clean %s" % msg):
+                _R.hlog(logger, "Cleaned %s" % msg)
 
-        return 1
+        return cleaned
 
     if _R.hdry(dryrun, logger, "create %s" % short(path)):
         return 1
