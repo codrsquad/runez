@@ -2,8 +2,10 @@
 History
 =======
 
-2.0.16 (2020-06-08)
+2.0.17 (2020-06-10)
 -------------------
+
+* Allow to not wait for spawned process with ``runez.run(fatal=None, stdout=None, stderr=None)``
 
 * More consistent debug logging on file operations
 

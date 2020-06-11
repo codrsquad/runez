@@ -39,6 +39,11 @@ def test_capture():
         assert "chatter hello" in logged.pop()
         assert runez.run(CHATTER, stdout=None) == RunResult(None, "", 0)
 
+        # Test no-wait
+        r = runez.run(CHATTER, "hello", fatal=None, stdout=None, stderr=None)
+        assert r.exit_code is None  # We don't know exit code because we didn't wait
+        assert r.pid
+
         r = runez.run(CHATTER, stdout=None, stderr=None)
         if not runez.PY2:  # __bool__ not respected in PY2... no point trying to fix it
             assert r

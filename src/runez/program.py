@@ -143,9 +143,15 @@ def run(program, *args, **kwargs):
     with _WrappedArgs([full_path] + args) as wrapped_args:
         try:
             p = subprocess.Popen(wrapped_args, stdout=stdout, stderr=stderr, **kwargs)  # nosec
-            out, err = p.communicate()
+            if fatal is None and stdout is None and stderr is None:
+                out, err = None, None  # Don't wait on spawned process
+
+            else:
+                out, err = p.communicate()
+
             result.output = decode(out, strip=True)
             result.error = decode(err, strip=True)
+            result.pid = p.pid
             result.exit_code = p.returncode
 
         except Exception as e:
@@ -206,6 +212,7 @@ class RunResult(object):
         self.error = error
         self.exit_code = code
         self.exc_info = None  # Exception that occurred during the run, if any
+        self.pid = None  # Pid of spawned process, if any
         self.audit = audit
 
     def __repr__(self):
