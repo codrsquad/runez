@@ -394,7 +394,7 @@ def to_seconds(duration):
 def _date_from_components(components, tz=UNSET):
     """
     Args:
-        components (tuple): Components from regex
+        components: Components from regex
         tz (datetime.tzinfo | None): Optional timezone info, used as default if could not be determined from `components`
 
     Returns:
@@ -406,9 +406,8 @@ def _date_from_components(components, tz=UNSET):
         y = int(y)
         m = int(m)
         d = int(d)
-        if d > 100 and y < 100:
-            # Best effort: allow for european-style notation month/day/year
-            m, d, y = y, m, d
+        if y < 100 < d:
+            m, d, y = y, m, d  # Best effort: allow for european-style notation month/day/year
 
         if hh is None:
             return datetime.date(y, m, d)
@@ -420,9 +419,8 @@ def _date_from_components(components, tz=UNSET):
         sf = int(round(float(sf or 0) * 1000000))
         return datetime.datetime(y, m, d, hh, mm, ss, sf, timezone_from_text(ctz or tz))
 
-    except ValueError:
-        # Funky date style, ignore
-        return None
+    except (ValueError, TypeError):
+        return None  # Funky date style, ignore
 
 
 def _date_from_text(text, epocher, **kwargs):

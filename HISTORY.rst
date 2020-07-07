@@ -2,6 +2,12 @@
 History
 =======
 
+2.0.18 (2020-76-06)
+-------------------
+
+* Corrected date conversion for empty string
+
+
 2.0.17 (2020-06-10)
 -------------------
 

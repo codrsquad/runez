@@ -161,6 +161,11 @@ def dt(*args, **kwargs):
 
 
 def test_to_date():
+    assert runez.to_date("") is None
+    assert runez.to_date("   ") is None
+    assert runez.to_datetime("") is None
+    assert runez.to_datetime("  ") is None
+
     tz1 = runez.timezone(datetime.timedelta(seconds=12 * 60))
     assert runez.to_datetime("2019-01-02 03:04:05").tzinfo is runez.date.DEFAULT_TIMEZONE
     assert runez.to_datetime("2019-01-02 03:04:05", tz=tz1).tzinfo is tz1
