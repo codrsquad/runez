@@ -411,7 +411,7 @@ class LogManager(object):
     @classmethod
     def clean_handlers(cls):
         """Remove all non-runez logging handlers"""
-        for h in logging.root.handlers:
+        for h in list(logging.root.handlers):
             if h is not cls.console_handler and h is not cls.file_handler:
                 logging.root.removeHandler(h)
 

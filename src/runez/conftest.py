@@ -205,6 +205,10 @@ class WrappedHandler(_pytest.logging.LogCaptureHandler):
 
     isolation = 0
 
+    @classmethod
+    def count_non_wrapped_handlers(cls):
+        return len([h for h in logging.root.handlers if not isinstance(h, cls)])
+
     def emit(self, record):
         if WrappedHandler.isolation == 0:
             stream = CaptureOutput.current_capture_buffer()

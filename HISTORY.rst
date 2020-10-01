@@ -2,7 +2,13 @@
 History
 =======
 
-2.0.18 (2020-76-06)
+2.0.19 (2020-10-01)
+-------------------
+
+* Adapted to latest pytest log wrapping
+
+
+2.0.18 (2020-07-06)
 -------------------
 
 * Corrected date conversion for empty string
