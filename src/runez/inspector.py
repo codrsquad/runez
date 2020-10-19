@@ -15,7 +15,7 @@ from runez.convert import to_int
 from runez.logsetup import LogManager
 from runez.program import run
 from runez.render import PrettyTable
-from runez.system import find_caller_frame, first_line, TempArgv
+from runez.system import find_caller_frame, first_line, python_version, TempArgv
 
 
 def auto_import_siblings(auto_clean="TOX_WORK_DIR", skip=None):
@@ -82,10 +82,6 @@ def auto_import_siblings(auto_clean="TOX_WORK_DIR", skip=None):
             imported.append(module_name)
 
     return imported
-
-
-def python_version():
-    return ".".join(str(s) for s in sys.version_info[:2])
 
 
 def run_cmds(prog=None):

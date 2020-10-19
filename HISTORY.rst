@@ -2,6 +2,12 @@
 History
 =======
 
+2.1.0 (2020-10-19)
+------------------
+
+* Allow to override ``sys.executable`` in click test runs
+
+
 2.0.19 (2020-10-01)
 -------------------
 

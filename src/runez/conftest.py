@@ -55,9 +55,7 @@ def project_folder():
     Returns:
         (str | None): Path to project folder, if we're currently running a test from a tests/ subfolder
     """
-    tests = tests_folder()
-    if tests:
-        return os.path.dirname(tests)
+    return ClickRunner.get_project_folder()
 
 
 def tests_folder():
@@ -65,7 +63,7 @@ def tests_folder():
     Returns:
         (str | None): Path to project's tests/ folder, if we're currently running a test from there
     """
-    return LogManager.find_parent_folder(LogManager.current_test(), {"tests"})
+    return ClickRunner.get_tests_folder()
 
 
 def resource_path(*relative_path):
@@ -170,6 +168,7 @@ def cli():
 cli = cli  # type: ClickRunner
 
 # Comes in handy for click apps with only one main entry point
+cli.default_exe = None
 cli.default_main = None
 
 # Can be customized by users, wraps cli (fixture) runs in given context
@@ -252,8 +251,7 @@ class ClickWrapper(object):
         exit_code = 0
         exception = None
         try:
-            with TempArgv(args, exe=sys.executable):
-                output = main()
+            output = main()
 
         except SystemExit as e:
             exit_code = 1
@@ -289,7 +287,11 @@ class ClickWrapper(object):
 class ClickRunner(object):
     """Allows to provide a test-friendly fixture around testing click entry-points"""
 
-    default_main = None  # This just allows to get auto-complete to work in PyCharm
+    default_exe = None  # type: str # Allows to conveniently override 'sys.executable' for test runs
+    default_main = None  # type: str # Allows to conveniently provide 'main' once in conftest.py
+
+    _project_folder = UNSET
+    _tests_folder = UNSET
 
     def __init__(self, context=None):
         """
@@ -297,12 +299,34 @@ class ClickRunner(object):
             context (callable | None): Context (example: temp folder) this click run was invoked under
         """
         self.context = context
+        self.exe = cli.default_exe
         self.main = cli.default_main
         self.args = None  # type: list # Arguments used in last run() invocation
         self.logged = None  # type: TrackedOutput
         self.exit_code = None  # type: int
-        self._project_folder = None
-        self._tests_folder = None
+
+    @classmethod
+    def get_project_folder(cls):
+        """
+        Returns:
+            (str | None): Path to project folder, if we're currently running a test from a tests/ subfolder
+        """
+        if cls._project_folder is UNSET:
+            tests = cls.get_tests_folder()
+            cls._project_folder = os.path.dirname(tests) if tests else None
+
+        return cls._project_folder
+
+    @classmethod
+    def get_tests_folder(cls):
+        """
+        Returns:
+            (str | None): Path to project's tests/ folder, if we're currently running a test from there
+        """
+        if cls._tests_folder is UNSET:
+            cls._tests_folder = LogManager.find_parent_folder(LogManager.current_test(), {"tests"})
+
+        return cls._tests_folder
 
     @property
     def project_folder(self):
@@ -310,10 +334,7 @@ class ClickRunner(object):
         Returns:
             (str | None): Path to project folder, if we're currently running a test from a tests/ subfolder
         """
-        if self._project_folder is None:
-            self._project_folder = project_folder()
-
-        return self._project_folder
+        return ClickRunner.get_project_folder()
 
     @property
     def tests_folder(self):
@@ -321,15 +342,13 @@ class ClickRunner(object):
         Returns:
             (str | None): Path to project's tests/ folder, if we're currently running a test from there
         """
-        if self._tests_folder is None:
-            self._tests_folder = tests_folder()
-
-        return self._tests_folder
+        return ClickRunner.get_tests_folder()
 
     def assert_printed(self, expected):
         self.logged.assert_printed(expected)
 
-    def resource_path(self, *relative_path):
+    @staticmethod
+    def resource_path(*relative_path):
         """
         Args:
             *relative_path: Path relative to project's tests/ folder
@@ -339,19 +358,24 @@ class ClickRunner(object):
         """
         return resource_path(*relative_path)
 
+    def _grab_attr(self, name, kwargs):
+        value = kwargs.pop(name, None)
+        if value is not None:
+            setattr(self, name, value)
+            return
+
+        if getattr(self, name, None) is None:
+            value = getattr(self, "default_%s" % name, None)
+            setattr(self, name, value)
+
     def run(self, *args, **kwargs):
         """
         Args:
             *args: Command line args
             **kwargs: If provided, format each arg with given `kwargs`
         """
-        main = kwargs.pop("main", None)
-        if main is not None:
-            self.main = main
-
-        if self.main is None:
-            self.main = self.default_main
-
+        self._grab_attr("exe", kwargs)
+        self._grab_attr("main", kwargs)
         assert bool(self.main), "No main provided"
         if kwargs:
             args = [expanded(a, **kwargs) for a in args]
@@ -366,19 +390,20 @@ class ClickRunner(object):
                 self.logged = logged
                 origina_handlers = list(logging.root.handlers)  # Invocations may add their own logging
                 runner = ClickWrapper.new_runner(self.main)
-                result = runner.invoke(self.main, args=self.args)
-                logging.root.handlers = origina_handlers  # Restore logging as we manage it, to avoid duplicate output
-                if result.output:
-                    logged.stdout.buffer.write(result.output)
+                with TempArgv(self.args, exe=self.exe):
+                    result = runner.invoke(self.main, args=self.args)
+                    logging.root.handlers = origina_handlers  # Restore logging as we manage it, to avoid duplicate output
+                    if result.output:
+                        logged.stdout.buffer.write(result.output)
 
-                if result.exception and not isinstance(result.exception, SystemExit):
-                    try:
-                        raise result.exception
+                    if result.exception and not isinstance(result.exception, SystemExit):
+                        try:
+                            raise result.exception
 
-                    except BaseException:
-                        LOG.exception("Exited with stacktrace:")
+                        except BaseException:
+                            LOG.exception("Exited with stacktrace:")
 
-                self.exit_code = result.exit_code
+                    self.exit_code = result.exit_code
 
         if self.logged:
             WrappedHandler.remove_accumulated_logs()

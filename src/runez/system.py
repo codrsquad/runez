@@ -285,6 +285,14 @@ def is_tty():
     return (sys.stdout.isatty() or "PYCHARM_HOSTED" in os.environ) and not _R.current_test()
 
 
+def python_version():
+    """
+    Returns:
+        (str): Major.minor version of currently running python
+    """
+    return ".".join(str(v) for v in sys.version_info[:2])
+
+
 def quoted(items, delimiter=" ", adapter=UNSET, keep_empty=True):
     """Quoted `items`, for those that contain whitespaces
 
@@ -952,7 +960,10 @@ class Slotted(object):
 class TempArgv(object):
     """Context manager for changing the current sys.argv"""
 
-    def __init__(self, args, exe=sys.executable):
+    def __init__(self, args, exe=None):
+        if exe is None:
+            exe = sys.argv[0] if sys.argv and sys.argv[0] else sys.executable
+
         self.args = args
         self.exe = exe
         self.old_argv = sys.argv

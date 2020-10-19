@@ -295,6 +295,8 @@ def test_system():
 
     assert not runez.is_tty()  # False when testing
 
+    assert runez.python_version()
+
     # Verify that UNSET behaves as expected: evaluates to falsy, has correct representation
     assert not runez.UNSET
     assert bool(runez.UNSET) is False

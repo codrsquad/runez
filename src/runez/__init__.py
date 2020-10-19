@@ -18,7 +18,7 @@ from runez.program import check_pid, is_executable, make_executable, run, termin
 from runez.serialize import read_json, represented_json, save_json, Serializable
 from runez.system import abort, decode, expanded, flattened, quoted, short, stringified
 from runez.system import AdaptedProperty, Anchored, CaptureOutput, CurrentFolder, Slotted, TempArgv, TrackedOutput, Undefined, UNSET
-from runez.system import first_line, get_version, is_tty, PY2, resolved_path, WINDOWS
+from runez.system import first_line, get_version, is_tty, PY2, python_version, resolved_path, WINDOWS
 
 __all__ = [
     "DRYRUN",
@@ -38,7 +38,7 @@ __all__ = [
     "read_json", "represented_json", "save_json", "Serializable",
     "abort", "decode", "expanded", "flattened", "quoted", "short", "stringified",
     "AdaptedProperty", "Anchored", "CaptureOutput", "CurrentFolder", "Slotted", "TempArgv", "TrackedOutput", "Undefined", "UNSET",
-    "first_line", "get_version", "is_tty", "PY2", "resolved_path", "WINDOWS",
+    "first_line", "get_version", "is_tty", "PY2", "python_version", "resolved_path", "WINDOWS",
 ]
 
 DRYRUN = False
