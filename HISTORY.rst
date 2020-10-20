@@ -2,6 +2,16 @@
 History
 =======
 
+2.1.1 (2020-10-19)
+------------------
+
+* ``runez.log.dev_folder()`` now accepts relative path
+
+* Renamed ``runez.conftest.resource_path()`` to ``runez.log.tests_path()``
+
+* Added ``runez.log.project_path()``
+
+
 2.1.0 (2020-10-19)
 ------------------
 

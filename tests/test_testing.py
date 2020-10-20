@@ -3,6 +3,7 @@ import re
 import sys
 
 import pytest
+from mock import patch
 
 import runez
 import runez.conftest
@@ -49,9 +50,15 @@ def test_success(cli):
     project_folder = os.path.abspath(os.path.join(tests, ".."))
 
     assert cli.project_folder == project_folder
-    assert runez.conftest.project_folder() == project_folder
+    assert runez.log.project_path() == project_folder
     assert cli.tests_folder == tests
-    assert cli.resource_path("foo.txt") == os.path.join(tests, "foo.txt")
+    assert cli.tests_path("foo.txt") == os.path.join(tests, "foo.txt")
+    assert cli.project_path() == project_folder
+    assert cli.project_path("foo") == os.path.join(project_folder, "foo")
+
+    with patch("runez.logsetup.LogManager.tests_path", return_value=None):
+        # Test alternative method of finding project folder
+        assert cli.project_path() == project_folder
 
     cli.run("--dryrun hello")
     assert cli.succeeded

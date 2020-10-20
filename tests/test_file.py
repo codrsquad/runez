@@ -186,7 +186,7 @@ def test_file_inspection(temp_folder, logged):
     assert runez.delete("sample") == 1
     assert "Deleted sample" in logged.pop()
 
-    sample = runez.conftest.resource_path("sample.txt")
+    sample = runez.log.tests_path("sample.txt")
     assert len(runez.readlines(sample)) == 4
     assert len(runez.readlines(sample, first=1)) == 1
     assert not logged

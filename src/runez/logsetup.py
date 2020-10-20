@@ -27,6 +27,26 @@ from runez.system import _R, expanded, find_caller_frame, flattened, LOG, quoted
 ORIGINAL_CF = logging.currentframe
 
 
+def _find_parent_folder(path, basenames):
+    if not path or len(path) <= 1:
+        return None
+
+    dirpath, basename = os.path.split(path)
+    if basename and basename.lower() in basenames:
+        return path
+
+    return _find_parent_folder(dirpath, basenames)
+
+
+def _validated_project_path(*funcs):
+    for func in funcs:
+        path = func()
+        if path:
+            path = os.path.dirname(path)
+            if os.path.exists(os.path.join(path, "setup.py")) or os.path.exists(os.path.join(path, "project.toml")):
+                return path
+
+
 class LoggingSnapshot(Slotted):
     """
     Take a snapshot of parts we're modifying in the 'logging' module, in order to be able to restore it as it was
@@ -354,9 +374,9 @@ class LogManager(object):
     def current_test(cls):
         """
         Returns:
-            (str): Not empty if we're currently running a test (such as via pytest)
-                   Actual value will be path to test_<name>.py file if user followed usual conventions,
-                   otherwise path to first found test-framework module
+            (str | None): Not empty if we're currently running a test (such as via pytest)
+                          Actual value will be path to test_<name>.py file if user followed usual conventions,
+                          otherwise path to first found test-framework module
         """
         import re
         regex = re.compile(r"^(.+\.|)(conftest|(test_|_pytest|unittest).+|.+_test)$")
@@ -368,32 +388,50 @@ class LogManager(object):
 
         return find_caller_frame(validator=is_test_frame)
 
-    @classmethod
-    def dev_folder(cls):
-        """
-        Returns:
-            (str | None): Path to development build folder, such as .venv, .tox etc, if any
-        """
-        return cls.find_parent_folder(sys.prefix, {"venv", ".venv", ".tox", "build"})
-
-    @classmethod
-    def find_parent_folder(cls, path, basenames):
+    @staticmethod
+    def dev_folder(*relative_path):
         """
         Args:
-            path (str): Path to examine, first parent folder with basename in `basenames` is returned (case insensitive)
-            basenames (set): List of acceptable basenames (must be lowercase)
+            *relative_path: Optional additional relative path to add
 
         Returns:
-            (str | None): Path to first containing folder of `path` with one of the `basenames`
+            (str | None): Path to development build folder (such as .venv, .tox etc), if we're currently running a dev build
         """
-        if not path or len(path) <= 1:
-            return None
+        folder = _find_parent_folder(sys.prefix, {"venv", ".venv", ".tox", "build"})
+        if folder and relative_path:
+            folder = os.path.join(folder, *relative_path)
 
-        dirpath, basename = os.path.split(path)
-        if basename and basename.lower() in basenames:
-            return path
+        return folder
 
-        return cls.find_parent_folder(dirpath, basenames)
+    @staticmethod
+    def project_path(*relative_path):
+        """
+        Args:
+            *relative_path: Optional additional relative path to add
+
+        Returns:
+            (str | None): Computed path, if we're currently running a dev build
+        """
+        path = _validated_project_path(LogManager.tests_path, LogManager.dev_folder)
+        if path and relative_path:
+            path = os.path.join(path, *relative_path)
+
+        return path
+
+    @staticmethod
+    def tests_path(*relative_path):
+        """
+        Args:
+            *relative_path: Optional additional relative path to add
+
+        Returns:
+            (str | None): Computed path, if we're currently running a test
+        """
+        path = _find_parent_folder(LogManager.current_test(), {"tests", "test"})
+        if relative_path:
+            path = os.path.join(path, *relative_path)
+
+        return path
 
     @classmethod
     def greet(cls, greetings, logger=LOG.debug):

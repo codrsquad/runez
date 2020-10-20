@@ -50,35 +50,6 @@ if sys.argv and "pycharm" in sys.argv[0].lower():  # pragma: no cover, ignore Py
 LogManager.override_spec(timezone="UTC", tmp=TMP, locations=[os.path.join("{tmp}", "{basename}")])
 
 
-def project_folder():
-    """
-    Returns:
-        (str | None): Path to project folder, if we're currently running a test from a tests/ subfolder
-    """
-    return ClickRunner.get_project_folder()
-
-
-def tests_folder():
-    """
-    Returns:
-        (str | None): Path to project's tests/ folder, if we're currently running a test from there
-    """
-    return ClickRunner.get_tests_folder()
-
-
-def resource_path(*relative_path):
-    """
-    Args:
-        *relative_path: Path relative to project's tests/ folder
-
-    Returns:
-        (str | None): Full path, if we're currently running a test from a tests/ subfolder
-    """
-    tests = tests_folder()
-    if tests:
-        return os.path.join(tests, *relative_path)
-
-
 def verify_abort(func, *args, **kwargs):
     """
     Convenient wrapper around functions that should exit or raise an exception
@@ -290,9 +261,6 @@ class ClickRunner(object):
     default_exe = None  # type: str # Allows to conveniently override 'sys.executable' for test runs
     default_main = None  # type: str # Allows to conveniently provide 'main' once in conftest.py
 
-    _project_folder = UNSET
-    _tests_folder = UNSET
-
     def __init__(self, context=None):
         """
         Args:
@@ -306,57 +274,45 @@ class ClickRunner(object):
         self.exit_code = None  # type: int
 
     @classmethod
-    def get_project_folder(cls):
+    def project_path(cls, *relative_path):
         """
-        Returns:
-            (str | None): Path to project folder, if we're currently running a test from a tests/ subfolder
-        """
-        if cls._project_folder is UNSET:
-            tests = cls.get_tests_folder()
-            cls._project_folder = os.path.dirname(tests) if tests else None
+        Args:
+            *relative_path: Path relative to project folder
 
-        return cls._project_folder
+        Returns:
+            (str): Computed full path of project file/folder
+        """
+        return LogManager.project_path(*relative_path)
 
     @classmethod
-    def get_tests_folder(cls):
-        """
-        Returns:
-            (str | None): Path to project's tests/ folder, if we're currently running a test from there
-        """
-        if cls._tests_folder is UNSET:
-            cls._tests_folder = LogManager.find_parent_folder(LogManager.current_test(), {"tests"})
-
-        return cls._tests_folder
-
-    @property
-    def project_folder(self):
-        """
-        Returns:
-            (str | None): Path to project folder, if we're currently running a test from a tests/ subfolder
-        """
-        return ClickRunner.get_project_folder()
-
-    @property
-    def tests_folder(self):
-        """
-        Returns:
-            (str | None): Path to project's tests/ folder, if we're currently running a test from there
-        """
-        return ClickRunner.get_tests_folder()
-
-    def assert_printed(self, expected):
-        self.logged.assert_printed(expected)
-
-    @staticmethod
-    def resource_path(*relative_path):
+    def tests_path(cls, *relative_path):
         """
         Args:
             *relative_path: Path relative to project's tests/ folder
 
         Returns:
-            (str | None): Full path, if we're currently running a test from a tests/ subfolder
+            (str): Computed full path of test file/folder
         """
-        return resource_path(*relative_path)
+        return LogManager.tests_path(*relative_path)
+
+    @property
+    def project_folder(self):
+        """
+        Returns:
+            (str): Path to project folder
+        """
+        return LogManager.project_path()
+
+    @property
+    def tests_folder(self):
+        """
+        Returns:
+            (str): Path to project's tests/ folder
+        """
+        return LogManager.tests_path()
+
+    def assert_printed(self, expected):
+        self.logged.assert_printed(expected)
 
     def _grab_attr(self, name, kwargs):
         value = kwargs.pop(name, None)

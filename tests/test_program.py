@@ -5,11 +5,11 @@ import pytest
 from mock import patch
 
 import runez
-from runez.conftest import resource_path, verify_abort
+from runez.conftest import verify_abort
 from runez.program import RunResult
 
 
-CHATTER = resource_path("chatter")
+CHATTER = runez.log.tests_path("chatter")
 
 
 @pytest.mark.skipif(runez.WINDOWS, reason="Not supported on windows")

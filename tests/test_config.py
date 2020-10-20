@@ -5,10 +5,9 @@ import os
 import pytest
 
 import runez
-import runez.conftest
 
 
-SAMPLES = runez.conftest.resource_path("sample")
+SAMPLES = runez.log.tests_path("sample")
 
 
 def test_capped():
