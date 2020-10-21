@@ -73,7 +73,7 @@ def delete(path, fatal=True, logger=UNSET, dryrun=UNSET):
             os.unlink(path)
 
         else:
-            shutil.rmtree(path)
+            shutil.rmtree(path, ignore_errors=fatal)
 
         _R.hlog(logger, "Deleted %s" % short(path))
         return 1
@@ -315,7 +315,7 @@ class TempFolder(object):
             os.chdir(self.old_cwd)
 
         if self.tmp_folder:
-            shutil.rmtree(self.tmp_folder)
+            shutil.rmtree(self.tmp_folder, ignore_errors=True)
 
 
 def touch(path, fatal=True, logger=UNSET, dryrun=UNSET):

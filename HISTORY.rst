@@ -2,6 +2,12 @@
 History
 =======
 
+2.1.2 (2020-10-21)
+------------------
+
+* Ignore errors when deleting temp folders in context managers
+
+
 2.1.1 (2020-10-19)
 ------------------
 

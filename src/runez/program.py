@@ -408,4 +408,4 @@ class _WrappedArgs(object):
 
     def __exit__(self, *_):
         if self.tmp_folder:
-            shutil.rmtree(self.tmp_folder)
+            shutil.rmtree(self.tmp_folder, ignore_errors=True)
