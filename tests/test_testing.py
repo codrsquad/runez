@@ -32,6 +32,10 @@ def sample_main():
             # exit without explicit code
             sys.exit(" ".join(args[1:]))
 
+        if args[0] == "quiet":
+            # Don't output anything
+            sys.exit(0)
+
     # Simulate some output
     return "%s %s" % (os.path.basename(sys.argv[0]), " ".join(args))
 
@@ -59,6 +63,10 @@ def test_success(cli):
     with patch("runez.logsetup.LogManager.tests_path", return_value=None):
         # Test alternative method of finding project folder
         assert cli.project_path() == project_folder
+
+    cli.run("quiet")
+    assert cli.succeeded
+    assert not cli.match(".*", regex=True)
 
     cli.run("--dryrun hello", exe="bar/foo")
     assert cli.succeeded
