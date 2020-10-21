@@ -320,7 +320,7 @@ class ClickRunner(object):
             setattr(self, name, value)
             return
 
-        if getattr(self, name, None) is None:
+        if name != "main" or getattr(self, name, None) is None:
             value = getattr(self, "default_%s" % name, None)
             setattr(self, name, value)
 

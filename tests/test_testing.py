@@ -33,7 +33,7 @@ def sample_main():
             sys.exit(" ".join(args[1:]))
 
     # Simulate some output
-    return " ".join(args)
+    return "%s %s" % (os.path.basename(sys.argv[0]), " ".join(args))
 
 
 def test_edge_cases():
@@ -60,10 +60,15 @@ def test_success(cli):
         # Test alternative method of finding project folder
         assert cli.project_path() == project_folder
 
+    cli.run("--dryrun hello", exe="bar/foo")
+    assert cli.succeeded
+    assert cli.logged.stdout.contents() == "foo --dryrun hello"
+    assert not cli.logged.stderr
+
     cli.run("--dryrun hello")
     assert cli.succeeded
-    assert cli.match("hello")
-    assert not cli.match("foo")
+    assert cli.logged.stdout.contents() == "pytest --dryrun hello"
+    assert not cli.logged.stderr
     assert cli.match("el+", regex=True)
     assert not cli.match("EL+", regex=True)
     assert cli.match("EL+", regex=re.IGNORECASE)
