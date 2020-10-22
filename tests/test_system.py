@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 
+import pytest
 from mock import patch
 
 import runez
@@ -202,6 +203,67 @@ def test_expanded():
     assert runez.expanded("{a}", cycle, max_depth=3) == "{b}"
 
     assert runez.expanded("{filename}") == "{filename}"
+
+
+def test_fallback(logged):
+    def oopsie(x):
+        raise Exception()
+
+    def do_nothing():
+        pass
+
+    # Sample chain with 1 failing and one succeeding function
+    c1 = runez.FallbackChain(oopsie, lambda x: x, description="test chain")
+
+    # First run takes the failing function out of the loop
+    assert str(c1) == "[test chain] oopsie (+1)"
+    assert c1("foo") == "foo"
+    assert len(c1.failed) == 1
+
+    # Subsequent runs keep using the succeeding one
+    assert str(c1) == "[test chain] <lambda> (+0), failed: oopsie"
+    assert c1("bar") == "bar"
+    assert c1("hello") == "hello"
+    assert len(c1.failed) == 1
+    assert str(c1) == "[test chain] <lambda> (+0), failed: oopsie"
+
+    class MyRunner(object):
+        def prepare(self):
+            """Preparation succeeds"""
+
+        def run(self, x):
+            return x
+
+    # More complex sample
+    c2 = runez.FallbackChain(
+        description="sample",
+        a=oopsie,                                 # Will fail on call
+        b=dict(run=oopsie, prepare=do_nothing),   # Will fail on call, prepare will succeed
+        c=dict(run=lambda x: x, prepare=oopsie),  # Will fail on prepare
+        d=MyRunner(),
+    )
+    assert str(c2) == "[sample] a (+3)"
+    assert c2("hello") == "hello"
+    assert str(c2) == "[sample] d (+0), failed: a, b, c"
+
+    assert c2("foo") == "foo"
+    assert c2("bar") == "bar"
+    assert str(c2) == "[sample] d (+0), failed: a, b, c"
+
+    # Sample chain with all failing functions
+    c3 = runez.FallbackChain(oopsie, a=oopsie, description="all failing", logger=logging.error)
+    assert str(c3) == "[all failing] oopsie (+1)"
+    assert not logged
+
+    with pytest.raises(Exception):  # Raises "Fallback chain exhausted"
+        c3("foo")
+    assert str(c3) == "[all failing] None (+0), failed: oopsie, a"
+    assert "oopsie failed" in logged.pop()
+
+    with pytest.raises(Exception):  # Keeps raising
+        c3("hello")
+    assert not logged
+    assert str(c3) == "[all failing] None (+0), failed: oopsie, a"
 
 
 def test_get_version():
