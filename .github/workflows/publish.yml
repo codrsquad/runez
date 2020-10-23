@@ -1,0 +1,25 @@
+name: Publish to pypi
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  deploy:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-python@v2
+      with:
+        python-version: '3.8'
+
+    - run: pip install -U pip tox
+    - name: Validate and publish
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.RUNEZ_TOKEN }}
+      run: |
+        tox -e py,coverage,docs,style,publish
