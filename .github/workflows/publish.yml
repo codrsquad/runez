@@ -19,6 +19,29 @@ jobs:
     - run: pip install -U pip setuptools wheel twine tox
     - run: tox -e py,docs,style
     - run: python setup.py sdist bdist_wheel --universal
+    - run: tox -e package
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: v${{ github.ref }}
+        draft: false
+        prerelease: false
+
+    - name: Upload pex
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: .tox/package/dist/mgit
+        asset_name: mgit
+        asset_content_type: application/zip
+
     - name: Publish sdist and wheel
       env:
         TWINE_USERNAME: __token__
