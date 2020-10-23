@@ -1,9 +1,9 @@
-name: Publish to pypi
+name: Publish
 
 on:
   push:
     tags:
-      - 'v*'
+      - 'v[0-9]*'
 
 jobs:
   deploy:
@@ -16,10 +16,11 @@ jobs:
       with:
         python-version: '3.8'
 
-    - run: pip install -U pip tox
-    - name: Validate and publish
+    - run: pip install -U pip setuptools wheel twine tox
+    - run: tox -e py,docs,style
+    - run: python setup.py sdist bdist_wheel --universal
+    - name: Publish sdist and wheel
       env:
         TWINE_USERNAME: __token__
         TWINE_PASSWORD: ${{ secrets.RUNEZ_TOKEN }}
-      run: |
-        tox -e py,coverage,docs,style,publish
+      run: twine upload --non-interactive dist/*
