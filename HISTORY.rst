@@ -5,6 +5,8 @@ History
 2.1.5 (2020-10-23)
 ------------------
 
+* Simplified default ``click.version()`` message, now simply outputs version (without fluff)
+
 * Use module's ``__version__`` when available
 
 

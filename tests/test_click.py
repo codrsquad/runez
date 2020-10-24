@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Test click related methods
 """
@@ -15,7 +13,7 @@ import runez
 
 
 @runez.click.group()
-@runez.click.version()
+@runez.click.version(message="%(prog)s, version %(version)s")
 @runez.click.color()
 @runez.click.config("-c", prefix="g.")
 @runez.click.debug(expose_value=False)
@@ -40,7 +38,7 @@ def echo(text):
 
 
 @runez.click.command()
-@runez.click.version()
+@runez.click.version(version="1.2.3")
 @runez.click.border("-b")
 @runez.click.color("-x", expose_value=True)
 @runez.click.config("-c", expose_value=True, default="a=b,c=d", split=",", env="MY_PROG", propsfs=True)
@@ -95,7 +93,7 @@ def test_command(cli):
     assert "--color" in cli.logged
     assert "--no-color" in cli.logged
 
-    cli.expect_success("--version", "say-hello, version ")
+    cli.expect_success("--version", "1.2.3")
     cli.expect_success(["--help"], "-x, --color / --no-color", "--log PATH", "Say hello")
 
     cli.run("--no-color")
