@@ -95,12 +95,7 @@ def log(*args, **attrs):
 def version(*args, **attrs):
     """Show the version and exit."""
     if "version" not in attrs:
-        package = attrs.pop("package", None)
-        if not package:
-            package = find_caller_frame(validator=_frame_has_package)
-
-        if package:
-            attrs.setdefault("version", get_version(package))
+        attrs["version"] = get_version(find_caller_frame(validator=_frame_has_package))
 
     return click.version_option(*args, **attrs)
 
@@ -128,7 +123,7 @@ def settings(help=None, width=140, **attrs):
 def option(func, *args, **attrs):
     """
     Args:
-        func (function): Function defining this option
+        func: Function defining this option
         *args: Optional extra short flag name
         **attrs: Optional attr overrides provided by caller
 

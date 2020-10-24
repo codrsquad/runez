@@ -263,18 +263,36 @@ def get_version(mod, default="0.0.0", logger=LOG.warning):
     if not name:
         return default
 
-    module_name = name
+    top_module_name = name
+    last_exception = None
     try:
         import pkg_resources
 
-        module_name = name.partition(".")[0]
-        return pkg_resources.get_distribution(module_name).version
+        top_module_name = name.partition(".")[0]
+        d = pkg_resources.get_distribution(top_module_name)
+        if d and d.version:
+            return d.version
 
     except Exception as e:
-        if logger and module_name != "tests":
-            logger("Can't determine version for %s: %s", name, e, exc_info=e)
+        last_exception = e
 
-        return default
+    try:
+        m = sys.modules.get(name)
+        if m is not None:
+            v = getattr(m, "__version__", None)
+            if not v:
+                v = getattr(m, "VERSION", None)
+
+            if v:
+                return v
+
+    except Exception as e:
+        last_exception = e
+
+    if logger and top_module_name != "tests":
+        logger("Can't determine version for %s: %s", name, last_exception, exc_info=last_exception)
+
+    return default
 
 
 def is_tty():

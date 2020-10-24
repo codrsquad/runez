@@ -12,6 +12,9 @@ import runez
 from runez.conftest import verify_abort
 
 
+VERSION = "1.2.3.dev4"
+
+
 def failed_function(message, fatal=True, logger=runez.UNSET):
     with patch("runez.system.logging.root") as root:
         root.handlers = None
@@ -278,15 +281,14 @@ def test_get_version():
 
     with runez.CaptureOutput() as logged:
         assert runez.get_version(None) == "0.0.0"
+        assert runez.get_version(__name__) == VERSION
         assert not logged
 
         assert runez.get_version(["foo"]) == "0.0.0"
         assert "Can't determine version" in logged.pop()
 
-    with runez.CaptureOutput() as logged:
-        with patch("pkg_resources.get_distribution", side_effect=Exception("testing")):
-            assert runez.get_version(runez) == "0.0.0"
-        assert "Can't determine version for runez" in logged
+        assert runez.get_version(["foo"], logger=None) == "0.0.0"
+        assert not logged
 
 
 def test_shortening():
