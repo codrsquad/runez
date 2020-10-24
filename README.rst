@@ -5,6 +5,14 @@ Friendly misc/utils/convenience library
     :target: https://pypi.org/project/runez/
     :alt: Version on pypi
 
+.. image:: https://github.com/zsimic/runez/workflows/Tests/badge.svg
+    :target: https://github.com/zsimic/runez/actions
+    :alt: Tested with Github Actions
+
+.. image:: https://codecov.io/gh/zsimic/runez/branch/master/graph/badge.svg
+    :target: https://codecov.io/gh/zsimic/runez
+    :alt: Test code codecov
+
 .. image:: https://img.shields.io/pypi/pyversions/runez.svg
     :target: https://github.com/zsimic/runez
     :alt: Python versions tested (link to github project)
