@@ -2,6 +2,12 @@
 History
 =======
 
+2.1.6 (2020-10-25)
+------------------
+
+* Restored default ``click.version()`` message, to minimize differences with click
+
+
 2.1.5 (2020-10-23)
 ------------------
 

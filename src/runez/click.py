@@ -94,7 +94,6 @@ def log(*args, **attrs):
 
 def version(*args, **attrs):
     """Show the version and exit."""
-    attrs.setdefault("message", "%(version)s")
     if "version" not in attrs:
         attrs["version"] = get_version(find_caller_frame(validator=_frame_has_package))
 
