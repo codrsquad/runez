@@ -9,7 +9,8 @@ import sys
 
 RE_FROM = re.compile(r"^from .+ import (.+)$")
 RE_RENAMED = re.compile(r"^.+ as (.+)$")
-PROJECT = os.path.dirname(os.path.abspath(__file__))
+TESTS = os.path.dirname(os.path.abspath(__file__))
+PROJECT = os.path.dirname(TESTS)
 SRC = os.path.join(PROJECT, "src", "runez")
 
 IO_API_NO_CONTENT = collections.OrderedDict(fatal=True, logger="UNSET", dryrun="UNSET")
