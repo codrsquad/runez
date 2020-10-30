@@ -2,6 +2,12 @@
 History
 =======
 
+2.1.7 (2020-10-30)
+------------------
+
+* Allow to override the internal default logger, used in ``runez.run()`` etc
+
+
 2.1.6 (2020-10-25)
 ------------------
 

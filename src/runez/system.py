@@ -1299,12 +1299,12 @@ class _R:
             message (str | callable): Message to log
         """
         if logger is not None and logger is not False:  # Accept UNSET
-            message = cls.expanded_message(message)
-            if callable(logger):
-                logger(message)
+            if not callable(logger):
+                logger = cls._runez_module().log.spec.default_logger
 
-            else:
-                LOG.debug(message)
+            if callable(logger):
+                message = cls.expanded_message(message)
+                logger(message)
 
     @classmethod
     def is_dryrun(cls):

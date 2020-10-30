@@ -84,6 +84,7 @@ class LogSpec(Slotted):
         "console_level",
         "console_stream",
         "context_format",
+        "default_logger",
         "dev",
         "file_format",
         "file_level",
@@ -224,6 +225,7 @@ class LogManager(object):
         console_level=logging.WARNING,
         console_stream=sys.stderr,
         context_format="[[%s]] ",
+        default_logger=LOG.debug,
         dev=None,
         file_format="%(asctime)s %(timezone)s [%(threadName)s] %(context)s%(levelname)s - %(message)s",
         file_level=logging.DEBUG,
@@ -289,6 +291,7 @@ class LogManager(object):
             console_level=UNSET,
             console_stream=UNSET,
             context_format=UNSET,
+            default_logger=UNSET,
             dev=UNSET,
             file_format=UNSET,
             file_level=UNSET,
@@ -312,6 +315,7 @@ class LogManager(object):
             console_level (int | None): Level to use for console logging
             console_stream (TextIOWrapper | None): Stream to use for console log (eg: sys.stderr), use None to deactivate
             context_format (str | None): Format to use for contextual log, use None to deactivate
+            default_logger (callable | None): Default logger to use to trace operations such as runez.run() etc
             dev (str | None): Custom folder to use when running from a development venv (auto-determined if None)
             file_format (str | None): Format to use for file log, use None to deactivate
             file_level (int | None): Level to use for file logging
@@ -332,6 +336,7 @@ class LogManager(object):
                 console_level=console_level or level,
                 console_stream=console_stream,
                 context_format=context_format,
+                default_logger=default_logger,
                 dev=dev,
                 file_format=file_format,
                 file_level=file_level or level,
