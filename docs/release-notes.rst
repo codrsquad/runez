@@ -126,10 +126,6 @@ History
 
 * Removed ``include_error`` kwarg from ``runez.run()``, ``RunResult.full_output`` can now be used instead
 
-
-2.0.2 (2020-05-19)
-------------------
-
 * Internal refactor to minimize import time (import time now tested, must be less than 3x slower than ``import sys``)
 
 * Renamed:
@@ -198,16 +194,12 @@ History
           and makes a multi-command out of them, with ``--help`` etc
 
 
-1.8.1 (2019-05-07)
+1.8.8 (2019-05-23)
 ------------------
 
 * ``get_version()`` can now be silent
 
 * Removed ``get_caller_name()``
-
-
-1.8.0 (2019-05-06)
-------------------
 
 * ``runez.log.setup()`` can now be called multiple times, to setup logs iteratively
 
@@ -217,41 +209,17 @@ History
 
 * Hint type of ``runez.conftest.cli`` for PyCharm's auto-complete
 
-
-1.7.6 (2019-04-10)
-------------------
-
 * Added support for ``ignore=[...]`` in ``copy()``
-
-
-1.7.5 (2019-03-25)
-------------------
 
 * Strip trailing spaces by default when saving pretty-printed json
 
-
-1.7.4 (2019-03-21)
-------------------
-
 * Better information when ``verify_abort()`` fails
 
-
-1.7.3 (2019-03-19)
-------------------
-
 * Added ``runez.log.spec.clean_handlers`` (``True`` by default), to automatically cleanup any pre-existing ``logging.root.handlers``
-
-
-1.7.2 (2019-03-15)
-------------------
 
 * Renamed ``to_json`` -> ``from_json`` (to avoid confusion)
 
 * Augmented all docstrings to accept ``str`` or ``unicode``, to avoid type-check warnings in python 2.7
-
-
-1.7.1 (2019-03-11)
-------------------
 
 * Allow stacked ``CaptureOutput``
 
@@ -278,14 +246,14 @@ History
     * Introducing ``console_level``, and ``file_level``
 
 
-1.5.5 (2019-02-21)
+1.5.5 (2019-02-22)
 ------------------
 
 * Correctly handle ``custom_location``
 
 * Preparing for log file rotation support
 
-* Introcuced ``runez.UNSET`` to distinguish between values not provided vs ``None`` (to avoid confusion)
+* Introduced ``runez.UNSET`` to distinguish between values not provided vs ``None`` (to avoid confusion)
 
 * ``custom_location=`` instead of ``location=`` in ``runez.log.setup()``
 
@@ -303,7 +271,7 @@ History
 * Added ``runez.log.setup()``, a convenient way of performing typical logging setup in one line
 
 
-1.3.7 (2019-02-08)
+1.3.6 (2019-01-24)
 ------------------
 
 * Added ``basename`` and ``prop``
@@ -322,4 +290,4 @@ History
 1.2.8 (2018-10-01)
 ------------------
 
-* Initial version
+* Initial operational version
