@@ -180,7 +180,8 @@ def test_expanded():
         filename = "{basename}.txt"
 
     assert runez.expanded("{filename}", Record) == "my-name.txt"
-    assert runez.expanded("{basename}/{filename}", Record) == "my-name/my-name.txt"
+    assert runez.expanded("{basename}/~/{filename}", Record) == "my-name/~/my-name.txt"
+    assert runez.expanded("~/{basename}/{filename}", Record) == os.path.expanduser("~/my-name/my-name.txt")
 
     assert runez.expanded("") == ""
     assert runez.expanded("", Record) == ""

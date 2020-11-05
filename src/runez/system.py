@@ -143,7 +143,13 @@ def expanded(text, *args, **kwargs):
     Returns:
         (str): '{...}' placeholders expanded from given `args` object's properties/fields, or as `kwargs`
     """
-    if not text or "{" not in text:
+    if not text:
+        return text
+
+    if text.startswith("~"):
+        text = os.path.expanduser(text)
+
+    if "{" not in text:
         return text
 
     strict = kwargs.pop("strict", True)
