@@ -528,28 +528,28 @@ class Anchored(object):
     _home = None
     _paths = []  # Currently stacked anchored folders that can be simplified away, via short()
 
-    def __init__(self, folder):
-        self.folder = resolved_path(folder)
+    def __init__(self, *folders):
+        self.folders = folders
 
     def __enter__(self):
-        Anchored.add(self.folder)
+        Anchored.add(self.folders)
 
     def __exit__(self, *_):
-        Anchored.pop(self.folder)
+        Anchored.pop(self.folders)
 
     @classmethod
     def set(cls, *anchors):
         """
         Args:
-            *anchors (str | list): Optional paths to use as anchors for short()
+            *anchors (str | list | tuple): Optional paths to use as anchors for short()
         """
-        cls._paths = sorted(flattened(anchors, sanitized=True, unique=True), reverse=True)
+        cls._paths = sorted((resolved_path(p) for p in flattened(anchors, sanitized=True, unique=True)), reverse=True)
 
     @classmethod
     def add(cls, anchors):
         """
         Args:
-            anchors (str | list): Optional paths to use as anchors for short()
+            anchors (str | list | tuple): Optional paths to use as anchors for short()
         """
         cls.set(cls._paths, anchors)
 
@@ -557,9 +557,10 @@ class Anchored(object):
     def pop(cls, anchors):
         """
         Args:
-            anchors (str | list): Optional paths to use as anchors for short()
+            anchors (str | list | tuple): Optional paths to use as anchors for short()
         """
         for anchor in flattened(anchors, sanitized=True, unique=True):
+            anchor = resolved_path(anchor)
             if anchor in cls._paths:
                 cls._paths.remove(anchor)
 

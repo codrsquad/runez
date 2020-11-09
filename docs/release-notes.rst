@@ -2,6 +2,12 @@
 History
 =======
 
+2.2.0 (2020-11-09)
+------------------
+
+* Accept optionally multiple paths at once in ``Anchored()`` context manager
+
+
 2.1.8 (2020-11-04)
 ------------------
 
