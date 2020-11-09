@@ -321,8 +321,13 @@ def test_shortening():
         assert runez.short(user_path) == "~/some-folder/bar"
         assert runez.short(current_path) == "some-folder/bar"
 
-        with runez.Anchored(os.getcwd()):
+        with runez.Anchored(os.getcwd(), "./foo"):
             assert runez.short(current_path) == os.path.join("some-folder", "bar")
+            assert runez.short("./foo") == "./foo"
+            assert runez.short(runez.resolved_path("foo")) == "foo"
+            assert runez.short(runez.resolved_path("./foo/bar")) == "bar"
+
+        assert not runez.Anchored._paths
 
 
 def test_system():
