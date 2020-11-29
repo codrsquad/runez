@@ -2,6 +2,12 @@
 History
 =======
 
+2.2.1 (2020-11-29)
+------------------
+
+* ``represented_json()`` and ``save_json()`` have now a signature consistent with ``json_sanitized()``
+
+
 2.2.0 (2020-11-09)
 ------------------
 

@@ -596,12 +596,12 @@ class Serializable(object):
         for name, schema_type in self._meta.attributes.items():
             setattr(self, name, schema_type.default)
 
-    def to_dict(self, dt=str, keep_none=False, stringify=stringified):
+    def to_dict(self, stringify=stringified, dt=str, keep_none=False):
         """
         Args:
+            stringify (callable | None): Function to use to stringify non-builtin types
             dt (callable | None): Function to use to stringify dates
             keep_none (bool): If False, don't include None values
-            stringify (callable | None): Function to use to stringify non-builtin types
 
         Returns:
             (dict): This object serialized to a dict
@@ -631,19 +631,21 @@ def read_json(path, default=UNSET):
         return _R.hdef(default, "Couldn't read %s" % short(path), e=e)
 
 
-def represented_json(data, indent=2, keep_none=False, sort_keys=True, **kwargs):
+def represented_json(data, stringify=stringified, dt=str, keep_none=False, indent=2, sort_keys=True, **kwargs):
     """
     Args:
         data (object | None): Data to serialize
-        indent (int | None): Indentation to use, if None: use compact (one line) mode
+        stringify (callable | None): Function to use to stringify non-builtin types
+        dt (callable | None): Function to use to stringify dates
         keep_none (bool): If False, don't include None values
+        indent (int | None): Indentation to use, if None: use compact (one line) mode
         sort_keys (bool): Whether keys should be sorted
         **kwargs: Passed through to `json.dumps()`
 
     Returns:
         (dict | list | str): Serialized `data`, with defaults that are usually desirable for a nice and clean looking json
     """
-    data = json_sanitized(data, keep_none=keep_none)
+    data = json_sanitized(data, stringify=stringify, dt=dt, keep_none=keep_none)
     kwargs.setdefault("separators", K_INDENTED_SEPARATORS if indent else K_COMPACT_SEPARATORS)
     rep = json.dumps(data, indent=indent, sort_keys=sort_keys, **kwargs)
     if indent:
@@ -652,13 +654,17 @@ def represented_json(data, indent=2, keep_none=False, sort_keys=True, **kwargs):
     return rep
 
 
-def save_json(data, path, indent=2, keep_none=False, sort_keys=True, fatal=True, logger=UNSET, dryrun=UNSET, **kwargs):
+def save_json(
+    data, path, stringify=stringified, dt=str, keep_none=False, indent=2, sort_keys=True, fatal=True, logger=UNSET, dryrun=UNSET, **kwargs
+):
     """
     Args:
         data (object | None): Data to serialize and save
         path (str | None): Path to file where to save
-        indent (int | None): Indentation to use, if None: use compact (one line) mode
+        stringify (callable | None): Function to use to stringify non-builtin types
+        dt (callable | None): Function to use to stringify dates
         keep_none (bool): If False, don't include None values
+        indent (int | None): Indentation to use, if None: use compact (one line) mode
         sort_keys (bool): Whether keys should be sorted
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
@@ -677,11 +683,12 @@ def save_json(data, path, indent=2, keep_none=False, sort_keys=True, fatal=True,
         if _R.hdry(dryrun, logger, "save %s" % short(path)):
             return 1
 
-        data = json_sanitized(data, keep_none=keep_none)
+        data = json_sanitized(data, stringify=stringify, dt=dt, keep_none=keep_none)
         kwargs.setdefault("separators", K_INDENTED_SEPARATORS if indent else K_COMPACT_SEPARATORS)
         with open(path, "wt") as fh:
             json.dump(data, fh, indent=indent, sort_keys=sort_keys, **kwargs)
-            fh.write("\n")
+            if indent:
+                fh.write("\n")
 
         _R.hlog(logger, "Saved %s" % short(path))
         return 1
