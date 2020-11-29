@@ -13,15 +13,14 @@ import threading
 
 try:
     string_type = basestring  # noqa
-
-    import StringIO
-    StringIO = StringIO.StringIO
     PY2 = True
 
-except NameError:
-    string_type = str
+    from StringIO import StringIO
 
+except NameError:
     from io import StringIO
+
+    string_type = str
     PY2 = False
 
 
@@ -458,6 +457,7 @@ class AdaptedProperty(object):
         >>> my_object.width = "10"     # Implementation of decorated function turns this into an int
         >>> assert my_object.width == 10
     """
+
     __counter = [0]  # Simple counter for anonymous properties
 
     def __init__(self, validator=None, default=None, doc=None, caster=None, type=None):
@@ -883,7 +883,7 @@ class TrackedOutput(object):
 class Slotted(object):
     """This class allows to easily initialize/set a descendant using named arguments"""
 
-    def __init__(self,  *positionals, **kwargs):
+    def __init__(self, *positionals, **kwargs):
         """
         Args:
             *positionals: Optionally provide positional objects to extract values from, when possible
@@ -996,6 +996,7 @@ class Slotted(object):
             return True
 
     if PY2:
+
         def __cmp__(self, other):  # Applicable only for py2
             if isinstance(other, self.__class__):
                 for name in self.__slots__:
@@ -1220,6 +1221,7 @@ class _R:
     - without having to `import runez` internally (can't do that due to circular import)
     - respecting any external modifications clients may have done (like: runez.DRYRUN = foo)
     """
+
     _runez = None
     _schema = None
 

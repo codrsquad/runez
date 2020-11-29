@@ -188,7 +188,7 @@ def test_default(temp_log):
     # Now stop logging context
     runez.log.setup(
         console_format="%(funcName)s %(module)s %(levelname)s %(message)s",
-        file_format="%(asctime)s %(timezone)s %(levelname)s %(message)s"
+        file_format="%(asctime)s %(timezone)s %(levelname)s %(message)s",
     )
     logging.info("hello")
     logging.warning("hello")

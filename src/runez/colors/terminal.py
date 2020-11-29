@@ -11,6 +11,7 @@ VALID_FLAVORS = {"dark", "light", "neutral"}
 
 class AnsiCode(object):
     """Compute ANSI escape codes to use for a given RGB color"""
+
     bg_offset = 40
     fg_offset = 30
 
@@ -83,9 +84,9 @@ class AnsiColor(Renderable):
         fmt = getattr(AnsiCode, ansi)
         offset = AnsiCode.bg_offset if rgb < 0 else AnsiCode.fg_offset
         rgb = abs(rgb)
-        r = (rgb & 0xff0000) >> 16
-        g = (rgb & 0xff00) >> 8
-        b = rgb & 0xff
+        r = (rgb & 0xFF0000) >> 16
+        g = (rgb & 0xFF00) >> 8
+        b = rgb & 0xFF
         base_fmt = u"\033[{{start}}m{{{{}}}}\033[{end}m".format(end=offset + 9)
         brighten = None if flavor == "neutral" else flavor == "light"
         self.fmt = base_fmt.format(start=fmt(offset, r, g, b, brighten))
@@ -107,6 +108,7 @@ class AnsiStyle(Renderable):
 
 class Ansi16Backend(PlainBackend):
     """ANSI 16-color"""
+
     color_count = 16
     ansi = "ansi16"
 
@@ -127,31 +129,31 @@ class Ansi16Backend(PlainBackend):
             cls=AnsiColor,
             params=dict(ansi=self.ansi, flavor=self.flavor),
             black=-0x000001,
-            blue=-0x0000ff,
-            brown=-0xa52a2a,
-            gray=-0xbebebe,
-            green=-0xff00,
-            orange=-0xffa500,
-            purple=-0xa020f0,
-            red=-0xff0000,
+            blue=-0x0000FF,
+            brown=-0xA52A2A,
+            gray=-0xBEBEBE,
+            green=-0xFF00,
+            orange=-0xFFA500,
+            purple=-0xA020F0,
+            red=-0xFF0000,
             teal=-0x008080,
-            white=-0xffffff,
-            yellow=-0xffff00,
+            white=-0xFFFFFF,
+            yellow=-0xFFFF00,
         )
         fg = NamedColors(
             cls=AnsiColor,
             params=dict(ansi=self.ansi, flavor=self.flavor),
             black=0x000000,
-            blue=0x0000ff,
-            brown=0x850a0a,
-            gray=0xbebebe,
-            green=0xff00,
-            orange=0xef9500,
-            purple=0xa020f0,
-            red=0xff0000,
+            blue=0x0000FF,
+            brown=0x850A0A,
+            gray=0xBEBEBE,
+            green=0xFF00,
+            orange=0xEF9500,
+            purple=0xA020F0,
+            red=0xFF0000,
             teal=0x008080,
-            white=0xffffff,
-            yellow=0xffff00,
+            white=0xFFFFFF,
+            yellow=0xFFFF00,
         )
         style = NamedStyles(
             cls=AnsiStyle,
@@ -168,12 +170,14 @@ class Ansi16Backend(PlainBackend):
 
 class Ansi256Backend(Ansi16Backend):
     """ANSI 256-color"""
+
     color_count = 256
     ansi = "ansi256"
 
 
 class TrueColorBackend(Ansi16Backend):
     """ANSI true-color"""
+
     color_count = 1 << 24
     ansi = "truecolor"
 

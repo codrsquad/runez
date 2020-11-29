@@ -279,28 +279,28 @@ class LogManager(object):
 
     @classmethod
     def setup(
-            cls,
-            debug=UNSET,
-            dryrun=UNSET,
-            level=UNSET,
-            clean_handlers=UNSET,
-            greetings=UNSET,
-            appname=UNSET,
-            basename=UNSET,
-            console_format=UNSET,
-            console_level=UNSET,
-            console_stream=UNSET,
-            context_format=UNSET,
-            default_logger=UNSET,
-            dev=UNSET,
-            file_format=UNSET,
-            file_level=UNSET,
-            file_location=UNSET,
-            locations=UNSET,
-            rotate=UNSET,
-            rotate_count=UNSET,
-            timezone=UNSET,
-            tmp=UNSET,
+        cls,
+        debug=UNSET,
+        dryrun=UNSET,
+        level=UNSET,
+        clean_handlers=UNSET,
+        greetings=UNSET,
+        appname=UNSET,
+        basename=UNSET,
+        console_format=UNSET,
+        console_level=UNSET,
+        console_stream=UNSET,
+        context_format=UNSET,
+        default_logger=UNSET,
+        dev=UNSET,
+        file_format=UNSET,
+        file_level=UNSET,
+        file_location=UNSET,
+        locations=UNSET,
+        rotate=UNSET,
+        rotate_count=UNSET,
+        timezone=UNSET,
+        tmp=UNSET,
     ):
         """
         Args:
@@ -384,6 +384,7 @@ class LogManager(object):
                           otherwise path to first found test-framework module
         """
         import re
+
         regex = re.compile(r"^(.+\.|)(conftest|(test_|_pytest|unittest).+|.+_test)$")
 
         def is_test_frame(f):

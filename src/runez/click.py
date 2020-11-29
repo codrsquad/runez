@@ -130,6 +130,7 @@ def option(func, *args, **attrs):
     Returns:
         function: Click decorator
     """
+
     def decorator(f):
         name = attrs.pop("name", func.__name__.replace("_", "-"))
         negatable = None
@@ -155,6 +156,7 @@ def option(func, *args, **attrs):
 
 def _auto_complete_callback(attrs, func):
     if not attrs.get("expose_value", True) and attrs.get("callback") is None:
+
         def _callback(ctx, param, value):
             value = func(value)
             return value

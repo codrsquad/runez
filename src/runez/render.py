@@ -168,6 +168,7 @@ class PrettyCustomizable(object):
     - header: applies to header row only
     - header.column: applies to all cells within a column (including header cells)
     """
+
     align = AdaptedProperty("align", caster=Align.cast, doc="Horizontal alignment to use (left, center or right)")
     style = AdaptedProperty("style", caster=cast_style, doc="Style")
     width = AdaptedProperty("width", caster=int, doc="Desired width")

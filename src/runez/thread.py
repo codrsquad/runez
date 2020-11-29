@@ -37,6 +37,7 @@ class ThreadLocalSingleton(object):
                 # Will be called once per thread, no matter how many times or where it gets invoked from
                 ...
     """
+
     def __new__(cls, *args, **kwargs):
         # We could do singleton by combination of args, but outcome of that could be hard to grok for users
         # Not sure if there's a good use case for this (one where gotcha-factor is much lower than added value)

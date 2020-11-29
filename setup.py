@@ -24,6 +24,6 @@ if __name__ == "__main__":
             "Programming Language :: Python :: 3.9",
             "Programming Language :: Python :: Implementation :: CPython",
             "Topic :: Software Development :: Libraries",
-            "Topic :: Utilities"
+            "Topic :: Utilities",
         ],
     )

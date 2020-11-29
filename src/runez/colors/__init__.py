@@ -35,6 +35,7 @@ class ActivateColors(object):
 
 class PlainBackend(object):
     """Default plain backend, ignoring colors"""
+
     color_count = 1
     name = "plain"
 
@@ -122,6 +123,7 @@ def uncolored(text):
 
 class Renderable(object):
     """A render-able (color or style) named object"""
+
     def __init__(self, name):
         self.name = name
 
@@ -174,11 +176,13 @@ class NamedRenderables(Slotted):
 
 class NamedColors(NamedRenderables):
     """Set of registered named colors"""
+
     __slots__ = ["black", "blue", "brown", "gray", "green", "orange", "plain", "purple", "red", "teal", "white", "yellow"]
 
 
 class NamedStyles(NamedRenderables):
     """Set of registered named styles"""
+
     __slots__ = ["blink", "bold", "dim", "invert", "italic", "strikethrough", "underline"]
 
 

@@ -241,8 +241,8 @@ def test_fallback(logged):
     # More complex sample
     c2 = runez.FallbackChain(
         description="sample",
-        a=oopsie,                                 # Will fail on call
-        b=dict(run=oopsie, prepare=do_nothing),   # Will fail on call, prepare will succeed
+        a=oopsie,  # Will fail on call
+        b=dict(run=oopsie, prepare=do_nothing),  # Will fail on call, prepare will succeed
         c=dict(run=lambda x: x, prepare=oopsie),  # Will fail on prepare
         d=MyRunner(),
     )

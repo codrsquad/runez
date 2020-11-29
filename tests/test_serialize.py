@@ -52,8 +52,10 @@ def test_slotted(logged):
 
 def test_bogus_class():
     with pytest.raises(ValidationException):
+
         class Bogus(runez.Serializable):
             """This class shouldn't have to unique identifiers"""
+
             id1 = UniqueIdentifier
             id2 = UniqueIdentifier
 
@@ -198,7 +200,7 @@ def test_meta(logged):
 
     obj2 = SomeSerializable()
     assert obj != obj2
-    assert SomeSerializable._meta.changed_attributes(obj, obj2) == [('name', 'some name', 'my name'), ('some_int', 15, 7)]
+    assert SomeSerializable._meta.changed_attributes(obj, obj2) == [("name", "some name", "my name"), ("some_int", 15, 7)]
 
     obj2.name = "some name"
     obj2.some_int = 15

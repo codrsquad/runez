@@ -87,6 +87,7 @@ class DefaultBehavior(object):
     Also carries an optional `hook` to call at the end of each Serializable descendant registration
     (global default for that does not make sense).
     """
+
     strict = False  # type: callable # Original default: don't strictly enforce type compatibility
     extras = False  # type: callable  # Original default: don't report extra fields seen in deserialized data (ie: ignore them)
 
@@ -362,9 +363,10 @@ class ClassMetaDescription(object):
                 if schema_type is not None:
                     if isinstance(schema_type, _R.schema().UniqueIdentifier):
                         if self.unique_identifier:
-                            raise _R.schema().ValidationException("Multiple unique ids specified for %s: %s and %s" % (
-                                    self.qualified_name, self.unique_identifier, schema_type
-                            ))
+                            raise _R.schema().ValidationException(
+                                "Multiple unique ids specified for %s: %s and %s"
+                                % (self.qualified_name, self.unique_identifier, schema_type)
+                            )
                         self.unique_identifier = key
                         schema_type = schema_type.subtype
 
@@ -469,6 +471,7 @@ class BaseMetaInjector(type):
 
 def add_metaclass(metaclass):
     """Class decorator for creating a class with a metaclass (taken from https://pypi.org/project/six/)."""
+
     def wrapper(cls):
         orig_vars = dict(cls.__dict__)
         slots = orig_vars.get("__slots__")
@@ -508,6 +511,7 @@ def filtered_bases(bases):
 
 def add_meta(meta_type):
     """A simplified metaclass that simply injects a `._meta` field of given type `meta_type`"""
+
     class MetaInjector(BaseMetaInjector):
         def __new__(cls, name, bases, dct):
             _, fb = filtered_bases(bases)
