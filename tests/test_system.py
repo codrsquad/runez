@@ -312,6 +312,9 @@ def test_shortening():
     assert runez.short(" some  text ", size=7) == "some..."
     assert runez.short(" some  text ", size=0) == "some text"
 
+    with patch("runez.system._R.terminal_width", return_value=12):  # Simulate short terminal width
+        assert runez.short(" some  text ", size=-5) == "some..."
+
     with runez.TempFolder() as tmp:
         assert runez.short(os.path.join(tmp, "some-file")) == "some-file"
 

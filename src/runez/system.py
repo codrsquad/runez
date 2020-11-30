@@ -375,11 +375,11 @@ def resolved_path(path, base=None):
     return os.path.abspath(path)
 
 
-def short(value, size=1024, none="None"):
+def short(value, size=UNSET, none="None"):
     """
     Args:
         value: Value to textually represent in a shortened form
-        size (int | None): Max chars
+        size (int | Undefined | None): Max chars (default: terminal width if available, otherwise 180)
         none (str): String to use to represent `None`
 
     Returns:
@@ -388,7 +388,13 @@ def short(value, size=1024, none="None"):
     text = stringified(value, converter=_prettified, none=none).strip()
     text = RE_SPACES.sub(" ", text)
     text = Anchored.short(text)
-    if size and len(text) > size:
+    if size is UNSET:
+        size = _R.terminal_width()
+
+    elif isinstance(size, int) and size < 0:
+        size += _R.terminal_width()
+
+    if isinstance(size, int) and len(text) > size > 0:
         return "%s..." % text[:size - 3]
 
     return text
@@ -682,11 +688,6 @@ class CaptureOutput(object):
         if cls._capture_stack:
             return cls._capture_stack[-1].buffer
 
-    def _has_stream_handler(self):
-        for h in logging.root.handlers:
-            if isinstance(h, logging.StreamHandler) or getattr(h, "isolation", None) == 0:
-                return True
-
     def __enter__(self):
         """
         Returns:
@@ -707,7 +708,7 @@ class CaptureOutput(object):
         if self.anchors:
             Anchored.add(self.anchors)
 
-        if self.seed_logging and not self._has_stream_handler():
+        if self.seed_logging and not _has_stream_handler():
             # Define a logging handler, IsolatedLogSetup cleared them all
             self.handler = logging.StreamHandler(stream=self.tracked.captured[-1].buffer)
             self.handler.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
@@ -1224,6 +1225,7 @@ class _R:
 
     _runez = None
     _schema = None
+    _terminal_width = -180
 
     @classmethod
     def _runez_module(cls):
@@ -1355,6 +1357,13 @@ class _R:
 
         return old_dryrun
 
+    @classmethod
+    def terminal_width(cls):
+        if cls._terminal_width < 0:
+            cls._terminal_width = cls._runez_module().terminal_width(default=-cls._terminal_width)
+
+        return cls._terminal_width
+
 
 def _find_value(key, *args):
     """Find a value for 'key' in any of the objects given as 'args'"""
@@ -1466,3 +1475,9 @@ def _show_abort_message(message, exc_info, fatal, logger):
 
     else:
         sys.stderr.write("%s\n" % message)
+
+
+def _has_stream_handler():
+    for h in logging.root.handlers:
+        if isinstance(h, logging.StreamHandler) or getattr(h, "isolation", None) == 0:
+            return True

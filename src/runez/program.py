@@ -241,7 +241,7 @@ class RunResult(object):
         return self.exit_code == 0
 
 
-def terminal_width(default=None):
+def terminal_width(default=80):
     """Get the width (number of columns) of the terminal window.
 
     Args:
@@ -366,7 +366,7 @@ def _install_instructions(instructions_dict, platform):
 
 def _tw_shutil():
     try:
-        return shutil.get_terminal_size().columns
+        return shutil.get_terminal_size(fallback=(None, None)).columns
 
     except Exception:
         return None
