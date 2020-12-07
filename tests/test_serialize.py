@@ -90,10 +90,13 @@ def test_json(temp_folder):
     assert runez.represented_json("foo") == '"foo"\n'
 
     assert runez.represented_json({None: 2}) == '{\n  "null": 2\n}\n'
-    assert runez.represented_json({None: 2}, none_key="foo") == '{\n  "foo": 2\n}\n'
+    assert runez.represented_json({None: 2}, none_key="None") == '{\n  "None": 2\n}\n'
+    assert runez.represented_json({None: None}, keep_none=True) == '{\n  "null": null\n}\n'
+    assert runez.represented_json({None: 1, "foo": None}, keep_none=True, none_key="_null") == '{\n  "_null": 1,\n  "foo": null\n}\n'
 
     if runez.PY2:
         assert runez.represented_json({None: 2, "foo": "bar"}) == '{\n  "null": 2,\n  "foo": "bar"\n}\n'
+        assert runez.represented_json({None: 1, "foo": None}, keep_none=True) == '{\n  "null": 1,\n  "foo": null\n}\n'
 
     else:
         with pytest.raises(TypeError):
