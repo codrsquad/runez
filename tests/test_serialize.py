@@ -89,6 +89,17 @@ def test_json(temp_folder):
     assert runez.represented_json({}) == "{}\n"
     assert runez.represented_json("foo") == '"foo"\n'
 
+    assert runez.represented_json({None: 2}) == '{\n  "null": 2\n}\n'
+    assert runez.represented_json({None: 2}, none_key="foo") == '{\n  "foo": 2\n}\n'
+
+    if runez.PY2:
+        assert runez.represented_json({None: 2, "foo": "bar"}) == '{\n  "null": 2,\n  "foo": "bar"\n}\n'
+
+    else:
+        with pytest.raises(TypeError):
+            # py3 stdlib can't sort with None key...
+            runez.represented_json({None: 2, "foo": "bar"})
+
     data = {"a": "x", "b": "y"}
     assert runez.represented_json(data) == '{\n  "a": "x",\n  "b": "y"\n}\n'
     assert runez.represented_json(data, indent=None) == '{"a": "x", "b": "y"}'
@@ -226,6 +237,8 @@ def test_meta(logged):
 def test_sanitize():
     assert runez.serialize.json_sanitized(None) is None
     assert runez.serialize.json_sanitized({1, 2}) == [1, 2]
+    assert runez.serialize.json_sanitized({None: 2}) == {None: 2}
+    assert runez.serialize.json_sanitized({None: 2}, none_key="None") == {"None": 2}
 
     now = datetime.datetime.now()
     assert runez.serialize.json_sanitized(now) == str(now)

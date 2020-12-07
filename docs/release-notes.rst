@@ -2,6 +2,12 @@
 History
 =======
 
+2.2.3 (2020-12-06)
+------------------
+
+* Allow for workaround around py3 unable to sort None-keys in json.dumps(sort_keys=True)
+
+
 2.2.2 (2020-11-29)
 ------------------
 

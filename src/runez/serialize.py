@@ -180,18 +180,22 @@ class DefaultBehavior(object):
                 self.do_notify("Extra content given for %s: %s" % (class_name, ", ".join(sorted(extras))))
 
 
-def json_sanitized(value, stringify=stringified, dt=str, keep_none=False):
+def json_sanitized(value, stringify=stringified, dt=str, keep_none=False, none_key=None):
     """
     Args:
         value: Value to sanitize
         stringify (callable | None): Function to use to stringify non-builtin types
         dt (callable | None): Function to use to stringify dates
         keep_none (bool): If False, don't include None values
+        none_key (str | None): String to use to represent keys that are `None`
 
     Returns:
         An object that should be json serializable
     """
-    if value is None or isinstance(value, (int, float, string_type)):
+    if value is None:
+        return none_key
+
+    if isinstance(value, (int, float, string_type)):
         return value
 
     if hasattr(value, "to_dict"):
@@ -206,7 +210,7 @@ def json_sanitized(value, stringify=stringified, dt=str, keep_none=False):
     if isinstance(value, dict):
         return dict(
             (
-                json_sanitized(k, stringify=stringify, dt=dt, keep_none=keep_none),
+                json_sanitized(k, stringify=stringify, dt=dt, keep_none=keep_none, none_key=none_key),
                 json_sanitized(v, stringify=stringify, dt=dt, keep_none=keep_none),
             )
             for k, v in value.items()
@@ -635,7 +639,7 @@ def read_json(path, default=UNSET):
         return _R.hdef(default, "Couldn't read %s" % short(path), e=e)
 
 
-def represented_json(data, stringify=stringified, dt=str, keep_none=False, indent=2, sort_keys=True, **kwargs):
+def represented_json(data, stringify=stringified, dt=str, keep_none=False, indent=2, sort_keys=True, none_key=None, **kwargs):
     """
     Args:
         data (object | None): Data to serialize
@@ -644,12 +648,13 @@ def represented_json(data, stringify=stringified, dt=str, keep_none=False, inden
         keep_none (bool): If False, don't include None values
         indent (int | None): Indentation to use, if None: use compact (one line) mode
         sort_keys (bool): Whether keys should be sorted
+        none_key (str | None): String to use to represent keys that are `None`
         **kwargs: Passed through to `json.dumps()`
 
     Returns:
         (dict | list | str): Serialized `data`, with defaults that are usually desirable for a nice and clean looking json
     """
-    data = json_sanitized(data, stringify=stringify, dt=dt, keep_none=keep_none)
+    data = json_sanitized(data, stringify=stringify, dt=dt, keep_none=keep_none, none_key=none_key)
     kwargs.setdefault("separators", K_INDENTED_SEPARATORS if indent else K_COMPACT_SEPARATORS)
     rep = json.dumps(data, indent=indent, sort_keys=sort_keys, **kwargs)
     if indent:
