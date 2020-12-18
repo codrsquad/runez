@@ -6,7 +6,7 @@ import pytest
 from mock import patch
 
 import runez
-from runez.schema import determined_schema_type, Dict, Integer, List, String, UniqueIdentifier, ValidationException
+from runez.schema import determined_schema_type, Dict, Integer, List, String, Struct, UniqueIdentifier, ValidationException
 from runez.serialize import add_meta, ClassMetaDescription, same_type, SerializableDescendants, type_name, with_behavior
 
 
@@ -142,11 +142,16 @@ def test_json(temp_folder):
             assert not logged
 
 
+class SubObject(Struct):
+    identifier = String(default=runez.UNSET)
+
+
 class SomeSerializable(runez.Serializable, with_behavior(strict=True)):
     name = "my name"
     some_int = 7
     some_value = List(Integer)
     another = None
+    sub = SubObject(default=runez.UNSET)
 
     _called = None
 
@@ -171,7 +176,7 @@ class SomeRecord(object):
 
 
 def test_meta(logged):
-    custom = ClassMetaDescription(SomeRecord, None)
+    custom = ClassMetaDescription(SomeRecord)
     assert len(custom.attributes) == 2
     assert len(custom.properties) == 0
     assert custom.by_type == {"string": ["name"], "integer": ["some_int"]}
@@ -191,14 +196,19 @@ def test_meta(logged):
         SerializableDescendants.call("do_something_on_instance", "testing")
 
     with pytest.raises(ValidationException) as e:
-        SomeSerializable.from_dict({"some_int": "foo"})
+        SomeSerializable.from_dict({"some_int": "foo", "sub": {"identifier": "some-id"}})
     assert str(e.value) == "Can't deserialize SomeSerializable.some_int: expecting int, got 'foo'"
 
-    data = {"name": "some name", "some_int": 15}
+    with pytest.raises(ValidationException) as e:
+        SomeSerializable.from_dict({})
+    assert str(e.value) == "Can't deserialize SomeSerializable.sub: expecting structure SubObject, got 'UNSET'"
+
+    data = {"name": "some name", "some_int": 15, "sub": {"identifier": "some-id"}}
     obj = SomeSerializable.from_dict(data)
     assert isinstance(obj, SomeSerializable)
     assert obj.name == "some name"
     assert obj.some_int == 15
+    assert obj.sub.identifier == "some-id"
 
     obj2 = SomeSerializable()
     assert isinstance(obj2, SomeSerializable)
@@ -210,31 +220,49 @@ def test_meta(logged):
     obj2 = copy(obj)
     assert isinstance(obj2, SomeSerializable)
     assert obj2 is not obj
+    assert obj2.sub is not obj.sub
     assert obj2 == obj
+
+    obj2.sub.identifier = "foo"
+    assert obj2 != obj
 
     obj2 = SomeSerializable()
     assert obj != obj2
-    assert SomeSerializable._meta.changed_attributes(obj, obj2) == [("name", "some name", "my name"), ("some_int", 15, 7)]
+    assert SomeSerializable._meta.changed_attributes(obj, obj2) == [
+        ("name", "some name", "my name"),
+        ("some_int", 15, 7),
+        ('sub', obj.sub, runez.UNSET)
+    ]
 
     obj2.name = "some name"
     obj2.some_int = 15
+    assert obj2 != obj
+
+    obj2.sub = obj.sub
     assert obj == obj2
 
-    assert len(SomeSerializable._meta.attributes) == 4
+    assert len(SomeSerializable._meta.attributes) == 5
     assert len(SomeSerializable._meta.properties) == 1
     assert obj._meta is SomeSerializable._meta
 
     assert not logged
 
-    obj = SomeSerializable.from_dict({"name": "foo", "some_int": 1})
-    obj.set_from_dict({"name": "foo"})
+    sample_data = {"name": "original-name", "some_int": 1, "sub": {"identifier": "original-id"}}
+    obj = SomeSerializable.from_dict(sample_data)
+    assert obj.name == "original-name"
+    assert obj.some_int == 1
+    assert obj.sub.identifier == "original-id"
+
+    obj.set_from_dict({"name": "foo", "sub": {"identifier": "bar"}})
     assert obj.name == "foo"
     assert obj.some_int == 7  # Value reset to object's default
+    assert obj.sub.identifier == "bar"
 
-    obj = SomeSerializable.from_dict({"name": "foo", "some_int": 1})
+    obj = SomeSerializable.from_dict(sample_data)
     obj.set_from_dict({"name": "foo"}, merge=True)
     assert obj.name == "foo"
     assert obj.some_int == 1  # Value NOT reset to default
+    assert obj.sub.identifier == "original-id"  # unchanged
 
 
 def test_sanitize():
@@ -265,31 +293,36 @@ def test_serialization(logged):
     obj.set_from_dict({"foo": 0}, source="testing")  # no-op
     assert not logged
 
-    obj = SomeSerializable.from_dict({}, source="testing")
-    assert obj.to_dict() == {"name": "my name", "some_int": 7}
+    obj = SomeSerializable.from_dict({"sub": {"identifier": "some-id"}}, source="testing")
+    assert obj.to_dict() == {"name": "my name", "some_int": 7, "sub": {"identifier": "some-id"}}
 
     # Unknown fields
-    obj2 = SomeSerializable.from_dict({"foo": 1, "bar": 2})
+    obj2 = SomeSerializable.from_dict({"foo": 1, "bar": 2, "sub": {"identifier": "some-id"}})
     assert not hasattr(obj2, "foo")  # non-declared keys are ignored
     assert obj2.some_int == 7  # Fields not in data still get their default value
     assert obj == obj2
+    assert obj.sub.identifier == "some-id"
     assert "Extra content given for SomeSerializable: bar, foo" in logged.pop()
 
-    obj2 = SomeSerializable.from_json("", default={})
+    obj2 = SomeSerializable.from_json("", default={"sub": {"identifier": "some-id"}})
     assert obj == obj2
     assert not logged
 
     obj.some_int = 5
     obj.reset()
+    assert obj.sub is runez.UNSET
     assert obj.name == "my name"
     assert obj.some_int == 7
     assert obj.some_value is None
-    assert obj == obj2
+    assert obj != obj2
 
     if not runez.WINDOWS:
         obj3 = SomeSerializable.from_json("/dev/null/not-there", default=None)
         assert not logged
         assert obj == obj3
+
+    obj.sub = obj2.sub
+    assert obj == obj2
 
 
 def test_to_dict(temp_folder):

@@ -347,7 +347,7 @@ class SerializableDescendants(object):
 class ClassMetaDescription(object):
     """Info on class attributes and properties"""
 
-    def __init__(self, cls, mbehavior):
+    def __init__(self, cls, mbehavior=None):
         self.name = cls.__name__
         self.qualified_name = "%s.%s" % (cls.__module__, cls.__name__)
         self.cls = cls

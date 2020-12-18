@@ -71,7 +71,7 @@ def _determined_schema_type(value):
         return String()
 
     if issubclass(value, _R.serializable()):
-        return MetaSerializable(value._meta)
+        return _MetaSerializable(value._meta)
 
     if issubclass(value, Any):
         return value()
@@ -140,8 +140,8 @@ class Any(object):
         return value
 
 
-class MetaSerializable(Any):
-    """Represents a descendant of `runez.Serializable`"""
+class _MetaSerializable(Any):
+    """Wraps descendants of `runez.Serializable` as schema fields (will be retired in the future)"""
 
     def __init__(self, meta, default=None):
         """
@@ -150,7 +150,7 @@ class MetaSerializable(Any):
             default: Default to use (when no value is provided)
         """
         self.meta = getattr(meta, "_meta", meta)
-        super(MetaSerializable, self).__init__(default=default)
+        super(_MetaSerializable, self).__init__(default=default)
         self.name = self.meta.cls.__name__
 
     def _problem(self, value):
@@ -316,6 +316,50 @@ class String(Any):
 
     def _converted(self, value):
         return stringified(value)
+
+
+class Struct(Any):
+    """Represents a composed object, similar to `Serializable`, but not intended to be the root of any schema"""
+
+    def __init__(self, default=None):
+        self.meta = _R.meta_description(self)
+        super(Struct, self).__init__(default=default)
+
+    def __eq__(self, other):
+        if other is not None and other.__class__ is self.__class__:
+            for name in self.meta.attributes:
+                if not hasattr(other, name) or getattr(self, name) != getattr(other, name):
+                    return False
+
+            return True
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def to_dict(self):
+        """
+        Returns:
+            (dict): This object serialized to a dict
+        """
+        return dict((name, getattr(self, name)) for name in self.meta.attributes)
+
+    def set_from_dict(self, data, source=None):
+        """
+        Args:
+            data (dict): Raw data, coming for example from a json file
+            source (str | None): Optional, description of source where 'data' came from
+        """
+        if data is not None:
+            self.meta.set_from_dict(self, data, source=source)
+
+    def _problem(self, value):
+        if not isinstance(value, dict):
+            return "expecting structure %s, got '%s'" % (self.__class__.__name__, value)
+
+        return self.meta.problem(value)
+
+    def _converted(self, value):
+        return self.meta.from_dict(value)
 
 
 class UniqueIdentifier(Any):

@@ -2,7 +2,7 @@ import datetime
 import logging
 
 import runez
-from runez.schema import Any, Boolean, Date, Datetime, Dict, Enum, Float, Integer, List, MetaSerializable, String, UniqueIdentifier
+from runez.schema import Any, Boolean, Date, Datetime, Dict, Enum, Float, Integer, List, String, Struct, UniqueIdentifier
 from runez.serialize import Serializable, SerializableDescendants, with_behavior
 
 
@@ -150,7 +150,7 @@ class Car(Serializable, with_behavior(extras=(logging.info, "foo bar"))):
     year = Integer
 
 
-class Hat(Serializable, with_behavior(extras=False)):
+class Hat(Struct):
     size = Integer(default=1)
 
 
@@ -166,7 +166,7 @@ class Person(Serializable, with_behavior(strict=logging.error, hook=logging.info
     name = String(default="joe")
 
     car = Car
-    hat = MetaSerializable(Hat)
+    hat = Hat
 
     def __init__(self, name=None):
         self.name = name
@@ -192,16 +192,14 @@ def test_serializable(logged):
     assert Car._meta.by_type == {"string": ["make", "serial"], "integer": ["year"]}
     assert SpecializedCar._meta.by_type == {"integer": ["year"], "list": ["hats"], "string": ["make", "serial"]}
 
-    assert str(Hat._meta.behavior) == "lenient"
-
     assert str(Person._meta) == "Person (5 attributes, 0 properties)"
     assert str(Person._meta.behavior) == "strict: function 'error', extras: function 'debug', hook: function 'info'"
     # `hook` is inherited
     assert str(GPerson._meta.behavior) == "strict: function 'error', extras: function 'debug', hook: function 'info'"
 
     # Verify that most specific type wins (GPerson -> age)
-    assert Person._meta.by_type == {"Car": ["car"], "Hat": ["hat"], "date": ["age"], "integer": ["fingerprint"], "string": ["name"]}
-    assert GPerson._meta.by_type == {"Car": ["car"], "Hat": ["hat"], "integer": ["age", "fingerprint", "group"], "string": ["name"]}
+    assert Person._meta.by_type == {"Car": ["car"], "hat": ["hat"], "date": ["age"], "integer": ["fingerprint"], "string": ["name"]}
+    assert GPerson._meta.by_type == {"Car": ["car"], "hat": ["hat"], "integer": ["age", "fingerprint", "group"], "string": ["name"]}
 
     car = Car.from_dict({"foo": 1, "baz": 2, "serial": "bar"})
     assert car.serial == "bar"
@@ -227,12 +225,14 @@ def test_serializable(logged):
     assert pp.car.make == "Honda"
     assert pp.car.year == 2010
     assert pp.fingerprint == 5
+    assert pp.hat is None
     assert pp.to_dict() == {"age": "2019-01-01", "car": {"make": "Honda", "year": 2010}, "fingerprint": 5, "name": "joe"}
 
     # Default `name` from schema is respected, because we didn't call Person.__init__() explicitly
-    pp = Person.from_dict({"age": 1567296012})
+    pp = Person.from_dict({"age": 1567296012, "hat": {"size": "5"}})
     assert pp.age.year == 2019
-    assert pp.to_dict() == {"age": "2019-09-01", "name": "joe"}
+    assert pp.hat.size == 5
+    assert pp.to_dict() == {"age": "2019-09-01", "name": "joe", "hat": {"size": 5}}
 
     Person.from_dict({"car": {"make": "Honda", "foo": "bar"}})
     assert "'foo' is not an attribute of Car" in logged.pop()
