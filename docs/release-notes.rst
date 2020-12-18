@@ -2,7 +2,7 @@
 History
 =======
 
-2.2.4 (2020-12-17)
+2.2.4 (2020-12-18)
 ------------------
 
 * Added ``Struct`` schema type (for non-root serializable objects)

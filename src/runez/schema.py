@@ -90,7 +90,10 @@ class Any(object):
             default: Default to use (when no value is provided)
         """
         self.default = default
-        self.name = self.__class__.__name__.lower()
+
+    @property
+    def _schema_type_name(self):
+        return self.__class__.__name__
 
     def __repr__(self):
         if self.default is None:
@@ -103,7 +106,7 @@ class Any(object):
         Returns:
             (str): Textual representation for this type constraint
         """
-        return self.name
+        return self._schema_type_name
 
     def problem(self, value):
         """
@@ -151,7 +154,10 @@ class _MetaSerializable(Any):
         """
         self.meta = getattr(meta, "_meta", meta)
         super(_MetaSerializable, self).__init__(default=default)
-        self.name = self.meta.cls.__name__
+
+    @property
+    def _schema_type_name(self):
+        return self.meta.name
 
     def _problem(self, value):
         if not isinstance(value, dict):
@@ -216,7 +222,7 @@ class Dict(Any):
         super(Dict, self).__init__(default=default)
 
     def representation(self):
-        return "%s[%s, %s]" % (self.name, self.key, self.value)
+        return "%s[%s, %s]" % (self._schema_type_name, self.key, self.value)
 
     def _problem(self, value):
         if not isinstance(value, dict):
@@ -250,7 +256,7 @@ class Enum(Any):
         super(Enum, self).__init__(default=default)
 
     def representation(self):
-        return "%s[%s]" % (self.name, ", ".join(sorted(self.values)))
+        return "%s[%s]" % (self._schema_type_name, ", ".join(sorted(self.values)))
 
     def _problem(self, value):
         if value not in self.values:
@@ -292,7 +298,7 @@ class List(Any):
         super(List, self).__init__(default=default)
 
     def representation(self):
-        return "%s[%s]" % (self.name, self.subtype)
+        return "%s[%s]" % (self._schema_type_name, self.subtype)
 
     def _problem(self, value):
         if not isinstance(value, (list, set, tuple)):
@@ -322,7 +328,9 @@ class Struct(Any):
     """Represents a composed object, similar to `Serializable`, but not intended to be the root of any schema"""
 
     def __init__(self, default=None):
-        self.meta = _R.meta_description(self)
+        if not hasattr(self.__class__, "_meta"):
+            self.__class__._meta = _R.meta_description(self)
+
         super(Struct, self).__init__(default=default)
 
     def __eq__(self, other):
@@ -335,6 +343,18 @@ class Struct(Any):
 
     def __ne__(self, other):
         return not (self == other)
+
+    @property
+    def meta(self):
+        return self.__class__._meta
+
+    @property
+    def default(self):
+        return self._default
+
+    @default.setter
+    def default(self, value):
+        self._default = value
 
     def to_dict(self):
         """
@@ -354,7 +374,7 @@ class Struct(Any):
 
     def _problem(self, value):
         if not isinstance(value, dict):
-            return "expecting structure %s, got '%s'" % (self.__class__.__name__, value)
+            return "expecting structure %s, got '%s'" % (self._schema_type_name, value)
 
         return self.meta.problem(value)
 

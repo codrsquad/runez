@@ -375,7 +375,7 @@ class ClassMetaDescription(object):
                         schema_type = schema_type.subtype
 
                     self.attributes[key] = schema_type
-                    by_type[schema_type.name].append(key)
+                    by_type[schema_type._schema_type_name].append(key)
 
         self.by_type = dict((k, sorted(v)) for k, v in by_type.items())  # Sorted to make testing py2/py3 deterministic
         if self.attributes:

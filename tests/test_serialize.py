@@ -61,20 +61,20 @@ def test_bogus_class():
 
 
 def test_determined_schema_type():
-    assert str(determined_schema_type("a")) == "string (default: a)"
-    assert str(determined_schema_type(u"a")) == "string (default: a)"
-    assert str(determined_schema_type(5)) == "integer (default: 5)"
+    assert str(determined_schema_type("a")) == "String (default: a)"
+    assert str(determined_schema_type(u"a")) == "String (default: a)"
+    assert str(determined_schema_type(5)) == "Integer (default: 5)"
 
-    assert str(determined_schema_type(str)) == "string"
-    assert str(determined_schema_type(int)) == "integer"
-    assert str(determined_schema_type(dict)) == "dict[any, any]"
-    assert str(determined_schema_type(list)) == "list[any]"
-    assert str(determined_schema_type(set)) == "list[any]"
-    assert str(determined_schema_type(tuple)) == "list[any]"
+    assert str(determined_schema_type(str)) == "String"
+    assert str(determined_schema_type(int)) == "Integer"
+    assert str(determined_schema_type(dict)) == "Dict[Any, Any]"
+    assert str(determined_schema_type(list)) == "List[Any]"
+    assert str(determined_schema_type(set)) == "List[Any]"
+    assert str(determined_schema_type(tuple)) == "List[Any]"
 
-    assert str(determined_schema_type(List)) == "list[any]"
-    assert str(determined_schema_type(List(Integer))) == "list[integer]"
-    assert str(determined_schema_type(Dict(String, List(Integer)))) == "dict[string, list[integer]]"
+    assert str(determined_schema_type(List)) == "List[Any]"
+    assert str(determined_schema_type(List(Integer))) == "List[Integer]"
+    assert str(determined_schema_type(Dict(String, List(Integer)))) == "Dict[String, List[Integer]]"
 
     with pytest.raises(ValidationException) as e:
         determined_schema_type(object())
@@ -179,7 +179,7 @@ def test_meta(logged):
     custom = ClassMetaDescription(SomeRecord)
     assert len(custom.attributes) == 2
     assert len(custom.properties) == 0
-    assert custom.by_type == {"string": ["name"], "integer": ["some_int"]}
+    assert custom.by_type == {"String": ["name"], "Integer": ["some_int"]}
     assert custom.attributes["name"].default == "my record"
     assert custom.attributes["some_int"].default == 5
     assert str(custom.behavior) == "extras: function 'debug'"
