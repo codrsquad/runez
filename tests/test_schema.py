@@ -2,7 +2,7 @@ import datetime
 import logging
 
 import runez
-from runez.schema import Any, Boolean, Date, Datetime, Dict, Enum, Float, Integer, List, MetaSerializable, String, UniqueIdentifier
+from runez.schema import Any, Boolean, Date, Datetime, Dict, Enum, Float, Integer, List, String, Struct, UniqueIdentifier
 from runez.serialize import Serializable, SerializableDescendants, with_behavior
 
 
@@ -50,7 +50,7 @@ def test_boolean():
 
 def test_date():
     dd = Date()
-    assert str(dd) == "date"
+    assert str(dd) == "Date"
     assert dd.problem(None) is None
     assert dd.problem({}) == "expecting date, got '{}'"
     assert dd.converted(0) == datetime.date(1970, 1, 1)
@@ -58,7 +58,7 @@ def test_date():
     assert dd.converted("2019-09-02 01:02:03") == datetime.date(2019, 9, 2)
 
     dd = Datetime()
-    assert str(dd) == "datetime"
+    assert str(dd) == "Datetime"
     assert dd.problem(None) is None
     assert dd.problem({}) == "expecting datetime, got '{}'"
     assert dd.converted(0) == datetime.datetime(1970, 1, 1, tzinfo=runez.date.UTC)
@@ -68,19 +68,19 @@ def test_date():
 
 def test_dict():
     dd = Dict()
-    assert str(dd) == "dict[any, any]"
+    assert str(dd) == "Dict[Any, Any]"
     assert dd.problem({}) is None
     assert dd.problem({1: "a"}) is None
     assert dd.problem({"a": 1}) is None
 
     dd = Dict(String)
-    assert str(dd) == "dict[string, any]"
+    assert str(dd) == "Dict[String, Any]"
     assert dd.problem({}) is None
     assert dd.problem({1: "a"}) == "key: expecting string, got '1'"
     assert dd.problem({"a": 1}) is None
 
     dd = Dict(String, Integer)
-    assert str(dd) == "dict[string, integer]"
+    assert str(dd) == "Dict[String, Integer]"
     assert dd.problem(5) == "expecting dict, got '5'"
     assert dd.problem({}) is None
     assert dd.problem({1: "a"}) == "key: expecting string, got '1'"
@@ -91,7 +91,7 @@ def test_dict():
     assert dd.converted({"a": "1"}) == {"a": 1}
 
     dd = Dict(String, List(Integer))
-    assert str(dd) == "dict[string, list[integer]]"
+    assert str(dd) == "Dict[String, List[Integer]]"
     assert dd.problem({}) is None
     assert dd.problem({"a": "b"}) == "value: expecting list, got 'b'"
     assert dd.problem({"a": ["1"]}) is None
@@ -100,16 +100,16 @@ def test_dict():
 
 def test_enum():
     ee = Enum("foo bar")
-    assert str(ee) == "enum[bar, foo]"
+    assert str(ee) == "Enum[bar, foo]"
     assert ee.problem(None) is None
     assert ee.problem("foo") is None
-    assert ee.problem("x") == "'x' is not one of enum[bar, foo]"
-    assert ee.problem(1) == "'1' is not one of enum[bar, foo]"
+    assert ee.problem("x") == "'x' is not one of Enum[bar, foo]"
+    assert ee.problem(1) == "'1' is not one of Enum[bar, foo]"
 
 
 def test_list():
     ll = List()
-    assert str(ll) == "list[any]"
+    assert str(ll) == "List[Any]"
     assert ll.problem([]) is None
     assert ll.problem(["a"]) is None
     assert ll.problem([1, 2]) is None
@@ -118,7 +118,7 @@ def test_list():
     assert ll.converted([1, "2"]) == [1, "2"]
 
     ll = List(Integer)
-    assert str(ll) == "list[integer]"
+    assert str(ll) == "List[Integer]"
     assert ll.problem([]) is None
     assert ll.problem(["a"]) == "expecting int, got 'a'"
     assert ll.problem([1, 2]) is None
@@ -132,7 +132,7 @@ def test_list():
 
 def test_number():
     ff = Float()
-    assert str(ff) == "float"
+    assert str(ff) == "Float"
     assert ff.problem(None) is None
     assert ff.problem(5) is None
     assert ff.problem(5.3) is None
@@ -150,7 +150,7 @@ class Car(Serializable, with_behavior(extras=(logging.info, "foo bar"))):
     year = Integer
 
 
-class Hat(Serializable, with_behavior(extras=False)):
+class Hat(Struct):
     size = Integer(default=1)
 
 
@@ -166,7 +166,7 @@ class Person(Serializable, with_behavior(strict=logging.error, hook=logging.info
     name = String(default="joe")
 
     car = Car
-    hat = MetaSerializable(Hat)
+    hat = Hat
 
     def __init__(self, name=None):
         self.name = name
@@ -189,10 +189,8 @@ def test_serializable(logged):
 
     assert str(Car._meta.behavior) == "extras: function 'info', ignored extras: [foo, bar]"
     assert str(SpecializedCar._meta.behavior) == "extras: function 'debug'"  # extras are NOT inherited
-    assert Car._meta.by_type == {"string": ["make", "serial"], "integer": ["year"]}
-    assert SpecializedCar._meta.by_type == {"integer": ["year"], "list": ["hats"], "string": ["make", "serial"]}
-
-    assert str(Hat._meta.behavior) == "lenient"
+    assert Car._meta.by_type == {"String": ["make", "serial"], "Integer": ["year"]}
+    assert SpecializedCar._meta.by_type == {"Integer": ["year"], "List": ["hats"], "String": ["make", "serial"]}
 
     assert str(Person._meta) == "Person (5 attributes, 0 properties)"
     assert str(Person._meta.behavior) == "strict: function 'error', extras: function 'debug', hook: function 'info'"
@@ -200,8 +198,8 @@ def test_serializable(logged):
     assert str(GPerson._meta.behavior) == "strict: function 'error', extras: function 'debug', hook: function 'info'"
 
     # Verify that most specific type wins (GPerson -> age)
-    assert Person._meta.by_type == {"Car": ["car"], "Hat": ["hat"], "date": ["age"], "integer": ["fingerprint"], "string": ["name"]}
-    assert GPerson._meta.by_type == {"Car": ["car"], "Hat": ["hat"], "integer": ["age", "fingerprint", "group"], "string": ["name"]}
+    assert Person._meta.by_type == {"Car": ["car"], "Hat": ["hat"], "Date": ["age"], "Integer": ["fingerprint"], "String": ["name"]}
+    assert GPerson._meta.by_type == {"Car": ["car"], "Hat": ["hat"], "Integer": ["age", "fingerprint", "group"], "String": ["name"]}
 
     car = Car.from_dict({"foo": 1, "baz": 2, "serial": "bar"})
     assert car.serial == "bar"
@@ -227,12 +225,14 @@ def test_serializable(logged):
     assert pp.car.make == "Honda"
     assert pp.car.year == 2010
     assert pp.fingerprint == 5
+    assert pp.hat is None
     assert pp.to_dict() == {"age": "2019-01-01", "car": {"make": "Honda", "year": 2010}, "fingerprint": 5, "name": "joe"}
 
     # Default `name` from schema is respected, because we didn't call Person.__init__() explicitly
-    pp = Person.from_dict({"age": 1567296012})
+    pp = Person.from_dict({"age": 1567296012, "hat": {"size": "5"}})
     assert pp.age.year == 2019
-    assert pp.to_dict() == {"age": "2019-09-01", "name": "joe"}
+    assert pp.hat.size == 5
+    assert pp.to_dict() == {"age": "2019-09-01", "name": "joe", "hat": {"size": 5}}
 
     Person.from_dict({"car": {"make": "Honda", "foo": "bar"}})
     assert "'foo' is not an attribute of Car" in logged.pop()
@@ -247,7 +247,7 @@ def test_serializable(logged):
 
 def test_string():
     ss = String()
-    assert str(ss) == "string"
+    assert str(ss) == "String"
     assert ss.problem(None) is None
     assert ss.problem("foo") is None
     assert ss.problem(1) == "expecting string, got '1'"

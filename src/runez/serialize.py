@@ -347,7 +347,7 @@ class SerializableDescendants(object):
 class ClassMetaDescription(object):
     """Info on class attributes and properties"""
 
-    def __init__(self, cls, mbehavior):
+    def __init__(self, cls, mbehavior=None):
         self.name = cls.__name__
         self.qualified_name = "%s.%s" % (cls.__module__, cls.__name__)
         self.cls = cls
@@ -375,7 +375,7 @@ class ClassMetaDescription(object):
                         schema_type = schema_type.subtype
 
                     self.attributes[key] = schema_type
-                    by_type[schema_type.name].append(key)
+                    by_type[schema_type._schema_type_name].append(key)
 
         self.by_type = dict((k, sorted(v)) for k, v in by_type.items())  # Sorted to make testing py2/py3 deterministic
         if self.attributes:

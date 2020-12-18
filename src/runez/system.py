@@ -1341,6 +1341,17 @@ class _R:
         return cls._runez_module().Serializable
 
     @classmethod
+    def meta_description(cls, struct):
+        """
+        Args:
+            struct (runez.schema.Struct): Associated Struct
+
+        Returns:
+            (runez.serialize.ClassMetaDescription): Meta object describing given 'struct'
+        """
+        return cls._runez_module().serialize.ClassMetaDescription(struct.__class__)
+
+    @classmethod
     def set_dryrun(cls, dryrun):
         """Set runez.DRYRUN, and return its previous value (useful for context managers)
 
