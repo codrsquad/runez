@@ -2,10 +2,12 @@
 History
 =======
 
-2.2.4 (2020-12-18)
+2.2.4 (2020-12-23)
 ------------------
 
 * Added ``Struct`` schema type (for non-root serializable objects)
+
+* Added ``runez.click.prettify_epilogs()``
 
 
 2.2.3 (2020-12-06)

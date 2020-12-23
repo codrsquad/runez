@@ -12,6 +12,10 @@ from mock import patch
 import runez
 
 
+def my_formatter(text):
+    return text.format(placeholder="epilog")
+
+
 @runez.click.group()
 @runez.click.version(message="%(prog)s, version %(version)s")
 @runez.click.color()
@@ -30,7 +34,11 @@ def my_group():
 @my_group.command()
 @click.argument("text", nargs=-1)
 def echo(text):
-    """Repeat provided text"""
+    """
+    Repeat provided text
+
+    This part will be an {placeholder}
+    """
     text = " ".join(text)
     msg = "%s, color: %s, %s values, g.a=%s" % (text, runez.color.is_coloring(), len(runez.config.CONFIG), runez.config.get("g.a"))
     msg += ", debug: %s, dryrun: %s, log: %s" % (runez.log.debug, runez.DRYRUN, runez.log.spec.file_location)
@@ -73,8 +81,21 @@ def test_settings():
 
 def test_group(cli):
     cli.main = my_group
+    runez.click.prettify_epilogs(my_group, formatter=my_formatter)
+    runez.click.prettify_epilogs(my_group, formatter=my_formatter)  # Calling this multiple times is a no-op
     cli.expect_success("--version", "my-group, version ")
-    cli.expect_success(["--help"], "--color / --no-color", "--log PATH", "Repeat provided text")
+
+    cli.run("--help")
+    assert cli.succeeded
+    assert "--color / --no-color" in cli.logged
+    assert "--log PATH" in cli.logged
+    assert "Repeat provided text" in cli.logged
+    assert "This part will be" not in cli.logged
+
+    cli.run("echo", "--help")
+    assert cli.succeeded
+    assert "Repeat provided text" in cli.logged
+    assert "This part will be an epilog" in cli.logged
 
     cli.run("--color echo hello")
     assert cli.succeeded

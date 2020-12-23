@@ -154,6 +154,47 @@ def option(func, *args, **attrs):
     return decorator
 
 
+def prettify_epilogs(command, formatter=None):
+    """
+    Conveniently re-arrage docstrings in click-decorated function in such a way that:
+    - .help shows the first line of the docstring
+    - .epilog shows the rest, with a \b separator if there is an empty line right after the 1st line
+
+    Args:
+        command (click.Command): Command to prettify (along with its sub-commands)
+        formatter (callable | None): Optional formatter to invoke on each help/epilog string
+    """
+    if click is not None:
+        if isinstance(command, click.Command):
+            help = command.help
+            if help:
+                help = help.strip()
+                if formatter is not None:
+                    help = formatter(help)
+
+                command.help = help
+
+            epilog = command.epilog
+            if epilog is None and help:
+                lines = help.splitlines()
+                first_line = lines.pop(0).strip() if lines else None
+                if first_line and lines:
+                    command.help = first_line
+                    epilog = "\n".join(lines)
+                    if not lines[0]:
+                        epilog = "\b%s" % epilog
+
+            if epilog:
+                if formatter is not None:
+                    epilog = formatter(epilog)
+
+                command.epilog = epilog
+
+        if isinstance(command, click.Group) and command.commands:
+            for cmd in command.commands.values():
+                prettify_epilogs(cmd, formatter=formatter)
+
+
 def _auto_complete_callback(attrs, func):
     if not attrs.get("expose_value", True) and attrs.get("callback") is None:
 
