@@ -7,7 +7,7 @@ Development
 
 To get going locally, simply do this::
 
-    git clone https://github.com/zsimic/runez.git
+    git clone https://github.com/codrsquad/runez.git  # or your own fork
     cd runez
 
     tox -e venv
