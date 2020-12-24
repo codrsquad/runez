@@ -7,7 +7,7 @@ if __name__ == "__main__":
         setup_requires="setupmeta",
         versioning="dev",
         author="Zoran Simic zoran@simicweb.com",
-        url="https://github.com/codrsquad",
+        url="https://github.com/codrsquad/runez",
         classifiers=[
             "Development Status :: 5 - Production/Stable",
             "Intended Audience :: Developers",
