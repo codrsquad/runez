@@ -180,14 +180,16 @@ class DefaultBehavior(object):
                 self.do_notify("Extra content given for %s: %s" % (class_name, ", ".join(sorted(extras))))
 
 
-def json_sanitized(value, stringify=stringified, dt=str, keep_none=False, none_key=None):
+def json_sanitized(value, stringify=stringified, dt=str, none=False):
     """
     Args:
         value: Value to sanitize
         stringify (callable | None): Function to use to stringify non-builtin types
         dt (callable | None): Function to use to stringify dates
-        keep_none (bool): If False, don't include None values
-        none_key (str | None): String to use to represent keys that are `None`
+        none (str | bool): States how to treat `None` keys/values
+                           - if string: Replace `None` keys with given string (keep `None` values as-is)
+                           - False: Filter out `None` keys/values
+                           - True: No filtering, `None` keys/values as-is
 
     Returns:
         An object that should be json serializable
@@ -204,15 +206,15 @@ def json_sanitized(value, stringify=stringified, dt=str, keep_none=False, none_k
     if isinstance(value, dict):
         return dict(
             (
-                json_sanitized(k if k is not None else none_key, stringify=stringify, dt=dt, keep_none=keep_none, none_key=none_key),
-                json_sanitized(v, stringify=stringify, dt=dt, keep_none=keep_none, none_key=none_key),
+                json_sanitized(none if k is None and isinstance(none, string_type) else k, stringify=stringify, dt=dt, none=none),
+                json_sanitized(v, stringify=stringify, dt=dt, none=none),
             )
             for k, v in value.items()
-            if keep_none or (k is not None and v is not None)
+            if none or (k is not None and v is not None)
         )
 
     if is_iterable(value):
-        return [json_sanitized(v, stringify=stringify, dt=dt, keep_none=keep_none, none_key=none_key) for v in value]
+        return [json_sanitized(v, stringify=stringify, dt=dt, none=none) for v in value]
 
     if isinstance(value, datetime.date):
         return value if dt is None else dt(value)
@@ -598,18 +600,21 @@ class Serializable(object):
         for name, schema_type in self._meta.attributes.items():
             setattr(self, name, schema_type.default)
 
-    def to_dict(self, stringify=stringified, dt=str, keep_none=False):
+    def to_dict(self, stringify=stringified, dt=str, none=False):
         """
         Args:
             stringify (callable | None): Function to use to stringify non-builtin types
             dt (callable | None): Function to use to stringify dates
-            keep_none (bool): If False, don't include None values
+            none (str | bool): States how to treat `None` keys/values
+                               - if string: Replace `None` keys with given string (keep `None` values as-is)
+                               - False: Filter out `None` keys/values
+                               - True: No filtering, `None` keys/values as-is
 
         Returns:
             (dict): This object serialized to a dict
         """
         raw = dict((name, getattr(self, name)) for name in self._meta.attributes)
-        return json_sanitized(raw, stringify=stringify, dt=dt, keep_none=keep_none)
+        return json_sanitized(raw, stringify=stringify, dt=dt, none=none)
 
 
 def read_json(path, default=UNSET):
@@ -633,22 +638,24 @@ def read_json(path, default=UNSET):
         return _R.hdef(default, "Couldn't read %s" % short(path), e=e)
 
 
-def represented_json(data, stringify=stringified, dt=str, keep_none=False, indent=2, sort_keys=True, none_key=None, **kwargs):
+def represented_json(data, stringify=stringified, dt=str, none=False, indent=2, sort_keys=True, **kwargs):
     """
     Args:
         data (object | None): Data to serialize
         stringify (callable | None): Function to use to stringify non-builtin types
         dt (callable | None): Function to use to stringify dates
-        keep_none (bool): If False, don't include None values
+        none (str | bool): States how to treat `None` keys/values
+                           - if string: Replace `None` keys with given string (keep `None` values as-is)
+                           - False: Filter out `None` keys/values
+                           - True: No filtering, `None` keys/values as-is
         indent (int | None): Indentation to use, if None: use compact (one line) mode
         sort_keys (bool): Whether keys should be sorted
-        none_key (str | None): String to use to represent keys that are `None`
         **kwargs: Passed through to `json.dumps()`
 
     Returns:
         (dict | list | str): Serialized `data`, with defaults that are usually desirable for a nice and clean looking json
     """
-    data = json_sanitized(data, stringify=stringify, dt=dt, keep_none=keep_none, none_key=none_key)
+    data = json_sanitized(data, stringify=stringify, dt=dt, none=none)
     kwargs.setdefault("separators", K_INDENTED_SEPARATORS if indent else K_COMPACT_SEPARATORS)
     rep = json.dumps(data, indent=indent, sort_keys=sort_keys, **kwargs)
     if indent:
@@ -658,7 +665,7 @@ def represented_json(data, stringify=stringified, dt=str, keep_none=False, inden
 
 
 def save_json(
-    data, path, stringify=stringified, dt=str, keep_none=False, indent=2, sort_keys=True, fatal=True, logger=UNSET, dryrun=UNSET, **kwargs
+    data, path, stringify=stringified, dt=str, none=False, indent=2, sort_keys=True, fatal=True, logger=UNSET, dryrun=UNSET, **kwargs
 ):
     """
     Args:
@@ -666,7 +673,10 @@ def save_json(
         path (str | None): Path to file where to save
         stringify (callable | None): Function to use to stringify non-builtin types
         dt (callable | None): Function to use to stringify dates
-        keep_none (bool): If False, don't include None values
+        none (str | bool): States how to treat `None` keys/values
+                           - if string: Replace `None` keys with given string (keep `None` values as-is)
+                           - False: Filter out `None` keys/values
+                           - True: No filtering, `None` keys/values as-is
         indent (int | None): Indentation to use, if None: use compact (one line) mode
         sort_keys (bool): Whether keys should be sorted
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
@@ -686,7 +696,7 @@ def save_json(
         if _R.hdry(dryrun, logger, "save %s" % short(path)):
             return 1
 
-        data = json_sanitized(data, stringify=stringify, dt=dt, keep_none=keep_none)
+        data = json_sanitized(data, stringify=stringify, dt=dt, none=none)
         kwargs.setdefault("separators", K_INDENTED_SEPARATORS if indent else K_COMPACT_SEPARATORS)
         with open(path, "wt") as fh:
             json.dump(data, fh, indent=indent, sort_keys=sort_keys, **kwargs)

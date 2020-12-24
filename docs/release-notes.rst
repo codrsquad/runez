@@ -7,7 +7,7 @@ History
 
 * Moved to https://github.com/codrsquad/runez
 
-* Corrected ``json_sanitized()``
+* Corrected ``json_sanitized()``, simplified its signature
 
 * Added ``@cached_property``, ``@chill_property``, ``is_basetype()``, ``is_iterable()``, ``joined()``
 

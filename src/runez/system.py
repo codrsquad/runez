@@ -506,7 +506,7 @@ def stringified(value, converter=None, none="None"):
     Args:
         value: Any object to turn into a string
         converter (callable | None): Optional converter to use for non-string objects
-        none (str): String to use to represent `None`
+        none (str | bool | None): String to use to represent `None`
 
     Returns:
         (str): Ensure `text` is a string if necessary (this is to avoid transforming string types in py2 as much as possible)
@@ -526,7 +526,11 @@ def stringified(value, converter=None, none="None"):
             value = converted
 
     if value is None:
-        return none
+        if isinstance(none, string_type):
+            return none
+
+        if not none:
+            return ""  # Represent `None` as empty string if `none` is False-ish
 
     return "{}".format(value)
 
@@ -1005,12 +1009,12 @@ class Slotted(object):
 
         return cls(instance)
 
-    def represented_values(self, delimiter=", ", operator="=", include_none=True, name_formatter=None):
+    def represented_values(self, delimiter=", ", operator="=", none=False, name_formatter=None):
         """
         Args:
             delimiter (str): Delimiter used to separate field representation
             operator (str): Operator to represent assignment (equal sign '=' by default)
-            include_none (bool): Included `None` values?
+            none (bool): Include `None` values?
             name_formatter (callable | None): If provided, called to transform 'field' for each field=value pair
 
         Returns:
@@ -1019,11 +1023,11 @@ class Slotted(object):
         result = []
         for name in self.__slots__:
             value = getattr(self, name, UNSET)
-            if value is not UNSET and (include_none or value is not None):
+            if value is not UNSET and (none or value is not None):
                 if name_formatter is not None:
                     name = name_formatter(name)
 
-                result.append("%s%s%s" % (name, operator, stringified(value)))
+                result.append("%s%s%s" % (name, operator, stringified(value, none=none)))
 
         return delimiter.join(result)
 

@@ -402,9 +402,16 @@ def test_system():
     assert runez.quoted(["foo", {}, 0, [1, 2], {3: 4}, 5]) == 'foo {} 0 "[1, 2]" "{3: 4}" 5'
 
     assert runez.stringified(None) == "None"
+    assert runez.stringified(None, none=None) == ""
+    assert runez.stringified(None, none=False) == ""
+    assert runez.stringified(None, none=True) == "None"
+    assert runez.stringified(None, none=0) == ""  # Edge-case: accept any kind of false/true-ish values for `none=`
+    assert runez.stringified(None, none=1) == "None"
+    assert runez.stringified(None, none="null") == "null"
+    assert runez.stringified("", none="null") == ""
     assert runez.stringified(5) == "5"
     assert runez.stringified(b"foo") == "foo"
-    assert runez.stringified([1, 2]) == "[1, 2]"
+    assert runez.stringified([0, None, 1], none="null") == "[0, None, 1]"  # `none=` applies only to values (not items in lists etc...)
     assert runez.stringified([1, 2], converter=lambda x: None) == "[1, 2]"  # If converter returns None, we keep the value
     assert runez.stringified(5, converter=lambda x: x) == "5"  # No-op converter
 
