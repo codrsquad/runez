@@ -104,6 +104,31 @@ def abort(message, code=1, exc_info=None, return_value=None, fatal=True, logger=
     return return_value
 
 
+class cached_property(object):
+    """
+    A property that is only computed once per instance and then replaces itself with an ordinary attribute.
+    Same as https://pypi.org/project/cached-property/ (without having to add another dependency).
+    Deleting the attribute resets the property.
+
+    Threads/async is not supported on purpose (to keep things simple)
+    See docs/async-cached-property.md for how that can be added if/when needed.
+    """
+
+    def __init__(self, func):
+        self.func = func
+        self.__annotations__ = getattr(func, "__annotations__", None)
+        self.__doc__ = func.__doc__
+        self.__module__ = func.__module__
+        self.__name__ = func.__name__
+
+    def __get__(self, instance, owner):
+        if instance is None:
+            return self
+
+        value = instance.__dict__[self.__name__] = self.func(instance)
+        return value
+
+
 def decode(value, strip=False):
     """Python 2/3 friendly decoding of output.
 
@@ -505,11 +530,11 @@ class AdaptedProperty(object):
         self.key = "__%s" % validator.__name__
         return self
 
-    def __get__(self, obj, cls):
-        if obj is None:
+    def __get__(self, instance, owner):
+        if instance is None:
             return self  # We're being called by class
 
-        return getattr(obj, self.key, self.default)
+        return getattr(instance, self.key, self.default)
 
     def __set__(self, obj, value):
         if self.validator is not None:
@@ -897,12 +922,12 @@ class Slotted(object):
         return "%s(%s)" % (self.__class__.__name__, self.represented_values())
 
     @classmethod
-    def cast(cls, obj):
-        """Cast `obj` to instance of this type, via positional setter"""
-        if isinstance(obj, cls):
-            return obj
+    def cast(cls, instance):
+        """Cast `instance` to an instance of this type, via positional setter"""
+        if isinstance(instance, cls):
+            return instance
 
-        return cls(obj)
+        return cls(instance)
 
     def represented_values(self, delimiter=", ", operator="=", include_none=True, name_formatter=None):
         """

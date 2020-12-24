@@ -17,12 +17,12 @@ class thread_local_property(object):
         self.func = func
         self.thread_local = threading.local()
 
-    def __get__(self, obj, cls):
-        if obj is None:
+    def __get__(self, instance, owner):
+        if instance is None:
             return self
 
         if not hasattr(self.thread_local, self.name):
-            setattr(self.thread_local, self.name, self.func(obj))
+            setattr(self.thread_local, self.name, self.func(instance))
 
         return getattr(self.thread_local, self.name)
 

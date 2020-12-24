@@ -9,6 +9,8 @@ History
 
 * Added ``runez.click.prettify_epilogs()``
 
+* Added ``cached_property`` decorator
+
 
 2.2.3 (2020-12-06)
 ------------------

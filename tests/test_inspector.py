@@ -4,6 +4,7 @@ import sys
 import pytest
 from mock import MagicMock, patch
 
+import runez
 from runez.inspector import auto_import_siblings, ImportTime
 from runez.system import _is_actual_caller_frame
 
@@ -14,6 +15,18 @@ def mock_package(package, **kwargs):
         globs["__%s__" % key] = value
 
     return MagicMock(f_globals=globs)
+
+
+def importable_test_py_files(folder):
+    """Finds all .py files in tests/ folder, used for auto-import validation"""
+    for fname in os.listdir(folder):
+        fpath = os.path.join(folder, fname)
+        if os.path.isdir(fpath):
+            for x in importable_test_py_files(fpath):
+                yield x
+
+        elif fname.endswith(".py"):
+            yield fpath
 
 
 def test_auto_import_siblings():
@@ -49,9 +62,10 @@ def test_auto_import_siblings():
         with patch("runez.inspector.find_caller_frame", return_value=mock_package("foo", file="/dev/null/foo")):
             auto_import_siblings()
 
+    py_file_count = len(list(importable_test_py_files(runez.log.tests_path()))) - 1  # Remove one to not count tests/__init__.py itself
     with patch.dict(os.environ, {"TOX_WORK_DIR": "some-value"}, clear=True):
         imported = auto_import_siblings(skip=["tests.test_system", "tests.test_serialize"])
-        assert len(imported) == 20
+        assert len(imported) == py_file_count - 2
 
         assert "tests.conftest" in imported
         assert "tests.secondary" in imported
@@ -61,7 +75,7 @@ def test_auto_import_siblings():
         assert "tests.test_serialize" not in imported
 
     imported = auto_import_siblings(skip=["tests.secondary"])
-    assert len(imported) == 20
+    assert len(imported) == py_file_count - 2
     assert "tests.conftest" in imported
     assert "tests.secondary" not in imported
     assert "tests.secondary.test_import" not in imported
