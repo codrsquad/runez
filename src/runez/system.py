@@ -333,12 +333,34 @@ def is_tty():
     return (sys.stdout.isatty() or "PYCHARM_HOSTED" in os.environ) and not _R.current_test()
 
 
-def python_version():
+def python_version(components=2):
     """
     Returns:
         (str): Major.minor version of currently running python
     """
-    return ".".join(str(v) for v in sys.version_info[:2])
+    return ".".join(str(v) for v in sys.version_info[:components])
+
+
+def joined(*args, **kwargs):
+    """
+    >>> joined(1, None, 2)
+    '1 None 2'
+    >>> joined(1, None, 2, keep_empty=False)
+    '1 2'
+
+    Args:
+        *args: Things to join
+        delimiter (str): Delimiter to use (default: space character)
+        keep_empty (bool): Keep empty fields? (default: True)
+        stringify (str): Function to use to stringify args (default: `stringified`)
+
+    Returns:
+        (str): Joined string
+    """
+    delimiter = kwargs.get("delimiter", " ")
+    keep_empty = kwargs.get("keep_empty", True)
+    stringify = kwargs.get("stringify", stringified)
+    return delimiter.join((stringify(x) for x in args if keep_empty or x is not None))
 
 
 def quoted(items, delimiter=" ", adapter=UNSET, keep_empty=True):

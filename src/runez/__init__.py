@@ -16,7 +16,7 @@ from runez.file import basename, copy, delete, ensure_folder, move, parent_folde
 from runez.logsetup import LogManager as log
 from runez.program import check_pid, is_executable, make_executable, run, terminal_width, which
 from runez.serialize import read_json, represented_json, save_json, Serializable
-from runez.system import abort, cached_property, decode, expanded, flattened, quoted, short, stringified
+from runez.system import abort, cached_property, decode, expanded, flattened, joined, quoted, short, stringified
 from runez.system import AdaptedProperty, Anchored, CaptureOutput, CurrentFolder, Slotted, TempArgv, TrackedOutput, Undefined, UNSET
 from runez.system import FallbackChain, first_line, get_version, is_tty, PY2, python_version, resolved_path, WINDOWS
 
@@ -36,7 +36,7 @@ __all__ = [
     "log",
     "check_pid", "is_executable", "make_executable", "run", "terminal_width", "which",
     "read_json", "represented_json", "save_json", "Serializable",
-    "abort", "cached_property", "decode", "expanded", "flattened", "quoted", "short", "stringified",
+    "abort", "cached_property", "decode", "expanded", "flattened", "joined", "quoted", "short", "stringified",
     "AdaptedProperty", "Anchored", "CaptureOutput", "CurrentFolder", "Slotted", "TempArgv", "TrackedOutput", "Undefined", "UNSET",
     "FallbackChain", "first_line", "get_version", "is_tty", "PY2", "python_version", "resolved_path", "WINDOWS",
 ]

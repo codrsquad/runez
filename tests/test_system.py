@@ -292,6 +292,15 @@ def test_get_version():
         assert not logged
 
 
+def test_joined():
+    assert runez.joined() == ""
+    assert runez.joined(None) == "None"
+    assert runez.joined(None, keep_empty=False) == ""
+    assert runez.joined(1, "foo", [True, 5]) == "1 foo [True, 5]"
+    assert runez.joined(1, 2, delimiter=",") == "1,2"
+    assert runez.joined(1, 2, stringify=lambda x: "foo") == "foo foo"
+
+
 def test_shortening():
     assert runez.short(None) == "None"
     assert runez.short("") == ""
