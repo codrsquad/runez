@@ -192,10 +192,7 @@ def json_sanitized(value, stringify=stringified, dt=str, keep_none=False, none_k
     Returns:
         An object that should be json serializable
     """
-    if value is None:
-        return none_key
-
-    if is_basetype(value):
+    if value is None or is_basetype(value):
         return value
 
     if hasattr(value, "to_dict"):
@@ -207,15 +204,15 @@ def json_sanitized(value, stringify=stringified, dt=str, keep_none=False, none_k
     if isinstance(value, dict):
         return dict(
             (
-                json_sanitized(k, stringify=stringify, dt=dt, keep_none=keep_none, none_key=none_key),
-                json_sanitized(v, stringify=stringify, dt=dt, keep_none=keep_none),
+                json_sanitized(k if k is not None else none_key, stringify=stringify, dt=dt, keep_none=keep_none, none_key=none_key),
+                json_sanitized(v, stringify=stringify, dt=dt, keep_none=keep_none, none_key=none_key),
             )
             for k, v in value.items()
-            if keep_none or v is not None
+            if keep_none or (k is not None and v is not None)
         )
 
     if is_iterable(value):
-        return [json_sanitized(v, stringify=stringify, dt=dt, keep_none=keep_none) for v in value if keep_none or v is not None]
+        return [json_sanitized(v, stringify=stringify, dt=dt, keep_none=keep_none, none_key=none_key) for v in value]
 
     if isinstance(value, datetime.date):
         return value if dt is None else dt(value)

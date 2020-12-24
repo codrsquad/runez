@@ -89,19 +89,19 @@ def test_json(temp_folder):
     assert runez.represented_json({}) == "{}\n"
     assert runez.represented_json("foo") == '"foo"\n'
 
-    assert runez.represented_json({None: 2}) == '{\n  "null": 2\n}\n'
-    assert runez.represented_json({None: 2}, none_key="None") == '{\n  "None": 2\n}\n'
+    assert runez.represented_json({None: 2}, keep_none=True) == '{\n  "null": 2\n}\n'
+    assert runez.represented_json({None: 2}, keep_none=True, none_key="None") == '{\n  "None": 2\n}\n'
     assert runez.represented_json({None: None}, keep_none=True) == '{\n  "null": null\n}\n'
     assert runez.represented_json({None: 1, "foo": None}, keep_none=True, none_key="_null") == '{\n  "_null": 1,\n  "foo": null\n}\n'
 
     if runez.PY2:
-        assert runez.represented_json({None: 2, "foo": "bar"}) == '{\n  "null": 2,\n  "foo": "bar"\n}\n'
+        assert runez.represented_json({None: 2, "foo": "bar"}, keep_none=True) == '{\n  "null": 2,\n  "foo": "bar"\n}\n'
         assert runez.represented_json({None: 1, "foo": None}, keep_none=True) == '{\n  "null": 1,\n  "foo": null\n}\n'
 
     else:
         with pytest.raises(TypeError):
             # py3 stdlib can't sort with None key...
-            runez.represented_json({None: 2, "foo": "bar"})
+            runez.represented_json({None: 2, "foo": "bar"}, keep_none=True)
 
     data = {"a": "x", "b": "y"}
     assert runez.represented_json(data) == '{\n  "a": "x",\n  "b": "y"\n}\n'
@@ -268,8 +268,18 @@ def test_meta(logged):
 def test_sanitize():
     assert runez.serialize.json_sanitized(None) is None
     assert runez.serialize.json_sanitized({1, 2}) == [1, 2]
-    assert runez.serialize.json_sanitized({None: 2}) == {None: 2}
-    assert runez.serialize.json_sanitized({None: 2}, none_key="None") == {"None": 2}
+    assert runez.serialize.json_sanitized({None: 2}) == {}
+    assert runez.serialize.json_sanitized({None: 2}, none_key="null") == {}
+    assert runez.serialize.json_sanitized({None: 2}, keep_none=True) == {None: 2}
+    assert runez.serialize.json_sanitized({None: 2}, keep_none=True, none_key="null") == {"null": 2}
+
+    # By default, `None` values/keys are filtered out (but not other `None` or False-ish values in lists etc)
+    sample = [None, ["", None, 0], 0, {None: [0], 0: [], "": "", "a": None}, {None: None, "": ""}]
+    x = runez.serialize.json_sanitized(sample)
+    assert x == [None, ["", None, 0], 0, {0: [], "": ""}, {"": ""}]
+
+    # `keep_none=True` disables any filtering
+    assert runez.serialize.json_sanitized(sample, keep_none=True) == sample
 
     now = datetime.datetime.now()
     assert runez.serialize.json_sanitized(now) == str(now)
