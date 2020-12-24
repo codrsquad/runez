@@ -293,10 +293,14 @@ def test_get_version():
 
 
 def test_joined():
+    def gen():
+        yield "foo"
+        yield "bar"
+
     assert runez.joined() == ""
     assert runez.joined(None) == "None"
     assert runez.joined(None, keep_empty=False) == ""
-    assert runez.joined(1, "foo", [True, 5]) == "1 foo [True, 5]"
+    assert runez.joined(1, gen(), "hello", [True, 5]) == "1 foo bar hello True 5"
     assert runez.joined(1, 2, delimiter=",") == "1,2"
     assert runez.joined(1, 2, stringify=lambda x: "foo") == "foo foo"
 

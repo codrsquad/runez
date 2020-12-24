@@ -9,7 +9,7 @@ import json
 import os
 
 from runez.file import ensure_folder, parent_folder
-from runez.system import _R, abort, LOG, resolved_path, short, string_type, stringified, UNSET
+from runez.system import _R, abort, is_basetype, is_iterable, LOG, resolved_path, short, string_type, stringified, UNSET
 
 
 K_INDENTED_SEPARATORS = (",", ": ")
@@ -195,7 +195,7 @@ def json_sanitized(value, stringify=stringified, dt=str, keep_none=False, none_k
     if value is None:
         return none_key
 
-    if isinstance(value, (int, float, string_type)):
+    if is_basetype(value):
         return value
 
     if hasattr(value, "to_dict"):
@@ -203,9 +203,6 @@ def json_sanitized(value, stringify=stringified, dt=str, keep_none=False, none_k
 
     elif isinstance(value, set):
         value = sorted(value)
-
-    if isinstance(value, (tuple, list)):
-        return [json_sanitized(v, stringify=stringify, dt=dt, keep_none=keep_none) for v in value if keep_none or v is not None]
 
     if isinstance(value, dict):
         return dict(
@@ -217,11 +214,11 @@ def json_sanitized(value, stringify=stringified, dt=str, keep_none=False, none_k
             if keep_none or v is not None
         )
 
-    if isinstance(value, datetime.date):
-        if dt is None:
-            return value
+    if is_iterable(value):
+        return [json_sanitized(v, stringify=stringify, dt=dt, keep_none=keep_none) for v in value if keep_none or v is not None]
 
-        return dt(value)
+    if isinstance(value, datetime.date):
+        return value if dt is None else dt(value)
 
     if stringify is None:
         return value

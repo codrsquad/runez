@@ -4,6 +4,7 @@ Base functionality used by other parts of `runez`.
 This class should not import any other `runez` class, to avoid circular deps.
 """
 
+import inspect
 import logging
 import os
 import re
@@ -127,6 +128,42 @@ class cached_property(object):
 
         value = instance.__dict__[self.__name__] = self.func(instance)
         return value
+
+
+class chill_property(cached_property):
+    """
+    Same as @cached_property, except the first 'not None' value yielded by the decorated function is used.
+
+    This is useful to avoid repetitive code patterns such as this:
+
+    @property
+    def foo(self):
+        value = f(...)
+        if value is not None:
+            return value
+
+        value = g(...)
+        if value is not None:
+            return value
+        ...
+
+    The above becomes:
+
+    @chill_property
+    def foo(self):
+        yield f(...) or None
+        yield g(...)  # Tried only if preceding f() call returned a False-ish value
+        ...
+    """
+
+    def __get__(self, instance, owner):
+        if instance is None:
+            return self
+
+        for value in self.func(instance):
+            if value is not None:
+                instance.__dict__[self.func.__name__] = value
+                return value
 
 
 def decode(value, strip=False):
@@ -325,6 +362,22 @@ def get_version(mod, default="0.0.0", logger=LOG.warning):
     return default
 
 
+def is_basetype(value):
+    """
+    Returns:
+        (bool): True if value is a base type
+    """
+    return isinstance(value, (int, float, string_type))
+
+
+def is_iterable(value):
+    """
+    Returns:
+        (bool): True if value is iterable (but NOT a string)
+    """
+    return isinstance(value, (list, tuple, set)) or inspect.isgenerator(value)
+
+
 def is_tty():
     """
     Returns:
@@ -360,6 +413,7 @@ def joined(*args, **kwargs):
     delimiter = kwargs.get("delimiter", " ")
     keep_empty = kwargs.get("keep_empty", True)
     stringify = kwargs.get("stringify", stringified)
+    args = flattened(args)
     return delimiter.join((stringify(x) for x in args if keep_empty or x is not None))
 
 
@@ -382,7 +436,7 @@ def quoted(items, delimiter=" ", adapter=UNSET, keep_empty=True):
     Returns:
         (str): Quoted if 'text' contains spaces
     """
-    if items is None or isinstance(items, string_type):
+    if not is_iterable(items):
         items = [items]
 
     result = []
@@ -1443,13 +1497,18 @@ def _flatten(result, value, split, sanitized, shellify, unique):
         if sanitized:
             return
 
-    elif isinstance(value, (list, tuple, set)):
+        if not unique or value not in result:
+            result.append(value)
+
+        return
+
+    if is_iterable(value):
         for item in value:
             _flatten(result, item, split, sanitized, shellify, unique)
 
         return
 
-    elif split and isinstance(value, string_type) and split in value:
+    if split and isinstance(value, string_type) and split in value:
         _flatten(result, value.split(split), split, sanitized, shellify, unique)
         return
 

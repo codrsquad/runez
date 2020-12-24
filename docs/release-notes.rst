@@ -2,20 +2,16 @@
 History
 =======
 
-2.2.5 (2020-12-24)
+2.3.0 (2020-12-24)
 ------------------
 
-* Added ``joined()``
+* Moved to https://github.com/codrsquad/runez
 
-
-2.2.4 (2020-12-23)
-------------------
+* Added ``@cached_property``, ``@chill_property``, ``is_basetype()``, ``is_iterable()``, ``joined()``
 
 * Added ``Struct`` schema type (for non-root serializable objects)
 
 * Added ``runez.click.prettify_epilogs()``
-
-* Added ``cached_property`` decorator
 
 
 2.2.3 (2020-12-06)

@@ -252,7 +252,7 @@ class Configuration:
             if value is not None:
                 return value
 
-        if isinstance(default, (dict, list)):
+        if isinstance(default, (dict, list, int, float)):
             return default
 
         return from_json(default)
