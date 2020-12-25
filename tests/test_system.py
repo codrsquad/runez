@@ -368,6 +368,7 @@ def test_joined():
 
     def gen():
         yield "foo"
+        yield None
         yield "bar"
 
     assert runez.joined() == ""
@@ -385,7 +386,8 @@ def test_joined():
     assert runez.joined("", runez.UNSET, None, "foo", 0, "", None, keep_empty="") == "   foo 0  "
     assert runez.joined("", runez.UNSET, None, "foo", 0, "", None, keep_empty="null") == " null null foo 0  null"
 
-    assert runez.joined(1, gen(), "hello", [True, 5]) == "1 foo bar hello True 5"
+    assert runez.joined(1, gen(), "hello", [True, runez.UNSET, 5]) == "1 foo None bar hello True UNSET 5"
+    assert runez.joined(1, gen(), "hello", [True, runez.UNSET, 5], keep_empty=False) == "1 foo bar hello True 5"
     assert runez.joined(1, 2, delimiter=",") == "1,2"
     assert runez.joined(1, 2, stringify=lambda x: "foo") == "foo foo"
 
