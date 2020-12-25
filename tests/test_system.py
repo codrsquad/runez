@@ -258,6 +258,9 @@ def test_first_line():
 
 
 def test_flattened():
+    with pytest.raises(TypeError):  # TODO: remove once py2 support is dropped
+        runez.flattened("", foo=1)
+
     assert runez.flattened(None) == [None]
     assert runez.flattened([None]) == [None]
 
@@ -360,6 +363,9 @@ def test_get_version():
 
 
 def test_joined():
+    with pytest.raises(TypeError):  # TODO: remove once py2 support is dropped
+        runez.joined("", foo=1)
+
     def gen():
         yield "foo"
         yield "bar"
@@ -367,6 +373,18 @@ def test_joined():
     assert runez.joined() == ""
     assert runez.joined(None) == "None"
     assert runez.joined(None, keep_empty=False) == ""
+
+    assert runez.joined("") == ""
+    assert runez.joined("", "") == " "
+    assert runez.joined("", "", keep_empty=None) == ""
+
+    assert runez.joined("", runez.UNSET, None, "foo", 0, "", None) == " UNSET None foo 0  None"
+    assert runez.joined("", runez.UNSET, None, "foo", 0, "", None, keep_empty=None) == "foo"
+    assert runez.joined("", runez.UNSET, None, "foo", 0, "", None, keep_empty=False) == " foo 0 "
+    assert runez.joined("", runez.UNSET, None, "foo", 0, "", None, keep_empty=True) == " UNSET None foo 0  None"
+    assert runez.joined("", runez.UNSET, None, "foo", 0, "", None, keep_empty="") == "   foo 0  "
+    assert runez.joined("", runez.UNSET, None, "foo", 0, "", None, keep_empty="null") == " null null foo 0  null"
+
     assert runez.joined(1, gen(), "hello", [True, 5]) == "1 foo bar hello True 5"
     assert runez.joined(1, 2, delimiter=",") == "1,2"
     assert runez.joined(1, 2, stringify=lambda x: "foo") == "foo foo"
@@ -381,6 +399,9 @@ def test_path_resolution(temp_folder):
 
 
 def test_quoted():
+    with pytest.raises(TypeError):  # TODO: remove once py2 support is dropped
+        runez.quoted("", foo=1)
+
     assert runez.quoted(None) == "None"
     assert runez.quoted("") == ""
     assert runez.quoted(" ") == '" "'
@@ -396,6 +417,9 @@ def test_quoted():
 
 
 def test_shortening():
+    with pytest.raises(TypeError):  # TODO: remove once py2 support is dropped
+        runez.short("", foo=1)
+
     assert runez.short(None) == "None"
     assert runez.short("") == ""
     assert runez.short(5) == "5"

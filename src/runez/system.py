@@ -312,10 +312,13 @@ def flattened(*value, **kwargs):
     Returns:
         (list): Flattened list from 'value'
     """
-    keep_empty = kwargs.get("keep_empty", True)
-    split = kwargs.get("split", None)
-    shellify = kwargs.get("shellify", False)
-    unique = kwargs.get("unique", False)
+    keep_empty = kwargs.pop("keep_empty", True)
+    split = kwargs.pop("split", None)
+    shellify = kwargs.pop("shellify", False)
+    unique = kwargs.pop("unique", False)
+    if kwargs:
+        raise TypeError("flattened() got unexpected keyword arguments %s" % kwargs)
+
     result = []
     _flatten(result, value, keep_empty, split, shellify, unique)
     return result
@@ -422,9 +425,12 @@ def joined(*args, **kwargs):
     Returns:
         (str): Joined string
     """
-    delimiter = kwargs.get("delimiter", " ")
-    keep_empty = kwargs.get("keep_empty", True)
-    stringify = kwargs.get("stringify", stringified)
+    delimiter = kwargs.pop("delimiter", " ")
+    keep_empty = kwargs.pop("keep_empty", True)
+    stringify = kwargs.pop("stringify", stringified)
+    if kwargs:
+        raise TypeError("joined() got unexpected keyword arguments %s" % kwargs)
+
     args = flattened(args, keep_empty=keep_empty)
     return delimiter.join((stringify(x) for x in args))
 
@@ -452,9 +458,12 @@ def quoted(*items, **kwargs):
     Returns:
         (str): Quoted if 'text' contains spaces
     """
-    delimiter = kwargs.get("delimiter", " ")
-    adapter = kwargs.get("adapter", UNSET)
-    keep_empty = kwargs.get("delimiter", True)
+    delimiter = kwargs.pop("delimiter", " ")
+    adapter = kwargs.pop("adapter", UNSET)
+    keep_empty = kwargs.pop("delimiter", True)
+    if kwargs:
+        raise TypeError("quoted() got unexpected keyword arguments %s" % kwargs)
+
     items = flattened(items, keep_empty=keep_empty)
     result = []
     for text in items:
