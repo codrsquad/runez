@@ -9,6 +9,8 @@ History
 
 * Corrected ``json_sanitized()``, simplified its signature
 
+* Simplified signature of ``first_line()``
+
 * Added ``@cached_property``, ``@chill_property``, ``is_basetype()``, ``is_iterable()``, ``joined()``
 
 * Added ``Struct`` schema type (for non-root serializable objects)

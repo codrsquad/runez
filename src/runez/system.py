@@ -268,13 +268,12 @@ def find_caller_frame(validator=None, depth=2, maximum=1000):
                 return None
 
 
-def first_line(text, keep_empty=False, strip=True, default=None):
+def first_line(text, empty=False, default=None):
     """First line in 'data', if any
 
     Args:
         text (str | list | None): Text to examine
-        keep_empty (bool): If False, skip empty lines
-        strip (bool): If True, strip lines from leading/trailing spaces/newlines
+        empty (bool): When False skip empty lines (+ strip spaces/newlines), when True don't filter (strip newlines only)
         default (str | None): Default to return if there was no first line
 
     Returns:
@@ -287,10 +286,11 @@ def first_line(text, keep_empty=False, strip=True, default=None):
         text = text.splitlines()
 
     for line in text:
-        if strip:
-            line = line.strip()
+        if empty:
+            return line.strip("\n")
 
-        if keep_empty or line:
+        line = line.strip()
+        if line:
             return line
 
     return default
