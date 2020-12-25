@@ -301,10 +301,10 @@ def flattened(*value, **kwargs):
     Args:
         value: Possibly nested arguments (sequence of lists, nested lists, ...)
         keep_empty (str | bool): States how to filter 'None' and/or False-ish values
-                               - string: replace `None` with given string, keep False-ish values as-is
-                               - None: filter out all False-ish values (including `None`)
-                               - False: filter out `None` values only (keep False-ish values as-is)
-                               - True (default): no filtering, keep all values as-is
+                               - string: Replace `None` with given string, keep False-ish values as-is
+                               - None: Filter out all False-ish values (including `None`)
+                               - False: Filter out `None` values only (keep False-ish values as-is)
+                               - True (default): No filtering, keep all values as-is
         split (str | None): If provided, split strings by given character
         shellify (bool): If True, filter out sequences of the form ["-f", None] (handy for simplified cmd line specification)
         unique (bool): If True, ensure every value appears only once
@@ -416,10 +416,10 @@ def joined(*args, **kwargs):
         *args: Things to join
         delimiter (str): Delimiter to use (default: space character)
         keep_empty (str | bool): States how to filter 'None' and/or False-ish values
-                               - string: replace `None` with given string, keep False-ish values as-is
-                               - None: filter out all False-ish values (including `None`)
-                               - False: filter out `None` values only (keep False-ish values as-is)
-                               - True (default): no filtering, keep all values as-is
+                               - string: Replace `None` with given string, keep False-ish values as-is
+                               - None: Filter out all False-ish values (including `None`)
+                               - False: Filter out `None` values only (keep False-ish values as-is)
+                               - True (default): No filtering, keep all values as-is
         stringify (str): Function to use to stringify args (default: `stringified`)
 
     Returns:
@@ -450,10 +450,10 @@ def quoted(*items, **kwargs):
         delimiter (str): Delimiter to use to join args back
         adapter (callable | None): Called for every item if provided, it should return a string
         keep_empty (str | bool): States how to filter 'None' and/or False-ish values
-                               - string: replace `None` with given string, keep False-ish values as-is
-                               - None: filter out all False-ish values (including `None`)
-                               - False: filter out `None` values only (keep False-ish values as-is)
-                               - True (default): no filtering, keep all values as-is
+                               - string: Replace `None` with given string, keep False-ish values as-is
+                               - None: Filter out all False-ish values (including `None`)
+                               - False: Filter out `None` values only (keep False-ish values as-is)
+                               - True (default): No filtering, keep all values as-is
 
     Returns:
         (str): Quoted if 'text' contains spaces

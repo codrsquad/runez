@@ -187,9 +187,9 @@ def json_sanitized(value, stringify=stringified, dt=str, none=False):
         stringify (callable | None): Function to use to stringify non-builtin types
         dt (callable | None): Function to use to stringify dates
         none (str | bool): States how to treat `None` keys/values
-                           - if string: Replace `None` keys with given string (keep `None` values as-is)
-                           - False: Filter out `None` keys/values
-                           - True: No filtering, `None` keys/values as-is
+                           - string: Replace `None` *keys* with given string (keep `None` *values* as-is)
+                           - False (default): Filter out `None` keys/values
+                           - True: No filtering, keep `None` keys/values as-is
 
     Returns:
         An object that should be json serializable
@@ -606,9 +606,9 @@ class Serializable(object):
             stringify (callable | None): Function to use to stringify non-builtin types
             dt (callable | None): Function to use to stringify dates
             none (str | bool): States how to treat `None` keys/values
-                               - if string: Replace `None` keys with given string (keep `None` values as-is)
-                               - False: Filter out `None` keys/values
-                               - True: No filtering, `None` keys/values as-is
+                               - string: Replace `None` *keys* with given string (keep `None` *values* as-is)
+                               - False (default): Filter out `None` keys/values
+                               - True: No filtering, keep `None` keys/values as-is
 
         Returns:
             (dict): This object serialized to a dict
@@ -645,9 +645,9 @@ def represented_json(data, stringify=stringified, dt=str, none=False, indent=2, 
         stringify (callable | None): Function to use to stringify non-builtin types
         dt (callable | None): Function to use to stringify dates
         none (str | bool): States how to treat `None` keys/values
-                           - if string: Replace `None` keys with given string (keep `None` values as-is)
-                           - False: Filter out `None` keys/values
-                           - True: No filtering, `None` keys/values as-is
+                           - string: Replace `None` *keys* with given string (keep `None` *values* as-is)
+                           - False (default): Filter out `None` keys/values
+                           - True: No filtering, keep `None` keys/values as-is
         indent (int | None): Indentation to use, if None: use compact (one line) mode
         sort_keys (bool): Whether keys should be sorted
         **kwargs: Passed through to `json.dumps()`
@@ -674,9 +674,9 @@ def save_json(
         stringify (callable | None): Function to use to stringify non-builtin types
         dt (callable | None): Function to use to stringify dates
         none (str | bool): States how to treat `None` keys/values
-                           - if string: Replace `None` keys with given string (keep `None` values as-is)
-                           - False: Filter out `None` keys/values
-                           - True: No filtering, `None` keys/values as-is
+                           - string: Replace `None` *keys* with given string (keep `None` *values* as-is)
+                           - False (default): Filter out `None` keys/values
+                           - True: No filtering, keep `None` keys/values as-is
         indent (int | None): Indentation to use, if None: use compact (one line) mode
         sort_keys (bool): Whether keys should be sorted
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log

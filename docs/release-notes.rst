@@ -2,7 +2,7 @@
 History
 =======
 
-2.3.0 (2020-12-24)
+2.3.0 (2020-12-25)
 ------------------
 
 * Moved to https://github.com/codrsquad/runez
