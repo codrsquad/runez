@@ -268,12 +268,12 @@ def find_caller_frame(validator=None, depth=2, maximum=1000):
                 return None
 
 
-def first_line(text, empty=False, default=None):
+def first_line(text, keep_empty=False, default=None):
     """First line in 'data', if any
 
     Args:
         text (str | list | None): Text to examine
-        empty (bool): When False skip empty lines (+ strip spaces/newlines), when True don't filter (strip newlines only)
+        keep_empty (bool): When False skip empty lines (+ strip spaces/newlines), when True don't filter (strip newlines only)
         default (str | None): Default to return if there was no first line
 
     Returns:
@@ -286,7 +286,7 @@ def first_line(text, empty=False, default=None):
         text = text.splitlines()
 
     for line in text:
-        if empty:
+        if keep_empty:
             return line.strip("\n")
 
         line = line.strip()
@@ -431,7 +431,7 @@ def quoted(items, delimiter=" ", adapter=UNSET, keep_empty=True):
         items (str | list | tuple | None): Text, or list of text to optionally quote
         delimiter (str): Delimiter to use to join args back
         adapter (callable | None): Called for every item if provided, it should return a string
-        keep_empty (bool): If False, skip empty items
+        keep_empty (bool): If False, filter out empty items
 
     Returns:
         (str): Quoted if 'text' contains spaces
