@@ -412,7 +412,11 @@ def joined(*args, **kwargs):
     Args:
         *args: Things to join
         delimiter (str): Delimiter to use (default: space character)
-        keep_empty (bool): Keep empty fields? (default: True)
+        keep_empty (str | bool): States how to filter 'None' and/or False-ish values
+                               - string: replace `None` with given string, keep False-ish values as-is
+                               - None: filter out all False-ish values (including `None`)
+                               - False: filter out `None` values only (keep False-ish values as-is)
+                               - True (default): no filtering, keep all values as-is
         stringify (str): Function to use to stringify args (default: `stringified`)
 
     Returns:
@@ -421,11 +425,11 @@ def joined(*args, **kwargs):
     delimiter = kwargs.get("delimiter", " ")
     keep_empty = kwargs.get("keep_empty", True)
     stringify = kwargs.get("stringify", stringified)
-    args = flattened(args)
-    return delimiter.join((stringify(x) for x in args if keep_empty or x is not None))
+    args = flattened(args, keep_empty=keep_empty)
+    return delimiter.join((stringify(x) for x in args))
 
 
-def quoted(items, delimiter=" ", adapter=UNSET, keep_empty=True):
+def quoted(*items, **kwargs):
     """Quoted `items`, for those that contain whitespaces
 
     >>> quoted("foo")
@@ -439,14 +443,19 @@ def quoted(items, delimiter=" ", adapter=UNSET, keep_empty=True):
         items (str | list | tuple | None): Text, or list of text to optionally quote
         delimiter (str): Delimiter to use to join args back
         adapter (callable | None): Called for every item if provided, it should return a string
-        keep_empty (bool): If False, filter out empty items
+        keep_empty (str | bool): States how to filter 'None' and/or False-ish values
+                               - string: replace `None` with given string, keep False-ish values as-is
+                               - None: filter out all False-ish values (including `None`)
+                               - False: filter out `None` values only (keep False-ish values as-is)
+                               - True (default): no filtering, keep all values as-is
 
     Returns:
         (str): Quoted if 'text' contains spaces
     """
-    if not is_iterable(items):
-        items = [items]
-
+    delimiter = kwargs.get("delimiter", " ")
+    adapter = kwargs.get("adapter", UNSET)
+    keep_empty = kwargs.get("delimiter", True)
+    items = flattened(items, keep_empty=keep_empty)
     result = []
     for text in items:
         if adapter is UNSET:
@@ -459,8 +468,7 @@ def quoted(items, delimiter=" ", adapter=UNSET, keep_empty=True):
             sep = "'" if '"' in text else '"'
             text = "%s%s%s" % (sep, text, sep)
 
-        if keep_empty or text:
-            result.append(text)
+        result.append(text)
 
     return delimiter.join(result)
 
