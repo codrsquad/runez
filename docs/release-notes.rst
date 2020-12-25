@@ -9,7 +9,7 @@ History
 
 * Corrected ``json_sanitized()``, simplified its signature
 
-* Simplified signature of ``first_line()``, ``joined()``, ``quoted()``, ``ini_to_dict()``
+* Simplified signature of ``first_line()``, ``flattened()``, ``joined()``, ``quoted()``, ``ini_to_dict()``
 
 * Added ``@cached_property``, ``@chill_property``, ``is_basetype()``, ``is_iterable()``, ``joined()``
 

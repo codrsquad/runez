@@ -358,7 +358,7 @@ class LogManager(object):
                 cls.spec.console_level = level
                 cls.spec.file_level = level
 
-            root_level = min(flattened([cls.spec.console_level, cls.spec.file_level], sanitized=True))
+            root_level = min(flattened([cls.spec.console_level, cls.spec.file_level], keep_empty=None))
             if root_level and root_level != logging.root.level:
                 logging.root.setLevel(root_level)
 
@@ -447,7 +447,7 @@ class LogManager(object):
             logger (callable | None): Logger to use
         """
         if greetings and logger:
-            for msg in flattened(greetings, sanitized=True):
+            for msg in flattened(greetings, keep_empty=False):
                 message = cls.formatted_greeting(msg)
                 if message:
                     logger(message)

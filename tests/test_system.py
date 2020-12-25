@@ -128,13 +128,30 @@ def test_current_folder(temp_folder):
 def test_flattened():
     assert runez.flattened(None) == [None]
     assert runez.flattened([None]) == [None]
-    assert runez.flattened(None, sanitized=True) == []
-    assert runez.flattened(None, shellify=True) == []
-    assert runez.flattened(None, unique=True) == [None]
+
+    assert runez.flattened(None, [runez.UNSET, 0]) == [None, runez.UNSET, 0]
+    assert runez.flattened(None, [runez.UNSET, 0], shellify=True) == ["0"]
+    assert runez.flattened(None, [runez.UNSET, 0], keep_empty=None) == []
+    assert runez.flattened(None, [runez.UNSET, 0], keep_empty=False) == [0]
+    assert runez.flattened(None, [runez.UNSET, 0], keep_empty=True) == [None, runez.UNSET, 0]
+    assert runez.flattened(None, [runez.UNSET, 0], keep_empty="") == ["", "", 0]
+    assert runez.flattened(None, [runez.UNSET, 0], keep_empty="null") == ["null", "null", 0]
+    assert runez.flattened(None, [runez.UNSET, 0], keep_empty="null", unique=False) == ["null", "null", 0]
+    assert runez.flattened(None, [runez.UNSET, 0], keep_empty="null", unique=True) == ["null", 0]
+    assert runez.flattened(None, [runez.UNSET, 0], keep_empty="", shellify=True) == ["0"]
+
+    assert runez.flattened(None, None, keep_empty=False, unique=True) == []
+    assert runez.flattened(None, None, shellify=True) == []
+    assert runez.flattened(None, None, runez.UNSET, None, runez.UNSET, unique=True) == [None, runez.UNSET]
+
+    assert runez.flattened(None, None, keep_empty=None) == []
+    assert runez.flattened(None, None, keep_empty="") == ["", ""]
+    assert runez.flattened(None, None, keep_empty="null") == ["null", "null"]
+    assert runez.flattened(None, None, keep_empty="null", unique=True) == ["null"]
 
     assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET]) == ["-a", None, "b", runez.UNSET, runez.UNSET]
     assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET], unique=True) == ["-a", None, "b", runez.UNSET]
-    assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET], sanitized=True) == ["-a", "b"]
+    assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET], keep_empty=False) == ["-a", "b"]
     assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET], shellify=True) == ["b"]
     assert runez.flattened(["-a", [runez.UNSET, "b", runez.UNSET], runez.UNSET], shellify=True) == ["b"]
 
@@ -142,20 +159,34 @@ def test_flattened():
     assert runez.flattened([["a b"]]) == ["a b"]
 
     assert runez.flattened(["-r", None, "foo"]) == ["-r", None, "foo"]
-    assert runez.flattened(["-r", None, "foo"], sanitized=True) == ["-r", "foo"]
-    assert runez.flattened(["-r", None, "foo"], shellify=True) == ["foo"]
+    assert runez.flattened(["-r", None, "foo"], keep_empty=False) == ["-r", "foo"]
+    assert runez.flattened(["foo", "-r", None, "bar"], shellify=True) == ["foo", "bar"]
     assert runez.flattened(["-r", None, "foo"], unique=True) == ["-r", None, "foo"]
-    assert runez.flattened(["-r", None, "foo"], sanitized=True, unique=True) == ["-r", "foo"]
+    assert runez.flattened(["-r", None, "foo"], keep_empty=False, unique=True) == ["-r", "foo"]
 
     # Sanitized
     assert runez.flattened(("a", None, ["b", None]), unique=True) == ["a", None, "b"]
-    assert runez.flattened(("a", None, ["b", None]), sanitized=True, unique=True) == ["a", "b"]
+    assert runez.flattened(("a", None, ["b", None]), keep_empty=False, unique=True) == ["a", "b"]
 
     # Shell cases
     assert runez.flattened([None, "a", "-f", "b", "c", None], shellify=True) == ["a", "-f", "b", "c"]
     assert runez.flattened(["a", "-f", "b", "c"], shellify=True) == ["a", "-f", "b", "c"]
     assert runez.flattened([None, "-f", "b", None], shellify=True) == ["-f", "b"]
     assert runez.flattened(["a", "-f", None, "c"], shellify=True) == ["a", "c"]
+
+    assert runez.flattened(["a", "-f", None, "c"], keep_empty=None, shellify=True) == ["a", "c"]
+    assert runez.flattened(["a", "-f", None, "c"], keep_empty=False, shellify=True) == ["a", "c"]
+    assert runez.flattened(["a", "-f", None, "c"], keep_empty=True, shellify=True) == ["a", "c"]
+    assert runez.flattened(["a", "-f", None, "c"], keep_empty="", shellify=True) == ["a", "c"]
+    assert runez.flattened(["a", "-f", None, "c"], keep_empty="null", shellify=True) == ["a", "c"]
+
+    # In shellify mode, empty strings are only filtered out with keep_empty=None
+    assert runez.flattened(["a", "-f", "", "c"], shellify=True) == ["a", "-f", "", "c"]
+    assert runez.flattened(["a", "-f", "", "c"], keep_empty=None, shellify=True) == ["a", "c"]
+    assert runez.flattened(["a", "-f", "", "c"], keep_empty=False, shellify=True) == ["a", "-f", "", "c"]
+    assert runez.flattened(["a", "-f", "", "c"], keep_empty=True, shellify=True) == ["a", "-f", "", "c"]
+    assert runez.flattened(["a", "-f", "", "c"], keep_empty="", shellify=True) == ["a", "-f", "", "c"]
+    assert runez.flattened(["a", "-f", "", "c"], keep_empty="null", shellify=True) == ["a", "-f", "", "c"]
 
     # Splitting on a given char
     assert runez.flattened("a b b") == ["a b b"]
@@ -171,7 +202,7 @@ def test_flattened():
 
     assert runez.flattened(["a b", None, ["a b c"], "a"], unique=True) == ["a b", None, "a b c", "a"]
     assert runez.flattened(["a b", None, ["a b c"], "a"], split=" ", unique=True) == ["a", "b", None, "c"]
-    assert runez.flattened(["a b", None, ["a b c"], "a"], split=" ", sanitized=True, unique=True) == ["a", "b", "c"]
+    assert runez.flattened(["a b", None, ["a b c"], "a"], split=" ", keep_empty=False, unique=True) == ["a", "b", "c"]
 
 
 def test_expanded():

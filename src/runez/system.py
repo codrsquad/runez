@@ -296,20 +296,28 @@ def first_line(text, keep_empty=False, default=None):
     return default
 
 
-def flattened(value, split=None, sanitized=False, shellify=False, unique=False):
+def flattened(*value, **kwargs):
     """
     Args:
         value: Possibly nested arguments (sequence of lists, nested lists, ...)
+        keep_empty (str | bool): States how to filter 'None' and/or False-ish values
+                               - string: replace `None` with given string, keep False-ish values as-is
+                               - None: filter out all False-ish values (including `None`)
+                               - False: filter out `None` values only (keep False-ish values as-is)
+                               - True (default): no filtering, keep all values as-is
         split (str | None): If provided, split strings by given character
-        sanitized (bool): If True, filter out None values
         shellify (bool): If True, filter out sequences of the form ["-f", None] (handy for simplified cmd line specification)
         unique (bool): If True, ensure every value appears only once
 
     Returns:
         (list): Flattened list from 'value'
     """
+    keep_empty = kwargs.get("keep_empty", True)
+    split = kwargs.get("split", None)
+    shellify = kwargs.get("shellify", False)
+    unique = kwargs.get("unique", False)
     result = []
-    _flatten(result, value, split, sanitized, shellify, unique)
+    _flatten(result, value, keep_empty, split, shellify, unique)
     return result
 
 
@@ -654,7 +662,7 @@ class Anchored(object):
         Args:
             *anchors (str | list | tuple): Optional paths to use as anchors for short()
         """
-        cls._paths = sorted((resolved_path(p) for p in flattened(anchors, sanitized=True, unique=True)), reverse=True)
+        cls._paths = sorted((resolved_path(p) for p in flattened(anchors, keep_empty=False, unique=True)), reverse=True)
 
     @classmethod
     def add(cls, anchors):
@@ -670,7 +678,7 @@ class Anchored(object):
         Args:
             anchors (str | list | tuple): Optional paths to use as anchors for short()
         """
-        for anchor in flattened(anchors, sanitized=True, unique=True):
+        for anchor in flattened(anchors, keep_empty=False, unique=True):
             anchor = resolved_path(anchor)
             if anchor in cls._paths:
                 cls._paths.remove(anchor)
@@ -1489,8 +1497,11 @@ def _find_value(key, *args):
             return v
 
 
-def _flatten(result, value, split, sanitized, shellify, unique):
-    if value is None or value is UNSET:
+def _flatten(result, value, keep_empty, split, shellify, unique):
+    """
+    keep_empty: string: replace None, None: filter out all False-ish, False: filter out `None` only, True (default): no filtering
+    """
+    if value is None or value is UNSET or (keep_empty is None and not value):
         if shellify:
             # Convenience: allow to filter out ["--switch", None] easily
             if result and result[-1].startswith("-"):
@@ -1498,8 +1509,11 @@ def _flatten(result, value, split, sanitized, shellify, unique):
 
             return
 
-        if sanitized:
+        if keep_empty is None or (keep_empty is False and (value is None or value is UNSET)):
             return
+
+        if isinstance(keep_empty, string_type):
+            value = keep_empty
 
         if not unique or value not in result:
             result.append(value)
@@ -1508,12 +1522,12 @@ def _flatten(result, value, split, sanitized, shellify, unique):
 
     if is_iterable(value):
         for item in value:
-            _flatten(result, item, split, sanitized, shellify, unique)
+            _flatten(result, item, keep_empty, split, shellify, unique)
 
         return
 
     if split and isinstance(value, string_type) and split in value:
-        _flatten(result, value.split(split), split, sanitized, shellify, unique)
+        _flatten(result, value.split(split), keep_empty, split, shellify, unique)
         return
 
     if shellify:
