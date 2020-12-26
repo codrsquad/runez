@@ -142,6 +142,44 @@ def test_executable(temp_folder):
         assert "does not exist, can't make it executable" in logged.pop()
 
 
+def test_ps():
+    p = runez.ps_info(os.getpid())
+    info = p.info
+
+    assert info["PID"] in str(p)
+    assert p.cmd
+    assert p.cmd_basename
+    assert p.ppid == os.getppid()
+    assert p.userid != p.uid
+
+    # Test edge cases on `cmd_basename` extraction
+    p.cmd = "/dev/null/foo bar baz"
+    del p.cmd_basename
+    assert p.cmd_basename == "/dev/null/foo"  # Fall back to using 1st sequence with space as basename
+
+    with patch("runez.program.is_executable", side_effect=lambda x: x == "/dev/null/foo bar"):
+        del p.cmd_basename
+        assert p.cmd_basename == "foo bar"
+
+    uid = p.uid
+    userid = p.userid
+    if runez.to_int(info["UID"]) is None:
+        info["UID"] = uid
+
+    else:
+        info["UID"] = userid
+
+    # Trigger re-computation simulating opposite uid report by `ps`, verify it came back to the same values
+    del p.uid
+    del p.userid
+    assert p.uid == uid
+    assert p.userid == userid
+
+    # Edge case for __repr__
+    p.info = None
+    assert str(p)
+
+
 def test_terminal_width():
     with patch.dict(os.environ, {"COLUMNS": "foo"}, clear=True):
         with patch("runez.program._tw_shutil", return_value=None):

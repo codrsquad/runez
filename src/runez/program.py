@@ -8,14 +8,113 @@ import subprocess  # nosec
 import sys
 import tempfile
 
-from runez.convert import to_int
-from runez.system import _R, abort, decode, flattened, LOG, quoted, short, UNSET, WINDOWS
+from runez.convert import parsed_tabular, to_int
+from runez.system import _R, abort, cached_property, decode, flattened, LOG, quoted, short, UNSET, WINDOWS
 
 
 DEFAULT_INSTRUCTIONS = {
     "darwin": "run: `brew install {program}`",
     "linux": "run: `apt install {program}`",
 }
+
+
+def ps_info(pid):
+    """
+    Args:
+        pid (int): PID of process to get info for
+
+    Returns:
+        (PsInfo | None): Process info, if available
+    """
+    if pid:
+        p = PsInfo(pid)
+        if p.ppid is not None:
+            return p
+
+
+class PsInfo(object):
+    """Summary info about a process, as given by `ps -f` command"""
+
+    info = None  # type: dict # Info returned by `ps`
+
+    def __init__(self, pid):
+        """
+        Args:
+            pid (int): PID of process to get info for
+        """
+        self.pid = pid
+        if pid:
+            r = run("ps", "-f", pid, dryrun=False, fatal=False, logger=None)
+            if r.succeeded:
+                info = parsed_tabular(r.output)
+                if info:
+                    self.info = info[0]
+
+    def __repr__(self):
+        if self.info is None:
+            return "%s" % self.pid
+
+        return "%s %s %s" % (self.pid, self.info.get("PPID"), self.info.get("CMD"))
+
+    @cached_property
+    def cmd(self):
+        """str: Reported CMD"""
+        if self.info is not None:
+            return self.info.get("CMD")
+
+    @cached_property
+    def cmd_basename(self):
+        """str: Basename of CMD, if available"""
+        cmd = self.cmd
+        if cmd:
+            cmd, _, rest = cmd.partition(" ")
+            if os.path.isabs(cmd):
+                # `ps` doesn't quote program paths
+                if is_executable(cmd):
+                    return os.path.basename(cmd)
+
+                acc = cmd
+                while rest:
+                    more, _, rest = rest.partition(" ")
+                    acc = "%s %s" % (acc, more)
+                    if is_executable(acc):
+                        return os.path.basename(acc)
+
+        return cmd
+
+    @cached_property
+    def ppid(self):
+        """int: Reported parent PID"""
+        if self.info is not None:
+            return to_int(self.info.get("PPID"))
+
+    @cached_property
+    def uid(self):
+        """int: Numerical UID as reported by ps"""
+        if self.info is not None:
+            uid = self.info.get("UID")
+            if uid is not None:
+                n = to_int(uid)
+                if n is not None:
+                    return n
+
+                r = run("id", "-u", uid, dryrun=False, fatal=False, logger=None)
+                if r.succeeded:
+                    return to_int(r.output)
+
+    @cached_property
+    def userid(self):
+        """str: Userid as reported by ps"""
+        if self.info is not None:
+            uid = self.info.get("UID")
+            if uid is not None:
+                n = to_int(uid)
+                if n is None:
+                    return uid
+
+                r = run("id", "-un", uid, dryrun=False, fatal=False, logger=None)
+                if r.succeeded:
+                    return r.output
 
 
 def check_pid(pid):

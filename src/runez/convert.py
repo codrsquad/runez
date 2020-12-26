@@ -5,7 +5,7 @@ This is module should not import any other runez module, it's the lowest on the 
 import re
 import sys
 
-from runez.system import flattened, string_type, stringified
+from runez.system import flattened, joined, string_type, stringified
 
 
 DEFAULT_BASE = 1000
@@ -13,6 +13,20 @@ DEFAULT_UNITS = "KMGTP"
 RE_WORDS = re.compile(r"[^\w]+")
 RE_UNDERSCORED_NUMBERS = re.compile(r"([0-9])_([0-9])")  # py2 does not parse numbers with underscores like "1_000"
 TRUE_TOKENS = {"on", "true", "y", "yes"}
+
+
+def parsed_tabular(content):
+    """
+    Args:
+        content (str): Tabular output, such as the output of `ps -f`
+
+    Returns:
+        (list[dict]): Parsed output, one entry per parsed line, each line is a dict keyed by the stated header from output
+    """
+    if isinstance(content, string_type):
+        content = content.splitlines()
+
+    return list(_TabularHeader.parsed_lines(content))
 
 
 def represented_bytesize(size, unit="B", base=1024, delimiter=" ", prefixes=DEFAULT_UNITS):
@@ -432,3 +446,112 @@ def _represented_with_units(size, unit, base, delimiter, prefixes, exponent=0):
         represented_size = represented_size.strip("0").strip(".")
 
     return "%s%s%s%s" % (represented_size, delimiter, prefixes[exponent - 1], unit)
+
+
+class _TabularInterval(object):
+    """Allows to parse tabulated output such as given by the `ps` command, tracks header column positions"""
+
+    def __init__(self, name, start=0, end=0):
+        self.name = name
+        self.start = start
+        self.end = end
+        self.next = None
+
+    def __repr__(self):  # pragma: no cover, for debugging
+        return "%s [%s:%s]" % (self.name, self.start or "", self.end or "")
+
+    def intersects(self, start, end):
+        if self.end is None:
+            return self.start >= start or self.start >= end
+
+        return self.start <= start <= self.end or self.start <= end <= self.end
+
+
+class _TabularHeader(object):
+    """Allows to parse `ps` tabulated output, parses header then can extract rest of `ps` output info"""
+
+    regex = re.compile(r"(\s*)(\S+)")
+
+    def __init__(self, header):
+        """
+        Args:
+            header (str): First line from `ps -f` output
+        """
+        self.header = header
+        self.first = None
+        self.last = None
+        self.tabs = []
+        self.tabs_by_name = {}
+        m = self.regex.search(header, 0)
+        while m:
+            wstart, wend = m.span(2)
+            word = header[wstart:wend].upper()
+            tab = _TabularInterval(word, wstart, wend)
+            self.tabs.append(tab)
+            self.tabs_by_name[word] = tab
+            if self.first is None:
+                tab.start = 0
+                self.first = tab
+
+            elif self.last is not None:
+                self.last.next = tab
+
+            self.last = tab
+            m = self.regex.search(header, wend + 1)
+
+        if self.last is not None:
+            self.last.end = None
+
+    def __repr__(self):  # pragma: no cover, for debugging
+        return joined(self.tabs)
+
+    @classmethod
+    def parsed_lines(cls, lines):
+        """
+        Args:
+            lines (list): Lines to parse
+        """
+        if lines:
+            parser = None
+            for line in lines:
+                if parser is None:
+                    parser = _TabularHeader(line)
+                    if not parser.tabs:
+                        return
+
+                else:
+                    data = parser.parsed_line(line)
+                    if data:
+                        yield data
+
+    def parsed_line(self, line):
+        """
+        Args:
+            line (str): Parsed subsequent (non-header) line
+
+        Returns:
+            (dict): Extracted info
+        """
+        data = {}
+        current = self.tabs[0]
+        content = []
+        m = self.regex.search(line, 0)
+        while m and current:
+            wstart, wend = m.span(2)
+            text = line[wstart:wend]
+            if current.intersects(wstart, wend):
+                content.append(text)
+
+            else:
+                data[current.name] = joined(content)
+                content = [text]
+                while current and not current.intersects(wstart, wend):
+                    current = current.next
+
+                if current is self.last:
+                    data[current.name] = line[wstart:]
+                    break
+
+            m = self.regex.search(line, wend + 1)
+
+        return data

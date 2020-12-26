@@ -2,10 +2,12 @@
 History
 =======
 
-2.3.1 (2020-12-dd)
+2.3.1 (2020-12-27)
 ------------------
 
 * Allow to not strip captured external command output, by default strip only leading/trailing newlines
+
+* Added ``parsed_tabular()`` and ``ps_info()``
 
 
 2.3.0 (2020-12-25)

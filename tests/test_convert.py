@@ -86,6 +86,46 @@ def test_plural():
     assert runez.plural(20000, "carrot", base=0) == "20000 carrots"
 
 
+SAMPLE_TABULATED_OUTPUT = """
+  UID   PID  PPID   C STIME   TTY           TIME CMD
+  501 96590    42   0 foo bar ttys009    0:04.60 -bash
+  502     4     5   0         ttys009            zsh
+--
+  UID   PID  PPID   C STIME   TTY           TIME CMD
+  501 96590    42   0 18Dec20 ttys009    0:04.60 -bash --login
+--
+UID        PID  PPID  C STIME TTY      STAT   TIME CMD
+zoran        7    42  0 15:23 tty1     S      0:00 /bin/bash --login
+--
+"""
+
+
+def tabulated_samples():
+    lines = []
+    for line in SAMPLE_TABULATED_OUTPUT.splitlines():
+        if not line or line.startswith("#"):
+            continue
+
+        if line.startswith("--"):
+            yield len(lines) - 1, "\n".join(lines)
+            lines = []
+            continue
+
+        lines.append(line)
+
+    if lines:
+        yield len(lines) - 1, "\n".join(lines)
+
+
+def test_tabulated_parsing():
+    assert runez.parsed_tabular("  \nfoo") == []  # First line must have a header...
+
+    for expected, output in tabulated_samples():
+        parsed = list(runez.parsed_tabular(output))
+        assert len(parsed) == expected
+        assert "bash" in parsed[0]["CMD"]
+
+
 def test_to_float():
     assert runez.to_float(None) is None
     assert runez.to_float("foo") is None
