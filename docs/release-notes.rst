@@ -2,30 +2,20 @@
 History
 =======
 
-2.3.1 (2020-12-26)
-------------------
-
-* Allow to not strip captured external command output, by default strip only leading/trailing newlines
-
-* Added ``parsed_tabular()`` and ``ps_info()``
-
-* Added ``attributes_by_type()`` to schema meta
-
-
-2.3.0 (2020-12-25)
+2.3.3 (2020-12-27)
 ------------------
 
 * Moved to https://github.com/codrsquad/runez
 
-* Corrected ``json_sanitized()``, simplified its signature
-
-* Simplified signature of ``first_line()``, ``flattened()``, ``joined()``, ``quoted()``, ``ini_to_dict()``
-
-* Added ``@cached_property``, ``@chill_property``, ``is_basetype()``, ``is_iterable()``, ``joined()``
-
-* Added ``Struct`` schema type (for non-root serializable objects)
+* Added ``@cached_property``, ``@chill_property``, ``is_basetype()``, ``is_iterable()``, ``joined()``, ``parsed_tabular()``, ``ps_info()``
 
 * Added ``runez.click.prettify_epilogs()``
+
+* Added ``attributes_by_type()`` to schema meta, ``Struct`` schema type (for non-root serializable objects)
+
+* Consistent signature for ``first_line()``, ``flattened()``, ``joined()``, ``json_sanitized()``, ``ini_to_dict()``, ``quoted()``
+
+* ``runez.run()`` strips newlines only on captured content
 
 
 2.2.3 (2020-12-06)
@@ -33,21 +23,9 @@ History
 
 * Allow for workaround around py3 unable to sort None-keys in json.dumps(sort_keys=True)
 
-
-2.2.2 (2020-11-29)
-------------------
-
 * ``short()`` defaults now to terminal width
 
-
-2.2.1 (2020-11-29)
-------------------
-
 * ``represented_json()`` and ``save_json()`` have now a signature consistent with ``json_sanitized()``
-
-
-2.2.0 (2020-11-09)
-------------------
 
 * Accept optionally multiple paths at once in ``Anchored()`` context manager
 
@@ -57,63 +35,27 @@ History
 
 * Correctly expand ~ in path, if provided
 
-
-2.1.7 (2020-10-30)
-------------------
-
 * Allow to override the internal default logger, used in ``runez.run()`` etc
 
-
-2.1.6 (2020-10-25)
-------------------
-
 * Restored default ``click.version()`` message, to minimize differences with click
-
-
-2.1.5 (2020-10-23)
-------------------
 
 * Simplified default ``click.version()`` message, now simply outputs version (without fluff)
 
 * Use module's ``__version__`` when available
 
-
-2.1.4 (2020-10-22)
-------------------
-
 * Moved to github actions
-
-
-2.1.4 (2020-10-21)
-------------------
 
 * Added ``FallbackChain``
 
-
-2.1.3 (2020-10-21)
-------------------
-
 * Corrected edge case with ``cli.run(..., exe=)``
 
-
-2.1.2 (2020-10-21)
-------------------
-
 * Ignore errors when deleting temp folders in context managers
-
-
-2.1.1 (2020-10-19)
-------------------
 
 * ``runez.log.dev_folder()`` now accepts relative path
 
 * Renamed ``runez.conftest.resource_path()`` to ``runez.log.tests_path()``
 
 * Added ``runez.log.project_path()``
-
-
-2.1.0 (2020-10-19)
-------------------
 
 * Allow to override ``sys.executable`` in click test runs
 
@@ -123,15 +65,7 @@ History
 
 * Adapted to latest pytest log wrapping
 
-
-2.0.18 (2020-07-06)
--------------------
-
 * Corrected date conversion for empty string
-
-
-2.0.17 (2020-06-10)
--------------------
 
 * Allow to not wait for spawned process with ``runez.run(fatal=None, stdout=None, stderr=None)``
 
@@ -144,10 +78,6 @@ History
 * Added ``click.border()`` option
 
 * Bug fixes
-
-
-2.0.9 (2020-05-30)
-------------------
 
 * Reviewed all IO related functions and made them respect the same signature, explained in doc:
 
@@ -168,10 +98,6 @@ History
 
 * Bug fixes, renamed ``test_resource`` to ``resource_path`` (in ``runez.conftest``),
   to avoid pytest thinking it is a test function when imported.
-
-
-2.0.6 (2020-05-20)
-------------------
 
 * Fixed docstrings, ``RunResult`` properly evaluates to true-ish on success
 
