@@ -7,7 +7,7 @@ if __name__ == "__main__":
         setup_requires="setupmeta",
         versioning="dev",
         author="Zoran Simic zoran@simicweb.com",
-        python_requires = '>=2.7',
+        python_requires='>=2.7',
         url="https://github.com/codrsquad/runez",
         classifiers=[
             "Development Status :: 5 - Production/Stable",
