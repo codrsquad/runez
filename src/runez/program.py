@@ -103,6 +103,7 @@ def run(program, *args, **kwargs):
         path_env (dict | None): Allows to inject PATH-like env vars, see `_added_env_paths()`
         stdout (int | IO[Any] | None): Passed-through to subprocess.Popen, [default: subprocess.PIPE]
         stderr (int | IO[Any] | None): Passed-through to subprocess.Popen, [default: subprocess.PIPE]
+        strip (str | bool | None): If provided, `strip()` the captured output [default: strip "\n" newlines]
 
     Args:
         *args: Command line args to call 'program' with
@@ -116,6 +117,7 @@ def run(program, *args, **kwargs):
     dryrun = kwargs.pop("dryrun", UNSET)
     stdout = kwargs.pop("stdout", subprocess.PIPE)
     stderr = kwargs.pop("stderr", subprocess.PIPE)
+    strip = kwargs.pop("strip", "\n")
     path_env = kwargs.pop("path_env", None)
     if path_env:
         kwargs["env"] = _added_env_paths(path_env, env=kwargs.get("env"))
@@ -149,8 +151,8 @@ def run(program, *args, **kwargs):
             else:
                 out, err = p.communicate()
 
-            result.output = decode(out, strip=True)
-            result.error = decode(err, strip=True)
+            result.output = decode(out, strip=strip)
+            result.error = decode(err, strip=strip)
             result.pid = p.pid
             result.exit_code = p.returncode
 

@@ -2,6 +2,12 @@
 History
 =======
 
+2.3.1 (2020-12-dd)
+------------------
+
+* Allow to not strip captured external command output, by default strip only leading/trailing newlines
+
+
 2.3.0 (2020-12-25)
 ------------------
 

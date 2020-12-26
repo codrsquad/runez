@@ -166,12 +166,12 @@ class chill_property(cached_property):
                 return value
 
 
-def decode(value, strip=False):
+def decode(value, strip=None):
     """Python 2/3 friendly decoding of output.
 
     Args:
         value (str | bytes | None): The value to decode.
-        strip (bool): If True, `strip()` the returned string. (Default value = False)
+        strip (str | bool | None): If provided, `strip()` the returned string.
 
     Returns:
         str: Decoded value, if applicable.
@@ -183,7 +183,11 @@ def decode(value, strip=False):
         value = value.decode("utf-8")
 
     if strip:
-        value = value.strip()
+        if strip is True:
+            value = value.strip()
+
+        else:
+            value = value.strip(strip)
 
     return value
 
