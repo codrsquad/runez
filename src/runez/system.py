@@ -1371,6 +1371,14 @@ class _R:
 
         return cls._runez
 
+    @staticmethod
+    def _schema_type_name(target):
+        meta = getattr(target, "meta", None)
+        if meta is not None:
+            return meta.name
+
+        return target.__class__.__name__
+
     @classmethod
     def abort_exception(cls, override=None):
         """AbortException can be modified from client"""
@@ -1404,6 +1412,9 @@ class _R:
         """
         if default is UNSET:
             abort(cls.expanded_message(message), exc_info=e)
+
+        if callable(default):
+            default = default()
 
         return default
 

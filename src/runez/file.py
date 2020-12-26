@@ -132,7 +132,7 @@ def ini_to_dict(path, default=UNSET, keep_empty=False):
 
     Args:
         path (str | None): Path to file to parse
-        default (dict | None): Object to return if conf couldn't be read
+        default (dict | callable | None): Object to return if conf couldn't be read
         keep_empty (bool): If True, keep definitions with empty values
 
     Returns:
@@ -212,7 +212,7 @@ def readlines(path, default=UNSET, first=None, errors=None):
     """
     Args:
         path (str | None): Path to file to read lines from
-        default (list | None): Default if file is not present, or it could not be read
+        default (list | callable | None): Default if file is not present, or it could not be read
         first (int | None): Return only the 'first' lines when specified
         errors (str | None): Optional string specifying how encoding errors are to be handled
 

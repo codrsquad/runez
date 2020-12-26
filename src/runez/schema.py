@@ -91,10 +91,6 @@ class Any(object):
         """
         self.default = default
 
-    @property
-    def _schema_type_name(self):
-        return self.__class__.__name__
-
     def __repr__(self):
         if self.default is None:
             return self.representation()
@@ -106,7 +102,7 @@ class Any(object):
         Returns:
             (str): Textual representation for this type constraint
         """
-        return self._schema_type_name
+        return _R._schema_type_name(self)
 
     def problem(self, value):
         """
@@ -154,10 +150,6 @@ class _MetaSerializable(Any):
         """
         self.meta = getattr(meta, "_meta", meta)
         super(_MetaSerializable, self).__init__(default=default)
-
-    @property
-    def _schema_type_name(self):
-        return self.meta.name
 
     def _problem(self, value):
         if not isinstance(value, dict):
@@ -222,7 +214,7 @@ class Dict(Any):
         super(Dict, self).__init__(default=default)
 
     def representation(self):
-        return "%s[%s, %s]" % (self._schema_type_name, self.key, self.value)
+        return "%s[%s, %s]" % (_R._schema_type_name(self), self.key, self.value)
 
     def _problem(self, value):
         if not isinstance(value, dict):
@@ -256,7 +248,7 @@ class Enum(Any):
         super(Enum, self).__init__(default=default)
 
     def representation(self):
-        return "%s[%s]" % (self._schema_type_name, ", ".join(sorted(self.values)))
+        return "%s[%s]" % (_R._schema_type_name(self), ", ".join(sorted(self.values)))
 
     def _problem(self, value):
         if value not in self.values:
@@ -298,7 +290,7 @@ class List(Any):
         super(List, self).__init__(default=default)
 
     def representation(self):
-        return "%s[%s]" % (self._schema_type_name, self.subtype)
+        return "%s[%s]" % (_R._schema_type_name(self), self.subtype)
 
     def _problem(self, value):
         if not isinstance(value, (list, set, tuple)):
@@ -374,7 +366,7 @@ class Struct(Any):
 
     def _problem(self, value):
         if not isinstance(value, dict):
-            return "expecting structure %s, got '%s'" % (self._schema_type_name, value)
+            return "expecting structure %s, got '%s'" % (_R._schema_type_name(self), value)
 
         return self.meta.problem(value)
 

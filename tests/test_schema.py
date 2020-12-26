@@ -185,12 +185,13 @@ def test_serializable(logged):
     assert len(list(SerializableDescendants.children(SpecializedCar))) == 1
 
     assert str(Serializable._meta.behavior) == "lenient"
-    assert not Serializable._meta.by_type
 
     assert str(Car._meta.behavior) == "extras: function 'info', ignored extras: [foo, bar]"
     assert str(SpecializedCar._meta.behavior) == "extras: function 'debug'"  # extras are NOT inherited
-    assert Car._meta.by_type == {"String": ["make", "serial"], "Integer": ["year"]}
-    assert SpecializedCar._meta.by_type == {"Integer": ["year"], "List": ["hats"], "String": ["make", "serial"]}
+    assert Car._meta.attributes_by_type(String) == ["make", "serial"]
+    assert Car._meta.attributes_by_type(Integer) == ["year"]
+    assert SpecializedCar._meta.attributes_by_type(Integer) == ["year"]
+    assert SpecializedCar._meta.attributes_by_type(List) == ["hats"]
 
     assert str(Person._meta) == "Person (5 attributes, 0 properties)"
     assert str(Person._meta.behavior) == "strict: function 'error', extras: function 'debug', hook: function 'info'"
@@ -198,8 +199,10 @@ def test_serializable(logged):
     assert str(GPerson._meta.behavior) == "strict: function 'error', extras: function 'debug', hook: function 'info'"
 
     # Verify that most specific type wins (GPerson -> age)
-    assert Person._meta.by_type == {"Car": ["car"], "Hat": ["hat"], "Date": ["age"], "Integer": ["fingerprint"], "String": ["name"]}
-    assert GPerson._meta.by_type == {"Car": ["car"], "Hat": ["hat"], "Integer": ["age", "fingerprint", "group"], "String": ["name"]}
+    assert Person._meta.attributes_by_type(Integer) == ["fingerprint"]
+    assert Person._meta.attributes_by_type(Date) == ["age"]
+    assert GPerson._meta.attributes_by_type(Integer) == ["age", "fingerprint", "group"]
+    assert GPerson._meta.attributes_by_type(Date) is None
 
     car = Car.from_dict({"foo": 1, "baz": 2, "serial": "bar"})
     assert car.serial == "bar"

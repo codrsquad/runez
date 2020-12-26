@@ -179,7 +179,8 @@ def test_meta(logged):
     custom = ClassMetaDescription(SomeRecord)
     assert len(custom.attributes) == 2
     assert len(custom.properties) == 0
-    assert custom.by_type == {"String": ["name"], "Integer": ["some_int"]}
+    assert custom.attributes_by_type(String) == ["name"]
+    assert custom.attributes_by_type(Integer) == ["some_int"]
     assert custom.attributes["name"].default == "my record"
     assert custom.attributes["some_int"].default == 5
     assert str(custom.behavior) == "extras: function 'debug'"
@@ -314,7 +315,9 @@ def test_serialization(logged):
     assert "Extra content given for SomeSerializable: bar, foo" in logged.pop()
 
     obj2 = SomeSerializable.from_json("", default={"sub": {"identifier": "some-id"}})
+    obj3 = SomeSerializable.from_json("", default=lambda: {"sub": {"identifier": "some-id"}})
     assert obj == obj2
+    assert obj == obj3
     assert not logged
 
     obj.some_int = 5

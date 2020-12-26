@@ -371,9 +371,9 @@ class ClassMetaDescription(object):
                         schema_type = schema_type.subtype
 
                     self.attributes[key] = schema_type
-                    by_type[schema_type._schema_type_name].append(key)
+                    by_type[schema_type.__class__].append(key)
 
-        self.by_type = dict((k, sorted(v)) for k, v in by_type.items())  # Sorted to make testing py2/py3 deterministic
+        self._by_type = dict((k, sorted(v)) for k, v in by_type.items())  # Sorted to make things deterministic
         if self.attributes:
             SerializableDescendants.register(self)
 
@@ -382,6 +382,16 @@ class ClassMetaDescription(object):
 
     def __repr__(self):
         return "%s (%s attributes, %s properties)" % (type_name(self.cls), len(self.attributes), len(self.properties))
+
+    def attributes_by_type(self, schema_type):
+        """
+        Args:
+            schema_type (Any): Schema type
+
+        Returns:
+            (list[str] | None): Attributes with `schema_type`, if any
+        """
+        return self._by_type.get(schema_type)
 
     def from_dict(self, data, source=None):
         """
@@ -556,7 +566,7 @@ class Serializable(object):
         """
         Args:
             path (str): Path to json file
-            default (dict | None): Default if file is not present, or if it's not json
+            default (dict | callable | None): Default if file is not present, or if it's not json
 
         Returns:
             (cls): Deserialized object
@@ -621,7 +631,7 @@ def read_json(path, default=UNSET):
     """
     Args:
         path (str | None): Path to file to deserialize
-        default (dict | list | str | None): Default if file is not present, or if it's not json
+        default (dict | list | str | callable | None): Default if file is not present, or if it's not json
 
     Returns:
         (dict | list | str): Deserialized data from file
