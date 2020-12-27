@@ -142,8 +142,16 @@ def test_executable(temp_folder):
         assert "does not exist, can't make it executable" in logged.pop()
 
 
+def check_process_tree(pinfo, max_depth=10):
+    """Verify that process info .parent does not recurse infinitely"""
+    if pinfo:
+        assert max_depth > 0
+        check_process_tree(pinfo.parent, max_depth=max_depth - 1)
+
+
 def test_ps():
     p = runez.ps_info(os.getpid())
+    check_process_tree(p)
     info = p.info
 
     assert info["PID"] in str(p)
@@ -151,6 +159,9 @@ def test_ps():
     assert p.cmd_basename
     assert p.ppid == os.getppid()
     assert p.userid != p.uid
+
+    parent = p.parent
+    assert parent.pid == p.ppid
 
     # Test edge cases on `cmd_basename` extraction
     p.cmd = "/dev/null/foo bar baz"

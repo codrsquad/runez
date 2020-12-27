@@ -72,15 +72,15 @@ def test_pretty_table():
     t.add_rows("a b c".split(), "d e foo".split())
 
     t.header = 3  # Interpreted as 3 columns (but no header text)
-    assert t.get_string() == "abc  \ndefoo"
+    assert t.get_string() == "abc\ndefoo"
 
     t.header = [1, 2, 3]  # Numbers will be stringified
     assert isinstance(t.header, PrettyHeader)
     t.align = "left"
-    assert t.get_string() == "123  \nabc  \ndefoo"
+    assert t.get_string() == "123\nabc\ndefoo"
 
     t.align = "center"
-    assert t.get_string() == "12 3 \nab c \ndefoo"
+    assert t.get_string() == "12 3\nab c\ndefoo"
 
     t.align = "right"
     assert t.get_string() == "12  3\nab  c\ndefoo"
@@ -92,7 +92,7 @@ def test_pretty_table():
     t.border = "empty"
     t.header.add_columns("x", "y")
     s = t.get_string()
-    assert s == " 1  2    3  x  y \n a  b    c  -  - \n d  e  foo  -  - "
+    assert s == " 1  2    3  x  y\n a  b    c  -  -\n d  e  foo  -  -"
 
     t.missing = "*"
     t.style = "bold"
@@ -105,7 +105,7 @@ def test_pretty_table():
     assert t.header["y"].shown is False
 
     s = t.get_string()
-    assert s == " 2    3 \n b    c \n e  foo "
+    assert s == " 2    3\n b    c\n e  foo"
 
     assert t.header[0].shown is False
     with pytest.raises(KeyError):

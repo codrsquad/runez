@@ -57,6 +57,15 @@ class PsInfo(object):
         return "%s %s %s" % (self.pid, self.info.get("PPID"), self.info.get("CMD"))
 
     @cached_property
+    def parent(self):
+        """
+        Returns:
+            (PsInfo | None): Parent process info (if any)
+        """
+        if self.ppid:
+            return PsInfo(self.ppid)
+
+    @cached_property
     def cmd(self):
         """str: Reported CMD"""
         if self.info is not None:

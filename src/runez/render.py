@@ -370,7 +370,8 @@ def render_line(container, columns, padding, pad, chars, cells=None):
         result.append(chars.last)
 
     if result:
-        container.append("".join(result))
+        line = "".join(result)
+        container.append(line.rstrip())
 
 
 class _PTBorderChars(Slotted):
