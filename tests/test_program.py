@@ -191,25 +191,6 @@ def test_ps():
     assert str(p)
 
 
-def test_terminal_width():
-    with patch.dict(os.environ, {"COLUMNS": "foo"}, clear=True):
-        with patch("runez.program._tw_shutil", return_value=None):
-            assert runez.terminal_width() == 80
-            assert runez.terminal_width(default=None) is None
-            assert runez.terminal_width(default="") is None
-            assert runez.terminal_width(default=42) == 42
-
-        with patch("runez.program._tw_shutil", return_value=10):
-            assert runez.terminal_width() == 10
-            assert runez.terminal_width(default=42) == 10
-            assert runez.terminal_width(default="") == 10
-
-    with patch.dict(os.environ, {"COLUMNS": "25"}, clear=True):
-        assert runez.terminal_width() == 25
-        assert runez.terminal_width(default=42) == 25
-        assert runez.terminal_width(default="foo") == 25
-
-
 def test_which():
     assert runez.which(None) is None
     assert runez.which("/dev/null") is None

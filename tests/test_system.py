@@ -10,6 +10,7 @@ from mock import patch
 
 import runez
 from runez.conftest import verify_abort
+from runez.system import TerminalInfo
 
 
 VERSION = "1.2.3.dev4"
@@ -419,9 +420,6 @@ def test_quoted():
 
 
 def test_shortening():
-    with pytest.raises(TypeError):  # TODO: remove once py2 support is dropped
-        runez.short("", foo=1)
-
     assert runez.short(None) == "None"
     assert runez.short("") == ""
     assert runez.short(5) == "5"
@@ -441,7 +439,7 @@ def test_shortening():
     assert runez.short(" some  text ", size=7) == "some..."
     assert runez.short(" some  text ", size=0) == "some text"
 
-    with patch("runez.system._R.terminal_width", return_value=12):  # Simulate short terminal width
+    with patch("runez.system._R.terminal_info", return_value=TerminalInfo(12, 34)):
         assert runez.short(" some  text ", size=-5) == "some..."
 
     with runez.TempFolder() as tmp:
@@ -522,3 +520,23 @@ def test_temp_folder():
         assert not logged
 
     assert os.getcwd() == cwd
+
+
+def test_terminal_width():
+    if hasattr(os, "terminal_size"):
+        t = TerminalInfo()
+        t.shutil_terminal_size = os.terminal_size((10, 20))
+        assert t.columns == 10
+        assert t.lines == 20
+
+    with patch.dict(os.environ, {"COLUMNS": "foo", "LINES": "bar"}, clear=True):
+        t = TerminalInfo(default_columns=20, default_lines=30)
+        t.shutil_terminal_size = None
+        assert t.columns == 20
+        assert t.lines == 30
+
+    with patch.dict(os.environ, {"COLUMNS": "12", "LINES": "34"}, clear=True):
+        t = TerminalInfo()
+        t.shutil_terminal_size = None
+        assert t.columns == 12
+        assert t.lines == 34

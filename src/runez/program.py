@@ -351,23 +351,6 @@ class RunResult(object):
         return self.exit_code == 0
 
 
-def terminal_width(default=80):
-    """Get the width (number of columns) of the terminal window.
-
-    Args:
-        default: Default to use if terminal width could not be determined
-
-    Returns:
-        (int): Determined terminal width, if possible
-    """
-    for func in (_tw_shutil, _tw_env):
-        columns = func()
-        if columns is not None:
-            return columns
-
-    return to_int(default)
-
-
 def which(program, ignore_own_venv=False):
     """
     Args:
@@ -472,18 +455,6 @@ def _install_instructions(instructions_dict, platform):
         text = "\n- ".join("on %s: %s" % (k, v) for k, v in instructions_dict.items())
 
     return text
-
-
-def _tw_shutil():
-    try:
-        return shutil.get_terminal_size(fallback=(None, None)).columns
-
-    except Exception:
-        return None
-
-
-def _tw_env():
-    return to_int(os.environ.get("COLUMNS"))
 
 
 def _windows_exe(path):  # pragma: no cover

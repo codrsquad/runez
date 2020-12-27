@@ -7,6 +7,8 @@ History
 
 * Moved to https://github.com/codrsquad/runez
 
+* Better signature for ``terminal_width()``
+
 * Added ``@cached_property``, ``@chill_property``, ``is_basetype()``, ``is_iterable()``, ``joined()``, ``parsed_tabular()``, ``ps_info()``
 
 * Added ``runez.click.prettify_epilogs()``

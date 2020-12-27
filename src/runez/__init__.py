@@ -14,11 +14,11 @@ from runez.date import date_from_epoch, datetime_from_epoch, elapsed, local_time
     timezone, timezone_from_text, to_date, to_datetime, to_epoch, to_epoch_ms, to_seconds, UTC
 from runez.file import basename, copy, delete, ensure_folder, move, parent_folder, readlines, symlink, TempFolder, touch, write
 from runez.logsetup import LogManager as log
-from runez.program import check_pid, is_executable, make_executable, ps_info, run, terminal_width, which
+from runez.program import check_pid, is_executable, make_executable, ps_info, run, which
 from runez.serialize import read_json, represented_json, save_json, Serializable
 from runez.system import abort, AdaptedProperty, cached_property, chill_property, PY2, Undefined, UNSET, WINDOWS
 from runez.system import Anchored, CaptureOutput, CurrentFolder, Slotted, TempArgv, TrackedOutput
-from runez.system import decode, expanded, flattened, joined, quoted, resolved_path, short, stringified
+from runez.system import decode, expanded, flattened, joined, quoted, resolved_path, short, stringified, terminal_width
 from runez.system import FallbackChain, first_line, get_version, is_basetype, is_iterable, is_tty, python_version
 
 __all__ = [
@@ -35,11 +35,11 @@ __all__ = [
     "timezone", "timezone_from_text", "to_date", "to_datetime", "to_epoch", "to_epoch_ms", "to_seconds", "UTC",
     "basename", "copy", "delete", "ensure_folder", "move", "parent_folder", "readlines", "symlink", "TempFolder", "touch", "write",
     "log",
-    "check_pid", "is_executable", "make_executable", "ps_info", "run", "terminal_width", "which",
+    "check_pid", "is_executable", "make_executable", "ps_info", "run", "which",
     "read_json", "represented_json", "save_json", "Serializable",
     "abort", "AdaptedProperty", "cached_property", "chill_property", "PY2", "Undefined", "UNSET", "WINDOWS",
     "Anchored", "CaptureOutput", "CurrentFolder", "Slotted", "TempArgv", "TrackedOutput",
-    "decode", "expanded", "flattened", "joined", "quoted", "resolved_path", "short", "stringified",
+    "decode", "expanded", "flattened", "joined", "quoted", "resolved_path", "short", "stringified", "terminal_width",
     "FallbackChain", "first_line", "get_version", "is_basetype", "is_iterable", "is_tty", "python_version",
 ]
 

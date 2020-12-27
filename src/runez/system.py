@@ -519,10 +519,10 @@ def short(value, size=UNSET, none="None"):
     text = RE_SPACES.sub(" ", text)
     text = Anchored.short(text)
     if size is UNSET:
-        size = _R.terminal_width()
+        size = terminal_width()
 
     elif isinstance(size, int) and size < 0:
-        size += _R.terminal_width()
+        size += terminal_width()
 
     if isinstance(size, int) and len(text) > size > 0:
         return "%s..." % text[:size - 3]
@@ -562,6 +562,19 @@ def stringified(value, converter=None, none="None"):
             return ""  # Represent `None` as empty string if `none` is False-ish
 
     return "{}".format(value)
+
+
+def terminal_width(padding=0, minimum=0):
+    """Get the width (number of columns) of the terminal window.
+
+    Args:
+        padding (int): Optional padding to add
+        minimum (int): Minimum value to return
+
+    Returns:
+        (int): Determined terminal width
+    """
+    return max(_R.terminal_info().columns - padding, minimum)
 
 
 class AbortException(Exception):
@@ -1223,6 +1236,50 @@ class TempArgv(object):
         sys.argv = self.old_argv
 
 
+class TerminalInfo(object):
+    """Info about current terminal"""
+
+    def __init__(self, default_columns=160, default_lines=25):
+        self._default_columns = default_columns
+        self._default_lines = default_lines
+
+    @chill_property
+    def columns(self):
+        if self.shutil_terminal_size:
+            yield self.shutil_terminal_size.columns or None
+
+        try:
+            yield int(os.environ.get("COLUMNS")) or None
+
+        except (TypeError, ValueError):
+            pass
+
+        yield self._default_columns
+
+    @chill_property
+    def lines(self):
+        if self.shutil_terminal_size:
+            yield self.shutil_terminal_size.lines or None
+
+        try:
+            yield int(os.environ.get("LINES")) or None
+
+        except (TypeError, ValueError):
+            pass
+
+        yield self._default_lines
+
+    @cached_property
+    def shutil_terminal_size(self):
+        try:
+            import shutil
+
+            return shutil.get_terminal_size(fallback=(0, 0))
+
+        except Exception:
+            return None
+
+
 class ThreadGlobalContext(object):
     """Thread-local + global context, composed of key/value pairs.
 
@@ -1359,7 +1416,7 @@ class _R:
 
     _runez = None
     _schema = None
-    _terminal_width = -180
+    _terminal_info = None
 
     @classmethod
     def _runez_module(cls):
@@ -1514,11 +1571,11 @@ class _R:
         return old_dryrun
 
     @classmethod
-    def terminal_width(cls):
-        if cls._terminal_width < 0:
-            cls._terminal_width = cls._runez_module().terminal_width(default=-cls._terminal_width)
+    def terminal_info(cls):
+        if cls._terminal_info is None:
+            cls._terminal_info = TerminalInfo()
 
-        return cls._terminal_width
+        return cls._terminal_info
 
 
 def _find_value(key, *args):
