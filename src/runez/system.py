@@ -393,14 +393,6 @@ def is_iterable(value):
     return isinstance(value, (list, tuple, set)) or inspect.isgenerator(value)
 
 
-def is_tty():
-    """
-    Returns:
-        (bool): True if current stdout is a tty
-    """
-    return (sys.stdout.isatty() or "PYCHARM_HOSTED" in os.environ) and not _R.current_test()
-
-
 def python_version(components=2):
     """
     Returns:
@@ -518,11 +510,8 @@ def short(value, size=UNSET, none="None"):
     text = stringified(value, converter=_prettified, none=none).strip()
     text = RE_SPACES.sub(" ", text)
     text = Anchored.short(text)
-    if size is UNSET:
-        size = terminal_width()
-
-    elif isinstance(size, int) and size < 0:
-        size += terminal_width()
+    if size is UNSET or isinstance(size, int) and size < 0:
+        size = TERMINAL_INFO.columns
 
     if isinstance(size, int) and len(text) > size > 0:
         return "%s..." % text[:size - 3]
@@ -562,19 +551,6 @@ def stringified(value, converter=None, none="None"):
             return ""  # Represent `None` as empty string if `none` is False-ish
 
     return "{}".format(value)
-
-
-def terminal_width(padding=0, minimum=0):
-    """Get the width (number of columns) of the terminal window.
-
-    Args:
-        padding (int): Optional padding to add
-        minimum (int): Minimum value to return
-
-    Returns:
-        (int): Determined terminal width
-    """
-    return max(_R.terminal_info().columns - padding, minimum)
 
 
 class AbortException(Exception):
@@ -1243,6 +1219,33 @@ class TerminalInfo(object):
         self._default_columns = default_columns
         self._default_lines = default_lines
 
+    @staticmethod
+    def isatty(channel):
+        """True if we have a tty (or known equivalent), and are not running a test"""
+        if channel.isatty() or "PYCHARM_HOSTED" in os.environ:
+            return not _R.current_test()
+
+    @cached_property
+    def is_stdout_tty(self):
+        """(bool): Is sys.stdout a tty?"""
+        return self.isatty(sys.stdout)
+
+    @cached_property
+    def is_stderr_tty(self):
+        """(bool): Is sys.stdout a tty?"""
+        return self.isatty(sys.stderr)
+
+    def padded_columns(self, padding=0, minimum=0):
+        """
+        Args:
+            padding (int): Optional padding to add
+            minimum (int): Minimum number of columns
+
+        Returns:
+            (int): Determined terminal width
+        """
+        return max(self.columns - padding, minimum)
+
     @chill_property
     def columns(self):
         if self.shutil_terminal_size:
@@ -1278,6 +1281,9 @@ class TerminalInfo(object):
 
         except Exception:
             return None
+
+
+TERMINAL_INFO = TerminalInfo()
 
 
 class ThreadGlobalContext(object):
@@ -1416,7 +1422,6 @@ class _R:
 
     _runez = None
     _schema = None
-    _terminal_info = None
 
     @classmethod
     def _runez_module(cls):
@@ -1569,13 +1574,6 @@ class _R:
             r.DRYRUN = bool(dryrun)
 
         return old_dryrun
-
-    @classmethod
-    def terminal_info(cls):
-        if cls._terminal_info is None:
-            cls._terminal_info = TerminalInfo()
-
-        return cls._terminal_info
 
 
 def _find_value(key, *args):

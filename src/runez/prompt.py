@@ -1,5 +1,5 @@
 from runez.serialize import read_json, save_json
-from runez.system import _R, is_tty, resolved_path, stringified, UNSET
+from runez.system import _R, resolved_path, stringified, TERMINAL_INFO, UNSET
 
 
 def ask_once(name, instructions, serializer=stringified, default=UNSET, base="~/.config"):
@@ -22,7 +22,7 @@ def ask_once(name, instructions, serializer=stringified, default=UNSET, base="~/
     if existing is not None:
         return existing
 
-    if not is_tty():
+    if not TERMINAL_INFO.is_stdout_tty:
         return _R.hdef(default, "Can't prompt for %s, not on a tty" % name)
 
     try:

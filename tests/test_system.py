@@ -439,9 +439,6 @@ def test_shortening():
     assert runez.short(" some  text ", size=7) == "some..."
     assert runez.short(" some  text ", size=0) == "some text"
 
-    with patch("runez.system._R.terminal_info", return_value=TerminalInfo(12, 34)):
-        assert runez.short(" some  text ", size=-5) == "some..."
-
     with runez.TempFolder() as tmp:
         assert runez.short(os.path.join(tmp, "some-file")) == "some-file"
 
@@ -479,8 +476,6 @@ def test_stringified():
 def test_system():
     # Ensure we stop once callstack is exhausted
     assert runez.system.find_caller_frame(lambda f: None, maximum=None) is None
-
-    assert not runez.is_tty()  # False when testing
 
     assert runez.python_version()
 
@@ -522,21 +517,26 @@ def test_temp_folder():
     assert os.getcwd() == cwd
 
 
-def test_terminal_width():
+def test_terminal():
     if hasattr(os, "terminal_size"):
         t = TerminalInfo()
+        assert not t.is_stdout_tty  # False when testing
+        assert not t.is_stderr_tty
         t.shutil_terminal_size = os.terminal_size((10, 20))
         assert t.columns == 10
         assert t.lines == 20
+        assert t.padded_columns() == 10
+        assert t.padded_columns(padding=6) == 4
+        assert t.padded_columns(padding=6, minimum=7) == 7
 
-    with patch.dict(os.environ, {"COLUMNS": "foo", "LINES": "bar"}, clear=True):
+    with patch.dict(os.environ, {"COLUMNS": "foo", "LINES": "bar", "PYCHARM_HOSTED": "true"}, clear=True):
         t = TerminalInfo(default_columns=20, default_lines=30)
+        assert not t.is_stdout_tty  # Still false when testing
         t.shutil_terminal_size = None
         assert t.columns == 20
         assert t.lines == 30
 
-    with patch.dict(os.environ, {"COLUMNS": "12", "LINES": "34"}, clear=True):
-        t = TerminalInfo()
-        t.shutil_terminal_size = None
-        assert t.columns == 12
-        assert t.lines == 34
+    with patch.dict(os.environ, {"PYCHARM_HOSTED": "true"}, clear=True):
+        with patch("runez.colors._R.current_test", return_value=None):  # simulate not running in test
+            t = TerminalInfo()
+            assert t.is_stdout_tty  # Now True

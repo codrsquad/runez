@@ -26,10 +26,10 @@ def test_no_tty():
         interactive_prompt("test")
 
 
-@patch("runez.prompt.is_tty", return_value=True)
 @patch("runez.prompt.interactive_prompt", side_effect=str)
 def test_with_tty(*_):
     expected = {"value": "foo"}
+    runez.TERMINAL_INFO.is_stdout_tty = True
     with runez.TempFolder() as tmp:
         assert ask_once("test", "foo", serializer=custom_serializer, base=tmp) == expected
 
@@ -52,3 +52,5 @@ def test_with_tty(*_):
         with patch("runez.prompt.interactive_prompt", side_effect=KeyboardInterrupt):
             response = verify_abort(ask_once, "test2", "test2", serializer=custom_serializer, base=tmp)
             assert "Cancelled by user" in response
+
+    runez.TERMINAL_INFO.is_stdout_tty = False

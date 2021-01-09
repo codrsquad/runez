@@ -8,7 +8,7 @@ Example usage:
 
 import re
 
-from runez.system import _R, is_tty, short, Slotted, stringified
+from runez.system import _R, short, Slotted, stringified, TERMINAL_INFO
 
 
 RE_ANSI_ESCAPE = re.compile("\x1b\\[[;\\d]*[A-Za-z]")
@@ -102,7 +102,7 @@ class ColorManager(object):
             flavor (str | None): Flavor to use (neutral, light or dark)
         """
         if enable is None:
-            enable = is_tty()
+            enable = TERMINAL_INFO.is_stdout_tty
 
         prev = cls.backend, cls.bg, cls.fg, cls.style
         cls.backend = _detect_backend(enable, flavor=flavor)

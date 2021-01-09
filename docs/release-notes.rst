@@ -2,6 +2,12 @@
 History
 =======
 
+2.3.4 (2021-01-09)
+------------------
+
+* Renamed ``terminal_info()`` -> ``TERMINAL_INFO``, moved ``is_tty()`` to it
+
+
 2.3.3 (2020-12-27)
 ------------------
 

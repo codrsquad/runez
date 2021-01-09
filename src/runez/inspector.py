@@ -117,7 +117,7 @@ def run_cmds(prog=None):
             name = name[4:].replace("_", "-")
             available_commands[name] = func
 
-    if prog is None and f_globals.get("__name__") == "__main__":
+    if not prog and f_globals.get("__name__") == "__main__":
         package = f_globals.get("__package__")
         if package:
             prog = "python -m%s" % package
