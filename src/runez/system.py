@@ -786,7 +786,7 @@ class CaptureOutput(object):
 
         return self.tracked
 
-    def __exit__(self, *args):
+    def __exit__(self, *_):
         _R.set_dryrun(self.dryrun)
         if self.tracked.captured:
             self._capture_stack.pop()

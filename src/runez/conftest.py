@@ -153,7 +153,7 @@ class IsolatedLogSetup(object):
         self.adjust_tmp = adjust_tmp
         self.temp_folder = None
 
-    def __enter__(self, tmp=False):
+    def __enter__(self):
         WrappedHandler.isolation += 1
         self.color_context = ActivateColors(enable=False, flavor="neutral")
         self.color_context.__enter__()
@@ -161,6 +161,7 @@ class IsolatedLogSetup(object):
         self.old_spec = LogManager.spec
         self.old_handlers = logging.root.handlers
         logging.root.handlers = []
+        LogManager.reset()
         if self.adjust_tmp:
             self.temp_folder = TempFolder()
             LogManager.spec.tmp = self.temp_folder.__enter__()
@@ -170,11 +171,10 @@ class IsolatedLogSetup(object):
     def __exit__(self, *_):
         self.color_context.__exit__()
         runez.config.CONFIG = self.prev_config
-        LogManager.reset()
+        LogManager.spec = self.old_spec
         logging.root.handlers = self.old_handlers
         WrappedHandler.isolation -= 1
         if self.temp_folder:
-            LogManager.spec.tmp = self.old_spec
             self.temp_folder.__exit__()
 
 
