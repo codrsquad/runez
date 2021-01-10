@@ -215,7 +215,6 @@ class _ConfigOption(object):
         self.propsfs = attrs.pop("propsfs", None)
         self.split = attrs.pop("split", None)
         self.set_global = not attrs.get("expose_value")
-        self.tracer = attrs.pop("tracer", None)
 
     def _get_values(self, value):
         value = flattened(value, split=self.split)
@@ -232,7 +231,7 @@ class _ConfigOption(object):
         return values
 
     def __call__(self, ctx, param, value):
-        c = runez.config.Configuration(tracer=self.tracer)
+        c = runez.config.Configuration()
         self._add_dict(c, self.name, self._get_values(value))
 
         if self.env:

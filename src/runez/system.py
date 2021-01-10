@@ -28,7 +28,6 @@ except NameError:
 LOG = logging.getLogger("runez")
 SYMBOLIC_TMP = "<tmp>"
 WINDOWS = sys.platform.startswith("win")
-RE_FORMAT_MARKERS = re.compile(r"{([^}]*?)}")
 RE_SPACES = re.compile(r"[\s\n]+", re.MULTILINE)
 
 
@@ -190,59 +189,6 @@ def decode(value, strip=None):
             value = value.strip(strip)
 
     return value
-
-
-def expanded(text, *args, **kwargs):
-    """Generically expanded 'text': '{...}' placeholders are resolved from given objects / keyword arguments
-
-    >>> expanded("{foo}", foo="bar")
-    'bar'
-    >>> expanded("{foo} {age}", {"age": 5}, foo="bar")
-    'bar 5'
-
-    Args:
-        text (str): Text to format
-        *args: Objects to extract values from (as attributes)
-        **kwargs: Optional values provided as named args
-
-    Returns:
-        (str): '{...}' placeholders expanded from given `args` object's properties/fields, or as `kwargs`
-    """
-    if not text:
-        return text
-
-    if text.startswith("~"):
-        text = os.path.expanduser(text)
-
-    if "{" not in text:
-        return text
-
-    strict = kwargs.pop("strict", True)
-    max_depth = kwargs.pop("max_depth", 3)
-    objects = list(args) + [kwargs] if kwargs else args[0] if len(args) == 1 else args
-    if not objects:
-        return text
-
-    definitions = {}
-    markers = RE_FORMAT_MARKERS.findall(text)
-    while markers:
-        key = markers.pop()
-        if key in definitions:
-            continue
-
-        val = _find_value(key, objects)
-        if strict and val is None:
-            return None
-
-        val = stringified(val) if val is not None else "{%s}" % key
-        markers.extend(m for m in RE_FORMAT_MARKERS.findall(val) if m not in definitions)
-        definitions[key] = val
-
-    if not max_depth or not isinstance(max_depth, int) or max_depth <= 0:
-        return text
-
-    result = dict((k, _rformat(k, v, definitions, max_depth)) for k, v in definitions.items())
-    return text.format(**result)
 
 
 def find_caller_frame(validator=None, depth=2, maximum=1000):
@@ -1576,14 +1522,6 @@ class _R:
         return old_dryrun
 
 
-def _find_value(key, *args):
-    """Find a value for 'key' in any of the objects given as 'args'"""
-    for arg in args:
-        v = _get_value(arg, key)
-        if v is not None:
-            return v
-
-
 def _flatten(result, value, keep_empty, split, shellify, unique):
     """
     keep_empty: string: replace None, None: filter out all False-ish, False: filter out `None` only, True (default): no filtering
@@ -1624,23 +1562,6 @@ def _flatten(result, value, keep_empty, split, shellify, unique):
         result.append(value)
 
 
-def _get_value(obj, key):
-    """Get a value for 'key' from 'obj', if possible"""
-    if obj is not None:
-        if isinstance(obj, (list, tuple)):
-            for item in obj:
-                v = _find_value(key, item)
-                if v is not None:
-                    return v
-
-            return None
-
-        if hasattr(obj, "get"):
-            return obj.get(key)
-
-        return getattr(obj, key, None)
-
-
 def _is_actual_caller_frame(f):
     """Return `f` if it's a frame that looks like coming from actual caller (not runez itself, or an internal library package)"""
     name = f.f_globals.get("__name__")
@@ -1677,14 +1598,6 @@ def _prettified(value):
 def _raise(exception, code):
     if isinstance(exception, type) and issubclass(exception, BaseException):
         raise exception(code)
-
-
-def _rformat(key, value, definitions, max_depth):
-    if max_depth > 1 and value and "{" in value:
-        value = value.format(**definitions)
-        return _rformat(key, value, definitions, max_depth=max_depth - 1)
-
-    return value
 
 
 def _show_abort_message(message, exc_info, fatal, logger):

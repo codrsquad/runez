@@ -62,9 +62,11 @@ def test_missing():
     assert runez.config.get_json("foo", default='["a"]') == ["a"]
 
 
-def test_samples():
+def test_samples(isolated_log_setup):
+    runez.log.setup()
+    runez.log.enable_trace(True)
     with runez.CaptureOutput() as output:
-        config = runez.config.Configuration(tracer=print)
+        config = runez.config.Configuration()
         config.add(runez.config.PropsfsProvider(SAMPLES))
         assert str(config) == "propsfs"
         assert "Adding config provider propsfs" in output.pop()

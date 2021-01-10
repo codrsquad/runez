@@ -7,10 +7,75 @@ import pytest
 
 import runez
 from runez.conftest import TMP, WrappedHandler
-from runez.logsetup import _find_parent_folder, LogSpec
+from runez.logsetup import _find_parent_folder, expanded, formatted, LogSpec
 
 
 LOG = logging.getLogger(__name__)
+
+
+def test_expanded():
+    class Record(object):
+        basename = "my-name"
+        filename = "{basename}.txt"
+
+    # Unsupported formats
+    with pytest.raises(IndexError):
+        expanded("{}", "foo", a="b")
+
+    with pytest.raises(IndexError):
+        expanded("{0}", "foo", a="b")
+
+    assert expanded("{filename}", Record, "foo") == "my-name.txt"
+    assert expanded("{filename}", [Record]) == "my-name.txt"  # Value found even in nested list
+    assert expanded("{filename}", filename="foo.yml") == "foo.yml"
+    assert expanded("{filename}", "unused positional", filename="bar.yml", unused="x") == "bar.yml"
+    assert expanded("{basename}/~/{filename}", Record) == "my-name/~/my-name.txt"
+    assert expanded("~/{basename}/{filename}", Record) == os.path.expanduser("~/my-name/my-name.txt")
+
+    assert expanded("") == ""
+    assert expanded("", Record) == ""
+    assert expanded("{not_there} {0}", "foo", strict=True) is None  # In strict mode, all named refs must be defined
+    assert expanded("{not_there}", Record, name="susan", strict=True) is None
+    assert expanded("{not_there}", Record, not_there="psyched!") == "psyched!"
+    assert expanded("{not_there}", Record) == "{not_there}"
+
+    deep = dict(a="a", b="b", aa="{a}", bb="{b}", ab="{aa}{bb}", ba="{bb}{aa}", abba="{ab}{ba}", deep="{abba}")
+    assert expanded("{deep}", deep, max_depth=-1) == "{deep}"
+    assert expanded("{deep}", deep, max_depth=0) == "{deep}"
+    assert expanded("{deep}", deep, max_depth=1) == "{abba}"
+    assert expanded("{deep}", deep, max_depth=2) == "{ab}{ba}"
+    assert expanded("{deep}", deep, max_depth=3) == "{aa}{bb}{bb}{aa}"
+    assert expanded("{deep}", deep, max_depth=4) == "{a}{b}{b}{a}"
+    assert expanded("{deep}", deep, max_depth=5) == "abba"
+    assert expanded("{deep}", deep, max_depth=6) == "abba"
+
+    recursive = dict(a="a{b}", b="b{c}", c="c{a}")
+    assert expanded("{a}", recursive) == "abc{a}"
+    assert expanded("{a}", recursive, max_depth=10) == "abcabcabca{b}"
+
+    cycle = dict(a="{b}", b="{a}")
+    assert expanded("{a}", cycle, max_depth=0) == "{a}"
+    assert expanded("{a}", cycle, max_depth=1) == "{b}"
+    assert expanded("{a}", cycle, max_depth=2) == "{a}"
+    assert expanded("{a}", cycle, max_depth=3) == "{b}"
+
+    assert expanded("{filename}") == "{filename}"
+
+
+def test_formatted():
+    assert formatted("foo") == "foo"
+    assert formatted("foo", "bar") == "foo"  # Ignoring extra positionals
+
+    assert formatted("foo %s", "bar") == "foo bar"
+    assert formatted("foo {0}", "bar") == "foo bar"
+    assert formatted("foo %s {0}", "bar") == "foo bar {0}"  # '%s' format used first
+
+    assert formatted("foo %s {a}", "bar", a="val_a") == "foo %s val_a"  # '%s' does not apply when there are kwargs
+
+    # Bogus formats
+    assert formatted("foo %s %s {0}", "bar") == "foo %s %s bar"  # bogus '%s' format
+    assert formatted("foo %s %s {0} {1}", "bar") == "foo %s %s {0} {1}"  # bogus '%s' and {positional} format
+    assert formatted("{a} {b}", a="val_a") == "{a} {b}"  # Incomplete
 
 
 def test_find_parent_folder():
@@ -90,7 +155,7 @@ def test_logspec(isolated_log_setup, monkeypatch):
     assert s1 == s2
 
 
-def test_setup(temp_log):
+def test_setup(temp_log, monkeypatch):
     fmt = "%(asctime)s %(context)s%(levelname)s - %(message)s"
     assert runez.log.is_using_format("", fmt) is False
     assert runez.log.is_using_format("%(lineno)", fmt) is False
@@ -114,40 +179,57 @@ def test_setup(temp_log):
 
         # No auto-debug on dryrun
         runez.log.setup(dryrun=True, level=logging.INFO)
+        runez.log.enable_trace(None)
         assert not runez.log.debug
         assert runez.DRYRUN
         logging.info("info")
         logging.debug("hello")
+        runez.log.trace("some trace info")
         assert not temp_log.stdout
         assert "hello" not in temp_log
+        assert "some trace info" not in temp_log  # Tracing not enabled
         assert "info" in temp_log.stderr.pop()
 
         # Second call without any customization is a no-op
         runez.log.setup()
+        runez.log.enable_trace(False)
         assert not runez.log.debug
         assert runez.DRYRUN
         logging.debug("hello")
+        runez.log.trace("some trace info")
+        assert "some trace info" not in temp_log  # Tracing not enabled
         assert not temp_log
 
         # Change stream
         runez.log.setup(console_stream=sys.stdout)
+        runez.log.enable_trace("SOME_ENV_VAR")
         logging.info("hello")
+        runez.log.trace("some trace info")
         assert not temp_log.stderr
+        assert "some trace info" not in temp_log  # Not tracing because env var not set
         assert "INFO hello" in temp_log.stdout.pop()
 
         # Change logging level
         runez.log.setup(console_level=logging.WARNING)
+        runez.log.enable_trace(True)
         logging.info("hello")
         assert not temp_log
         logging.warning("hello")
+        runez.log.trace("some trace %s", "info")
+        assert ":: some trace info" in temp_log  # Tracing forcibly enabled
         assert "WARNING hello" in temp_log.stdout.pop()
         assert not temp_log.stderr
 
-        # Change format and enable debug
+        # Change format and enable debug + tracing
+        monkeypatch.setenv("SOME_ENV_VAR", "1")
         runez.log.setup(debug=True, console_format="%(levelname)s - %(message)s")
+        runez.log.enable_trace("SOME_ENV_VAR")
+        runez.log.tracer.prefix = "..."
         assert runez.log.debug
         assert runez.log.console_handler.level == logging.DEBUG
         logging.debug("hello")
+        runez.log.trace("some trace info")
+        assert "...some trace info" in temp_log  # We're now tracing (because env var is set)
         assert "DEBUG - hello" in temp_log.stdout.pop()
         assert not temp_log.stderr
 

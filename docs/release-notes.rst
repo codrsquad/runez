@@ -9,6 +9,10 @@ History
 
 * Using ``monkeypatch`` instead of ``mock``
 
+* Moved ``expanded()`` to ``runez.logsetup``
+
+* Added ``runez.log.trace()``
+
 
 2.3.3 (2020-12-27)
 ------------------

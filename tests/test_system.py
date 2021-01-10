@@ -137,41 +137,6 @@ def test_decode():
     assert runez.decode(b" something ", strip=True) == "something"
 
 
-def test_expanded():
-    class Record(object):
-        basename = "my-name"
-        filename = "{basename}.txt"
-
-    assert runez.expanded("{filename}", Record) == "my-name.txt"
-    assert runez.expanded("{basename}/~/{filename}", Record) == "my-name/~/my-name.txt"
-    assert runez.expanded("~/{basename}/{filename}", Record) == os.path.expanduser("~/my-name/my-name.txt")
-
-    assert runez.expanded("") == ""
-    assert runez.expanded("", Record) == ""
-    assert runez.expanded("{not_there}", Record) is None
-    assert runez.expanded("{not_there}", Record, name="susan") is None
-    assert runez.expanded("{not_there}", Record, not_there="psyched!") == "psyched!"
-    assert runez.expanded("{not_there}", Record, strict=False) == "{not_there}"
-
-    deep = dict(a="a", b="b", aa="{a}", bb="{b}", ab="{aa}{bb}", ba="{bb}{aa}", abba="{ab}{ba}", deep="{abba}")
-    assert runez.expanded("{deep}", deep, max_depth=-1) == "{deep}"
-    assert runez.expanded("{deep}", deep, max_depth=0) == "{deep}"
-    assert runez.expanded("{deep}", deep, max_depth=1) == "{abba}"
-    assert runez.expanded("{deep}", deep, max_depth=2) == "{ab}{ba}"
-    assert runez.expanded("{deep}", deep, max_depth=3) == "{aa}{bb}{bb}{aa}"
-    assert runez.expanded("{deep}", deep, max_depth=4) == "{a}{b}{b}{a}"
-    assert runez.expanded("{deep}", deep, max_depth=5) == "abba"
-    assert runez.expanded("{deep}", deep, max_depth=6) == "abba"
-
-    cycle = dict(a="{b}", b="{a}")
-    assert runez.expanded("{a}", cycle, max_depth=0) == "{a}"
-    assert runez.expanded("{a}", cycle, max_depth=1) == "{b}"
-    assert runez.expanded("{a}", cycle, max_depth=2) == "{a}"
-    assert runez.expanded("{a}", cycle, max_depth=3) == "{b}"
-
-    assert runez.expanded("{filename}") == "{filename}"
-
-
 def test_fallback(logged):
     def oopsie(x):
         raise Exception()

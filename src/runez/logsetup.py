@@ -4,6 +4,7 @@ Convenience logging setup
 
 import logging
 import os
+import re
 import signal
 import sys
 import threading
@@ -21,30 +22,115 @@ except ImportError:
 from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone
 from runez.file import basename as get_basename, parent_folder
-from runez.system import _R, expanded, find_caller_frame, flattened, LOG, quoted, Slotted, ThreadGlobalContext, UNSET, WINDOWS
+from runez.system import _R, find_caller_frame, flattened, LOG, quoted, Slotted, stringified, ThreadGlobalContext, UNSET, WINDOWS
 
 
 ORIGINAL_CF = logging.currentframe
+RE_FORMAT_MARKERS = re.compile(r"{([^}]*?)}")
 
 
-def _find_parent_folder(path, basenames):
-    if not path or len(path) <= 1:
-        return None
+def expanded(text, *args, **kwargs):
+    """Generically expanded 'text': '{...}' placeholders are resolved from given objects / keyword arguments
 
-    dirpath, basename = os.path.split(path)
-    if basename and basename.lower() in basenames:
-        return path
+    >>> expanded("{foo}", foo="bar")
+    'bar'
+    >>> expanded("{foo} {age}", {"age": 5}, foo="bar")
+    'bar 5'
 
-    return _find_parent_folder(dirpath, basenames)
+    Args:
+        text (str): Text to format
+        *args: Objects to extract values from (as attributes)
+        **kwargs: Optional values provided as named args
+
+    Returns:
+        (str): '{...}' placeholders expanded from given `args` object's properties/fields, or as `kwargs`
+    """
+    if not text:
+        return text
+
+    if text.startswith("~"):
+        text = os.path.expanduser(text)
+
+    if "{" not in text:
+        return text
+
+    strict = kwargs.pop("strict", False)
+    max_depth = kwargs.pop("max_depth", 3)
+    objects = list(args) + [kwargs] if kwargs else args
+    if not objects:
+        return text
+
+    definitions = {}
+    markers = RE_FORMAT_MARKERS.findall(text)
+    while markers:
+        key = markers.pop()
+        if key in definitions:
+            continue
+
+        val = _find_value(key, objects, max_depth)
+        if strict and val is None:
+            return None
+
+        val = stringified(val) if val is not None else "{%s}" % key
+        markers.extend(m for m in RE_FORMAT_MARKERS.findall(val) if m not in definitions)
+        definitions[key] = val
+
+    if not max_depth or not isinstance(max_depth, int) or max_depth <= 0:
+        return text
+
+    result = dict((k, _rformat(k, v, definitions, max_depth)) for k, v in definitions.items())
+    return text.format(**result)
 
 
-def _validated_project_path(*funcs):
-    for func in funcs:
-        path = func()
-        if path:
-            path = os.path.dirname(path)
-            if os.path.exists(os.path.join(path, "setup.py")) or os.path.exists(os.path.join(path, "project.toml")):
-                return path
+def formatted(message, *args, **kwargs):
+    """
+    Args:
+        message (str): Message to format, support either the '%s' old method, or newer format() method
+
+    Returns:
+        (str): Formatted message
+    """
+    if not kwargs:
+        if not args:
+            return message
+
+        if "%s" in message:
+            try:
+                return message % args
+
+            except TypeError:
+                pass
+
+    try:
+        return message.format(*args, **kwargs)
+
+    except (IndexError, KeyError):
+        return message
+
+
+class TraceHandler(object):
+    """
+    Allows to optionally provide trace logging, typically activated by an env var, like:
+        MY_APP_DEBUG=1 my-app ...
+    """
+
+    def __init__(self, prefix, stream=sys.stderr):
+        self.prefix = prefix
+        self.stream = stream
+
+    def trace(self, message):
+        """
+        Args:
+            message (str): Message to trace
+        """
+        if self.prefix:
+            message = "%s%s" % (self.prefix, message)
+
+        self.stream.write(message)
+        if not message.endswith("\n"):
+            self.stream.write("\n")
+
+        self.stream.flush()
 
 
 class LoggingSnapshot(Slotted):
@@ -146,10 +232,10 @@ class LogSpec(Slotted):
         Returns:
             (str | None): {location}/{basename}
         """
-        path = expanded(location, self, os.environ)
+        path = expanded(location, self, os.environ, strict=True)
         if path:
             if os.path.isdir(path):
-                filename = expanded(self.basename, self)
+                filename = expanded(self.basename, self, strict=True)
                 if not filename or not is_writable_folder(path):
                     return None
 
@@ -250,6 +336,7 @@ class LogManager(object):
     console_handler = None  # type: Optional[logging.StreamHandler]
     file_handler = None  # type: Optional[logging.FileHandler] # File we're currently logging to (if any)
     handlers = None  # type: Optional[List[logging.Handler]]
+    tracer = None  # type: Optional[TraceHandler]
     used_formats = None  # type: Optional[str]
     faulthandler_signum = None  # type: Optional[int]
 
@@ -313,7 +400,7 @@ class LogManager(object):
             basename (str | None): Base name of target log file, not used directly, just as reference for default 'locations'
             console_format (str | None): Format to use for console log, use None to deactivate
             console_level (int | None): Level to use for console logging
-            console_stream (TextIOWrapper | None): Stream to use for console log (eg: sys.stderr), use None to deactivate
+            console_stream (io.TextIOBase | TextIO | None): Stream to use for console log (eg: sys.stderr), use None to deactivate
             context_format (str | None): Format to use for contextual log, use None to deactivate
             default_logger (callable | None): Default logger to use to trace operations such as runez.run() etc
             dev (str | None): Custom folder to use when running from a development venv (auto-determined if None)
@@ -349,7 +436,6 @@ class LogManager(object):
             )
 
             cls._auto_fill_defaults()
-
             if cls.debug:
                 cls.spec.console_level = logging.DEBUG
                 cls.spec.file_level = logging.DEBUG
@@ -369,7 +455,6 @@ class LogManager(object):
             cls._setup_handler("file")
             cls._update_used_formats()
             cls._fix_logging_shortcuts()
-
             if clean_handlers:
                 cls.clean_handlers()
 
@@ -486,6 +571,7 @@ class LogManager(object):
         cls.debug = None
         cls.console_handler = None
         cls.file_handler = None
+        cls.tracer = None
         cls.used_formats = None
 
     @classmethod
@@ -503,7 +589,7 @@ class LogManager(object):
             else:
                 location = "no usable locations from {locations}"
 
-            return expanded(greeting, cls.spec, location=location, strict=False)
+            return expanded(greeting, cls.spec, location=location)
 
     @classmethod
     def silence(cls, *modules, **kwargs):
@@ -562,6 +648,40 @@ class LogManager(object):
         """OVerride 'spec' and '_default_spec' with given values"""
         cls._default_spec.set(**kwargs)
         cls.spec.set(**kwargs)
+
+    @classmethod
+    def enable_trace(cls, spec, prefix=":: ", stream=UNSET):
+        """
+        Args:
+            spec (TraceHandler | str | bool | None):
+            prefix (str | None): Prefix to use for trace messages
+            stream: Where to trace (by default: current 'console_stream' if configured, otherwise sys.stderr)
+        """
+        if not spec or isinstance(spec, TraceHandler):
+            cls.tracer = spec
+            return
+
+        cls.tracer = None
+        if stream is UNSET:
+            stream = cls.spec.console_stream or sys.stderr
+
+        if stream:
+            if isinstance(spec, bool):
+                if spec and stream:
+                    cls.tracer = TraceHandler(prefix, stream)
+
+            elif os.environ.get(spec):
+                cls.tracer = TraceHandler(prefix, stream)
+
+    @classmethod
+    def trace(cls, message, *args, **kwargs):
+        """
+        Args:
+            message (str): Message to trace
+        """
+        if cls.tracer:
+            message = formatted(message, *args, **kwargs)
+            cls.tracer.trace(message)
 
     @classmethod
     def _update_used_formats(cls):
@@ -758,6 +878,54 @@ def _canonical_format(fmt):
         return fmt
 
     return _replace_and_pad(fmt, "%(timezone)s", LogManager.spec.timezone)
+
+
+def _find_value(key, objects, max_depth):
+    """Find a value for 'key' in any of the objects given as 'args'"""
+    for obj in objects:
+        v = _get_value(obj, key, max_depth)
+        if v is not None:
+            return v
+
+
+def _get_value(obj, key, max_depth):
+    """Get a value for 'key' from 'obj', if possible"""
+    if obj is not None:
+        if isinstance(obj, (list, tuple)):
+            return _find_value(key, obj, max_depth - 1) if max_depth > 0 else None
+
+        if hasattr(obj, "get"):
+            return obj.get(key)
+
+        return getattr(obj, key, None)
+
+
+def _rformat(key, value, definitions, max_depth):
+    if max_depth > 1 and value and "{" in value:
+        value = value.format(**definitions)
+        return _rformat(key, value, definitions, max_depth=max_depth - 1)
+
+    return value
+
+
+def _find_parent_folder(path, basenames):
+    if not path or len(path) <= 1:
+        return None
+
+    dirpath, basename = os.path.split(path)
+    if basename and basename.lower() in basenames:
+        return path
+
+    return _find_parent_folder(dirpath, basenames)
+
+
+def _validated_project_path(*funcs):
+    for func in funcs:
+        path = func()
+        if path:
+            path = os.path.dirname(path)
+            if os.path.exists(os.path.join(path, "setup.py")) or os.path.exists(os.path.join(path, "project.toml")):
+                return path
 
 
 def _get_file_handler(location, rotate, rotate_count):

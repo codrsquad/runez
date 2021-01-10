@@ -23,7 +23,7 @@ from runez.file import TempFolder
 from runez.logsetup import LogManager
 from runez.render import Header
 from runez.system import _R, CaptureOutput, Slotted, TempArgv, TrackedOutput
-from runez.system import expanded, flattened, LOG, quoted, short, string_type, stringified, UNSET
+from runez.system import flattened, LOG, quoted, short, string_type, stringified, UNSET
 
 try:
     from click import BaseCommand as _ClickCommand
@@ -401,7 +401,7 @@ class ClickRunner(object):
         self._grab_attr("main", kwargs)
         assert bool(self.main), "No main provided"
         if kwargs:
-            args = [expanded(a, **kwargs) for a in args]
+            args = [a.format(**kwargs) for a in args]
 
         if len(args) == 1 and hasattr(args[0], "split"):
             # Convenience: allow to provide full command as one string argument

@@ -24,6 +24,7 @@ import sys
 
 from runez.convert import to_boolean, to_bytesize, to_float, to_int
 from runez.file import readlines
+from runez.logsetup import LogManager
 from runez.system import decode, stringified
 
 
@@ -36,14 +37,12 @@ class Configuration:
     Adding a 2nd provider with same id as an existing one replaces it (instead of being added)
     """
 
-    def __init__(self, providers=None, tracer=None):
+    def __init__(self, providers=None):
         """
         Args:
             providers (list | None): Providers to use (optional)
-            tracer (callable | None): Optional callable to report config activity (set to something like logging.debug for example)
         """
         self.providers = []
-        self.tracer = tracer
         if providers is not None:
             for provider in providers:
                 self.add(provider)
@@ -71,10 +70,6 @@ class Configuration:
     def overview(self, delimiter=", "):
         """str: A short overview of current providers"""
         return delimiter.join(p.overview() for p in self.providers)
-
-    def _trace(self, message):
-        if self.tracer:
-            self.tracer(message)
 
     def clear(self):
         """Remove all providers"""
@@ -133,15 +128,15 @@ class Configuration:
 
         i = self.provider_id_slot(provider)
         if i is not None:
-            self._trace("Replacing config provider %s at index %s" % (provider, i))
+            LogManager.trace("Replacing config provider %s at index %s", provider, i)
             self.providers[i] = provider
 
         elif front and self.providers:
-            self._trace("Adding config provider %s to front" % provider)
+            LogManager.trace("Adding config provider %s to front", provider)
             self.providers.insert(0, provider)
 
         else:
-            self._trace("Adding config provider %s" % provider)
+            LogManager.trace("Adding config provider %s", provider)
             self.providers.append(provider)
 
     def get(self, key, default=None):
@@ -157,7 +152,7 @@ class Configuration:
             for provider in self.providers:
                 value = provider.get(key)
                 if value is not None:
-                    self._trace("Using %s='%s' from %s" % (key, value, provider))
+                    LogManager.trace("Using %s='%s' from %s", key, value, provider)
                     return value
 
         return default

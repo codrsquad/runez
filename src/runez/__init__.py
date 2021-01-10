@@ -18,7 +18,7 @@ from runez.program import check_pid, is_executable, make_executable, ps_info, ru
 from runez.serialize import read_json, represented_json, save_json, Serializable
 from runez.system import abort, AdaptedProperty, cached_property, chill_property, PY2, Undefined, UNSET, WINDOWS
 from runez.system import Anchored, CaptureOutput, CurrentFolder, Slotted, TempArgv, TrackedOutput
-from runez.system import decode, expanded, flattened, joined, quoted, resolved_path, short, stringified, TERMINAL_INFO
+from runez.system import decode, flattened, joined, quoted, resolved_path, short, stringified, TERMINAL_INFO
 from runez.system import FallbackChain, first_line, get_version, is_basetype, is_iterable, python_version
 
 __all__ = [
@@ -39,7 +39,7 @@ __all__ = [
     "read_json", "represented_json", "save_json", "Serializable",
     "abort", "AdaptedProperty", "cached_property", "chill_property", "PY2", "Undefined", "UNSET", "WINDOWS",
     "Anchored", "CaptureOutput", "CurrentFolder", "Slotted", "TempArgv", "TrackedOutput",
-    "decode", "expanded", "flattened", "joined", "quoted", "resolved_path", "short", "stringified", "TERMINAL_INFO",
+    "decode", "flattened", "joined", "quoted", "resolved_path", "short", "stringified", "TERMINAL_INFO",
     "FallbackChain", "first_line", "get_version", "is_basetype", "is_iterable", "python_version",
 ]
 

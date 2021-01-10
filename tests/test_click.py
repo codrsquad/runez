@@ -139,8 +139,9 @@ def sample_config(**attrs):
     return c
 
 
-def test_config(logged, monkeypatch):
+def test_config(isolated_log_setup, logged, monkeypatch):
     # sys.argv is used as env var prefix when env=True is used
+    runez.log.enable_trace(True)
     config = sample_config(env=True)(None, None, "")
     assert str(config) == "--config, PYTEST_* env vars"
     assert "Adding config provider PYTEST_*" in logged.pop()
@@ -152,9 +153,9 @@ def test_config(logged, monkeypatch):
     assert str(c1) == "--config, MY_PROG_* env vars, propsfs, --config default"
     assert logged.pop()
     assert c1.get("x") == "y"
-    logged.assert_printed("Using x='y' from --config default")
+    assert "Using x='y' from --config default" in logged.stderr.pop()
     assert c1.get_int("some-int") == 123
-    logged.assert_printed("Using some-int='123' from propsfs")
+    assert "Using some-int='123' from propsfs" in logged.stderr.pop()
 
     # 'some-int' from propsfs sample is overridden
     c2 = config(None, None, "x=overridden,some-int=12,twenty-k=20kb,five-one-g=5.1g")
@@ -162,9 +163,9 @@ def test_config(logged, monkeypatch):
     assert c1.get_str("key") is None
     assert not logged
     assert c2.get("x") == "overridden"
-    logged.assert_printed("Using x='overridden' from --config")
+    assert "Using x='overridden' from --config" in logged.stderr.pop()
     assert c2.get_int("some-int") == 12
-    logged.assert_printed("Using some-int='12' from --config")
+    assert "Using some-int='12' from --config" in logged.stderr.pop()
 
     # Test bytesize
     assert c2.get_bytesize("some-int") == 12
@@ -189,7 +190,7 @@ def test_config(logged, monkeypatch):
 
     # Shuffle things around
     c2.add(c2.providers[0])
-    logged.assert_printed("Replacing config provider --config at index 0")
+    assert "Replacing config provider --config at index 0" in logged.stderr.pop()
 
     c2.add(runez.config.DictProvider({}, name="foo1"), front=True)
-    logged.assert_printed("Adding config provider foo1 to front")
+    assert "Adding config provider foo1 to front" in logged.stderr.pop()
