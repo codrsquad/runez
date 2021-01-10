@@ -150,6 +150,15 @@ def check_process_tree(pinfo, max_depth=10):
         check_process_tree(pinfo.parent, max_depth=max_depth - 1)
 
 
+def test_pids():
+    assert not runez.check_pid(None)
+    assert not runez.check_pid(0)
+    assert not runez.check_pid("foo")  # garbage given, don't crash
+
+    assert runez.check_pid(os.getpid())
+    assert not runez.check_pid(1)  # No privilege to do this (tests shouldn't run as root)
+
+
 def test_ps(monkeypatch):
     p = runez.ps_info(os.getpid())
     check_process_tree(p)
@@ -193,13 +202,6 @@ def test_ps(monkeypatch):
     assert str(p)
 
 
-def test_which():
-    assert runez.which(None) is None
-    assert runez.which("/dev/null") is None
-    assert runez.which("dev/null") is None
-    assert runez.which("python")
-
-
 def check_ri(platform, instructions=None):
     return verify_abort(runez.program.require_installed, "foo", instructions=instructions, platform=platform)
 
@@ -224,13 +226,11 @@ def test_require_installed(monkeypatch):
     assert "- on linux: run: `apt install foo`" in r
 
 
-def test_pids():
-    assert not runez.check_pid(None)
-    assert not runez.check_pid(0)
-    assert not runez.check_pid("foo")  # garbage given, don't crash
-
-    assert runez.check_pid(os.getpid())
-    assert not runez.check_pid(1)  # No privilege to do this (tests shouldn't run as root)
+def test_which():
+    assert runez.which(None) is None
+    assert runez.which("/dev/null") is None
+    assert runez.which("dev/null") is None
+    assert runez.which("python")
 
 
 @pytest.mark.skipif(runez.WINDOWS, reason="Not supported on windows")

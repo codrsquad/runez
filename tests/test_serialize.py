@@ -29,26 +29,37 @@ class SlottedExample(runez.Serializable, with_behavior(strict=True, extras=Excep
     __slots__ = ["name"]
 
 
-def test_slotted(logged):
-    assert isinstance(MetaSlotted._meta, ClassMetaDescription)
-    assert len(MetaSlotted._meta.attributes) == 1
-    assert not MetaSlotted._meta.properties
+class SubObject(Struct):
+    identifier = String(default=runez.UNSET)
 
-    assert isinstance(MetaSlotted2._meta, ClassMetaDescription)
-    assert len(MetaSlotted2._meta.attributes) == 2
-    assert MetaSlotted2._meta.properties == ["full_name"]
 
-    assert isinstance(SlottedExample._meta, ClassMetaDescription)
-    assert len(SlottedExample._meta.attributes) == 1
-    assert not SlottedExample._meta.properties
+class SomeSerializable(runez.Serializable, with_behavior(strict=True)):
+    name = "my name"
+    some_int = 7
+    some_value = List(Integer)
+    another = None
+    sub = SubObject(default=runez.UNSET)
 
-    se = SlottedExample.from_dict({"name": "foo"})
-    assert se.name == "foo"
-    assert se.to_dict() == {"name": "foo"}
+    _called = None
 
-    with pytest.raises(Exception) as e:
-        SlottedExample.from_dict({"foo": "bar"})
-    assert str(e.value) == "Extra content given for SlottedExample: foo"
+    @classmethod
+    def do_something_on_class(cls, value):
+        cls._called = value
+
+    def do_something_on_instance(cls, value):
+        cls._called = value
+
+    @property
+    def int_prod(self):
+        return self.some_int
+
+    def set_some_int(self, value):
+        self.some_int = value
+
+
+class SomeRecord(object):
+    name = "my record"
+    some_int = 5
 
 
 def test_bogus_class():
@@ -143,39 +154,6 @@ def test_json(temp_folder, monkeypatch):
 
             assert runez.read_json("sample.json", default=None) is None
             assert not logged
-
-
-class SubObject(Struct):
-    identifier = String(default=runez.UNSET)
-
-
-class SomeSerializable(runez.Serializable, with_behavior(strict=True)):
-    name = "my name"
-    some_int = 7
-    some_value = List(Integer)
-    another = None
-    sub = SubObject(default=runez.UNSET)
-
-    _called = None
-
-    @classmethod
-    def do_something_on_class(cls, value):
-        cls._called = value
-
-    def do_something_on_instance(cls, value):
-        cls._called = value
-
-    @property
-    def int_prod(self):
-        return self.some_int
-
-    def set_some_int(self, value):
-        self.some_int = value
-
-
-class SomeRecord(object):
-    name = "my record"
-    some_int = 5
 
 
 def test_meta(logged):
@@ -338,6 +316,28 @@ def test_serialization(logged):
 
     obj.sub = obj2.sub
     assert obj == obj2
+
+
+def test_slotted(logged):
+    assert isinstance(MetaSlotted._meta, ClassMetaDescription)
+    assert len(MetaSlotted._meta.attributes) == 1
+    assert not MetaSlotted._meta.properties
+
+    assert isinstance(MetaSlotted2._meta, ClassMetaDescription)
+    assert len(MetaSlotted2._meta.attributes) == 2
+    assert MetaSlotted2._meta.properties == ["full_name"]
+
+    assert isinstance(SlottedExample._meta, ClassMetaDescription)
+    assert len(SlottedExample._meta.attributes) == 1
+    assert not SlottedExample._meta.properties
+
+    se = SlottedExample.from_dict({"name": "foo"})
+    assert se.name == "foo"
+    assert se.to_dict() == {"name": "foo"}
+
+    with pytest.raises(Exception) as e:
+        SlottedExample.from_dict({"foo": "bar"})
+    assert str(e.value) == "Extra content given for SlottedExample: foo"
 
 
 def test_to_dict(temp_folder):

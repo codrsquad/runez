@@ -39,26 +39,6 @@ def test_bytesize():
     assert runez.to_bytesize(10, default_unit="a", base=1000) is None  # Bogus default_unit
 
 
-def test_representation():
-    assert runez.represented_bytesize(20) == "20 B"
-    assert runez.represented_bytesize(20, unit="") == "20"
-    assert runez.represented_bytesize(9000) == "8.8 KB"
-    assert runez.represented_bytesize(20000) == "20 KB"
-    assert runez.represented_bytesize(20000, unit="") == "20 K"
-    assert runez.represented_bytesize(20000000) == "19 MB"
-    assert runez.represented_bytesize(20000000000) == "19 GB"
-    assert runez.represented_bytesize(20000000000000) == "18 TB"
-    assert runez.represented_bytesize(20000000000000000) == "18 PB"
-    assert runez.represented_bytesize(20000000000000000000) == "17764 PB"
-
-    assert runez.represented_with_units(20) == "20"
-    assert runez.represented_with_units(999.9) == "999.9"
-    assert runez.represented_with_units(1001) == "1K"
-    assert runez.represented_with_units(1060) == "1.1K"
-    assert runez.represented_with_units(8900) == "8.9K"
-    assert runez.represented_with_units(20304050600000000000) == "20304P"
-
-
 def test_plural():
     assert runez.plural(2, "match") == "2 matches"
     assert runez.plural(0, "dish") == "0 dishes"
@@ -84,6 +64,26 @@ def test_plural():
     assert runez.plural(20000, "carrot") == "20K carrots"
     assert runez.plural(20000, "carrot", base=None) == "20000 carrots"
     assert runez.plural(20000, "carrot", base=0) == "20000 carrots"
+
+
+def test_representation():
+    assert runez.represented_bytesize(20) == "20 B"
+    assert runez.represented_bytesize(20, unit="") == "20"
+    assert runez.represented_bytesize(9000) == "8.8 KB"
+    assert runez.represented_bytesize(20000) == "20 KB"
+    assert runez.represented_bytesize(20000, unit="") == "20 K"
+    assert runez.represented_bytesize(20000000) == "19 MB"
+    assert runez.represented_bytesize(20000000000) == "19 GB"
+    assert runez.represented_bytesize(20000000000000) == "18 TB"
+    assert runez.represented_bytesize(20000000000000000) == "18 PB"
+    assert runez.represented_bytesize(20000000000000000000) == "17764 PB"
+
+    assert runez.represented_with_units(20) == "20"
+    assert runez.represented_with_units(999.9) == "999.9"
+    assert runez.represented_with_units(1001) == "1K"
+    assert runez.represented_with_units(1060) == "1.1K"
+    assert runez.represented_with_units(8900) == "8.9K"
+    assert runez.represented_with_units(20304050600000000000) == "20304P"
 
 
 SAMPLE_TABULATED_OUTPUT = """

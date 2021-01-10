@@ -3,19 +3,6 @@ import time
 from runez.heartbeat import DEFAULT_FREQUENCY, Heartbeat, HeartbeatTask
 
 
-def test_tasks():
-    t1 = HeartbeatTask("t1")
-    t2 = HeartbeatTask("t2", frequency=10)
-    t2.next_execution = 1
-
-    assert str(t1) == "t1 (0)"
-    assert t1.frequency == DEFAULT_FREQUENCY
-    assert t2.frequency == 10
-    assert t1 != t2
-    assert t1 <= t2
-    assert t1 < t2
-
-
 class Counter(HeartbeatTask):
     count = None
     crash = False
@@ -65,3 +52,16 @@ def test_heartbeat():
     Heartbeat.remove_task(crash)
     Heartbeat.remove_task(task)
     assert len(Heartbeat.tasks) == 0
+
+
+def test_tasks():
+    t1 = HeartbeatTask("t1")
+    t2 = HeartbeatTask("t2", frequency=10)
+    t2.next_execution = 1
+
+    assert str(t1) == "t1 (0)"
+    assert t1.frequency == DEFAULT_FREQUENCY
+    assert t2.frequency == 10
+    assert t1 != t2
+    assert t1 <= t2
+    assert t1 < t2

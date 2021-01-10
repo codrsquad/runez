@@ -125,6 +125,13 @@ def test_flavor(monkeypatch):
     check_usable(monkeypatch, "ansi16 neutral")
 
 
+def test_no_color():
+    r = runez.run(sys.executable, "-mrunez", "colors", "--no-color", fatal=False)
+    assert r.succeeded
+    assert "Backend: plain" in r.output
+    assert r.error == ""
+
+
 def test_show_colors(cli):
     cli.run("colors")
     assert cli.succeeded
@@ -134,13 +141,6 @@ def test_show_colors(cli):
     assert cli.succeeded
     assert "Backend: ansi16 light" in cli.logged.stdout
     assert "Unknown bg color 'foo'" in cli.logged.stdout
-
-
-def test_no_color():
-    r = runez.run(sys.executable, "-mrunez", "colors", "--no-color", fatal=False)
-    assert r.succeeded
-    assert "Backend: plain" in r.output
-    assert r.error == ""
 
 
 def test_uncolored():

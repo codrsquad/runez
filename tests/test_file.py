@@ -146,36 +146,6 @@ def test_failure(monkeypatch):
             assert "Can't chmod" in logged.pop()
 
 
-def test_file_operations(temp_folder):
-    with runez.CaptureOutput(dryrun=True) as logged:
-        assert runez.ensure_folder("some-folder", fatal=False) == 1
-        assert "Would create" in logged.pop()
-
-        assert runez.touch("some-file", logger=logging.debug) == 1
-        assert "Would touch some-file" in logged.pop()
-
-        assert runez.copy("some-file", "bar") == 1
-        assert "Would copy some-file -> bar" in logged.pop()
-
-        assert runez.move("some-file", "bar") == 1
-        assert "Would move some-file -> bar" in logged.pop()
-
-        assert runez.symlink("some-file", "bar") == 1
-        assert "Would symlink some-file <- bar" in logged.pop()
-
-        assert runez.delete(temp_folder) == 1
-        assert "Would delete" in logged.pop()
-
-        assert runez.copy("some-folder/bar/baz", "some-folder", fatal=False) == -1
-        assert "source contained in destination" in logged.pop()
-
-        assert runez.move("some-folder/bar/baz", "some-folder", fatal=False) == -1
-        assert "source contained in destination" in logged.pop()
-
-        assert runez.symlink("some-folder/bar/baz", "some-folder", fatal=False) == -1
-        assert "source contained in destination" in logged.pop()
-
-
 def test_file_inspection(temp_folder, logged):
     assert runez.touch("sample") == 1
     assert runez.delete("sample") == 1
@@ -252,6 +222,36 @@ def test_file_inspection(temp_folder, logged):
     assert not os.path.exists("x2/z2/sample2")
     assert runez.copy("x", "x2") == 1
     assert os.path.exists("x2/z2/sample2")
+
+
+def test_file_operations(temp_folder):
+    with runez.CaptureOutput(dryrun=True) as logged:
+        assert runez.ensure_folder("some-folder", fatal=False) == 1
+        assert "Would create" in logged.pop()
+
+        assert runez.touch("some-file", logger=logging.debug) == 1
+        assert "Would touch some-file" in logged.pop()
+
+        assert runez.copy("some-file", "bar") == 1
+        assert "Would copy some-file -> bar" in logged.pop()
+
+        assert runez.move("some-file", "bar") == 1
+        assert "Would move some-file -> bar" in logged.pop()
+
+        assert runez.symlink("some-file", "bar") == 1
+        assert "Would symlink some-file <- bar" in logged.pop()
+
+        assert runez.delete(temp_folder) == 1
+        assert "Would delete" in logged.pop()
+
+        assert runez.copy("some-folder/bar/baz", "some-folder", fatal=False) == -1
+        assert "source contained in destination" in logged.pop()
+
+        assert runez.move("some-folder/bar/baz", "some-folder", fatal=False) == -1
+        assert "source contained in destination" in logged.pop()
+
+        assert runez.symlink("some-folder/bar/baz", "some-folder", fatal=False) == -1
+        assert "source contained in destination" in logged.pop()
 
 
 def test_parent_folder():

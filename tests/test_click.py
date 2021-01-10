@@ -65,44 +65,6 @@ def say_hello(border, color, config, debug, log):
     print(msg)
 
 
-def test_settings():
-    s = runez.click.settings(foo="bar", epilog="some epilog")
-    assert len(s) == 3
-    assert s["epilog"] == "some epilog"
-    assert s["foo"] == "bar"
-    assert s["context_settings"] == dict(help_option_names=["-h", "--help"], max_content_width=140)
-
-    s = runez.click.settings(help="-h --help --explain")
-    assert s["context_settings"]["help_option_names"] == ["-h", "--help", "--explain"]
-
-
-def test_group(cli):
-    cli.main = my_group
-    runez.click.prettify_epilogs(my_group, formatter=my_formatter)
-    runez.click.prettify_epilogs(my_group, formatter=my_formatter)  # Calling this multiple times is a no-op
-    cli.expect_success("--version", "my-group, version ")
-
-    cli.run("--help")
-    assert cli.succeeded
-    assert "--color / --no-color" in cli.logged
-    assert "--log PATH" in cli.logged
-    assert "Repeat provided text" in cli.logged
-    assert "This part will be" not in cli.logged
-
-    cli.run("echo", "--help")
-    assert cli.succeeded
-    assert "Repeat provided text" in cli.logged
-    assert "This part will be an epilog" in cli.logged
-
-    cli.run("--color echo hello")
-    assert cli.succeeded
-    cli.assert_printed("hello, color: True, 0 values, g.a=None, debug: False, dryrun: False, log: None")
-
-    cli.run("--no-color --dryrun -ca=b --config c=d --log foo echo hello")
-    assert cli.succeeded
-    cli.assert_printed("hello, color: False, 2 values, g.a=b, debug: False, dryrun: True, log: foo")
-
-
 def test_command(cli, monkeypatch):
     cli.main = say_hello
     cli.run("--help")
@@ -194,3 +156,41 @@ def test_config(isolated_log_setup, logged, monkeypatch):
 
     c2.add(runez.config.DictProvider({}, name="foo1"), front=True)
     assert "Adding config provider foo1 to front" in logged.stderr.pop()
+
+
+def test_group(cli):
+    cli.main = my_group
+    runez.click.prettify_epilogs(my_group, formatter=my_formatter)
+    runez.click.prettify_epilogs(my_group, formatter=my_formatter)  # Calling this multiple times is a no-op
+    cli.expect_success("--version", "my-group, version ")
+
+    cli.run("--help")
+    assert cli.succeeded
+    assert "--color / --no-color" in cli.logged
+    assert "--log PATH" in cli.logged
+    assert "Repeat provided text" in cli.logged
+    assert "This part will be" not in cli.logged
+
+    cli.run("echo", "--help")
+    assert cli.succeeded
+    assert "Repeat provided text" in cli.logged
+    assert "This part will be an epilog" in cli.logged
+
+    cli.run("--color echo hello")
+    assert cli.succeeded
+    cli.assert_printed("hello, color: True, 0 values, g.a=None, debug: False, dryrun: False, log: None")
+
+    cli.run("--no-color --dryrun -ca=b --config c=d --log foo echo hello")
+    assert cli.succeeded
+    cli.assert_printed("hello, color: False, 2 values, g.a=b, debug: False, dryrun: True, log: foo")
+
+
+def test_settings():
+    s = runez.click.settings(foo="bar", epilog="some epilog")
+    assert len(s) == 3
+    assert s["epilog"] == "some epilog"
+    assert s["foo"] == "bar"
+    assert s["context_settings"] == dict(help_option_names=["-h", "--help"], max_content_width=140)
+
+    s = runez.click.settings(help="-h --help --explain")
+    assert s["context_settings"]["help_option_names"] == ["-h", "--help", "--explain"]

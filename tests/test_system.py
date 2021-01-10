@@ -49,23 +49,6 @@ def test_abort(logged, monkeypatch):
     assert not logged
 
 
-def test_capture_scope():
-    with runez.CaptureOutput() as logged:
-        print("on stdout")
-        sys.stderr.write("on stderr")
-        assert "on stdout" in logged.stdout
-        assert "on stderr" in logged.stderr
-
-    with runez.CaptureOutput(stderr=False) as logged:
-        print("on stdout")
-        sys.stderr.write("on stderr")
-
-        # Verify that stderr was not captured, but stdout was
-        assert "on stdout" in logged.stdout
-        assert "on stderr" not in logged
-        assert logged.stderr is None
-
-
 def test_capture_nested():
     with runez.CaptureOutput(stdout=True, stderr=True) as logged1:
         # Capture both stdout and stderr
@@ -104,6 +87,23 @@ def test_capture_nested():
         assert "print2" not in logged1.stdout
         assert "print3" not in logged1.stdout
         assert "err3" not in logged1.stderr
+
+
+def test_capture_scope():
+    with runez.CaptureOutput() as logged:
+        print("on stdout")
+        sys.stderr.write("on stderr")
+        assert "on stdout" in logged.stdout
+        assert "on stderr" in logged.stderr
+
+    with runez.CaptureOutput(stderr=False) as logged:
+        print("on stdout")
+        sys.stderr.write("on stderr")
+
+        # Verify that stderr was not captured, but stdout was
+        assert "on stdout" in logged.stdout
+        assert "on stderr" not in logged
+        assert logged.stderr is None
 
 
 def test_current_folder(temp_folder):

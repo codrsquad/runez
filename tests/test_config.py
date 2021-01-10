@@ -17,27 +17,20 @@ def test_capped():
     assert runez.config.capped(123, minimum=100, maximum=110) == 110
 
 
-def test_no_implementation():
-    config = runez.config.Configuration(providers=[runez.config.ConfigProvider()])
-    assert str(config) == "config"
-    assert config.overview() == "config: 0 values"
-    assert config.get("anything") is None
+def test_json():
+    assert runez.config.from_json(None) is None
+    assert runez.config.from_json("") is None
+    assert runez.config.from_json("foo") is None
+    assert runez.config.from_json("{") is None
+    assert runez.config.from_json(5) is None
+    assert runez.config.from_json({}) is None
+    assert runez.config.from_json([]) is None
 
-    config.set_providers(runez.config.ConfigProvider())
-    assert str(config) == "config"
-    assert config.get("anything") is None
+    assert runez.config.from_json(' "foo" ') == "foo"
+    assert runez.config.from_json("5") == 5
 
-    config.use_json(os.path.join(SAMPLES, "sample.json"))
-    assert config.get_int("some-int") == 51
-
-    config.set_providers()
-    assert str(config) == "empty"
-    assert config.get("anything") is None
-
-    with pytest.raises(ValueError):
-        config.add(object())
-
-    assert str(config) == "empty"
+    assert runez.config.from_json("{}") == {}
+    assert runez.config.from_json("[5, 6]") == [5, 6]
 
 
 def test_missing():
@@ -60,6 +53,29 @@ def test_missing():
     assert runez.config.get_bytesize("foo", default="5K") == 5120
     assert runez.config.get_bytesize("foo", default="5", default_unit="k") == 5120
     assert runez.config.get_json("foo", default='["a"]') == ["a"]
+
+
+def test_no_implementation():
+    config = runez.config.Configuration(providers=[runez.config.ConfigProvider()])
+    assert str(config) == "config"
+    assert config.overview() == "config: 0 values"
+    assert config.get("anything") is None
+
+    config.set_providers(runez.config.ConfigProvider())
+    assert str(config) == "config"
+    assert config.get("anything") is None
+
+    config.use_json(os.path.join(SAMPLES, "sample.json"))
+    assert config.get_int("some-int") == 51
+
+    config.set_providers()
+    assert str(config) == "empty"
+    assert config.get("anything") is None
+
+    with pytest.raises(ValueError):
+        config.add(object())
+
+    assert str(config) == "empty"
 
 
 def test_samples(isolated_log_setup):
@@ -108,19 +124,3 @@ def test_samples(isolated_log_setup):
         assert values["some-int"] == "123"
         assert values["some-string"] == "foo"
         assert values["x"] == "y"
-
-
-def test_json():
-    assert runez.config.from_json(None) is None
-    assert runez.config.from_json("") is None
-    assert runez.config.from_json("foo") is None
-    assert runez.config.from_json("{") is None
-    assert runez.config.from_json(5) is None
-    assert runez.config.from_json({}) is None
-    assert runez.config.from_json([]) is None
-
-    assert runez.config.from_json(' "foo" ') == "foo"
-    assert runez.config.from_json("5") == 5
-
-    assert runez.config.from_json("{}") == {}
-    assert runez.config.from_json("[5, 6]") == [5, 6]

@@ -39,6 +39,68 @@ def sample_main():
     return "%s %s" % (os.path.basename(sys.argv[0]), " ".join(args))
 
 
+def test_crash(cli):
+    with pytest.raises(AssertionError):
+        # Nothing ran yet, no output
+        cli.match("foo")
+
+    with pytest.raises(AssertionError):
+        # No main provided
+        cli.main = cli.default_main = None
+        cli.run("hello no main")
+
+    cli.run(["Exception", "hello with main"], main=sample_main)
+    assert cli.failed
+    assert cli.match("crashed...hello")
+    assert cli.match("Exited with stacktrace:")
+
+    cli.run("TypeError")
+    assert cli.failed
+    assert cli.match("TypeError: ... has no len")
+
+    cli.run("exit", "some message")
+    assert cli.failed
+    assert cli.match("some message", "!stacktrace")
+
+    cli.expect_failure("Exception hello", "crashed...hello", "Exited with stacktrace:", "!this message shouldn't appear")
+
+    cli.run(["successful hello"])
+    assert cli.succeeded
+    assert cli.match("successful hello")
+
+    cli.run(["Exception", "hello again"])
+    assert cli.failed
+    assert not cli.match("hello with main")
+    assert not cli.match("successful hello")
+    assert cli.match("hello again")
+
+    cli.run(1, "hello")
+    assert cli.failed
+    assert "hello" in cli.logged.stdout
+    assert "Exited with stacktrace" not in cli.logged
+
+    cli.run(2)
+    assert cli.failed
+    assert cli.exit_code == 2
+    assert not cli.logged
+
+    with pytest.raises(AssertionError):
+        # No captures specified
+        assert cli.match("crashed...hello", stdout=False, stderr=False)
+
+    with pytest.raises(AssertionError):
+        # Expect success failed
+        cli.expect_success("Exception", "hello")
+
+    with pytest.raises(AssertionError):
+        # Unexpected message seen in output
+        cli.expect_failure(["Exception", "hello"], "!crashed...hello")
+
+    with pytest.raises(AssertionError):
+        # Expected message not seen in output
+        cli.expect_failure(["Exception", "hello"], "this message shouldn't appear")
+
+
 def test_edge_cases(monkeypatch):
     # verify_abort should complain about called function not having raised anything
     with pytest.raises(AssertionError):
@@ -106,65 +168,3 @@ def test_success(cli, monkeypatch):
 
     cli.run([""])
     assert not cli.match("hello")
-
-
-def test_crash(cli):
-    with pytest.raises(AssertionError):
-        # Nothing ran yet, no output
-        cli.match("foo")
-
-    with pytest.raises(AssertionError):
-        # No main provided
-        cli.main = cli.default_main = None
-        cli.run("hello no main")
-
-    cli.run(["Exception", "hello with main"], main=sample_main)
-    assert cli.failed
-    assert cli.match("crashed...hello")
-    assert cli.match("Exited with stacktrace:")
-
-    cli.run("TypeError")
-    assert cli.failed
-    assert cli.match("TypeError: ... has no len")
-
-    cli.run("exit", "some message")
-    assert cli.failed
-    assert cli.match("some message", "!stacktrace")
-
-    cli.expect_failure("Exception hello", "crashed...hello", "Exited with stacktrace:", "!this message shouldn't appear")
-
-    cli.run(["successful hello"])
-    assert cli.succeeded
-    assert cli.match("successful hello")
-
-    cli.run(["Exception", "hello again"])
-    assert cli.failed
-    assert not cli.match("hello with main")
-    assert not cli.match("successful hello")
-    assert cli.match("hello again")
-
-    cli.run(1, "hello")
-    assert cli.failed
-    assert "hello" in cli.logged.stdout
-    assert "Exited with stacktrace" not in cli.logged
-
-    cli.run(2)
-    assert cli.failed
-    assert cli.exit_code == 2
-    assert not cli.logged
-
-    with pytest.raises(AssertionError):
-        # No captures specified
-        assert cli.match("crashed...hello", stdout=False, stderr=False)
-
-    with pytest.raises(AssertionError):
-        # Expect success failed
-        cli.expect_success("Exception", "hello")
-
-    with pytest.raises(AssertionError):
-        # Unexpected message seen in output
-        cli.expect_failure(["Exception", "hello"], "!crashed...hello")
-
-    with pytest.raises(AssertionError):
-        # Expected message not seen in output
-        cli.expect_failure(["Exception", "hello"], "this message shouldn't appear")
