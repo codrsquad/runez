@@ -8,7 +8,6 @@ import re
 import signal
 import sys
 import threading
-from functools import partial
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 
 try:
@@ -342,7 +341,6 @@ class LogManager(object):
 
     _lock = threading.RLock()
     _logging_snapshot = LoggingSnapshot()
-    _shortcuts_fixed = False
 
     @classmethod
     def set_debug(cls, debug):
@@ -809,40 +807,41 @@ class LogManager(object):
         logging.logProcesses = cls.is_using_format("%(process)")
         logging.logThreads = cls.is_using_format("%(thread) %(threadName)")
 
-        if cls._shortcuts_fixed:
-            return
-
-        cls._shortcuts_fixed = True
-
-        if hasattr(sys, "_getframe"):
-            logging.critical = wrap(logging.CRITICAL)
+        if not isinstance(logging.info, _LogWrap) and hasattr(sys, "_getframe"):
+            logging.critical = _LogWrap(logging.CRITICAL)
             logging.fatal = logging.critical
-            logging.error = wrap(logging.ERROR)
-            logging.exception = partial(logging.error, exc_info=True)
-            logging.warning = wrap(logging.WARNING)
-            logging.info = wrap(logging.INFO)
-            logging.debug = wrap(logging.DEBUG)
-            logging.log = log
+            logging.error = _LogWrap(logging.ERROR)
+            logging.exception = _LogWrap(logging.ERROR, exc_info=True)
+            logging.warning = _LogWrap(logging.WARNING)
+            logging.info = _LogWrap(logging.INFO)
+            logging.debug = _LogWrap(logging.DEBUG)
+            logging.log = _LogWrap.log
 
 
-def log(level, msg, *args, **kwargs):  # pragma: no cover, for some reason coverage does not properly realize this is indeed covered
-    """Wrapper to make logging.info() etc report the right module %(name)"""
-    name = sys._getframe(1).f_globals.get("__name__")
-    logger = logging.getLogger(name)
-    try:
-        logging.currentframe = lambda: sys._getframe(4)
-        logger.log(level, msg, *args, **kwargs)
+class _LogWrap(object):
+    """Allows to correctly report caller file/function/line from convenience calls such as logging.info()"""
 
-    finally:
-        logging.currentframe = ORIGINAL_CF
+    def __init__(self, level, exc_info=None):
+        self.level = level
+        self.exc_info = exc_info
+        self.__doc__ = getattr(logging, logging.getLevelName(level).lower()).__doc__
 
+    @staticmethod
+    def log(level, msg, *args, **kwargs):
+        offset = kwargs.pop("_stack_offset", 1)
+        name = sys._getframe(offset).f_globals.get("__name__")
+        logger = logging.getLogger(name)
+        try:
+            logging.currentframe = lambda: sys._getframe(3 + offset)
+            logger.log(level, msg, *args, **kwargs)
 
-def wrap(level, **kwargs):
-    """Wrap corresponding logging shortcut function"""
-    original = getattr(logging, logging.getLevelName(level).lower())
-    f = partial(log, level, **kwargs)
-    f.__doc__ = original.__doc__
-    return f
+        finally:
+            logging.currentframe = ORIGINAL_CF
+
+    def __call__(self, msg, *args, **kwargs):
+        kwargs.setdefault("exc_info", self.exc_info)
+        kwargs.setdefault("_stack_offset", 2)
+        self.log(self.level, msg, *args, **kwargs)
 
 
 def _replace_and_pad(fmt, marker, replacement):

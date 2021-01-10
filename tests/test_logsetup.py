@@ -21,7 +21,9 @@ def test_auto_location_not_writable(temp_log):
             console_format="%(name)s f:%(filename)s mod:%(module)s func:%(funcName)s %(levelname)s - %(message)s",
             console_level=logging.DEBUG,
         )
+        logging.info("hello")
         assert "runez f:logsetup.py mod:logsetup func:greet DEBUG" in temp_log.stderr
+        assert "INFO - hello" in temp_log.stderr
         assert "Logging to: no usable locations" in temp_log.stderr
         assert runez.log.file_handler is None
 
