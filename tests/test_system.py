@@ -6,6 +6,7 @@ import os
 import sys
 
 import pytest
+from mock import patch
 
 import runez
 from runez.conftest import verify_abort
@@ -480,7 +481,7 @@ def test_temp_folder():
     assert os.getcwd() == cwd
 
 
-def test_terminal(monkeypatch):
+def test_terminal():
     if hasattr(os, "terminal_size"):
         t = TerminalInfo()
         assert not t.is_stdout_tty  # False when testing
@@ -492,15 +493,14 @@ def test_terminal(monkeypatch):
         assert t.padded_columns(padding=6) == 4
         assert t.padded_columns(padding=6, minimum=7) == 7
 
-    monkeypatch.setenv("PYCHARM_HOSTED", "true")
-    monkeypatch.setenv("COLUMNS", "foo")
-    monkeypatch.setenv("LINES", "bar")
-    t = TerminalInfo(default_columns=20, default_lines=30)
-    assert not t.is_stdout_tty  # Still false when testing
-    t.shutil_terminal_size = None
-    assert t.columns == 20
-    assert t.lines == 30
+    with patch.dict(os.environ, {"COLUMNS": "foo", "LINES": "bar", "PYCHARM_HOSTED": "true"}, clear=True):
+        t = TerminalInfo(default_columns=20, default_lines=30)
+        assert not t.is_stdout_tty  # Still false when testing
+        t.shutil_terminal_size = None
+        assert t.columns == 20
+        assert t.lines == 30
 
-    monkeypatch.setattr(runez.colors._R, "current_test", classmethod(lambda *_: None))  # simulate not running in test
-    t = TerminalInfo()
-    assert t.is_stdout_tty  # Now True
+    with patch.dict(os.environ, {"PYCHARM_HOSTED": "true"}, clear=True):
+        with patch("runez.colors._R.current_test", return_value=None):  # simulate not running in test
+            t = TerminalInfo()
+            assert t.is_stdout_tty  # Now True
