@@ -1,11 +1,12 @@
 import datetime
+import io
 import logging
 from copy import copy
 
 import pytest
-from mock import patch
 
 import runez
+import runez.conftest
 from runez.schema import determined_schema_type, Dict, Integer, List, String, Struct, UniqueIdentifier, ValidationException
 from runez.serialize import add_meta, ClassMetaDescription, same_type, SerializableDescendants, type_name, with_behavior
 
@@ -81,7 +82,7 @@ def test_determined_schema_type():
     assert "Invalid schema definition" in str(e.value)
 
 
-def test_json(temp_folder):
+def test_json(temp_folder, monkeypatch):
     assert runez.read_json(None, default=None) is None
 
     assert runez.represented_json(None) == "null\n"
@@ -126,14 +127,16 @@ def test_json(temp_folder):
         assert runez.read_json("sample.json", default={}) == {}
         assert not logged
 
-        with patch("runez.serialize.open", side_effect=Exception):
+        with monkeypatch.context() as m:
+            runez.conftest.patch_raise(m, runez.serialize, "open", raising=False)
             assert runez.save_json(data, "sample.json", fatal=False) == -1
             assert "Couldn't save" in logged.pop()
 
         assert runez.save_json(data, "sample.json", logger=logging.debug) == 1
         assert "Saved " in logged.pop()
 
-        with patch("io.open", side_effect=Exception):
+        with monkeypatch.context() as m:
+            runez.conftest.patch_raise(m, io, "open")
             with pytest.raises(runez.system.AbortException):
                 runez.read_json("sample.json")
             assert "Couldn't read sample.json" in logged.pop()

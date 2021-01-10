@@ -6,7 +6,6 @@ import os
 import sys
 
 import pytest
-from mock import patch
 
 import runez
 from runez.conftest import verify_abort
@@ -17,12 +16,10 @@ VERSION = "1.2.3.dev4"
 
 
 def failed_function(message, fatal=True, logger=runez.UNSET):
-    with patch("runez.system.logging.root") as root:
-        root.handlers = None
-        runez.abort(message, fatal=fatal, logger=logger)
+    runez.abort(message, fatal=fatal, logger=logger)
 
 
-def test_abort(logged):
+def test_abort(logged, monkeypatch):
     assert runez.abort("aborted", return_value="some-return", fatal=False) == "some-return"
     assert "ERROR" in logged
     assert "aborted" in logged.pop()
@@ -36,6 +33,7 @@ def test_abort(logged):
     assert runez.abort("aborted", return_value="some-return", fatal=None) == "some-return"
     assert not logged
 
+    monkeypatch.setattr(runez.system.logging.root, "handlers", [])
     assert "stderr: oops" in verify_abort(failed_function, "oops")  # logger is UNSET -> log failure
     assert "oops" not in verify_abort(failed_function, "oops", logger=None)  # logger is None -> don't log failure
 
@@ -517,7 +515,7 @@ def test_temp_folder():
     assert os.getcwd() == cwd
 
 
-def test_terminal():
+def test_terminal(monkeypatch):
     if hasattr(os, "terminal_size"):
         t = TerminalInfo()
         assert not t.is_stdout_tty  # False when testing
@@ -529,14 +527,15 @@ def test_terminal():
         assert t.padded_columns(padding=6) == 4
         assert t.padded_columns(padding=6, minimum=7) == 7
 
-    with patch.dict(os.environ, {"COLUMNS": "foo", "LINES": "bar", "PYCHARM_HOSTED": "true"}, clear=True):
-        t = TerminalInfo(default_columns=20, default_lines=30)
-        assert not t.is_stdout_tty  # Still false when testing
-        t.shutil_terminal_size = None
-        assert t.columns == 20
-        assert t.lines == 30
+    monkeypatch.setenv("PYCHARM_HOSTED", "true")
+    monkeypatch.setenv("COLUMNS", "foo")
+    monkeypatch.setenv("LINES", "bar")
+    t = TerminalInfo(default_columns=20, default_lines=30)
+    assert not t.is_stdout_tty  # Still false when testing
+    t.shutil_terminal_size = None
+    assert t.columns == 20
+    assert t.lines == 30
 
-    with patch.dict(os.environ, {"PYCHARM_HOSTED": "true"}, clear=True):
-        with patch("runez.colors._R.current_test", return_value=None):  # simulate not running in test
-            t = TerminalInfo()
-            assert t.is_stdout_tty  # Now True
+    monkeypatch.setattr(runez.colors._R, "current_test", classmethod(lambda *_: None))  # simulate not running in test
+    t = TerminalInfo()
+    assert t.is_stdout_tty  # Now True

@@ -2,19 +2,23 @@ import os
 import sys
 
 import pytest
-from mock import MagicMock, patch
 
 import runez
 from runez.inspector import auto_import_siblings, ImportTime
 from runez.system import _is_actual_caller_frame
 
 
-def mock_package(package, **kwargs):
-    globs = {"__package__": package}
-    for key, value in kwargs.items():
-        globs["__%s__" % key] = value
+class MockFrame(object):
+    f_globals = None
 
-    return MagicMock(f_globals=globs)
+
+def mock_package(package, **kwargs):
+    mf = MockFrame()
+    mf.f_globals = {"__package__": package}
+    for key, value in kwargs.items():
+        mf.f_globals["__%s__" % key] = value
+
+    return mf
 
 
 def importable_test_py_files(folder):
@@ -29,7 +33,7 @@ def importable_test_py_files(folder):
             yield fpath
 
 
-def test_auto_import_siblings():
+def test_auto_import_siblings(monkeypatch):
     # Check that none of these invocations raise an exception
     assert not _is_actual_caller_frame(mock_package(None))
     assert not _is_actual_caller_frame(mock_package(""))
@@ -43,43 +47,48 @@ def test_auto_import_siblings():
     assert _is_actual_caller_frame(mock_package("runez.system", name="__main__"))
 
     with pytest.raises(ImportError):
-        with patch("runez.inspector.find_caller_frame", return_value=None):
+        with monkeypatch.context() as m:
+            m.setattr(runez.inspector, "find_caller_frame", lambda *_, **__: None)
             auto_import_siblings()
 
     with pytest.raises(ImportError):
-        with patch("runez.inspector.find_caller_frame", return_value=mock_package("foo", name="__main__")):
+        with monkeypatch.context() as m:
+            m.setattr(runez.inspector, "find_caller_frame", lambda *_, **__: mock_package("foo", name="__main__"))
             auto_import_siblings()
 
     with pytest.raises(ImportError):
-        with patch("runez.inspector.find_caller_frame", return_value=mock_package(None)):
+        with monkeypatch.context() as m:
+            m.setattr(runez.inspector, "find_caller_frame", lambda *_, **__: mock_package(None))
             auto_import_siblings()
 
     with pytest.raises(ImportError):
-        with patch("runez.inspector.find_caller_frame", return_value=mock_package("foo")):
+        with monkeypatch.context() as m:
+            m.setattr(runez.inspector, "find_caller_frame", lambda *_, **__: mock_package("foo"))
             auto_import_siblings()
 
     with pytest.raises(ImportError):
-        with patch("runez.inspector.find_caller_frame", return_value=mock_package("foo", file="/dev/null/foo")):
+        with monkeypatch.context() as m:
+            m.setattr(runez.inspector, "find_caller_frame", lambda *_, **__: mock_package("foo", file="/dev/null/foo"))
             auto_import_siblings()
 
     py_file_count = len(list(importable_test_py_files(runez.log.tests_path()))) - 1  # Remove one to not count tests/__init__.py itself
-    with patch.dict(os.environ, {"TOX_WORK_DIR": "some-value"}, clear=True):
-        imported = auto_import_siblings(skip=["tests.test_system", "tests.test_serialize"])
-        assert len(imported) == py_file_count - 2
-
-        assert "tests.conftest" in imported
-        assert "tests.secondary" in imported
-        assert "tests.secondary.test_import" in imported
-        assert "tests.test_system" not in imported
-        assert "tests.test_click" in imported
-        assert "tests.test_serialize" not in imported
-
     imported = auto_import_siblings(skip=["tests.secondary"])
     assert len(imported) == py_file_count - 2
     assert "tests.conftest" in imported
     assert "tests.secondary" not in imported
     assert "tests.secondary.test_import" not in imported
     assert "tests.test_system" in imported
+
+    monkeypatch.setenv("TOX_WORK_DIR", "some-value")
+    imported = auto_import_siblings(skip=["tests.test_system", "tests.test_serialize"])
+    assert len(imported) == py_file_count - 2
+
+    assert "tests.conftest" in imported
+    assert "tests.secondary" in imported
+    assert "tests.secondary.test_import" in imported
+    assert "tests.test_system" not in imported
+    assert "tests.test_click" in imported
+    assert "tests.test_serialize" not in imported
 
 
 @pytest.mark.skipif(sys.version_info[:2] < (3, 7), reason="Available in 3.7+")

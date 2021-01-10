@@ -4,7 +4,6 @@ import datetime
 import time
 
 from freezegun import freeze_time
-from mock import patch
 
 import runez
 
@@ -106,11 +105,10 @@ def test_represented_duration():
     assert runez.represented_duration(752 * runez.date.SECONDS_IN_ONE_DAY, span=3) == "2 years 3 weeks 1 day"
 
 
-def test_timezone():
+def test_timezone(monkeypatch):
     assert runez.local_timezone() == time.tzname[0]
-    with patch("runez.date.time") as runez_time:
-        runez_time.tzname = []
-        assert runez.local_timezone() == ""
+    monkeypatch.setattr(runez.date.time, "tzname", [])
+    assert runez.local_timezone() == ""
 
     assert runez.timezone_from_text(None) is runez.date.DEFAULT_TIMEZONE
     assert runez.timezone_from_text("foo", default=None) is None

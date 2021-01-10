@@ -153,7 +153,7 @@ def _all_deps():
 # Usual dev libs that are not interesting for --all import times, they import ultra fast...
 # They can always be stated as argument explicitly to show their import times anyway
 DEV_LIBS = """
-attrs coverage mock more-itertools packaging pip pluggy py pyparsing python-dateutil setuptools six wcwidth wheel zipp
+attrs coverage more-itertools packaging pip pluggy py pyparsing python-dateutil setuptools six wcwidth wheel zipp
 binaryornot cookiecutter click future
 """
 DEV_LIBS = set(runez.flattened(DEV_LIBS.splitlines(), split=" "))

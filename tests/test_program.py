@@ -1,8 +1,8 @@
 import logging
 import os
+import subprocess
 
 import pytest
-from mock import patch
 
 import runez
 from runez.conftest import verify_abort
@@ -13,7 +13,7 @@ CHATTER = runez.log.tests_path("chatter")
 
 
 @pytest.mark.skipif(runez.WINDOWS, reason="Not supported on windows")
-def test_capture():
+def test_capture(monkeypatch):
     with runez.CurrentFolder(os.path.dirname(CHATTER)):
         # Check which finds programs in current folder
         assert runez.which("chatter") == CHATTER
@@ -87,7 +87,8 @@ def test_capture():
         assert runez.run("/dev/null", fatal=False) == RunResult(None, "/dev/null is not installed", 1)
         assert "/dev/null is not installed" in verify_abort(runez.run, "/dev/null")
 
-        with patch("subprocess.Popen", side_effect=Exception("testing")):
+        with monkeypatch.context() as m:
+            runez.conftest.patch_raise(m, subprocess, "Popen", OSError("testing"))
             r = runez.run("python", "--version", fatal=False)
             if not runez.PY2:  # __bool__ not respected in PY2... no point trying to fix it
                 assert not r
@@ -97,7 +98,7 @@ def test_capture():
             assert r.output is None
             assert r.full_output == "python failed: testing"
 
-            with pytest.raises(Exception):
+            with pytest.raises(OSError):
                 runez.run("python", "--version")
 
         # Test convenience arg None filtering
@@ -149,7 +150,7 @@ def check_process_tree(pinfo, max_depth=10):
         check_process_tree(pinfo.parent, max_depth=max_depth - 1)
 
 
-def test_ps():
+def test_ps(monkeypatch):
     p = runez.ps_info(os.getpid())
     check_process_tree(p)
     info = p.info
@@ -168,7 +169,8 @@ def test_ps():
     del p.cmd_basename
     assert p.cmd_basename == "/dev/null/foo"  # Fall back to using 1st sequence with space as basename
 
-    with patch("runez.program.is_executable", side_effect=lambda x: x == "/dev/null/foo bar"):
+    with monkeypatch.context() as m:
+        m.setattr(runez.program, "is_executable", lambda x: x == "/dev/null/foo bar")
         del p.cmd_basename
         assert p.cmd_basename == "foo bar"
 
@@ -202,24 +204,24 @@ def check_ri(platform, instructions=None):
     return verify_abort(runez.program.require_installed, "foo", instructions=instructions, platform=platform)
 
 
-def test_require_installed():
-    with patch("runez.program.which", return_value="/bin/foo"):
-        assert runez.program.require_installed("foo") is None  # Does not raise
+def test_require_installed(monkeypatch):
+    monkeypatch.setattr(runez.program, "which", lambda x: "/bin/foo")
+    assert runez.program.require_installed("foo") is None  # Does not raise
 
-    with patch("runez.program.which", return_value=None):
-        r = check_ri("darwin")
-        assert "foo is not installed, run: `brew install foo`" in r
+    monkeypatch.setattr(runez.program, "which", lambda x: None)
+    r = check_ri("darwin")
+    assert "foo is not installed, run: `brew install foo`" in r
 
-        r = check_ri("linux")
-        assert "foo is not installed, run: `apt install foo`" in r
+    r = check_ri("linux")
+    assert "foo is not installed, run: `apt install foo`" in r
 
-        r = check_ri("darwin", instructions="custom instructions")
-        assert "foo is not installed, custom instructions" in r
+    r = check_ri("darwin", instructions="custom instructions")
+    assert "foo is not installed, custom instructions" in r
 
-        r = check_ri(None)
-        assert "foo is not installed:\n" in r
-        assert "- on darwin: run: `brew install foo`" in r
-        assert "- on linux: run: `apt install foo`" in r
+    r = check_ri(None)
+    assert "foo is not installed:\n" in r
+    assert "- on darwin: run: `brew install foo`" in r
+    assert "- on linux: run: `apt install foo`" in r
 
 
 def test_pids():
@@ -232,15 +234,15 @@ def test_pids():
 
 
 @pytest.mark.skipif(runez.WINDOWS, reason="Not supported on windows")
-def test_wrapped_run():
+def test_wrapped_run(monkeypatch):
     original = ["python", "-mvenv", "foo"]
-    with patch.dict(os.environ, {}, clear=True):
-        with runez.program._WrappedArgs(original) as args:
-            assert args == original
+    monkeypatch.delenv("PYCHARM_HOSTED", raising=False)
+    with runez.program._WrappedArgs(original) as args:
+        assert args == original
 
-    with patch.dict(os.environ, {"PYCHARM_HOSTED": "1"}):
-        with runez.program._WrappedArgs(original) as args:
-            assert args
-            assert len(args) == 5
-            assert args[0] == "/bin/sh"
-            assert os.path.basename(args[1]) == "pydev-wrapper.sh"
+    monkeypatch.setenv("PYCHARM_HOSTED", "1")
+    with runez.program._WrappedArgs(original) as args:
+        assert args
+        assert len(args) == 5
+        assert args[0] == "/bin/sh"
+        assert os.path.basename(args[1]) == "pydev-wrapper.sh"

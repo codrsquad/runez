@@ -1,13 +1,12 @@
 #  -*- encoding: utf-8 -*-
 
-import os
 import sys
 
 import pytest
-from mock import patch
 
 import runez
 from runez.colors import terminal
+from runez.conftest import patch_env
 
 
 def test_colors():
@@ -69,53 +68,46 @@ def test_colors():
     assert str(runez.color.fg.black) == "black"
 
 
-def check_flavor(expected, term=None, fgbg=None):
-    env = {}
-    if term:
-        env["TERM"] = term
-
-    if fgbg:
-        env["COLORFGBG"] = fgbg
-
-    assert not runez.color.is_coloring()
-    with patch.dict(os.environ, env, clear=True):
-        with runez.ActivateColors():
-            assert runez.color.is_coloring()
-            assert runez.color.backend.name == expected
-
-    # Verify testing defaults were restored
+def check_flavor(monkeypatch, expected, term=None, colorfgbg=None):
+    # Verify defaults
     assert not runez.color.is_coloring()
     assert runez.color.backend.name == "plain"
 
+    patch_env(monkeypatch, term=term, colorfgbg=colorfgbg)
+    assert not runez.color.is_coloring()
+    with runez.ActivateColors():
+        assert runez.color.is_coloring()
+        assert runez.color.backend.name == expected
 
-def test_default():
+
+def test_default(monkeypatch):
     # Default: not coloring, neutral flavor
     assert not runez.color.is_coloring()
     assert runez.color.backend.name == "plain"
     assert runez.blue("hello") == "hello"
 
-    with patch("runez.colors._R.current_test", return_value=None):  # simulate not running in test
-        check_flavor("ansi16 neutral")
-        check_flavor("ansi16 light", fgbg="15;0")
-        check_flavor("ansi16 dark", fgbg="15;9")
+    monkeypatch.setattr(runez.colors._R, "current_test", classmethod(lambda *_: None))
+    check_flavor(monkeypatch, "ansi16 neutral")
+    check_flavor(monkeypatch, "ansi16 light", colorfgbg="15;0")
+    check_flavor(monkeypatch, "ansi16 dark", colorfgbg="15;9")
 
-        check_flavor("ansi256 neutral", term="xterm-256color")
-        check_flavor("ansi256 light", term="xterm-256color", fgbg="15;0")
-        check_flavor("ansi256 dark", term="xterm-256color", fgbg="15;9")
+    check_flavor(monkeypatch, "ansi256 neutral", term="xterm-256color")
+    check_flavor(monkeypatch, "ansi256 light", term="xterm-256color", colorfgbg="15;0")
+    check_flavor(monkeypatch, "ansi256 dark", term="xterm-256color", colorfgbg="15;9")
 
-        check_flavor("truecolor neutral", term="truecolor")
-        check_flavor("truecolor light", term="truecolor", fgbg="15;0")
-        check_flavor("truecolor dark", term="truecolor", fgbg="15;9")
-
-
-def check_usable(names, env):
-    with patch.dict(os.environ, env, clear=True):
-        usable = terminal.usable_backends()
-        usable_names = ", ".join(x.name for x in usable)
-        assert names == usable_names
+    check_flavor(monkeypatch, "truecolor neutral", term="truecolor")
+    check_flavor(monkeypatch, "truecolor light", term="truecolor", colorfgbg="15;0")
+    check_flavor(monkeypatch, "truecolor dark", term="truecolor", colorfgbg="15;9")
 
 
-def test_flavor():
+def check_usable(monkeypatch, names, colorterm=None, term=None):
+    patch_env(monkeypatch, colorterm=colorterm, term=term)
+    usable = terminal.usable_backends()
+    usable_names = ", ".join(x.name for x in usable)
+    assert names == usable_names
+
+
+def test_flavor(monkeypatch):
     assert terminal.detect_flavor(None) == "neutral"
     assert terminal.detect_flavor("") == "neutral"
     assert terminal.detect_flavor("foo") == "neutral"
@@ -126,11 +118,11 @@ def test_flavor():
     assert terminal.detect_flavor("15;6") == "light"
     assert terminal.detect_flavor("15;7") == "dark"
 
-    check_usable("truecolor neutral, ansi256 neutral, ansi16 neutral", {"COLORTERM": "truecolor", "TERM": "xterm-256color"})
-    check_usable("ansi256 neutral, ansi16 neutral", {"TERM": "xterm-256color"})
-    check_usable("ansi16 neutral", {"TERM": "xterm"})
-    check_usable("ansi16 neutral", {"TERM": "foo"})
-    check_usable("ansi16 neutral", {})
+    check_usable(monkeypatch, "truecolor neutral, ansi256 neutral, ansi16 neutral", colorterm="truecolor", term="xterm-256color")
+    check_usable(monkeypatch, "ansi256 neutral, ansi16 neutral", term="xterm-256color")
+    check_usable(monkeypatch, "ansi16 neutral", term="xterm")
+    check_usable(monkeypatch, "ansi16 neutral", term="foo")
+    check_usable(monkeypatch, "ansi16 neutral")
 
 
 def test_show_colors(cli):

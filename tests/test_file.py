@@ -1,9 +1,9 @@
 import io
 import logging
 import os
+import shutil
 
 import pytest
-from mock import patch
 
 import runez
 import runez.conftest
@@ -119,14 +119,13 @@ def test_ini_to_dict(temp_folder, logged):
     assert actual == expected
 
 
-@patch("io.open", side_effect=Exception)
-@patch("os.unlink", side_effect=Exception("bad unlink"))
-@patch("shutil.copy", side_effect=Exception)
-@patch("runez.open", side_effect=Exception)
-@patch("os.path.exists", return_value=True)
-@patch("os.path.isfile", return_value=True)
-@patch("os.path.getsize", return_value=10)
-def test_failure(*_):
+def test_failure(monkeypatch):
+    runez.conftest.patch_raise(monkeypatch, io, "open")
+    runez.conftest.patch_raise(monkeypatch, os, "unlink", "bad unlink")
+    runez.conftest.patch_raise(monkeypatch, shutil, "copy")
+    monkeypatch.setattr(os.path, "exists", lambda _: True)
+    monkeypatch.setattr(os.path, "isfile", lambda _: True)
+    monkeypatch.setattr(os.path, "getsize", lambda _: 10)
     with runez.CaptureOutput() as logged:
         assert runez.copy("some-file", "bar", fatal=False) == -1
         assert "Can't copy" in logged.pop()

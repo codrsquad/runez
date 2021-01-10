@@ -4,7 +4,6 @@ import sys
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 
 import pytest
-from mock import patch
 
 import runez
 from runez.conftest import TMP, WrappedHandler
@@ -30,7 +29,7 @@ def test_find_parent_folder():
     assert runez.log.dev_folder("foo")
 
 
-def test_logspec(isolated_log_setup):
+def test_logspec(isolated_log_setup, monkeypatch):
     s1 = LogSpec(runez.log._default_spec, appname="pytest")
     s2 = LogSpec(runez.log._default_spec, appname="pytest")
     assert s1 == s2
@@ -63,11 +62,11 @@ def test_logspec(isolated_log_setup):
 
     # Location referring to env var
     s1.set(file_location=None, locations=[os.path.join(".", "{FOO}", "bar")])
-    with patch.dict(os.environ, {"FOO": "foo"}, clear=True):
-        assert s1.usable_location() == os.path.join(".", "foo", "bar")
+    monkeypatch.setenv("FOO", "foo")
+    assert s1.usable_location() == os.path.join(".", "foo", "bar")
 
-    with patch.dict(os.environ, {}, clear=True):
-        assert s1.usable_location() is None
+    # with patch.dict(os.environ, {}, clear=True):
+    #     assert s1.usable_location() is None
 
     # Restore from other spec
     s1.set(s2)
@@ -306,16 +305,16 @@ def test_convenience(temp_log):
     assert "f:test_logsetup.py mod:test_logsetup func:test_convenience ERROR oops" in temp_log.stderr
 
 
-def test_auto_location_not_writable(temp_log):
-    with patch("runez.file.os.access", return_value=False):
-        runez.log.setup(
-            greetings="Logging to: {location}",
-            console_format="%(name)s f:%(filename)s mod:%(module)s func:%(funcName)s %(levelname)s - %(message)s",
-            console_level=logging.DEBUG,
-        )
-        assert "runez f:logsetup.py mod:logsetup func:greet DEBUG" in temp_log.stderr
-        assert "Logging to: no usable locations" in temp_log.stderr
-        assert runez.log.file_handler is None
+def test_auto_location_not_writable(temp_log, monkeypatch):
+    monkeypatch.setattr(runez.file.os, "access", lambda *_, **__: False)
+    runez.log.setup(
+        greetings="Logging to: {location}",
+        console_format="%(name)s f:%(filename)s mod:%(module)s func:%(funcName)s %(levelname)s - %(message)s",
+        console_level=logging.DEBUG,
+    )
+    assert "runez f:logsetup.py mod:logsetup func:greet DEBUG" in temp_log.stderr
+    assert "Logging to: no usable locations" in temp_log.stderr
+    assert runez.log.file_handler is None
 
 
 @pytest.mark.skipif(runez.WINDOWS, reason="No /dev/null on Windows")

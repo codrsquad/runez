@@ -4,10 +4,7 @@ Test click related methods
 
 from __future__ import print_function
 
-import os
-
 import click
-from mock import patch
 
 import runez
 
@@ -106,7 +103,7 @@ def test_group(cli):
     cli.assert_printed("hello, color: False, 2 values, g.a=b, debug: False, dryrun: True, log: foo")
 
 
-def test_command(cli):
+def test_command(cli, monkeypatch):
     cli.main = say_hello
     cli.run("--help")
     assert cli.succeeded
@@ -129,10 +126,11 @@ def test_command(cli):
     assert cli.succeeded
     cli.assert_printed("border: github, color: True, a=x c=y, debug: True, dryrun: False, log: foo")
 
-    with patch.dict(os.environ, {"MY_PROG_A": "some-value"}, clear=True):
-        cli.run("")
-        assert cli.succeeded
-        cli.assert_printed("border: reddit, color: None, a=some-value c=d, debug: None, dryrun: False, log: None")
+    monkeypatch.setenv("MY_PROG_A", "some-value")
+    monkeypatch.delenv("LANG", raising=False)
+    cli.run("")
+    assert cli.succeeded
+    cli.assert_printed("border: reddit, color: None, a=some-value c=d, debug: None, dryrun: False, log: None")
 
 
 def sample_config(**attrs):
@@ -141,58 +139,57 @@ def sample_config(**attrs):
     return c
 
 
-def test_config(logged):
-    with patch.dict(os.environ, {}, clear=True):
-        # sys.argv is used as env var prefix when env=True is used
-        config = sample_config(env=True)(None, None, "")
-        assert str(config) == "--config, PYTEST_* env vars"
-        assert "Adding config provider PYTEST_*" in logged.pop()
+def test_config(logged, monkeypatch):
+    # sys.argv is used as env var prefix when env=True is used
+    config = sample_config(env=True)(None, None, "")
+    assert str(config) == "--config, PYTEST_* env vars"
+    assert "Adding config provider PYTEST_*" in logged.pop()
 
-    with patch.dict(os.environ, {"MY_PROG_A": "via env"}, clear=True):
-        propsfs = runez.log.tests_path("sample")
-        config = sample_config(env="MY_PROG", default="x=y", propsfs=propsfs, split=",")
-        c1 = config(None, None, "")
-        assert str(c1) == "--config, MY_PROG_* env vars, propsfs, --config default"
-        assert logged.pop()
-        assert c1.get("x") == "y"
-        logged.assert_printed("Using x='y' from --config default")
-        assert c1.get_int("some-int") == 123
-        logged.assert_printed("Using some-int='123' from propsfs")
+    monkeypatch.setenv("MY_PROG_A", "via env")
+    propsfs = runez.log.tests_path("sample")
+    config = sample_config(env="MY_PROG", default="x=y", propsfs=propsfs, split=",")
+    c1 = config(None, None, "")
+    assert str(c1) == "--config, MY_PROG_* env vars, propsfs, --config default"
+    assert logged.pop()
+    assert c1.get("x") == "y"
+    logged.assert_printed("Using x='y' from --config default")
+    assert c1.get_int("some-int") == 123
+    logged.assert_printed("Using some-int='123' from propsfs")
 
-        # 'some-int' from propsfs sample is overridden
-        c2 = config(None, None, "x=overridden,some-int=12,twenty-k=20kb,five-one-g=5.1g")
-        assert logged.pop()
-        assert c1.get_str("key") is None
-        assert not logged
-        assert c2.get("x") == "overridden"
-        logged.assert_printed("Using x='overridden' from --config")
-        assert c2.get_int("some-int") == 12
-        logged.assert_printed("Using some-int='12' from --config")
+    # 'some-int' from propsfs sample is overridden
+    c2 = config(None, None, "x=overridden,some-int=12,twenty-k=20kb,five-one-g=5.1g")
+    assert logged.pop()
+    assert c1.get_str("key") is None
+    assert not logged
+    assert c2.get("x") == "overridden"
+    logged.assert_printed("Using x='overridden' from --config")
+    assert c2.get_int("some-int") == 12
+    logged.assert_printed("Using some-int='12' from --config")
 
-        # Test bytesize
-        assert c2.get_bytesize("some-int") == 12
-        assert c2.get_bytesize("some-int", default_unit="k") == 12 * 1024
-        assert c2.get_bytesize("some-int", default_unit="m") == 12 * 1024 * 1024
+    # Test bytesize
+    assert c2.get_bytesize("some-int") == 12
+    assert c2.get_bytesize("some-int", default_unit="k") == 12 * 1024
+    assert c2.get_bytesize("some-int", default_unit="m") == 12 * 1024 * 1024
 
-        assert c2.get_bytesize("twenty-k") == 20 * 1024
-        assert c2.get_bytesize("five-one-g") == int(5.1 * 1024 * 1024 * 1024)
+    assert c2.get_bytesize("twenty-k") == 20 * 1024
+    assert c2.get_bytesize("five-one-g") == int(5.1 * 1024 * 1024 * 1024)
 
-        assert c2.get_bytesize("twenty-k", minimum=5, maximum=100) == 100
+    assert c2.get_bytesize("twenty-k", minimum=5, maximum=100) == 100
 
-        # Invalid default unit affects only ints without unit
-        assert c2.get_bytesize("some-int", default_unit="a") is None
-        assert c2.get_bytesize("twenty-k", default_unit="a") == 20 * 1024
+    # Invalid default unit affects only ints without unit
+    assert c2.get_bytesize("some-int", default_unit="a") is None
+    assert c2.get_bytesize("twenty-k", default_unit="a") == 20 * 1024
 
-        assert c2.get_bytesize("some-string") is None
-        assert c2.get_bytesize("some-string", default=5) == 5
-        assert c2.get_bytesize("some-string", default="5k") == 5 * 1024
-        assert c2.get_bytesize("some-string", default=5, default_unit="k") == 5 * 1024
-        assert c2.get_bytesize("some-string", default="5m", default_unit="k") == 5 * 1024 * 1024
-        logged.pop()
+    assert c2.get_bytesize("some-string") is None
+    assert c2.get_bytesize("some-string", default=5) == 5
+    assert c2.get_bytesize("some-string", default="5k") == 5 * 1024
+    assert c2.get_bytesize("some-string", default=5, default_unit="k") == 5 * 1024
+    assert c2.get_bytesize("some-string", default="5m", default_unit="k") == 5 * 1024 * 1024
+    logged.pop()
 
-        # Shuffle things around
-        c2.add(c2.providers[0])
-        logged.assert_printed("Replacing config provider --config at index 0")
+    # Shuffle things around
+    c2.add(c2.providers[0])
+    logged.assert_printed("Replacing config provider --config at index 0")
 
-        c2.add(runez.config.DictProvider({}, name="foo1"), front=True)
-        logged.assert_printed("Adding config provider foo1 to front")
+    c2.add(runez.config.DictProvider({}, name="foo1"), front=True)
+    logged.assert_printed("Adding config provider foo1 to front")

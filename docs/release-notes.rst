@@ -2,10 +2,12 @@
 History
 =======
 
-2.3.4 (2021-01-09)
+2.3.4 (2021-01-11)
 ------------------
 
 * Renamed ``terminal_info()`` -> ``TERMINAL_INFO``, moved ``is_tty()`` to it
+
+* Using ``monkeypatch`` instead of ``mock``
 
 
 2.3.3 (2020-12-27)

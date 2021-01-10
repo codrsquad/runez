@@ -50,6 +50,73 @@ if sys.argv and "pycharm" in sys.argv[0].lower():  # pragma: no cover, ignore Py
 LogManager.override_spec(timezone="UTC", tmp=TMP, locations=[os.path.join("{tmp}", "{basename}")])
 
 
+def exception_raiser(exc=Exception):
+    """
+    Convenience wrapper for monkeypatch
+    Example usage:
+        monkeypatch.setattr(io, "open", runez.conftest.exception_raiser(KeyboardInterrupt))
+        monkeypatch.setattr(os, "unlink", runez.conftest.exception_raiser("oops, unlink failed"))
+        monkeypatch.setattr(mymodule.MyClass, "myfunction", runez.conftest.exception_raiser(MyException("some message")))
+
+    Args:
+        exc (BaseException | type | str): Exception to raise
+
+    Returns:
+        (callable): Function that will raise given exception
+    """
+    def _raise(*_, **__):
+        if isinstance(exc, string_type):
+            raise Exception(exc)
+
+        if isinstance(exc, type) and issubclass(exc, BaseException):
+            raise exc()
+
+        raise exc
+
+    return _raise
+
+
+def patch_env(monkeypatch, clear=True, uppercase=True, **kwargs):
+    """
+    Args:
+        monkeypatch (pytest.MonkeyPatch): Monkeypatch object (obtained from pytest fixture)
+        clear (bool): If True, clear all env vars (other than the ones given in kwargs)
+        uppercase (bool): If True, uppercase all keys in kwargs
+        **kwargs: Env vars to mock
+    """
+    if uppercase:
+        kwargs = {k.upper(): v for k, v in kwargs.items()}
+
+    if clear:
+        for k in os.environ.keys():
+            if k not in kwargs:
+                monkeypatch.delenv(k)
+
+    for k, v in kwargs.items():
+        if v:
+            monkeypatch.setenv(k, v)
+
+        else:
+            monkeypatch.delenv(k, raising=False)
+
+
+def patch_raise(monkeypatch, target, name, exc=Exception, raising=True, wrapper=None):
+    """
+    Args:
+        monkeypatch (pytest.MonkeyPatch): Monkeypatch object (obtained from pytest fixture)
+        target: Target to patch
+        name: Name of attribute in target to patch
+        exc (BaseException | type | str): Exception to raise
+        raising (bool): Passed through to monkeypatch
+        wrapper (callable | None): Optional wrapper to use (for example: staticmethod)
+    """
+    value = exception_raiser(exc)
+    if wrapper:
+        value = wrapper(value)
+
+    monkeypatch.setattr(target, name, value, raising=raising)
+
+
 def verify_abort(func, *args, **kwargs):
     """
     Convenient wrapper around functions that should exit or raise an exception

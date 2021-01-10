@@ -1,7 +1,6 @@
 import os
 
 import pytest
-from mock import patch
 
 import runez
 from runez.conftest import verify_abort
@@ -26,8 +25,8 @@ def test_no_tty():
         interactive_prompt("test")
 
 
-@patch("runez.prompt.interactive_prompt", side_effect=str)
-def test_with_tty(*_):
+def test_with_tty(monkeypatch):
+    monkeypatch.setattr(runez.prompt, "interactive_prompt", lambda x: str(x))
     expected = {"value": "foo"}
     runez.TERMINAL_INFO.is_stdout_tty = True
     with runez.TempFolder() as tmp:
@@ -49,8 +48,8 @@ def test_with_tty(*_):
         assert "No value provided" in response
 
         # Simulate CTRL+C
-        with patch("runez.prompt.interactive_prompt", side_effect=KeyboardInterrupt):
-            response = verify_abort(ask_once, "test2", "test2", serializer=custom_serializer, base=tmp)
-            assert "Cancelled by user" in response
+        runez.conftest.patch_raise(monkeypatch, runez.prompt, "interactive_prompt", KeyboardInterrupt)
+        response = verify_abort(ask_once, "test2", "test2", serializer=custom_serializer, base=tmp)
+        assert "Cancelled by user" in response
 
     runez.TERMINAL_INFO.is_stdout_tty = False

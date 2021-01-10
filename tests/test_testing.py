@@ -3,7 +3,6 @@ import re
 import sys
 
 import pytest
-from mock import patch
 
 import runez
 import runez.conftest
@@ -40,13 +39,18 @@ def sample_main():
     return "%s %s" % (os.path.basename(sys.argv[0]), " ".join(args))
 
 
-def test_edge_cases():
+def test_edge_cases(monkeypatch):
     # verify_abort should complain about called function not having raised anything
     with pytest.raises(AssertionError):
         assert runez.conftest.verify_abort(sample_main)
 
+    # Edge case for wrapper= arg in patch_raise()
+    runez.conftest.patch_raise(monkeypatch, runez.log, "tests_path", wrapper=staticmethod)
+    with pytest.raises(Exception):
+        runez.log.project_path()
 
-def test_success(cli):
+
+def test_success(cli, monkeypatch):
     cli.main = sample_main
 
     # Verify that project folder works properly
@@ -60,7 +64,8 @@ def test_success(cli):
     assert cli.project_path() == project_folder
     assert cli.project_path("foo") == os.path.join(project_folder, "foo")
 
-    with patch("runez.logsetup.LogManager.tests_path", return_value=None):
+    with monkeypatch.context() as m:
+        m.setattr(runez.logsetup.LogManager, "tests_path", staticmethod(lambda *_: None))
         # Test alternative method of finding project folder
         assert cli.project_path() == project_folder
 
