@@ -114,8 +114,18 @@ def cmd_progress_bar():
     parser.add_argument("name", nargs="*", help="Names of modules to show (by default: all).")
     args = parser.parse_args()
 
+    process = None
+    try:
+        import psutil
+
+        process = psutil.Process(os.getpid())
+        process.cpu_percent()
+
+    except ImportError:  # pragma: no cover
+        pass
+
     runez.log.setup(console_level=logging.INFO)
-    runez.log.progress.start(frames=args.spinner)
+    runez.log.progress.start(frames=AsciiAnimation.predefined(args.spinner) or runez.UNSET)
     runez.log.progress.spinner_color = runez.yellow
     runez.log.progress.message_color = runez.dim
     for i in range(args.iterations):
@@ -125,7 +135,12 @@ def cmd_progress_bar():
         logger("Running iteration %s", runez.red(i))
         time.sleep(args.delay / 1000)
 
-    print("done")
+    msg = "%s FPS" % runez.log.progress._fps
+    if process:
+        cpu_usage = ("%.2f" % process.cpu_percent()).rstrip("0")
+        msg += ", %s%% CPU usage" % cpu_usage
+
+    print("done (%s)" % msg)
 
 
 def _get_mid(times):

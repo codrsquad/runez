@@ -27,7 +27,7 @@ from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone
 from runez.file import basename as get_basename, parent_folder
 from runez.system import _R, cached_property, find_caller_frame, flattened, joined, LOG, quoted, Slotted, stringified
-from runez.system import string_type, TERMINAL_INFO, ThreadGlobalContext, UNSET, WINDOWS
+from runez.system import TERMINAL_INFO, ThreadGlobalContext, UNSET, WINDOWS
 
 
 ORIGINAL_CF = logging.currentframe
@@ -136,140 +136,119 @@ class AsciiAnimation(object):
     """Contains a few progress spinner animation examples"""
 
     @classmethod
-    def available_names(cls, default=None):
-        """Available ascii animation names from this sample collection"""
-        result = []
-        for k in dir(cls):
-            if not k.startswith("_") and k not in ("available_names", "predefined"):
-                result.append(k)
-
-        result = sorted(result)
-        if default and default in result:
-            result.remove(default)
-            result = [default] + result
-
-        return result
+    def available_names(cls):
+        """(list[str]): Available ascii animation names from this sample collection"""
+        return sorted(k[3:] for k in dir(cls) if k.startswith("af_")) + ["off"]
 
     @classmethod
-    def predefined(cls, name, default=None):
-        """Predefined animation with 'name', if any"""
-        return getattr(cls, name)() if name in cls.available_names() else default
+    def predefined(cls, name):
+        """(AsciiFrames | None): Predefined animation with 'name', if any"""
+        if name == "off":
+            return AsciiFrames(None)
+
+        if name in cls.available_names():
+            return getattr(cls, "af_%s" % name)()
 
     @classmethod
-    def bar(cls):
-        """Bar filling up and down"""
-        return cls._travelling(u" ▁▂▃▄▅▆▇█▇▆▅▄▃▂▁", 2)
-
-    @classmethod
-    def circling(cls):
-        """Circling dot"""
-        return [u"▖ ", u"▗ ", u" ▖", u" ▗", u" ▝", u" ▘", u"▝ ", u"▘ "]
-
-    @classmethod
-    def dots(cls):
+    def af_dots(cls):
         """Dots going left and right"""
-        return cls._symmetrical(["   ", ".  ", ".. ", "...", " ..", "  .", "   "])
+        return AsciiFrames(cls.symmetrical(["   ", ".  ", ".. ", "...", " ..", "  .", "   "]), fps=6)
 
     @classmethod
-    def dotrot(cls):
-        """2 dots rotating side by side in opposite direction"""
-        return cls._alternating_cycle(u"⣷⣯⣟⡿⢿⣻⣽⣾", size=2)
+    def af_dotrot(cls):
+        """Rotating dot"""
+        return AsciiFrames(cls.circling_dots(), fps=5)
 
     @classmethod
-    def oh(cls):
-        """Moving signal"""
-        return cls._travelling(" .-oOOo-.", 2)
+    def af_dotrot2(cls):
+        """2 rotating dots (one bigger, one smaller)"""
+        chars = cycle(u"⣯⣷⣾⣽⣻⢿⡿⣟")
+        return AsciiFrames(("%s%s" % (f, next(chars)) for f in cls.circling_dots()), fps=5)
 
     @classmethod
-    def ping(cls):
-        """Ping of sorts, oscillating between between chars rotating from 'chars' cycle"""
-        chars = u"⣷⣯⣟⡿⢿⣻⣽⣾"
-        forward = cycle(chars)
-        backward = cycle(reversed(chars))
-        frames = ["| ", "> ", "- ", "- ", " -", " -", " <", " |"]
-        return flattened(
-            ["%s%s%s" % (next(forward), f, next(backward)) for f in frames],
-            ["%s%s%s" % (next(forward), f, next(backward)) for f in reversed(frames)],
-        )
+    def af_dotrot3(cls):
+        """2 small rotating dots in opposite direction"""
+        return AsciiFrames(cls.alternating_cycle(u"⡿⣟⣯⣷⣾⣽⣻⢿", size=2), fps=5)
 
     @classmethod
-    def whoop(cls):
-        return AsciiFrames([" "] + cls._symmetrical(list("▁▂▃▄▅▆▇█")) + [" "] + cls._symmetrical(list("▏▎▍▌▋▊▉")))
+    def af_fill(cls):
+        """Bar growing/shrinking vertically, then horizontally"""
+        return AsciiFrames([" "] + cls.symmetrical(list(u"▁▂▃▄▅▆▇█")) + [" "] + cls.symmetrical(list(u"▏▎▍▌▋▊▉")), fps=15)
+
+    @classmethod
+    def af_fill2(cls):
+        """2 bars filling up and down"""
+        return AsciiFrames(cls.travelling(cls.symmetrical(list(u"▁▂▃▄▅▆▇█")), 2), fps=15)
+
+    @classmethod
+    def af_oh(cls):
+        """Moving growing/shrinking O signal"""
+        return AsciiFrames(cls.travelling(" .-oOOo-.", 3), fps=15)
 
     @staticmethod
-    def _alternating_cycle(chars, size=2):
+    def alternating_cycle(chars, size=2):
         """Rotate through characters in 'chars', in alternated direction, animation is 'size' characters wide"""
         alt = cycle((lambda: cycle(chars), lambda: cycle(reversed(chars))))
         cycles = [next(alt)() for _ in range(size)]
-        return ["".join(next(c) for c in cycles) for _ in range(len(chars))]
+        return ("".join(next(c) for c in cycles) for _ in range(len(chars)))
+
+    @classmethod
+    def circling_dots(cls):
+        return [u"▖ ", u"▗ ", u" ▖", u" ▗", u" ▝", u" ▘", u"▝ ", u"▘ "]
 
     @staticmethod
-    def _symmetrical(frames):
+    def symmetrical(frames):
+        """Frames followed by their reverse"""
         return frames + list(reversed(frames))
 
     @staticmethod
-    def _travelling(chars, size):
-        return flattened(
-            (["".join((" " * i, c, " " * (size - i - 1))) for c in chars] for i in range(size)),
-            (["".join((" " * (size - i - 1), c, " " * i)) for c in chars] for i in range(size, 1)),
-        )
+    def travelling(chars, size):
+        """Animated 'chars', repeated 'size' times, moving left then right"""
+        yield (["".join((" " * i, c, " " * (size - i - 1))) for c in chars] for i in range(size))
+        if size > 2:
+            yield (["".join((" " * (i + 1), c, " " * (size - i - 2))) for c in chars] for i in reversed(range(size - 2)))
 
 
 class AsciiFrames(object):
     """Holds ascii animation frames, one-line animations of arbitrary size (should be playable in a loop for good visual effect)"""
 
-    def __init__(self, frames):
+    def __init__(self, frames, fps=10):
         """
         Args:
-            frames (list[str]): Frames composing the ascii animation
+            frames: Frames composing the ascii animation
+            fps (int): Desired frames per second
         """
-        self.frames = frames
+        self.frames = flattened(frames, keep_empty=None) or None
+        self.fps = fps
+        self.animate_every = 1.0
+        self.countdown = 0.0
         self.index = 0
+
+    def __repr__(self):
+        return "off" if not self.frames else "%s frames" % len(self.frames)
+
+    def set_parent_fps(self, fps):
+        """Adapt how often we yield a new frame accordingly to parent FPS"""
+        self.animate_every = float(fps) / float(self.fps)
 
     def next_frame(self):
         """
         Returns:
             (str): Next frame (infinite cycle across self.frames)
         """
-        self.index += 1
-        if self.index >= len(self.frames):
-            self.index = 0
+        if self.frames:
+            if self.countdown <= 0.1:
+                self.countdown += self.animate_every
+                self.index += 1
+                if self.index >= len(self.frames):
+                    self.index = 0
 
-        return self.frames[self.index]
-
-    @classmethod
-    def from_frames(cls, frames):
-        """
-        Args:
-            frames (AsciiFrames | str | list | callable | None): Name of pre-defined frames, or sequence of strings to use as frames
-
-        Returns:
-            (AsciiFrames | None): Corresponding `AsciiFrames` object, if possible
-        """
-        if frames:
-            if isinstance(frames, string_type):
-                predefined = AsciiAnimation.predefined(frames)
-                if predefined:
-                    frames = predefined
-
-            if isinstance(frames, AsciiFrames):
-                return frames
-
-            if callable(frames):
-                frames = frames()
-
-            if not isinstance(frames, list):
-                frames = list(frames)
-
-            return cls(frames)
+            self.countdown -= 1
+            return self.frames[self.index]
 
 
 class Progress(object):
 
-    thread = None  # type: thread # Background daemon thread used to display progress
-    beat = 0.01  # Time in seconds between progress updates
-    animate_every = 10  # Number of beats between animations
-    frames = AsciiAnimation.dots  # Frames to animate (set to None to stop animation)
     spinner_color = None
     message_color = None
 
@@ -279,20 +258,27 @@ class Progress(object):
 
     @property
     def is_running(self):
-        return self.thread is not None
+        return self._thread is not None
 
     def show(self, message):
         with self.lock:
             self._message = message
 
-    def start(self, frames=UNSET):
-        """Start background thread if not already started"""
+    def start(self, frames=UNSET, fps=30):
+        """Start background thread if not already started
+
+        Args:
+            frames (AsciiFrames | None): Frames to use for spinner animation
+            fps (int): Desired frames per second (how often to refresh progress line, capped at 6 -> 60)
+                       Animation overhead is ~0.1% CPU at 6 FPS, ~0.5% CPU at 60 FPS
+        """
         with self.lock:
             if frames is UNSET:
-                frames = AsciiAnimation.predefined(os.environ.get("SPINNER"), self.frames)
+                frames = AsciiAnimation.predefined(os.environ.get("SPINNER")) or AsciiAnimation.af_dots()
 
-            self.frames = AsciiFrames.from_frames(frames)
-            if self.thread is None:
+            self._frames = frames or AsciiFrames(None)
+            self._fps = min(max(fps, 6), 60)
+            if self._thread is None:
                 self._stderr_write = self._original_write(sys.stderr)
                 if self._stderr_write is not None:
                     atexit.register(self.stop)
@@ -302,17 +288,17 @@ class Progress(object):
                         if self._stdout_write is not None:
                             sys.stdout.write = self._on_stdout
 
-                    self.thread = threading.Thread(target=self._run, name="Progress")
-                    self.thread.daemon = True
-                    self.thread.start()
+                    self._thread = threading.Thread(target=self._run, name="Progress")
+                    self._thread.daemon = True
+                    self._thread.start()
                     LogManager._auto_enable_progress_handler()
                     self._hide_cursor()
 
     def stop(self):
         with self.lock:
-            if self.thread is not None:
+            if self._thread is not None:
                 self._show_cursor()
-                self.thread = None
+                self._thread = None
                 LogManager._auto_enable_progress_handler()
                 if self._has_progress_line:
                     self._clear_line()
@@ -326,6 +312,9 @@ class Progress(object):
                         sys.stderr.write = self._stderr_write
                         self._stderr_write = None
 
+    _frames = None  # type: AsciiFrames # Frames to animate (set to None to stop animation)
+    _thread = None  # type: Optional[threading.Thread] # Background daemon thread used to display progress
+    _fps = None  # type: int # Desired frames per second (set by start())
     _message = None  # type: str # Message to be shown by background thread, on next run
     _stdout_write = None
     _stderr_write = None
@@ -364,26 +353,19 @@ class Progress(object):
         self._stderr_write(text)
 
     def _colored(self, message, color):
-        return color(message) if color else message
+        if message:
+            return color(message) if color else message
 
     def _run(self):
         """Background thread handling progress reporting and animation"""
         try:
-            animation_countdown = 0
-            current_frame = None
+            self._frames.set_parent_fps(self._fps)
+            sleep_delay = float(1) / float(self._fps)
             last_frame = None
             last_message = None
-            while self.thread:
+            while self._thread:
                 with self.lock:
-                    if self.frames is not None:
-                        animation_countdown -= 1
-                        if animation_countdown < 0:
-                            animation_countdown = self.animate_every
-                            current_frame = self.frames.next_frame()
-
-                    else:
-                        current_frame = None
-
+                    current_frame = self._frames.next_frame()
                     if current_frame is not last_frame or self._message is not last_message:
                         last_frame = current_frame
                         if self._message:
@@ -400,7 +382,7 @@ class Progress(object):
                             self._write("\r")
                             self._has_progress_line = True
 
-                time.sleep(self.beat or 1)
+                time.sleep(sleep_delay)
 
         finally:
             self.stop()

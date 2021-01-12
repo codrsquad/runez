@@ -482,17 +482,19 @@ def test_progress_command(cli):
     assert cli.succeeded
     assert "done" in cli.logged.stdout
 
-    available = AsciiAnimation.available_names(default="dots")
-    assert available[0] == "dots"
+    assert AsciiAnimation.predefined("foo") is None
+    off = AsciiAnimation.predefined("off")
+    assert off.frames is None
+    assert str(off) == "off"
+    names = AsciiAnimation.available_names()
+    assert names
+    for name in names:
+        assert AsciiAnimation.predefined(name)
 
 
 def test_progress_frames():
-    assert AsciiFrames.from_frames(None) is None
-    for name in AsciiAnimation.available_names():
-        assert AsciiFrames.from_frames(name).frames
-
-    foo = AsciiFrames.from_frames("ab")
-    assert AsciiFrames.from_frames(["a", "b"]).frames == foo.frames
+    foo = AsciiFrames(["a", ["b", ""]], fps=10)
+    assert foo.animate_every == 1
     assert foo.frames == ["a", "b"]
     assert foo.index == 0
     assert foo.next_frame() == "b"
@@ -501,9 +503,16 @@ def test_progress_frames():
     assert foo.index == 0
     assert foo.next_frame() == "b"
 
-    dots = AsciiFrames.from_frames("dots")
-    assert AsciiFrames.from_frames(dots) is dots
-    assert AsciiFrames.from_frames(AsciiAnimation.dots).frames == dots.frames
+    foo.set_parent_fps(100)
+    assert foo.animate_every == 10
+
+    foo.set_parent_fps(20)
+    assert foo.animate_every == 2
+    assert foo.next_frame() == "a"
+    assert foo.next_frame() == "a"
+    assert foo.next_frame() == "b"
+    assert foo.next_frame() == "b"
+    assert foo.next_frame() == "a"
 
 
 def test_progress_operation(isolated_log_setup, logged):
@@ -518,7 +527,7 @@ def test_progress_operation(isolated_log_setup, logged):
     logged.clear()
     with patch("runez.system.TerminalInfo.isatty", return_value=True):
         # Simulate progress with alternating foo/bar "spinner"
-        runez.log.progress.start(frames=["foo", "bar"])
+        runez.log.progress.start(frames=AsciiFrames(["foo", "bar"], fps=100))
         runez.log.progress.show("some progress")
         assert runez.log.progress.is_running
         time.sleep(0.1)
@@ -541,7 +550,7 @@ def test_progress_operation(isolated_log_setup, logged):
 
         # Simulate progress without spinner
         logged.clear()
-        runez.log.progress.start(frames=None)
+        runez.log.progress.start(frames=None, fps=100)
         runez.log.progress.show("some progress")
         time.sleep(0.1)
         assert runez.log.progress.is_running

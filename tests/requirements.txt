@@ -1,4 +1,5 @@
 click
 freezegun
 mock
+psutil
 pytest-cov
