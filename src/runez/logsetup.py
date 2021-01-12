@@ -158,12 +158,12 @@ class AsciiAnimation(object):
     @classmethod
     def bar(cls):
         """Bar filling up and down"""
-        return cls._travelling(" ▁▂▃▄▅▆▇█▇▆▅▄▃▂▁", 2)
+        return cls._travelling(u" ▁▂▃▄▅▆▇█▇▆▅▄▃▂▁", 2)
 
     @classmethod
     def circling(cls):
         """Circling dot"""
-        return ["▖ ", "▗ ", " ▖", " ▗", " ▝", " ▘", "▝ ", "▘ "]
+        return [u"▖ ", u"▗ ", u" ▖", u" ▗", u" ▝", u" ▘", u"▝ ", u"▘ "]
 
     @classmethod
     def dots(cls):
@@ -173,7 +173,7 @@ class AsciiAnimation(object):
     @classmethod
     def dotrot(cls):
         """2 dots rotating side by side in opposite direction"""
-        return cls._alternating_cycle("⣷⣯⣟⡿⢿⣻⣽⣾", size=2)
+        return cls._alternating_cycle(u"⣷⣯⣟⡿⢿⣻⣽⣾", size=2)
 
     @classmethod
     def oh(cls):
@@ -183,7 +183,7 @@ class AsciiAnimation(object):
     @classmethod
     def ping(cls):
         """Ping of sorts, oscillating between between chars rotating from 'chars' cycle"""
-        chars = "⣷⣯⣟⡿⢿⣻⣽⣾"
+        chars = u"⣷⣯⣟⡿⢿⣻⣽⣾"
         forward = cycle(chars)
         backward = cycle(reversed(chars))
         frames = ["| ", "> ", "- ", "- ", " -", " -", " <", " |"]
@@ -296,10 +296,11 @@ class Progress(object):
                 self._stderr_write = self._original_write(sys.stderr)
                 if self._stderr_write is not None:
                     atexit.register(self.stop)
-                    sys.stderr.write = self._on_stderr
-                    self._stdout_write = self._original_write(sys.stdout)
-                    if self._stdout_write is not None:
-                        sys.stdout.write = self._on_stdout
+                    if not _R._runez_module().PY2:  # Can't replace 'write' in py2
+                        sys.stderr.write = self._on_stderr
+                        self._stdout_write = self._original_write(sys.stdout)
+                        if self._stdout_write is not None:
+                            sys.stdout.write = self._on_stdout
 
                     self.thread = threading.Thread(target=self._run, name="Progress")
                     self.thread.daemon = True
@@ -316,13 +317,14 @@ class Progress(object):
                 if self._has_progress_line:
                     self._clear_line()
 
-                if self._stdout_write is not None:
-                    sys.stdout.write = self._stdout_write
-                    self._stdout_write = None
+                if not _R._runez_module().PY2:  # Can't replace 'write' in py2
+                    if self._stdout_write is not None:
+                        sys.stdout.write = self._stdout_write
+                        self._stdout_write = None
 
-                if self._stderr_write is not None:
-                    sys.stderr.write = self._stderr_write
-                    self._stderr_write = None
+                    if self._stderr_write is not None:
+                        sys.stderr.write = self._stderr_write
+                        self._stderr_write = None
 
     _message = None  # type: str # Message to be shown by background thread, on next run
     _stdout_write = None
