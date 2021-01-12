@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+import time
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 
 import pytest
@@ -8,7 +9,7 @@ from mock import patch
 
 import runez
 from runez.conftest import TMP, WrappedHandler
-from runez.logsetup import _find_parent_folder, expanded, formatted, LogSpec
+from runez.logsetup import _find_parent_folder, AsciiAnimation, AsciiFrames, expanded, formatted, LogSpec
 
 
 LOG = logging.getLogger(__name__)
@@ -474,3 +475,70 @@ def test_setup(temp_log, monkeypatch):
     assert runez.log.debug
     assert not runez.DRYRUN
     assert os.getcwd() == cwd
+
+
+def test_progress_command(cli):
+    cli.run("progress-bar", "-i2", "-d1")
+    assert cli.succeeded
+    assert "done" in cli.logged.stdout
+
+
+def test_progress_frames():
+    assert AsciiFrames.from_frames(None) is None
+    assert AsciiFrames.from_frames("ping").frames
+
+    foo = AsciiFrames.from_frames("ab")
+    assert AsciiFrames.from_frames(["a", "b"]).frames == foo.frames
+    assert foo.frames == ["a", "b"]
+    assert foo.index == 0
+    assert foo.next_frame() == "b"
+    assert foo.index == 1
+    assert foo.next_frame() == "a"
+    assert foo.index == 0
+    assert foo.next_frame() == "b"
+
+    signal = AsciiFrames.from_frames("signal")
+    assert AsciiFrames.from_frames(signal) is signal
+    assert AsciiFrames.from_frames(AsciiAnimation.signal).frames == signal.frames
+
+
+def test_progress_operation(isolated_log_setup, logged):
+    assert not runez.log.progress.is_running
+    runez.log.progress.start()
+    assert not runez.log.progress.is_running  # Does not start in test mode by default
+
+    runez.log.progress.stop()  # no-op, already not running
+    assert not runez.log.progress.is_running
+
+    runez.log.setup()
+    logged.clear()
+    with patch("runez.system.TerminalInfo.isatty", return_value=True):
+        # Simulate progress with alternating foo/bar "spinner"
+        runez.log.progress.start(frames=["foo", "bar"])
+        runez.log.progress.show("some progress")
+        assert runez.log.progress.is_running
+        time.sleep(0.1)
+        assert "[?25l" in logged.stderr
+        print("hello")
+        logging.error("some error")
+        time.sleep(0.1)
+
+        assert "hello" in logged.stdout
+        assert "[Kfoo some progress" in logged.stderr
+        assert "[Kbar some progress" in logged.stderr
+        assert "ERROR some error" in logged.stderr
+
+        runez.log.progress.stop()
+        time.sleep(0.1)
+        assert not runez.log.progress.is_running
+        assert "[?25h" in logged.stderr
+
+        # Simulate progress without spinner
+        logged.clear()
+        runez.log.progress.start(frames=None)
+        time.sleep(0.1)
+        assert runez.log.progress.is_running
+        runez.log.progress.stop()
+        time.sleep(0.1)
+        assert "[Ksome progress" in logged.stderr
+        assert not runez.log.progress.is_running

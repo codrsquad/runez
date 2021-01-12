@@ -10,8 +10,8 @@ from mock import patch
 
 import runez
 from runez.conftest import verify_abort
+from runez.program import RunResult
 from runez.system import TerminalInfo
-
 
 VERSION = "1.2.3.dev4"
 
@@ -486,19 +486,26 @@ def test_terminal():
         t = TerminalInfo()
         assert not t.is_stdout_tty  # False when testing
         assert not t.is_stderr_tty
-        t.shutil_terminal_size = os.terminal_size((10, 20))
-        assert t.columns == 10
-        assert t.lines == 20
-        assert t.padded_columns() == 10
-        assert t.padded_columns(padding=6) == 4
-        assert t.padded_columns(padding=6, minimum=7) == 7
+        assert t.get_size() == (160, 25)
+        assert t.columns == 160
+        assert t.lines == 25
+        assert t.padded_columns() == 160
+        assert t.padded_columns(padding=6) == 154
+        assert t.padded_columns(padding=180, minimum=7) == 7
+        with patch("runez.run", return_value=RunResult("12", code=0)):  # Simulate tput output
+            assert t.get_columns() == 12
+            assert t.get_lines() == 12
 
     with patch.dict(os.environ, {"COLUMNS": "foo", "LINES": "bar", "PYCHARM_HOSTED": "true"}, clear=True):
-        t = TerminalInfo(default_columns=20, default_lines=30)
+        t = TerminalInfo()
         assert not t.is_stdout_tty  # Still false when testing
-        t.shutil_terminal_size = None
-        assert t.columns == 20
-        assert t.lines == 30
+        assert t.columns == 160
+        assert t.lines == 25
+
+    with patch.dict(os.environ, {"COLUMNS": "10", "LINES": "15"}, clear=True):
+        t = TerminalInfo()
+        assert t.columns == 10
+        assert t.lines == 15
 
     with patch.dict(os.environ, {"PYCHARM_HOSTED": "true"}, clear=True):
         with patch("runez.colors._R.current_test", return_value=None):  # simulate not running in test

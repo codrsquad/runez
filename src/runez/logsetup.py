@@ -1,13 +1,18 @@
+# -*- encoding: utf-8 -*-
+
 """
 Convenience logging setup
 """
 
+import atexit
 import logging
 import os
 import re
 import signal
 import sys
 import threading
+import time
+from itertools import cycle
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 
 try:
@@ -21,7 +26,8 @@ except ImportError:
 from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone
 from runez.file import basename as get_basename, parent_folder
-from runez.system import _R, find_caller_frame, flattened, LOG, quoted, Slotted, stringified, ThreadGlobalContext, UNSET, WINDOWS
+from runez.system import _R, cached_property, find_caller_frame, flattened, joined, LOG, quoted, Slotted, stringified
+from runez.system import string_type, TERMINAL_INFO, ThreadGlobalContext, UNSET, WINDOWS
 
 
 ORIGINAL_CF = logging.currentframe
@@ -105,6 +111,224 @@ def formatted(message, *args, **kwargs):
 
     except (IndexError, KeyError):
         return message
+
+
+class AsciiAnimation(object):
+    """Contains a few progress spinner animation examples"""
+
+    @classmethod
+    def available_names(cls, default="dotrot"):
+        result = []
+        for k in dir(cls):
+            if not k.startswith("_") and k != "available_names":
+                result.append(k)
+
+        result = sorted(result)
+        if default in result:
+            result.remove(default)
+            result = [default] + result
+
+        return result
+
+    @staticmethod
+    def _alternating_cycle(chars, size=2):
+        alt = cycle((lambda: cycle(chars), lambda: cycle(reversed(chars))))
+        cycles = [next(alt)() for _ in range(size)]
+        return ["".join(next(c) for c in cycles) for _ in range(len(chars))]
+
+    @classmethod
+    def dotrot(cls):
+        """2 dots rotating side by side in opposite direction"""
+        return cls._alternating_cycle("⣷⣯⣟⡿⢿⣻⣽⣾", size=2)
+
+    @classmethod
+    def ping(cls, bounds="⣷⣯⣟⡿⢿⣻⣽⣾"):
+        """Ping of sorts, oscillating between between chars rotating from 'bounds' cycle"""
+        bc = cycle(bounds)
+        rbc = cycle(reversed(bounds))
+        frames = ["| ", "> ", "- ", "- ", " -", " -", " <", " |"]
+        return flattened(
+            ["%s%s%s" % (next(bc), f, next(rbc)) for f in frames],
+            ["%s%s%s" % (next(bc), f, next(rbc)) for f in reversed(frames)],
+        )
+
+    @classmethod
+    def signal(cls, chars=" .-oOOo-.", size=2):
+        """Moving signal"""
+        return flattened(
+            (["".join((" " * i, c, " " * (size - i - 1))) for c in chars] for i in range(size)),
+            (["".join((" " * (size - i - 1), c, " " * i)) for c in chars] for i in range(size, 1)),
+        )
+
+
+class AsciiFrames(object):
+    def __init__(self, frames):
+        """
+        Args:
+            frames (list[str]): Frames composing the ascii animation
+        """
+        self.frames = frames
+        self.index = 0
+
+    def next_frame(self):
+        """
+        Returns:
+            (str): Next frame (infinite cycle across self.frames)
+        """
+        self.index += 1
+        if self.index >= len(self.frames):
+            self.index = 0
+
+        return self.frames[self.index]
+
+    @classmethod
+    def from_frames(cls, frames):
+        if isinstance(frames, AsciiFrames):
+            return frames
+
+        if isinstance(frames, string_type):
+            if hasattr(AsciiAnimation, frames):
+                frames = getattr(AsciiAnimation, frames)
+
+        if callable(frames):
+            frames = frames()
+
+        if not frames:
+            return None
+
+        if not isinstance(frames, list):
+            frames = list(frames)
+
+        return cls(frames)
+
+
+class Progress(object):
+
+    thread = None  # type: thread # Background daemon thread used to display progress
+    beat = 0.01  # Time in seconds between progress updates
+    animate_every = 6  # Number of beats between animations
+    frames = AsciiAnimation.dotrot  # Frames to animate (set to None to stop animation)
+
+    @cached_property
+    def lock(self):
+        return threading.Lock()
+
+    @property
+    def is_running(self):
+        return self.thread is not None
+
+    def show(self, message):
+        with self.lock:
+            self._message = message
+
+    def start(self, frames=UNSET):
+        """Start background thread if not already started"""
+        with self.lock:
+            if frames is UNSET:
+                frames = self.frames
+
+            self.frames = AsciiFrames.from_frames(frames)
+            if self.thread is None:
+                self._stderr_write = self._original_write(sys.stderr)
+                if self._stderr_write is not None:
+                    sys.stderr.write = self._on_stderr
+                    self._stdout_write = self._original_write(sys.stdout)
+                    if self._stdout_write is not None:
+                        sys.stdout.write = self._on_stdout
+
+                    self.thread = threading.Thread(target=self._run, name="Progress")
+                    self.thread.daemon = True
+                    self.thread.start()
+                    atexit.register(self.stop)
+                    self._hide_cursor()
+
+    def stop(self):
+        with self.lock:
+            if self.thread is not None:
+                self.thread = None
+                if self._has_progress_line:
+                    self._clear_line()
+
+                self._show_cursor()
+                if self._stdout_write is not None:
+                    sys.stdout.write = self._stdout_write
+                    self._stdout_write = None
+
+                if self._stderr_write is not None:
+                    sys.stderr.write = self._stderr_write
+                    self._stderr_write = None
+
+    _message = None  # type: str # Message to be shown by background thread, on next run
+    _stdout_write = None
+    _stderr_write = None
+    _has_progress_line = False
+
+    @staticmethod
+    def _original_write(stream):
+        if TERMINAL_INFO.isatty(stream):
+            return stream.write
+
+    def _clean_write(self, write, message):
+        """Output 'message' using 'write' function, ensure any pending progress line is cleared first"""
+        with self.lock:
+            if self._has_progress_line:
+                self._clear_line()
+                self._has_progress_line = False
+
+            write(message)
+
+    def _on_stdout(self, message):
+        self._clean_write(self._stdout_write, message)
+
+    def _on_stderr(self, message):
+        self._clean_write(self._stderr_write, message)
+
+    def _hide_cursor(self):
+        self._write("\033[?25l")
+
+    def _show_cursor(self):
+        self._write("\033[?25h")
+
+    def _clear_line(self):
+        self._write("\r\033[K")
+
+    def _write(self, text):
+        self._stderr_write(text)
+
+    def _run(self):
+        """Background thread handling progress reporting and animation"""
+        try:
+            animation_countdown = 0
+            current_frame = None
+            last_frame = None
+            last_message = None
+            while self.thread:
+                with self.lock:
+                    if self.frames is not None:
+                        animation_countdown -= 1
+                        if animation_countdown < 0:
+                            animation_countdown = self.animate_every
+                            current_frame = self.frames.next_frame()
+
+                    else:
+                        current_frame = None
+
+                    if current_frame is not last_frame or self._message is not last_message:
+                        last_frame = current_frame
+                        if self._message:
+                            last_message = self._message
+
+                        line = joined(flattened(current_frame, last_message, keep_empty=None))
+                        if line:
+                            self._clear_line()
+                            self._write(line)
+                            self._write("\r")
+                            self._has_progress_line = True
+
+                time.sleep(self.beat or 1)
+
+        finally:
+            self.stop()
 
 
 class TraceHandler(object):
@@ -329,6 +553,9 @@ class LogManager(object):
 
     # Thread-local / global context
     context = ThreadGlobalContext(_ContextFilter)
+
+    # Show progress, with animation
+    progress = Progress()
 
     # Below fields should be read-only for outside users, do not modify these
     debug = False

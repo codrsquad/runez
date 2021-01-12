@@ -8,6 +8,7 @@ import inspect
 import logging
 import os
 import re
+import shutil
 import sys
 import threading
 
@@ -1161,15 +1162,18 @@ class TempArgv(object):
 class TerminalInfo(object):
     """Info about current terminal"""
 
-    def __init__(self, default_columns=160, default_lines=25):
-        self._default_columns = default_columns
-        self._default_lines = default_lines
+    @cached_property
+    def columns(self):
+        return self.size[0]
 
-    @staticmethod
-    def isatty(channel):
-        """True if we have a tty (or known equivalent), and are not running a test"""
-        if channel.isatty() or "PYCHARM_HOSTED" in os.environ:
-            return not _R.current_test()
+    @cached_property
+    def lines(self):
+        return self.size[1]
+
+    @cached_property
+    def size(self):
+        """(int, int): Cached number of rows and columns of current terminal, if available"""
+        return self.get_size()
 
     @cached_property
     def is_stdout_tty(self):
@@ -1180,6 +1184,12 @@ class TerminalInfo(object):
     def is_stderr_tty(self):
         """(bool): Is sys.stdout a tty?"""
         return self.isatty(sys.stderr)
+
+    @staticmethod
+    def isatty(channel):
+        """True if we have a tty (or known equivalent), and are not running a test"""
+        if channel.isatty() or "PYCHARM_HOSTED" in os.environ:
+            return not _R.current_test()
 
     def padded_columns(self, padding=0, minimum=0):
         """
@@ -1192,41 +1202,40 @@ class TerminalInfo(object):
         """
         return max(self.columns - padding, minimum)
 
-    @chill_property
-    def columns(self):
-        if self.shutil_terminal_size:
-            yield self.shutil_terminal_size.columns or None
+    @staticmethod
+    def get_columns():
+        """
+        Returns:
+            (int | None): Current number of columns, determined dynamically
+        """
+        return _R.to_int(_R.program_output("tput", "cols", fatal=False, logger=None))
 
-        try:
-            yield int(os.environ.get("COLUMNS")) or None
+    @staticmethod
+    def get_lines():
+        """
+        Returns:
+            (int | None): Current number of lines, determined dynamically
+        """
+        return _R.to_int(_R.program_output("tput", "lines", fatal=False, logger=None))
 
-        except (TypeError, ValueError):
-            pass
+    @staticmethod
+    def get_size(default_columns=160, default_lines=25):
+        """
+        Returns:
+            (int, int): Current number of rows and columns of current terminal, if available
+        """
+        cols = _R.to_int(os.environ.get("COLUMNS"))
+        lines = _R.to_int(os.environ.get("LINES"))
+        if not cols or not lines:
+            try:
+                size = shutil.get_terminal_size(fallback=(0, 0))
+                cols = size.columns
+                lines = size.lines
 
-        yield self._default_columns
+            except Exception:
+                pass
 
-    @chill_property
-    def lines(self):
-        if self.shutil_terminal_size:
-            yield self.shutil_terminal_size.lines or None
-
-        try:
-            yield int(os.environ.get("LINES")) or None
-
-        except (TypeError, ValueError):
-            pass
-
-        yield self._default_lines
-
-    @cached_property
-    def shutil_terminal_size(self):
-        try:
-            import shutil
-
-            return shutil.get_terminal_size(fallback=(0, 0))
-
-        except Exception:
-            return None
+        return cols or default_columns, lines or default_lines
 
 
 TERMINAL_INFO = TerminalInfo()
@@ -1378,6 +1387,16 @@ class _R:
             cls._runez = runez
 
         return cls._runez
+
+    @classmethod
+    def program_output(cls, program, *args, **kwargs):
+        r = cls._runez_module().run(program, *args, **kwargs)
+        if r.succeeded:
+            return r.output
+
+    @classmethod
+    def to_int(cls, text):
+        return cls._runez_module().to_int(text)
 
     @staticmethod
     def _schema_type_name(target):

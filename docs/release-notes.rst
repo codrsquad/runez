@@ -2,6 +2,12 @@
 History
 =======
 
+2.4.0 (2021-01-12)
+------------------
+
+* Added progress spinner, can be activated with ``runez.log.progress.start()``
+
+
 2.3.4 (2021-01-11)
 ------------------
 

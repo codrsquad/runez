@@ -5,6 +5,7 @@ See some example behaviors of runez
 import argparse
 import os
 import sys
+import time
 
 import runez
 from runez.inspector import ImportTime, run_cmds
@@ -99,6 +100,27 @@ def cmd_import_speed():
         table.add_row(t.module_name, c, e, f, t.problem or "")
 
     print(table)
+
+
+def cmd_progress_bar():
+    """Show a progress bar sample"""
+    from runez.logsetup import AsciiAnimation
+    names = AsciiAnimation.available_names()
+    parser = argparse.ArgumentParser(description="Show a progress bar sample")
+    parser.add_argument("--frames", "-f", choices=names, default=names[0], help="Use custom animation.")
+    parser.add_argument("--delay", "-d", type=int, default=1000, help="Time in milliseconds to sleep between iterations.")
+    parser.add_argument("--iterations", "-i", type=int, default=10, help="Number of iterations to run.")
+    parser.add_argument("name", nargs="*", help="Names of modules to show (by default: all).")
+    args = parser.parse_args()
+
+    runez.log.progress.start(frames=args.frames)
+    for i in range(args.iterations):
+        i += 1
+        print("iteration %s" % runez.bold(i))
+        runez.log.progress.show(runez.dim("Running iteration %s" % runez.red(i)))
+        time.sleep(args.delay / 1000)
+
+    print("done")
 
 
 def _get_mid(times):
