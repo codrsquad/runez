@@ -482,10 +482,14 @@ def test_progress_command(cli):
     assert cli.succeeded
     assert "done" in cli.logged.stdout
 
+    available = AsciiAnimation.available_names(default="dots")
+    assert available[0] == "dots"
+
 
 def test_progress_frames():
     assert AsciiFrames.from_frames(None) is None
-    assert AsciiFrames.from_frames("ping").frames
+    for name in AsciiAnimation.available_names():
+        assert AsciiFrames.from_frames(name).frames
 
     foo = AsciiFrames.from_frames("ab")
     assert AsciiFrames.from_frames(["a", "b"]).frames == foo.frames
@@ -497,9 +501,9 @@ def test_progress_frames():
     assert foo.index == 0
     assert foo.next_frame() == "b"
 
-    signal = AsciiFrames.from_frames("signal")
-    assert AsciiFrames.from_frames(signal) is signal
-    assert AsciiFrames.from_frames(AsciiAnimation.signal).frames == signal.frames
+    dots = AsciiFrames.from_frames("dots")
+    assert AsciiFrames.from_frames(dots) is dots
+    assert AsciiFrames.from_frames(AsciiAnimation.dots).frames == dots.frames
 
 
 def test_progress_operation(isolated_log_setup, logged):
@@ -518,27 +522,30 @@ def test_progress_operation(isolated_log_setup, logged):
         runez.log.progress.show("some progress")
         assert runez.log.progress.is_running
         time.sleep(0.1)
-        assert "[?25l" in logged.stderr
         print("hello")
         logging.error("some error")
+        logging.debug("some debug %s", "message")
         time.sleep(0.1)
-
-        assert "hello" in logged.stdout
-        assert "[Kfoo some progress" in logged.stderr
-        assert "[Kbar some progress" in logged.stderr
-        assert "ERROR some error" in logged.stderr
 
         runez.log.progress.stop()
         time.sleep(0.1)
         assert not runez.log.progress.is_running
+
+        assert "[?25l" in logged.stderr
+        assert "hello" in logged.stdout
+        assert "ERROR some error" in logged.stderr
+        assert "[Kfoo" in logged.stderr
+        assert "[Kbar" in logged.stderr
+        assert "some progress" in logged.stderr
         assert "[?25h" in logged.stderr
 
         # Simulate progress without spinner
         logged.clear()
         runez.log.progress.start(frames=None)
+        runez.log.progress.show("some progress")
         time.sleep(0.1)
         assert runez.log.progress.is_running
         runez.log.progress.stop()
         time.sleep(0.1)
-        assert "[Ksome progress" in logged.stderr
+        assert "some progress" in logged.stderr
         assert not runez.log.progress.is_running

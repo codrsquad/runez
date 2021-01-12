@@ -113,28 +113,62 @@ def formatted(message, *args, **kwargs):
         return message
 
 
+class ProgressHandler(logging.Handler):
+    """Used to capture logging chatter and show it as progress"""
+
+    level = logging.DEBUG
+
+    @classmethod
+    def handle(cls, record):
+        """Intercept all log chatter and show it as progress message"""
+        LogManager.progress.show(record.getMessage())
+
+    @classmethod
+    def emit(cls, record):
+        """Not needed"""
+
+    @classmethod
+    def createLock(cls):
+        """Not needed"""
+
+
 class AsciiAnimation(object):
     """Contains a few progress spinner animation examples"""
 
     @classmethod
-    def available_names(cls, default="dotrot"):
+    def available_names(cls, default=None):
+        """Available ascii animation names from this sample collection"""
         result = []
         for k in dir(cls):
-            if not k.startswith("_") and k != "available_names":
+            if not k.startswith("_") and k not in ("available_names", "predefined"):
                 result.append(k)
 
         result = sorted(result)
-        if default in result:
+        if default and default in result:
             result.remove(default)
             result = [default] + result
 
         return result
 
-    @staticmethod
-    def _alternating_cycle(chars, size=2):
-        alt = cycle((lambda: cycle(chars), lambda: cycle(reversed(chars))))
-        cycles = [next(alt)() for _ in range(size)]
-        return ["".join(next(c) for c in cycles) for _ in range(len(chars))]
+    @classmethod
+    def predefined(cls, name, default=None):
+        """Predefined animation with 'name', if any"""
+        return getattr(cls, name)() if name in cls.available_names() else default
+
+    @classmethod
+    def bar(cls):
+        """Bar filling up and down"""
+        return cls._travelling(" ▁▂▃▄▅▆▇█▇▆▅▄▃▂▁", 2)
+
+    @classmethod
+    def circling(cls):
+        """Circling dot"""
+        return ["▖ ", "▗ ", " ▖", " ▗", " ▝", " ▘", "▝ ", "▘ "]
+
+    @classmethod
+    def dots(cls):
+        """Dots going left and right"""
+        return cls._symmetrical(["   ", ".  ", ".. ", "...", " ..", "  .", "   "])
 
     @classmethod
     def dotrot(cls):
@@ -142,19 +176,39 @@ class AsciiAnimation(object):
         return cls._alternating_cycle("⣷⣯⣟⡿⢿⣻⣽⣾", size=2)
 
     @classmethod
-    def ping(cls, bounds="⣷⣯⣟⡿⢿⣻⣽⣾"):
-        """Ping of sorts, oscillating between between chars rotating from 'bounds' cycle"""
-        bc = cycle(bounds)
-        rbc = cycle(reversed(bounds))
+    def oh(cls):
+        """Moving signal"""
+        return cls._travelling(" .-oOOo-.", 2)
+
+    @classmethod
+    def ping(cls):
+        """Ping of sorts, oscillating between between chars rotating from 'chars' cycle"""
+        chars = "⣷⣯⣟⡿⢿⣻⣽⣾"
+        forward = cycle(chars)
+        backward = cycle(reversed(chars))
         frames = ["| ", "> ", "- ", "- ", " -", " -", " <", " |"]
         return flattened(
-            ["%s%s%s" % (next(bc), f, next(rbc)) for f in frames],
-            ["%s%s%s" % (next(bc), f, next(rbc)) for f in reversed(frames)],
+            ["%s%s%s" % (next(forward), f, next(backward)) for f in frames],
+            ["%s%s%s" % (next(forward), f, next(backward)) for f in reversed(frames)],
         )
 
     @classmethod
-    def signal(cls, chars=" .-oOOo-.", size=2):
-        """Moving signal"""
+    def whoop(cls):
+        return AsciiFrames([" "] + cls._symmetrical(list("▁▂▃▄▅▆▇█")) + [" "] + cls._symmetrical(list("▏▎▍▌▋▊▉")))
+
+    @staticmethod
+    def _alternating_cycle(chars, size=2):
+        """Rotate through characters in 'chars', in alternated direction, animation is 'size' characters wide"""
+        alt = cycle((lambda: cycle(chars), lambda: cycle(reversed(chars))))
+        cycles = [next(alt)() for _ in range(size)]
+        return ["".join(next(c) for c in cycles) for _ in range(len(chars))]
+
+    @staticmethod
+    def _symmetrical(frames):
+        return frames + list(reversed(frames))
+
+    @staticmethod
+    def _travelling(chars, size):
         return flattened(
             (["".join((" " * i, c, " " * (size - i - 1))) for c in chars] for i in range(size)),
             (["".join((" " * (size - i - 1), c, " " * i)) for c in chars] for i in range(size, 1)),
@@ -162,6 +216,8 @@ class AsciiAnimation(object):
 
 
 class AsciiFrames(object):
+    """Holds ascii animation frames, one-line animations of arbitrary size (should be playable in a loop for good visual effect)"""
+
     def __init__(self, frames):
         """
         Args:
@@ -183,31 +239,39 @@ class AsciiFrames(object):
 
     @classmethod
     def from_frames(cls, frames):
-        if isinstance(frames, AsciiFrames):
-            return frames
+        """
+        Args:
+            frames (AsciiFrames | str | list | callable | None): Name of pre-defined frames, or sequence of strings to use as frames
 
-        if isinstance(frames, string_type):
-            if hasattr(AsciiAnimation, frames):
-                frames = getattr(AsciiAnimation, frames)
+        Returns:
+            (AsciiFrames | None): Corresponding `AsciiFrames` object, if possible
+        """
+        if frames:
+            if isinstance(frames, string_type):
+                predefined = AsciiAnimation.predefined(frames)
+                if predefined:
+                    frames = predefined
 
-        if callable(frames):
-            frames = frames()
+            if isinstance(frames, AsciiFrames):
+                return frames
 
-        if not frames:
-            return None
+            if callable(frames):
+                frames = frames()
 
-        if not isinstance(frames, list):
-            frames = list(frames)
+            if not isinstance(frames, list):
+                frames = list(frames)
 
-        return cls(frames)
+            return cls(frames)
 
 
 class Progress(object):
 
     thread = None  # type: thread # Background daemon thread used to display progress
     beat = 0.01  # Time in seconds between progress updates
-    animate_every = 6  # Number of beats between animations
-    frames = AsciiAnimation.dotrot  # Frames to animate (set to None to stop animation)
+    animate_every = 10  # Number of beats between animations
+    frames = AsciiAnimation.dots  # Frames to animate (set to None to stop animation)
+    spinner_color = None
+    message_color = None
 
     @cached_property
     def lock(self):
@@ -225,12 +289,13 @@ class Progress(object):
         """Start background thread if not already started"""
         with self.lock:
             if frames is UNSET:
-                frames = self.frames
+                frames = AsciiAnimation.predefined(os.environ.get("SPINNER"), self.frames)
 
             self.frames = AsciiFrames.from_frames(frames)
             if self.thread is None:
                 self._stderr_write = self._original_write(sys.stderr)
                 if self._stderr_write is not None:
+                    atexit.register(self.stop)
                     sys.stderr.write = self._on_stderr
                     self._stdout_write = self._original_write(sys.stdout)
                     if self._stdout_write is not None:
@@ -239,17 +304,18 @@ class Progress(object):
                     self.thread = threading.Thread(target=self._run, name="Progress")
                     self.thread.daemon = True
                     self.thread.start()
-                    atexit.register(self.stop)
+                    LogManager._auto_enable_progress_handler()
                     self._hide_cursor()
 
     def stop(self):
         with self.lock:
             if self.thread is not None:
+                self._show_cursor()
                 self.thread = None
+                LogManager._auto_enable_progress_handler()
                 if self._has_progress_line:
                     self._clear_line()
 
-                self._show_cursor()
                 if self._stdout_write is not None:
                     sys.stdout.write = self._stdout_write
                     self._stdout_write = None
@@ -295,6 +361,9 @@ class Progress(object):
     def _write(self, text):
         self._stderr_write(text)
 
+    def _colored(self, message, color):
+        return color(message) if color else message
+
     def _run(self):
         """Background thread handling progress reporting and animation"""
         try:
@@ -318,10 +387,14 @@ class Progress(object):
                         if self._message:
                             last_message = self._message
 
-                        line = joined(flattened(current_frame, last_message, keep_empty=None))
+                        line = [
+                            self._colored(current_frame, self.spinner_color),
+                            self._colored(last_message, self.message_color),
+                        ]
+                        line = flattened(line, keep_empty=None)
                         if line:
                             self._clear_line()
-                            self._write(line)
+                            self._write(joined(line))
                             self._write("\r")
                             self._has_progress_line = True
 
@@ -678,6 +751,7 @@ class LogManager(object):
 
             cls._setup_handler("console")
             cls._setup_handler("file")
+            cls._auto_enable_progress_handler()
             cls._update_used_formats()
             cls._fix_logging_shortcuts()
             if clean_handlers:
@@ -766,7 +840,7 @@ class LogManager(object):
     def clean_handlers(cls):
         """Remove all non-runez logging handlers"""
         for h in list(logging.root.handlers):
-            if h is not cls.console_handler and h is not cls.file_handler:
+            if h is not cls.console_handler and h is not cls.file_handler and h is not ProgressHandler:
                 logging.root.removeHandler(h)
 
     @classmethod
@@ -907,6 +981,15 @@ class LogManager(object):
         if cls.tracer:
             message = formatted(message, *args, **kwargs)
             cls.tracer.trace(message)
+
+    @classmethod
+    def _auto_enable_progress_handler(cls):
+        if cls.progress.is_running:
+            if ProgressHandler not in logging.root.handlers:
+                logging.root.handlers.append(ProgressHandler)
+
+        elif ProgressHandler in logging.root.handlers:
+            logging.root.handlers.remove(ProgressHandler)
 
     @classmethod
     def _update_used_formats(cls):
