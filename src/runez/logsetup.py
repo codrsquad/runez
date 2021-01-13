@@ -153,7 +153,7 @@ class AsciiAnimation(object):
     @classmethod
     def af_dots(cls):
         """Dots going left and right"""
-        return AsciiFrames(cls.symmetrical(["   ", ".  ", ".. ", "...", " ..", "  .", "   "]), fps=5)
+        return AsciiFrames(cls.symmetrical(["   ", ".  ", ".. ", "...", " ..", "  .", "   "]), fps=2)
 
     @classmethod
     def af_dotrot(cls):
@@ -267,7 +267,7 @@ class Progress(object):
 
         Args:
             frames (AsciiFrames | None): Frames to use for spinner animation
-            max_columns (int): Maximum number of terminal columns to use for progress line
+            max_columns (int | None): Maximum number of terminal columns to use for progress line
             message_color (callable | None): Optional color to use for the message part
             spinner_color (callable | None): Optional color to use for the animated spinner
         """
