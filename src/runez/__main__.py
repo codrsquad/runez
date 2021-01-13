@@ -124,15 +124,15 @@ def cmd_progress_bar():
     except ImportError:  # pragma: no cover
         pass
 
-    runez.log.setup(console_level=logging.INFO)
+    runez.log.setup(console_format="%(levelname)s %(message)s", console_level=logging.INFO)
     runez.log.progress.start(frames=AsciiAnimation.predefined(args.spinner) or runez.UNSET)
     runez.log.progress.spinner_color = runez.yellow
     runez.log.progress.message_color = runez.dim
     for i in range(args.iterations):
         i += 1
         print("iteration %s" % runez.bold(i))
-        logger = logging.info if i < 3 else logging.debug
-        logger("Running iteration %s", runez.red(i))
+        logger = logging.info if i == 1 else logging.debug
+        logger("Running iteration %s %s", runez.red(i), "-" * 160)
         time.sleep(args.delay / 1000)
 
     msg = "%s FPS" % runez.log.progress._fps

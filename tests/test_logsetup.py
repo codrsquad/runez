@@ -190,6 +190,9 @@ def test_expanded():
     assert expanded("{basename}/~/{filename}", Record) == "my-name/~/my-name.txt"
     assert expanded("~/{basename}/{filename}", Record) == os.path.expanduser("~/my-name/my-name.txt")
 
+    # Verify that not all '{...}' text is considered a marker
+    assert expanded(":: {argv} {a}", argv='{"foo": "bar"}', a="{b}", b="b") == ':: {"foo": "bar"} b'
+
     assert expanded("") == ""
     assert expanded("", Record) == ""
     assert expanded("{not_there} {0}", "foo", strict=True) is None  # In strict mode, all named refs must be defined

@@ -31,7 +31,7 @@ from runez.system import TERMINAL_INFO, ThreadGlobalContext, UNSET, WINDOWS
 
 
 ORIGINAL_CF = logging.currentframe
-RE_FORMAT_MARKERS = re.compile(r"{([^}]*?)}")
+RE_FORMAT_MARKERS = re.compile(r"{([a-z][a-z0-9_]*)}", re.IGNORECASE)
 
 
 def expanded(text, *args, **kwargs):
@@ -264,20 +264,25 @@ class Progress(object):
         with self.lock:
             self._message = message
 
-    def start(self, frames=UNSET, fps=30):
+    def start(self, frames=UNSET, fps=30, max_columns=140):
         """Start background thread if not already started
 
         Args:
             frames (AsciiFrames | None): Frames to use for spinner animation
             fps (int): Desired frames per second (how often to refresh progress line, capped at 6 -> 60)
                        Animation overhead is ~0.1% CPU at 6 FPS, ~0.5% CPU at 60 FPS
+            max_columns (int): Maximum number of terminal columns to use for progress line
         """
         with self.lock:
             if frames is UNSET:
                 frames = AsciiAnimation.predefined(os.environ.get("SPINNER")) or AsciiAnimation.af_dots()
 
             self._frames = frames or AsciiFrames(None)
+            self._columns = TERMINAL_INFO.columns - 2
             self._fps = min(max(fps, 6), 60)
+            if max_columns and max_columns > 0:
+                self._columns = min(max_columns, self._columns)
+
             if self._thread is None:
                 self._stderr_write = self._original_write(sys.stderr)
                 if self._stderr_write is not None:
@@ -316,9 +321,10 @@ class Progress(object):
     _thread = None  # type: Optional[threading.Thread] # Background daemon thread used to display progress
     _fps = None  # type: int # Desired frames per second (set by start())
     _message = None  # type: str # Message to be shown by background thread, on next run
+    _columns = None  # type: int # Maximum number of columns to use for progress line
+    _has_progress_line = False
     _stdout_write = None
     _stderr_write = None
-    _has_progress_line = False
 
     @staticmethod
     def _original_write(stream):
@@ -352,9 +358,22 @@ class Progress(object):
     def _write(self, text):
         self._stderr_write(text)
 
-    def _colored(self, message, color):
-        if message:
-            return color(message) if color else message
+    def _formatted_line(self, *components):
+        columns = self._columns
+        if columns > 0:
+            line = []
+            for text, color in components:
+                text = _R._runez_module().uncolored(text)
+                if text:
+                    text = text[:columns]
+                    columns -= len(text)
+                    if color:
+                        text = color(text)
+
+                    line.append(text)
+
+            if line:
+                return " ".join(line)
 
     def _run(self):
         """Background thread handling progress reporting and animation"""
@@ -371,11 +390,7 @@ class Progress(object):
                         if self._message:
                             last_message = self._message
 
-                        line = [
-                            self._colored(current_frame, self.spinner_color),
-                            self._colored(last_message, self.message_color),
-                        ]
-                        line = flattened(line, keep_empty=None)
+                        line = self._formatted_line((current_frame, self.spinner_color), (last_message, self.message_color))
                         if line:
                             self._clear_line()
                             self._write(joined(line))
@@ -1194,6 +1209,10 @@ def _get_value(obj, key, max_depth):
 
 
 def _rformat(key, value, definitions, max_depth):
+    m = RE_FORMAT_MARKERS.search(value)
+    if not m:
+        return value
+
     if max_depth > 1 and value and "{" in value:
         value = value.format(**definitions)
         return _rformat(key, value, definitions, max_depth=max_depth - 1)
