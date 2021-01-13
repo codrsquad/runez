@@ -529,8 +529,8 @@ def test_progress_operation(isolated_log_setup, logged):
     runez.log.setup()
     logged.clear()
     with patch("runez.system.TerminalInfo.isatty", return_value=True):
-        # Simulate progress with alternating foo/bar "spinner"
-        runez.log.progress.start(frames=AsciiFrames(["foo", "bar"], fps=100), spinner_color=str)  # Using `str` to cover color code path
+        # Simulate progress with alternating foo/bar "spinner", using `str` to cover color code path
+        runez.log.progress.start(frames=AsciiFrames(["foo", "bar"], fps=100), message_color=str, spinner_color=str)
         runez.log.progress.show("some progress")
         assert runez.log.progress.is_running
         time.sleep(0.1)

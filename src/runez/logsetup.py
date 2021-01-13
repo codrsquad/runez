@@ -26,7 +26,7 @@ except ImportError:
 from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone
 from runez.file import basename as get_basename, parent_folder
-from runez.system import _R, cached_property, find_caller_frame, flattened, joined, LOG, quoted, Slotted, stringified
+from runez.system import _R, cached_property, find_caller_frame, flattened, joined, LOG, quoted, short, Slotted, stringified
 from runez.system import TERMINAL_INFO, ThreadGlobalContext, UNSET, WINDOWS
 
 
@@ -362,21 +362,29 @@ class Progress(object):
     def _write(self, text):
         self._stderr_write(text)
 
-    def _formatted_line(self, *components):
+    def _formatted_line(self, spin, spin_color, msg, msg_color):
         columns = self._columns
-        if columns > 0:
-            line = []
-            for text, color in components:
-                if text:
-                    text = _R._runez_module().uncolored(text)[:columns]
-                    columns -= len(text)
-                    if color:
-                        text = color(text)
+        if columns > 0 and (spin or msg):
+            if spin:
+                line = spin
+                columns -= len(line)
+                if spin_color:
+                    line = spin_color(line)
 
-                    line.append(text)
+            else:
+                line = ""
 
-            if line:
-                return " ".join(line)
+            if msg:
+                msg = short(_R._runez_module().uncolored(msg), size=columns)
+                if msg_color:
+                    msg = msg_color(msg)
+
+                if line:
+                    line += " "
+
+                line += msg
+
+            return line
 
     def _run(self):
         """Background thread handling progress reporting and animation"""
@@ -393,7 +401,7 @@ class Progress(object):
                         if self._message:
                             last_message = self._message
 
-                        line = self._formatted_line((current_frame, self.spinner_color), (last_message, self.message_color))
+                        line = self._formatted_line(current_frame, self.spinner_color, last_message, self.message_color)
                         if line:
                             self._clear_line()
                             self._write(joined(line))
