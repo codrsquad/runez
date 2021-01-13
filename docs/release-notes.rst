@@ -2,16 +2,12 @@
 History
 =======
 
-2.3.6 (2021-01-12)
-------------------
-
-* Corrected bug in ``{argv}`` expansion
-
-
-2.3.5 (2021-01-12)
+2.3.7 (2021-01-12)
 ------------------
 
 * Added progress spinner, can be activated with ``runez.log.progress.start()``
+
+* Corrected bug in ``{argv}`` expansion
 
 
 2.3.4 (2021-01-11)
