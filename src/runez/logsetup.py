@@ -367,9 +367,8 @@ class Progress(object):
         if columns > 0:
             line = []
             for text, color in components:
-                text = _R._runez_module().uncolored(text)
                 if text:
-                    text = text[:columns]
+                    text = _R._runez_module().uncolored(text)[:columns]
                     columns -= len(text)
                     if color:
                         text = color(text)
