@@ -132,7 +132,7 @@ def cmd_progress_bar():
         i += 1
         print("iteration %s" % runez.bold(i))
         logger = logging.info if i == 1 else logging.debug
-        logger("Running iteration %s %s", runez.red(i), "-" * 160)
+        logger("Running\niteration %s %s", runez.red(i), "-" * 160)
         time.sleep(args.delay / 1000)
 
     msg = "%s FPS" % runez.log.progress._fps

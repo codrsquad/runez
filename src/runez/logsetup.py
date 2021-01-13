@@ -26,7 +26,7 @@ except ImportError:
 from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone
 from runez.file import basename as get_basename, parent_folder
-from runez.system import _R, cached_property, find_caller_frame, flattened, joined, LOG, quoted, short, Slotted, stringified
+from runez.system import _R, cached_property, find_caller_frame, flattened, LOG, quoted, short, Slotted, stringified
 from runez.system import TERMINAL_INFO, ThreadGlobalContext, UNSET, WINDOWS
 
 
@@ -152,7 +152,7 @@ class AsciiAnimation(object):
     @classmethod
     def af_dots(cls):
         """Dots going left and right"""
-        return AsciiFrames(cls.symmetrical(["   ", ".  ", ".. ", "...", " ..", "  .", "   "]), fps=6)
+        return AsciiFrames(cls.symmetrical(["   ", ".  ", ".. ", "...", " ..", "  .", "   "]), fps=5)
 
     @classmethod
     def af_dotrot(cls):
@@ -261,8 +261,9 @@ class Progress(object):
         return self._thread is not None
 
     def show(self, message):
-        with self.lock:
-            self._message = message
+        if message:
+            with self.lock:
+                self._message = message
 
     def start(self, frames=UNSET, fps=30, max_columns=140, message_color=None, spinner_color=None):
         """Start background thread if not already started
@@ -270,7 +271,7 @@ class Progress(object):
         Args:
             frames (AsciiFrames | None): Frames to use for spinner animation
             fps (int): Desired frames per second (how often to refresh progress line, capped at 6 -> 60)
-                       Animation overhead is ~0.1% CPU at 6 FPS, ~0.5% CPU at 60 FPS
+                       Animation overhead is ~0.2% at 30 FPS
             max_columns (int): Maximum number of terminal columns to use for progress line
             message_color (callable | None): Optional color to use for the message part
             spinner_color (callable | None): Optional color to use for the animated spinner
@@ -324,7 +325,7 @@ class Progress(object):
     _frames = None  # type: AsciiFrames # Frames to animate (set to None to stop animation)
     _thread = None  # type: Optional[threading.Thread] # Background daemon thread used to display progress
     _fps = None  # type: int # Desired frames per second (set by start())
-    _message = None  # type: str # Message to be shown by background thread, on next run
+    _message = None  # type: Optional[str] # Message to be shown by background thread, on next run
     _columns = None  # type: int # Maximum number of columns to use for progress line
     _has_progress_line = False
     _stdout_write = None
@@ -391,23 +392,27 @@ class Progress(object):
         try:
             self._frames.set_parent_fps(self._fps)
             sleep_delay = float(1) / float(self._fps)
-            last_frame = None
-            last_message = None
+            msg_fps = int(self._fps / 2)  # Don't take any more than 2 messages per second
+            msg_countdown = 0
+            last_frame = last_message = current_message = None
             while self._thread:
                 with self.lock:
-                    current_frame = self._frames.next_frame()
-                    if current_frame is not last_frame or self._message is not last_message:
-                        last_frame = current_frame
-                        if self._message:
-                            last_message = self._message
+                    if msg_countdown <= 0:
+                        msg_countdown = msg_fps
+                        current_message = self._message
 
-                        line = self._formatted_line(current_frame, self.spinner_color, last_message, self.message_color)
+                    current_frame = self._frames.next_frame()
+                    if current_frame is not last_frame or current_message is not last_message:
+                        last_frame = current_frame
+                        last_message = current_message
+                        line = self._formatted_line(current_frame, self.spinner_color, current_message, self.message_color)
                         if line:
                             self._clear_line()
-                            self._write(joined(line))
+                            self._write(line)
                             self._write("\r")
                             self._has_progress_line = True
 
+                msg_countdown -= 1
                 time.sleep(sleep_delay)
 
         finally:

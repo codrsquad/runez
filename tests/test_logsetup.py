@@ -536,7 +536,6 @@ def test_progress_operation(isolated_log_setup, logged):
         time.sleep(0.1)
         print("hello")
         logging.error("some error")
-        logging.debug("some\ndebug %s", "message")
         time.sleep(0.1)
 
         runez.log.progress.stop()
@@ -545,11 +544,9 @@ def test_progress_operation(isolated_log_setup, logged):
 
         assert "[?25l" in logged.stderr
         assert "hello" in logged.stdout
-        assert "ERROR some error" in logged.stderr
+        assert "some error" in logged.stderr
         assert "[Kfoo" in logged.stderr
         assert "[Kbar" in logged.stderr
-        assert "some progress" in logged.stderr
-        assert "some debug message" in logged.stderr
         assert "[?25h" in logged.stderr
 
         # Simulate progress without spinner
@@ -560,5 +557,4 @@ def test_progress_operation(isolated_log_setup, logged):
         assert runez.log.progress.is_running
         runez.log.progress.stop()
         time.sleep(0.1)
-        assert "some progress" in logged.stderr
         assert not runez.log.progress.is_running
