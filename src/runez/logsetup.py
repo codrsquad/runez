@@ -249,8 +249,8 @@ class AsciiFrames(object):
 
 class Progress(object):
 
-    spinner_color = None
     message_color = None
+    spinner_color = None
 
     @cached_property
     def lock(self):
@@ -264,7 +264,7 @@ class Progress(object):
         with self.lock:
             self._message = message
 
-    def start(self, frames=UNSET, fps=30, max_columns=140):
+    def start(self, frames=UNSET, fps=30, max_columns=140, message_color=None, spinner_color=None):
         """Start background thread if not already started
 
         Args:
@@ -272,11 +272,15 @@ class Progress(object):
             fps (int): Desired frames per second (how often to refresh progress line, capped at 6 -> 60)
                        Animation overhead is ~0.1% CPU at 6 FPS, ~0.5% CPU at 60 FPS
             max_columns (int): Maximum number of terminal columns to use for progress line
+            message_color (callable | None): Optional color to use for the message part
+            spinner_color (callable | None): Optional color to use for the animated spinner
         """
         with self.lock:
             if frames is UNSET:
                 frames = AsciiAnimation.predefined(os.environ.get("SPINNER")) or AsciiAnimation.af_dots()
 
+            self.message_color = message_color
+            self.spinner_color = spinner_color
             self._frames = frames or AsciiFrames(None)
             self._columns = TERMINAL_INFO.columns - 2
             self._fps = min(max(fps, 6), 60)
