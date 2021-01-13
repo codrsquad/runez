@@ -32,6 +32,7 @@ from runez.system import TERMINAL_INFO, ThreadGlobalContext, UNSET, WINDOWS
 
 ORIGINAL_CF = logging.currentframe
 RE_FORMAT_MARKERS = re.compile(r"{([a-z][a-z0-9_]*)}", re.IGNORECASE)
+SPINNER_FPS = 10  # Animation overhead is ~0.1% at 10 FPS
 
 
 def expanded(text, *args, **kwargs):
@@ -173,17 +174,17 @@ class AsciiAnimation(object):
     @classmethod
     def af_fill(cls):
         """Bar growing/shrinking vertically, then horizontally"""
-        return AsciiFrames([" "] + cls.symmetrical(list(u"▁▂▃▄▅▆▇█")) + [" "] + cls.symmetrical(list(u"▏▎▍▌▋▊▉")), fps=15)
+        return AsciiFrames([" "] + cls.symmetrical(list(u"▁▂▃▄▅▆▇█")) + [" "] + cls.symmetrical(list(u"▏▎▍▌▋▊▉")))
 
     @classmethod
     def af_fill2(cls):
         """2 bars filling up and down"""
-        return AsciiFrames(cls.travelling(cls.symmetrical(list(u"▁▂▃▄▅▆▇█")), 2), fps=15)
+        return AsciiFrames(cls.travelling(cls.symmetrical(list(u"▁▂▃▄▅▆▇█")), 2))
 
     @classmethod
     def af_oh(cls):
         """Moving growing/shrinking O signal"""
-        return AsciiFrames(cls.travelling(" .-oOOo-.", 3), fps=15)
+        return AsciiFrames(cls.travelling(" .-oOOo-.", 3))
 
     @staticmethod
     def alternating_cycle(chars, size=2):
@@ -212,7 +213,7 @@ class AsciiAnimation(object):
 class AsciiFrames(object):
     """Holds ascii animation frames, one-line animations of arbitrary size (should be playable in a loop for good visual effect)"""
 
-    def __init__(self, frames, fps=10):
+    def __init__(self, frames, fps=SPINNER_FPS):
         """
         Args:
             frames: Frames composing the ascii animation
@@ -220,16 +221,12 @@ class AsciiFrames(object):
         """
         self.frames = flattened(frames, keep_empty=None) or None
         self.fps = fps
-        self.animate_every = 1.0
+        self.animate_every = float(SPINNER_FPS) / fps
         self.countdown = 0.0
         self.index = 0
 
     def __repr__(self):
         return "off" if not self.frames else "%s frames" % len(self.frames)
-
-    def set_parent_fps(self, fps):
-        """Adapt how often we yield a new frame accordingly to parent FPS"""
-        self.animate_every = float(fps) / float(self.fps)
 
     def next_frame(self):
         """
@@ -265,13 +262,11 @@ class Progress(object):
             with self.lock:
                 self._message = message
 
-    def start(self, frames=UNSET, fps=30, max_columns=140, message_color=None, spinner_color=None):
+    def start(self, frames=UNSET, max_columns=140, message_color=None, spinner_color=None):
         """Start background thread if not already started
 
         Args:
             frames (AsciiFrames | None): Frames to use for spinner animation
-            fps (int): Desired frames per second (how often to refresh progress line, capped at 6 -> 60)
-                       Animation overhead is ~0.2% at 30 FPS
             max_columns (int): Maximum number of terminal columns to use for progress line
             message_color (callable | None): Optional color to use for the message part
             spinner_color (callable | None): Optional color to use for the animated spinner
@@ -284,7 +279,6 @@ class Progress(object):
             self.spinner_color = spinner_color
             self._frames = frames or AsciiFrames(None)
             self._columns = TERMINAL_INFO.columns - 2
-            self._fps = min(max(fps, 6), 60)
             if max_columns and max_columns > 0:
                 self._columns = min(max_columns, self._columns)
 
@@ -324,7 +318,6 @@ class Progress(object):
 
     _frames = None  # type: AsciiFrames # Frames to animate (set to None to stop animation)
     _thread = None  # type: Optional[threading.Thread] # Background daemon thread used to display progress
-    _fps = None  # type: int # Desired frames per second (set by start())
     _message = None  # type: Optional[str] # Message to be shown by background thread, on next run
     _columns = None  # type: int # Maximum number of columns to use for progress line
     _has_progress_line = False
@@ -390,9 +383,8 @@ class Progress(object):
     def _run(self):
         """Background thread handling progress reporting and animation"""
         try:
-            self._frames.set_parent_fps(self._fps)
-            sleep_delay = float(1) / float(self._fps)
-            msg_fps = int(self._fps / 2)  # Don't take any more than 2 messages per second
+            sleep_delay = 1 / float(SPINNER_FPS)
+            msg_fps = int(SPINNER_FPS / 2)  # Don't take any more than 2 messages per second
             msg_countdown = 0
             last_frame = last_message = current_message = None
             while self._thread:

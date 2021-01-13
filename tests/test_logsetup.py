@@ -506,16 +506,13 @@ def test_progress_frames():
     assert foo.index == 0
     assert foo.next_frame() == "b"
 
-    foo.set_parent_fps(100)
-    assert foo.animate_every == 10
-
-    foo.set_parent_fps(20)
+    foo = AsciiFrames(["a", "b"], fps=5)
     assert foo.animate_every == 2
-    assert foo.next_frame() == "a"
-    assert foo.next_frame() == "a"
     assert foo.next_frame() == "b"
     assert foo.next_frame() == "b"
     assert foo.next_frame() == "a"
+    assert foo.next_frame() == "a"
+    assert foo.next_frame() == "b"
 
 
 def test_progress_operation(isolated_log_setup, logged):
@@ -530,7 +527,7 @@ def test_progress_operation(isolated_log_setup, logged):
     logged.clear()
     with patch("runez.system.TerminalInfo.isatty", return_value=True):
         # Simulate progress with alternating foo/bar "spinner", using `str` to cover color code path
-        runez.log.progress.start(frames=AsciiFrames(["foo", "bar"], fps=100), message_color=str, spinner_color=str)
+        runez.log.progress.start(frames=AsciiFrames(["foo", "bar"]), message_color=str, spinner_color=str)
         runez.log.progress.show("some progress")
         assert runez.log.progress.is_running
         time.sleep(0.1)
@@ -551,7 +548,7 @@ def test_progress_operation(isolated_log_setup, logged):
 
         # Simulate progress without spinner
         logged.clear()
-        runez.log.progress.start(frames=None, fps=100)
+        runez.log.progress.start(frames=None)
         runez.log.progress.show("some progress")
         time.sleep(0.1)
         assert runez.log.progress.is_running

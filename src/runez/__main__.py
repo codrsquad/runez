@@ -135,12 +135,12 @@ def cmd_progress_bar():
         logger("Running\niteration %s %s", runez.red(i), "-" * 160)
         time.sleep(args.delay / 1000)
 
-    msg = "%s FPS" % runez.log.progress._fps
+    msg = "done"
     if process:
         cpu_usage = ("%.2f" % process.cpu_percent()).rstrip("0")
-        msg += ", %s%% CPU usage" % cpu_usage
+        msg += " (%s%% CPU usage)" % cpu_usage
 
-    print("done (%s)" % msg)
+    print(msg)
 
 
 def _get_mid(times):
