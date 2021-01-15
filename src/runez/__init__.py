@@ -2,7 +2,7 @@
 Friendly misc/utils/convenience library
 """
 
-from runez import click, config, date, file, program, serialize, system
+from runez import ascii, click, config, date, file, program, serialize, system
 from runez.colors import ActivateColors, ColorManager as color, uncolored
 from runez.colors.named import black, blue, brown, gray, green, orange, plain, purple, red, teal, white, yellow
 from runez.colors.named import blink, bold, dim, invert, italic, strikethrough, underline
@@ -23,7 +23,7 @@ from runez.system import FallbackChain, first_line, get_version, is_basetype, is
 
 __all__ = [
     "DRYRUN",
-    "click", "config", "date", "file", "program", "serialize", "system",
+    "ascii", "click", "config", "date", "file", "program", "serialize", "system",
     "ActivateColors", "color", "uncolored",
     "black", "blue", "brown", "gray", "green", "orange", "plain", "purple", "red", "teal", "white", "yellow",
     "blink", "bold", "dim", "invert", "italic", "strikethrough", "underline",

@@ -9,8 +9,8 @@ import sys
 import time
 
 import runez
+from runez.ascii import AsciiAnimation
 from runez.inspector import ImportTime, run_cmds
-from runez.logsetup import AsciiAnimation
 from runez.render import NAMED_BORDERS, PrettyTable
 
 

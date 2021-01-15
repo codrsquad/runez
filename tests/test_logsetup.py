@@ -9,8 +9,9 @@ import pytest
 from mock import patch
 
 import runez
+from runez.ascii import AsciiAnimation, AsciiFrames
 from runez.conftest import TMP, WrappedHandler
-from runez.logsetup import _find_parent_folder, AsciiAnimation, AsciiFrames, expanded, formatted, LogSpec
+from runez.logsetup import _find_parent_folder, expanded, formatted, LogSpec
 
 
 LOG = logging.getLogger(__name__)
