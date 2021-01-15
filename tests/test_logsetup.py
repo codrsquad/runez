@@ -1,3 +1,4 @@
+# -*- encoding: utf-8 -*-
 import logging
 import os
 import sys
@@ -480,8 +481,29 @@ def test_setup(temp_log, monkeypatch):
     assert os.getcwd() == cwd
 
 
+def test_progress_bar():
+    p = runez.ProgressBar(range(2))
+    assert list(p) == [0, 1]
+    assert str(p) == "None/2"
+    assert p.rendered() is None
+
+    with runez.ProgressBar(total=3, columns=4) as pb:
+        assert pb.n == 0
+        assert pb.rendered() == u"    0%"
+        pb.update()
+        assert pb.n == 1
+        assert pb.rendered() == u"▉▏  33%"
+        pb.update()
+        assert pb.rendered() == u"▉▉▌ 67%"
+        pb.update()
+        assert pb.rendered() == u"▉▉▉▉100%"
+
+    assert pb.n is None
+    assert pb.rendered() is None
+
+
 def test_progress_command(cli):
-    cli.run("progress-bar", "-i2", "-d1")
+    cli.run("progress-bar", "-i2", "-d1", "--sleep", "0.01")
     assert cli.succeeded
     assert "done" in cli.logged.stdout
 
@@ -497,21 +519,12 @@ def test_progress_command(cli):
 
 def test_progress_frames():
     foo = AsciiFrames(["a", ["b", ""]], fps=10)
-    assert foo.animate_every == 1
     assert foo.frames == ["a", "b"]
     assert foo.index == 0
     assert foo.next_frame() == "b"
     assert foo.index == 1
     assert foo.next_frame() == "a"
     assert foo.index == 0
-    assert foo.next_frame() == "b"
-
-    foo = AsciiFrames(["a", "b"], fps=5)
-    assert foo.animate_every == 2
-    assert foo.next_frame() == "b"
-    assert foo.next_frame() == "b"
-    assert foo.next_frame() == "a"
-    assert foo.next_frame() == "a"
     assert foo.next_frame() == "b"
 
 
@@ -527,14 +540,36 @@ def test_progress_operation(isolated_log_setup, logged):
     logged.clear()
     with patch("runez.system.TerminalInfo.isatty", return_value=True):
         # Simulate progress with alternating foo/bar "spinner", using `str` to cover color code path
-        runez.log.progress.start(frames=AsciiFrames(["foo", "bar"]), message_color=str, spinner_color=str)
+        runez.log.progress.start(max_columns=10, message_color=str, spinner_color=str)
         runez.log.progress.show("some progress")
         assert runez.log.progress.is_running
+        p1 = runez.ProgressBar(total=3)
+        p1.start()
+        p1.update()
         time.sleep(0.1)
         print("hello")
         logging.error("some error")
-        time.sleep(0.1)
+        p2 = runez.ProgressBar(total=3)
+        p3 = runez.ProgressBar(total=3)
+        p4 = runez.ProgressBar(total=3)
+        p1.start()
+        p2.start()
+        p3.start()
+        p4.start()
 
+        assert runez.log.progress._progress_bar is p4
+
+        # Stop progress bar in a different order
+        p2.stop()
+        assert runez.log.progress._progress_bar is p4
+        p4.stop()
+        assert runez.log.progress._progress_bar is p3
+        p3.stop()
+        assert runez.log.progress._progress_bar is p1
+        p1.stop()
+        assert runez.log.progress._progress_bar is None
+
+        assert runez.log.progress._state.get_line(force=True)
         runez.log.progress.stop()
         time.sleep(0.1)
         assert not runez.log.progress.is_running
@@ -542,8 +577,7 @@ def test_progress_operation(isolated_log_setup, logged):
         assert "[?25l" in logged.stderr
         assert "hello" in logged.stdout
         assert "some error" in logged.stderr
-        assert "[Kfoo" in logged.stderr
-        assert "[Kbar" in logged.stderr
+        assert "[K" in logged.stderr
         assert "[?25h" in logged.stderr
 
         # Simulate progress without spinner

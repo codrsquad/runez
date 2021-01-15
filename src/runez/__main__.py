@@ -108,9 +108,12 @@ def cmd_progress_bar():
     """Show a progress bar sample"""
     names = AsciiAnimation.available_names()
     parser = argparse.ArgumentParser(description="Show a progress bar sample")
-    parser.add_argument("--delay", "-d", type=int, default=1000, help="Time in milliseconds to sleep between iterations.")
-    parser.add_argument("--iterations", "-i", type=int, default=10, help="Number of iterations to run.")
+    parser.add_argument("--delay", "-d", type=int, default=100, help="Time in milliseconds to sleep between iterations.")
+    parser.add_argument("--iterations", "-i", type=int, default=100, help="Number of iterations to run.")
     parser.add_argument("--spinner", "-s", choices=names, default=runez.UNSET, help="Pick spinner to use.")
+    parser.add_argument("--sleep", type=float, default=0, help="Extra sleep when done, useful for inspecting animation a bit further.")
+    parser.add_argument("--no-spinner", action="store_true", help="Useful to compare CPU usage with and without spinner.")
+    parser.add_argument("--verbose", action="store_true", help="More chatty output.")
     parser.add_argument("name", nargs="*", help="Names of modules to show (by default: all).")
     args = parser.parse_args()
 
@@ -125,14 +128,22 @@ def cmd_progress_bar():
         pass
 
     runez.log.setup(console_format="%(levelname)s %(message)s", console_level=logging.INFO)
-    runez.log.progress.start(frames=AsciiAnimation.predefined(args.spinner) or runez.UNSET)
-    runez.log.progress.spinner_color = runez.yellow
-    runez.log.progress.message_color = runez.dim
-    for i in range(args.iterations):
+    if not args.no_spinner:
+        frames = AsciiAnimation.predefined(args.spinner) or runez.UNSET
+        runez.log.progress.start(frames=frames, max_columns=40, message_color=runez.dim, spinner_color=runez.yellow)
+
+    logger = logging.info
+    for i in runez.ProgressBar(range(args.iterations)):
         i += 1
-        print("iteration %s" % runez.bold(i))
-        logger = logging.info if i == 1 else logging.debug
-        logger("Running\niteration %s %s", runez.red(i), "-" * 160)
+        logger("Running\niteration %s %s", runez.red(i), "-" * 50)
+        logger = logging.debug
+        if args.verbose and i % 10 == 0:  # pragma: no cover
+            print("iteration %s" % runez.bold(i))
+
+        if i == 42:  # pragma: no cover
+            for _ in runez.ProgressBar(range(10)):
+                time.sleep(0.1)
+
         time.sleep(args.delay / 1000)
 
     msg = "done"
@@ -141,6 +152,9 @@ def cmd_progress_bar():
         msg += " (%s%% CPU usage)" % cpu_usage
 
     print(msg)
+    if args.sleep:
+        runez.log.progress.show(msg)
+        time.sleep(args.sleep)
 
 
 def _get_mid(times):

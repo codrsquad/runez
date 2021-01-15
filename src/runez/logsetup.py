@@ -221,8 +221,6 @@ class AsciiFrames(object):
         """
         self.frames = flattened(frames, keep_empty=None) or None
         self.fps = fps
-        self.animate_every = float(SPINNER_FPS) / fps
-        self.countdown = 0.0
         self.index = 0
 
     def __repr__(self):
@@ -234,24 +232,198 @@ class AsciiFrames(object):
             (str): Next frame (infinite cycle across self.frames)
         """
         if self.frames:
-            if self.countdown <= 0.1:
-                self.countdown += self.animate_every
-                self.index += 1
-                if self.index >= len(self.frames):
-                    self.index = 0
+            self.index += 1
+            if self.index >= len(self.frames):
+                self.index = 0
 
-            self.countdown -= 1
             return self.frames[self.index]
 
 
-class Progress(object):
+class ProgressBar(object):
 
-    message_color = None
-    spinner_color = None
+    def __init__(self, iterable=None, total=None, columns=8, frames=u" ▏▎▍▌▋▊▉"):
+        self.columns = columns
+        self.frames = frames
+        self.per_char = 100.0 / columns
+        self.blank_char = frames[0]
+        self.full_char = frames[-1]
+        self.frame_count = len(frames) - 2
+        self.per_frame = self.per_char / self.frame_count if self.frame_count > 0 else None
+        self.iterable = iterable
+        self.parent = None  # type: Optional[ProgressBar] # Parent progress bar, if any
+        if total is None and hasattr(iterable, "__len__"):
+            total = len(iterable)
 
-    @cached_property
-    def lock(self):
-        return threading.Lock()
+        self.total = total
+        self.n = None
+
+    def __repr__(self):
+        return "%s/%s" % (self.n, self.total)
+
+    def __iter__(self):
+        if self.iterable:
+            self.start()
+            for x in self.iterable:
+                yield x
+                self.update()
+
+            self.stop()
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, *_):
+        self.stop()
+
+    def start(self):
+        if self.n is None:
+            self.n = 0
+            LogManager.progress._add_progress_bar(self)
+
+    def stop(self):
+        if self.n is not None:
+            self.n = None
+            LogManager.progress._remove_progress_bar(self)
+
+    def update(self, n=1):
+        self.n += n
+
+    def rendered(self):
+        if self.n is None:
+            return None
+
+        if self.total:
+            percent = max(int(round(100.0 * self.n / self.total)), 0)
+            blanks = 0
+            if percent >= 100:
+                percent = 100
+                bar = self.full_char * self.columns
+
+            else:
+                full_chars = int(percent / self.per_char)
+                bar = self.full_char * full_chars
+                blanks = self.columns - full_chars
+                if self.per_frame:
+                    blanks -= 1
+                    fi = int((percent - full_chars * self.per_char) / self.per_frame)
+                    bar += self.frames[fi]
+
+            return u"%s%s%s%%" % (bar, self.blank_char * blanks, percent)
+
+    def _remove_parent(self, parent):
+        if parent is self.parent:
+            self.parent = parent.parent
+
+        elif self.parent is not None:
+            self.parent._remove_parent(parent)
+
+
+class _SpinnerComponent(object):
+
+    def __init__(self, fps, source, color, adapter=None):
+        self.adapter = adapter
+        self.source = source  # type: callable
+        self.color = color  # type: Optional[callable]
+        self.update_every = float(SPINNER_FPS) / fps
+        self.countdown = 0.0
+        self.current_text = None  # type: Optional[str]
+
+    def add_text(self, line, columns):
+        text = self.current_text
+        if not text or columns <= 0:
+            return 0
+
+        if self.adapter is not None:
+            text = self.adapter(text)
+
+        size = len(text)
+        if size > columns:
+            text = short(text, size=columns)
+
+        if self.color:
+            text = self.color(text)
+
+        line.append(text)
+        return size
+
+    def update(self):
+        """(int): 1 if changed, 0 otherwise"""
+        changed = 0
+        if self.countdown <= 0.1:
+            self.countdown += self.update_every
+            text = self.source()
+            if text is not self.current_text:
+                self.current_text = text
+                changed = 1
+
+        self.countdown -= 1
+        return changed
+
+
+class _SpinnerState(object):
+
+    def __init__(self, parent, frames, max_columns, message_color, progress_color, spinner_color):
+        """
+        Args:
+            parent (ProgressSpinner): Parent object
+            frames (AsciiFrames | Unset | None): Frames to use for spinner
+            max_columns (int | None): Optional max number of columns to use
+            message_color (callable | None): Optional color to use for the message
+            progress_color (callable | None): Optional color to use for the spinner
+            spinner_color (callable | None): Optional color to use for the spinner
+        """
+        self.columns = TERMINAL_INFO.columns - 2
+        if max_columns and max_columns > 0:
+            self.columns = min(max_columns, self.columns)
+
+        if frames is UNSET:
+            frames = AsciiAnimation.predefined(os.environ.get("SPINNER")) or AsciiAnimation.af_dots()
+
+        if not frames:
+            frames = AsciiFrames(None)
+
+        self.frames = _SpinnerComponent(frames.fps, frames.next_frame, spinner_color)
+        self.progress_bar = _SpinnerComponent(2, parent._get_progress, progress_color)
+        self.message = _SpinnerComponent(2, parent._get_message, message_color, adapter=_R._runez_module().uncolored)
+        self.last_line = None
+
+    def get_line(self, force=False):
+        n = self.frames.update() + self.progress_bar.update() + self.message.update()
+        if n > 0:
+            line = []
+            columns = self.columns
+            columns -= self.frames.add_text(line, columns)
+            columns -= self.progress_bar.add_text(line, columns)
+            self.message.add_text(line, columns)
+            self.last_line = line = " ".join(line)
+            return line
+
+        if force:
+            return self.last_line
+
+
+class ProgressSpinner(object):
+    """
+    Background progress spinner on stderr tty - with an animation conveying that work is being performed.
+    This can be enabled with one call:
+        runez.log.progress.start()
+
+    A background thread provides spinner animation, will be automatically closed on program exit or when this is called:
+        runez.log.progress.stop()
+
+    Optionally, a ProgressBar can be added
+    """
+
+    def __init__(self):
+        self._current_line = None
+        self._has_progress_line = False
+        self._message = None  # type: Optional[str] # Message coming from trace(), show() or debug() calls
+        self._progress_bar = None  # type: Optional[ProgressBar]
+        self._state = None  # type: Optional[_SpinnerState]
+        self._stderr_write = None
+        self._stdout_write = None
+        self._thread = None  # type: Optional[threading.Thread] # Background daemon thread used to display progress
 
     @property
     def is_running(self):
@@ -259,38 +431,36 @@ class Progress(object):
 
     def show(self, message):
         if message:
-            with self.lock:
+            with self._lock:
                 self._message = message
 
-    def start(self, frames=UNSET, max_columns=140, message_color=None, spinner_color=None):
-        """Start background thread if not already started
+    def start(self, frames=UNSET, max_columns=140, message_color=None, progress_color=UNSET, spinner_color=None):
+        """Start a background thread to handle spinner, if stderr is a tty
 
         Args:
             frames (AsciiFrames | None): Frames to use for spinner animation
             max_columns (int | None): Maximum number of terminal columns to use for progress line
             message_color (callable | None): Optional color to use for the message part
+            progress_color (callable | None): Optional color to use for the progress bar
             spinner_color (callable | None): Optional color to use for the animated spinner
         """
-        with self.lock:
-            if frames is UNSET:
-                frames = AsciiAnimation.predefined(os.environ.get("SPINNER")) or AsciiAnimation.af_dots()
-
-            self.message_color = message_color
-            self.spinner_color = spinner_color
-            self._frames = frames or AsciiFrames(None)
-            self._columns = TERMINAL_INFO.columns - 2
-            if max_columns and max_columns > 0:
-                self._columns = min(max_columns, self._columns)
-
+        with self._lock:
             if self._thread is None:
                 self._stderr_write = self._original_write(sys.stderr)
                 if self._stderr_write is not None:
+                    if progress_color is UNSET:
+                        progress_color = _R._runez_module().teal
+
+                    self._state = _SpinnerState(self, frames, max_columns, message_color, progress_color, spinner_color)
                     atexit.register(self.stop)
-                    if not _R._runez_module().PY2:  # Can't replace 'write' in py2
-                        sys.stderr.write = self._on_stderr
+                    try:
+                        sys.stderr.write = self._on_stderr  # Will fail in py2
                         self._stdout_write = self._original_write(sys.stdout)
                         if self._stdout_write is not None:
                             sys.stdout.write = self._on_stdout
+
+                    except AttributeError:  # pragma: no cover
+                        pass
 
                     self._thread = threading.Thread(target=self._run, name="Progress")
                     self._thread.daemon = True
@@ -299,44 +469,63 @@ class Progress(object):
                     self._hide_cursor()
 
     def stop(self):
-        with self.lock:
+        with self._lock:
             if self._thread is not None:
                 self._show_cursor()
                 self._thread = None
                 LogManager._auto_enable_progress_handler()
                 if self._has_progress_line:
                     self._clear_line()
+                    self._has_progress_line = False
 
-                if not _R._runez_module().PY2:  # Can't replace 'write' in py2
-                    if self._stdout_write is not None:
-                        sys.stdout.write = self._stdout_write
-                        self._stdout_write = None
+                if sys.stdout.write == self._on_stdout:
+                    sys.stdout.write = self._stdout_write
 
-                    if self._stderr_write is not None:
-                        sys.stderr.write = self._stderr_write
-                        self._stderr_write = None
+                if sys.stderr.write == self._on_stderr:
+                    sys.stderr.write = self._stderr_write
 
-    _frames = None  # type: AsciiFrames # Frames to animate (set to None to stop animation)
-    _thread = None  # type: Optional[threading.Thread] # Background daemon thread used to display progress
-    _message = None  # type: Optional[str] # Message to be shown by background thread, on next run
-    _columns = None  # type: int # Maximum number of columns to use for progress line
-    _has_progress_line = False
-    _stdout_write = None
-    _stderr_write = None
+                self._stderr_write = None
+                self._stdout_write = None
+
+    @cached_property
+    def _lock(self):
+        return threading.Lock()
+
+    def _get_message(self):
+        return self._message
+
+    def _get_progress(self):
+        if self._progress_bar:
+            return self._progress_bar.rendered()
+
+    def _add_progress_bar(self, bar):
+        with self._lock:
+            if bar is not self._progress_bar:
+                bar.parent = self._progress_bar
+                self._progress_bar = bar
+
+    def _remove_progress_bar(self, bar):
+        with self._lock:
+            if bar is self._progress_bar:
+                self._progress_bar = bar.parent
+
+            elif self._progress_bar:
+                self._progress_bar._remove_parent(bar)
 
     @staticmethod
     def _original_write(stream):
         if TERMINAL_INFO.isatty(stream):
-            return stream.write
+            return getattr(stream, "write", None)
 
     def _clean_write(self, write, message):
         """Output 'message' using 'write' function, ensure any pending progress line is cleared first"""
-        with self.lock:
-            if self._has_progress_line:
-                self._clear_line()
-                self._has_progress_line = False
+        if message:
+            with self._lock:
+                if self._has_progress_line:
+                    self._clear_line()
+                    self._has_progress_line = None if message.endswith("\n") else False
 
-            write(message)
+                write(message)
 
     def _on_stdout(self, message):
         self._clean_write(self._stdout_write, message)
@@ -356,55 +545,19 @@ class Progress(object):
     def _write(self, text):
         self._stderr_write(text)
 
-    def _formatted_line(self, spin, spin_color, msg, msg_color):
-        columns = self._columns
-        if columns > 0 and (spin or msg):
-            if spin:
-                line = spin
-                columns -= len(line)
-                if spin_color:
-                    line = spin_color(line)
-
-            else:
-                line = ""
-
-            if msg:
-                msg = short(_R._runez_module().uncolored(msg), size=columns)
-                if msg_color:
-                    msg = msg_color(msg)
-
-                if line:
-                    line += " "
-
-                line += msg
-
-            return line
-
     def _run(self):
         """Background thread handling progress reporting and animation"""
         try:
             sleep_delay = 1 / float(SPINNER_FPS)
-            msg_fps = int(SPINNER_FPS / 2)  # Don't take any more than 2 messages per second
-            msg_countdown = 0
-            last_frame = last_message = current_message = None
             while self._thread:
-                with self.lock:
-                    if msg_countdown <= 0:
-                        msg_countdown = msg_fps
-                        current_message = self._message
+                with self._lock:
+                    line = self._state.get_line(self._has_progress_line is None)
+                    if line:
+                        self._clear_line()
+                        self._write(line)
+                        self._write("\r")
+                        self._has_progress_line = True
 
-                    current_frame = self._frames.next_frame()
-                    if current_frame is not last_frame or current_message is not last_message:
-                        last_frame = current_frame
-                        last_message = current_message
-                        line = self._formatted_line(current_frame, self.spinner_color, current_message, self.message_color)
-                        if line:
-                            self._clear_line()
-                            self._write(line)
-                            self._write("\r")
-                            self._has_progress_line = True
-
-                msg_countdown -= 1
                 time.sleep(sleep_delay)
 
         finally:
@@ -426,13 +579,7 @@ class TraceHandler(object):
         Args:
             message (str): Message to trace
         """
-        if self.prefix:
-            message = "%s%s" % (self.prefix, message)
-
-        self.stream.write(message)
-        if not message.endswith("\n"):
-            self.stream.write("\n")
-
+        self.stream.write("%s%s%s" % (self.prefix or "", message, "\n" if not message.endswith("\n") else ""))
         self.stream.flush()
 
 
@@ -634,8 +781,8 @@ class LogManager(object):
     # Thread-local / global context
     context = ThreadGlobalContext(_ContextFilter)
 
-    # Show progress, with animation
-    progress = Progress()
+    # Progress spinner, with animation (on tty only)
+    progress = ProgressSpinner()
 
     # Below fields should be read-only for outside users, do not modify these
     debug = False

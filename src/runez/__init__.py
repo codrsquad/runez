@@ -13,7 +13,7 @@ from runez.convert import plural, represented_bytesize, represented_with_units
 from runez.date import date_from_epoch, datetime_from_epoch, elapsed, local_timezone, represented_duration, \
     timezone, timezone_from_text, to_date, to_datetime, to_epoch, to_epoch_ms, to_seconds, UTC
 from runez.file import basename, copy, delete, ensure_folder, move, parent_folder, readlines, symlink, TempFolder, touch, write
-from runez.logsetup import LogManager as log
+from runez.logsetup import LogManager as log, ProgressBar
 from runez.program import check_pid, is_executable, make_executable, ps_info, run, which
 from runez.serialize import read_json, represented_json, save_json, Serializable
 from runez.system import abort, AdaptedProperty, cached_property, chill_property, PY2, Undefined, UNSET, WINDOWS
@@ -34,7 +34,7 @@ __all__ = [
     "date_from_epoch", "datetime_from_epoch", "elapsed", "local_timezone", "represented_duration",
     "timezone", "timezone_from_text", "to_date", "to_datetime", "to_epoch", "to_epoch_ms", "to_seconds", "UTC",
     "basename", "copy", "delete", "ensure_folder", "move", "parent_folder", "readlines", "symlink", "TempFolder", "touch", "write",
-    "log",
+    "log", "ProgressBar",
     "check_pid", "is_executable", "make_executable", "ps_info", "run", "which",
     "read_json", "represented_json", "save_json", "Serializable",
     "abort", "AdaptedProperty", "cached_property", "chill_property", "PY2", "Undefined", "UNSET", "WINDOWS",
