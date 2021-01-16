@@ -22,11 +22,11 @@ try:
 except ImportError:
     faulthandler = None
 
-from runez.ascii import AsciiAnimation, AsciiFrames, SPINNER_FPS
+from runez.ascii import AsciiAnimation, AsciiFrames
 from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone
 from runez.file import basename as get_basename, parent_folder
-from runez.system import _R, cached_property, find_caller_frame, flattened, LOG, quoted, short, Slotted, stringified
+from runez.system import _R, cached_property, find_caller_frame, flattened, LOG, quoted, short, Slotted, string_type, stringified
 from runez.system import TERMINAL_INFO, ThreadGlobalContext, UNSET, WINDOWS
 
 
@@ -218,8 +218,8 @@ class _SpinnerComponent(object):
         self.adapter = adapter
         self.source = source  # type: callable
         self.color = color  # type: Optional[callable]
-        self.update_every = float(SPINNER_FPS) / fps
-        self.countdown = 0.0
+        self.update_delay = 1.0 / fps
+        self.next_update = 0
         self.current_text = None  # type: Optional[str]
 
     def add_text(self, line, columns):
@@ -240,18 +240,16 @@ class _SpinnerComponent(object):
         line.append(text)
         return size
 
-    def update(self):
+    def update(self, ts):
         """(int): 1 if changed, 0 otherwise"""
-        changed = 0
-        if self.countdown <= 0.1:
-            self.countdown += self.update_every
+        if self.next_update < ts:
+            self.next_update = ts + self.update_delay
             text = self.source()
             if text is not self.current_text:
                 self.current_text = text
-                changed = 1
+                return 1
 
-        self.countdown -= 1
-        return changed
+        return 0
 
 
 class _SpinnerState(object):
@@ -279,21 +277,17 @@ class _SpinnerState(object):
         self.frames = _SpinnerComponent(frames.fps, frames.next_frame, spinner_color)
         self.progress_bar = _SpinnerComponent(2, parent._get_progress, progress_color)
         self.message = _SpinnerComponent(2, parent._get_message, message_color, adapter=_R._runez_module().uncolored)
-        self.last_line = None
+        self.max_fps = max(2, frames.fps)
 
-    def get_line(self, force=False):
-        n = self.frames.update() + self.progress_bar.update() + self.message.update()
+    def get_line(self, ts):
+        n = self.frames.update(ts) + self.progress_bar.update(ts) + self.message.update(ts)
         if n > 0:
             line = []
             columns = self.columns
             columns -= self.frames.add_text(line, columns)
             columns -= self.progress_bar.add_text(line, columns)
             self.message.add_text(line, columns)
-            self.last_line = line = " ".join(line)
-            return line
-
-        if force:
-            return self.last_line
+            return " ".join(line)
 
 
 class ProgressSpinner(object):
@@ -309,7 +303,9 @@ class ProgressSpinner(object):
     """
 
     def __init__(self):
+        self.is_running = False
         self._current_line = None
+        self._fps = 60.0  # Higher fps for _run(), to reduce flickering as much as possible (float for py2 compat)
         self._has_progress_line = False
         self._message = None  # type: Optional[str] # Message coming from trace(), show() or debug() calls
         self._progress_bar = None  # type: Optional[ProgressBar]
@@ -318,16 +314,13 @@ class ProgressSpinner(object):
         self._stdout_write = None
         self._thread = None  # type: Optional[threading.Thread] # Background daemon thread used to display progress
 
-    @property
-    def is_running(self):
-        return self._thread is not None
-
     def show(self, message):
+        """Show 'message' on next progress line update, called in main thread"""
         if message:
             with self._lock:
                 self._message = message
 
-    def start(self, frames=UNSET, max_columns=140, message_color=None, progress_color=UNSET, spinner_color=None):
+    def start(self, frames=UNSET, max_columns=140, message_color=UNSET, progress_color=UNSET, spinner_color=None):
         """Start a background thread to handle spinner, if stderr is a tty
 
         Args:
@@ -341,6 +334,9 @@ class ProgressSpinner(object):
             if self._thread is None:
                 self._stderr_write = self._original_write(sys.stderr)
                 if self._stderr_write is not None:
+                    if message_color is UNSET:
+                        message_color = _R._runez_module().dim
+
                     if progress_color is UNSET:
                         progress_color = _R._runez_module().teal
 
@@ -358,46 +354,66 @@ class ProgressSpinner(object):
                     self._thread = threading.Thread(target=self._run, name="Progress")
                     self._thread.daemon = True
                     self._thread.start()
+                    self.is_running = True
                     LogManager._auto_enable_progress_handler()
                     self._hide_cursor()
 
     def stop(self):
+        """Stop progress spinner thread, called in any thread"""
         with self._lock:
-            if self._thread is not None:
-                self._show_cursor()
-                self._thread = None
-                LogManager._auto_enable_progress_handler()
-                if self._has_progress_line:
-                    self._clear_line()
-                    self._has_progress_line = False
+            if self._thread is None:
+                return
 
-                if sys.stdout.write == self._on_stdout:
-                    sys.stdout.write = self._stdout_write
+            self._thread = None
+            self._show_cursor()
 
-                if sys.stderr.write == self._on_stderr:
-                    sys.stderr.write = self._stderr_write
+        attempts = 10
+        while attempts > 0:
+            with self._lock:
+                if not self.is_running:  # Wait for thread to exit before cleaning up write functions it may be still using
+                    break
 
-                self._stderr_write = None
-                self._stdout_write = None
+            time.sleep(0.05)
+            attempts -= 1
+
+        with self._lock:
+            self.is_running = False
+            LogManager._auto_enable_progress_handler()
+            if self._has_progress_line:
+                self._clear_line()
+                self._has_progress_line = False
+
+            if sys.stdout.write == self._on_stdout:
+                sys.stdout.write = self._stdout_write
+
+            if sys.stderr.write == self._on_stderr:
+                sys.stderr.write = self._stderr_write
+
+            self._stderr_write = None
+            self._stdout_write = None
 
     @cached_property
     def _lock(self):
-        return threading.Lock()
+        return threading.RLock()
 
     def _get_message(self):
+        """Called in spinner thread, lock has already been acquired"""
         return self._message
 
     def _get_progress(self):
+        """Called in spinner thread, lock has already been acquired"""
         if self._progress_bar:
             return self._progress_bar.rendered()
 
     def _add_progress_bar(self, bar):
+        """Called in main thread"""
         with self._lock:
             if bar is not self._progress_bar:
                 bar.parent = self._progress_bar
                 self._progress_bar = bar
 
     def _remove_progress_bar(self, bar):
+        """Called in main thread"""
         with self._lock:
             if bar is self._progress_bar:
                 self._progress_bar = bar.parent
@@ -407,6 +423,7 @@ class ProgressSpinner(object):
 
     @staticmethod
     def _original_write(stream):
+        """Called in main thread, lock has already been acquired"""
         if TERMINAL_INFO.isatty(stream):
             return getattr(stream, "write", None)
 
@@ -416,44 +433,61 @@ class ProgressSpinner(object):
             with self._lock:
                 if self._has_progress_line:
                     self._clear_line()
-                    self._has_progress_line = None if message.endswith("\n") else False
+                    self._has_progress_line = False
+
+                if self._has_progress_line is False and message.endswith("\n"):
+                    self._has_progress_line = None
 
                 write(message)
 
     def _on_stdout(self, message):
+        """Intercepted print() or sys.stdout.write()"""
         self._clean_write(self._stdout_write, message)
 
     def _on_stderr(self, message):
+        """Intercepted sys.stderr.write()"""
         self._clean_write(self._stderr_write, message)
 
     def _hide_cursor(self):
+        """Called in main thread, lock has already been acquired"""
         self._write("\033[?25l")
 
     def _show_cursor(self):
+        """Called in any thread, lock has already been acquired"""
         self._write("\033[?25h")
 
     def _clear_line(self):
+        """Called in spinner thread, lock has already been acquired"""
         self._write("\r\033[K")
 
     def _write(self, text):
+        """Called in any thread, lock has already been acquired"""
         self._stderr_write(text)
 
     def _run(self):
         """Background thread handling progress reporting and animation"""
         try:
-            sleep_delay = 1 / float(SPINNER_FPS)
+            sleep_delay = 1 / self._fps
+            frequency = int(self._fps / self._state.max_fps) - 1
+            countdown = 0
+            line = None
             while self._thread:
-                with self._lock:
-                    line = self._state.get_line(self._has_progress_line is None)
-                    if line:
-                        self._clear_line()
-                        self._write(line)
-                        self._write("\r")
-                        self._has_progress_line = True
-
                 time.sleep(sleep_delay)
+                countdown -= 1
+                if countdown < 0 or self._has_progress_line is None:
+                    with self._lock:
+                        if countdown < 0:
+                            countdown = frequency
+                            line = self._state.get_line(time.time())
+
+                        if line:
+                            self._clear_line()
+                            self._write(line)
+                            self._write("\r")
+                            self._has_progress_line = True
 
         finally:
+            self.is_running = False
             self.stop()
 
 
@@ -733,6 +767,7 @@ class LogManager(object):
         rotate_count=UNSET,
         timezone=UNSET,
         tmp=UNSET,
+        trace=UNSET,
     ):
         """
         Args:
@@ -757,6 +792,7 @@ class LogManager(object):
             rotate_count (int): How many rotations to keep
             timezone (str | None): Time zone, use None to deactivate time zone logging
             tmp (str | None): Optional temp folder to use (auto determined)
+            trace (str): Env var to enable tracing, example: "DEBUG+.. " to trace when $DEBUG defined (+ use ".. " as custom prefix)
         """
         with cls._lock:
             cls.set_debug(debug)
@@ -793,11 +829,18 @@ class LogManager(object):
             if root_level and root_level != logging.root.level:
                 logging.root.setLevel(root_level)
 
+            if isinstance(trace, string_type) and "+" in trace:
+                p = trace.partition("+")
+                cls.enable_trace(p[0], prefix=p[2])
+
+            else:
+                cls.enable_trace(trace)
+
             if cls.handlers is None:
                 cls.handlers = []
 
-            cls._setup_handler("console")
-            cls._setup_handler("file")
+            cls._setup_console_handler()
+            cls._setup_file_handler()
             cls._auto_enable_progress_handler()
             cls._update_used_formats()
             cls._fix_logging_shortcuts()
@@ -999,25 +1042,22 @@ class LogManager(object):
     def enable_trace(cls, spec, prefix=":: ", stream=UNSET):
         """
         Args:
-            spec (TraceHandler | str | bool | None):
-            prefix (str | None): Prefix to use for trace messages
+            spec (str | bool | UNSET | None): If string given, enable tracing when corresponding env var is set to a non-empty value
+            prefix (str | None): Prefix to use for trace messages (default: ":: ")
             stream: Where to trace (by default: current 'console_stream' if configured, otherwise sys.stderr)
         """
-        if not spec or isinstance(spec, TraceHandler):
-            cls.tracer = spec
-            return
+        if spec is not UNSET:
+            cls.tracer = None
+            if spec:
+                if not stream:
+                    stream = cls.spec.console_stream or sys.stderr
 
-        cls.tracer = None
-        if stream is UNSET:
-            stream = cls.spec.console_stream or sys.stderr
+                if isinstance(spec, bool):
+                    if spec:
+                        cls.tracer = TraceHandler(prefix, stream)
 
-        if stream:
-            if isinstance(spec, bool):
-                if spec and stream:
+                elif os.environ.get(spec):
                     cls.tracer = TraceHandler(prefix, stream)
-
-            elif os.environ.get(spec):
-                cls.tracer = TraceHandler(prefix, stream)
 
     @classmethod
     def trace(cls, message, *args, **kwargs):
@@ -1025,9 +1065,11 @@ class LogManager(object):
         Args:
             message (str): Message to trace
         """
-        if cls.tracer:
+        if cls.tracer or cls.progress.is_running:
             message = formatted(message, *args, **kwargs)
-            cls.tracer.trace(message)
+            cls.progress.show(message)
+            if cls.tracer:
+                cls.tracer.trace(message)
 
     @classmethod
     def _auto_enable_progress_handler(cls):
@@ -1042,73 +1084,50 @@ class LogManager(object):
     def _update_used_formats(cls):
         cls.used_formats = None
         for handler in (cls.console_handler, cls.file_handler):
-            if handler and handler.formatter and handler.formatter._fmt:
-                cls.used_formats = "%s %s" % (cls.used_formats or "", handler.formatter._fmt)
+            fmt = _get_fmt(handler)
+            if fmt:
+                cls.used_formats = "%s %s" % (cls.used_formats or "", fmt)
                 cls.used_formats = cls.used_formats.strip()
 
     @classmethod
-    def _setup_handler(cls, name):
-        fmt = _canonical_format(getattr(cls.spec, "%s_format" % name))
-        level = getattr(cls.spec, "%s_level" % name)
-        if name == "console":
-            target = cls.spec.console_stream
+    def _setup_console_handler(cls):
+        fmt = _canonical_format(cls.spec.console_format)
+        level = cls.spec.console_level
+        target = cls.spec.console_stream
+        existing = cls.console_handler
+        if existing is None or _get_fmt(existing) != fmt or existing.level != level or existing.stream != target:
+            if existing is not None:
+                cls.handlers.remove(existing)
+                logging.root.removeHandler(existing)
 
-        else:
-            target = cls.spec.usable_location()
+            if target:
+                cls.console_handler = cls._add_handler(logging.StreamHandler(target), fmt, level)
 
-        existing = getattr(cls, "%s_handler" % name)
-        if cls._is_equivalent_handler(existing, target, fmt, level):
-            return
+    @classmethod
+    def _setup_file_handler(cls):
+        fmt = _canonical_format(cls.spec.file_format)
+        level = cls.spec.file_level
+        target = cls.spec.usable_location()
+        existing = cls.file_handler
+        if existing is None or _get_fmt(existing) != fmt or existing.level != level or existing.baseFilename != target:
+            if existing is not None:
+                cls.handlers.remove(existing)
+                logging.root.removeHandler(existing)
 
-        if existing is not None:
-            cls.handlers.remove(existing)
-            logging.root.removeHandler(existing)
+            if target:
+                cls.file_handler = cls._add_handler(_get_file_handler(target, cls.spec.rotate, cls.spec.rotate_count), fmt, level)
 
-        if not target:
-            return
-
-        if name == "console":
-            new_handler = logging.StreamHandler(target)
-
-        else:
-            new_handler = _get_file_handler(target, cls.spec.rotate, cls.spec.rotate_count)
-
+    @classmethod
+    def _add_handler(cls, new_handler, fmt, level):
         if fmt:
             new_handler.setFormatter(logging.Formatter(fmt))
 
         if level:
             new_handler.setLevel(level)
 
-        setattr(cls, "%s_handler" % name, new_handler)
         logging.root.addHandler(new_handler)
         cls.handlers.append(new_handler)
-
-    @classmethod
-    def _is_equivalent_handler(cls, existing, target, fmt, level):
-        """
-        Args:
-            existing (logging.Handler): Existing handler to examine
-            target: Target for candidate new handler
-            fmt: Format for candidate new handler
-            level: Level for candidate new handler
-
-        Returns:
-            (bool): True if `existing` handler is equivalent to candidate new handler
-        """
-        if existing is None:
-            return False
-
-        if not existing.formatter or fmt != existing.formatter._fmt:
-            return False
-
-        if existing.level != level:
-            return False
-
-        if isinstance(existing, logging.FileHandler):
-            return existing.baseFilename == target
-
-        if isinstance(existing, logging.StreamHandler):
-            return existing.stream == target
+        return new_handler
 
     @classmethod
     def _auto_fill_defaults(cls):
@@ -1286,6 +1305,10 @@ def _validated_project_path(*funcs):
             path = os.path.dirname(path)
             if os.path.exists(os.path.join(path, "setup.py")) or os.path.exists(os.path.join(path, "project.toml")):
                 return path
+
+
+def _get_fmt(handler):
+    return handler and handler.formatter and handler.formatter._fmt
 
 
 def _get_file_handler(location, rotate, rotate_count):

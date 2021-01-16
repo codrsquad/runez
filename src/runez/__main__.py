@@ -108,12 +108,13 @@ def cmd_progress_bar():
     """Show a progress bar sample"""
     names = AsciiAnimation.available_names()
     parser = argparse.ArgumentParser(description="Show a progress bar sample")
-    parser.add_argument("--delay", "-d", type=int, default=100, help="Time in milliseconds to sleep between iterations.")
+    parser.add_argument("--delay", "-d", type=float, default=100.0, help="Time in milliseconds to sleep between iterations.")
     parser.add_argument("--iterations", "-i", type=int, default=100, help="Number of iterations to run.")
+    parser.add_argument("--log-every", "-l", type=int, default=5, help="Log a message every N iterations.")
     parser.add_argument("--spinner", "-s", choices=names, default=runez.UNSET, help="Pick spinner to use.")
-    parser.add_argument("--sleep", type=float, default=0, help="Extra sleep when done, useful for inspecting animation a bit further.")
-    parser.add_argument("--no-spinner", action="store_true", help="Useful to compare CPU usage with and without spinner.")
-    parser.add_argument("--verbose", action="store_true", help="More chatty output.")
+    parser.add_argument("--sleep", type=float, default=None, help="Extra sleep when done, useful for inspecting animation a bit further.")
+    parser.add_argument("--no-spinner", "-n", action="store_true", help="Useful to compare CPU usage with and without spinner.")
+    parser.add_argument("--verbose", "-v", action="store_true", help="More chatty output.")
     parser.add_argument("name", nargs="*", help="Names of modules to show (by default: all).")
     args = parser.parse_args()
 
@@ -127,16 +128,21 @@ def cmd_progress_bar():
     except ImportError:  # pragma: no cover
         pass
 
-    runez.log.setup(console_format="%(levelname)s %(message)s", console_level=logging.INFO)
+    runez.log.setup(console_format="%(levelname)s %(message)s", console_level=logging.INFO, trace="RUNEZ_DEBUG")
     if not args.no_spinner:
         frames = AsciiAnimation.predefined(args.spinner) or runez.UNSET
-        runez.log.progress.start(frames=frames, max_columns=40, message_color=runez.dim, spinner_color=runez.yellow)
+        runez.log.progress.start(frames=frames, max_columns=40, spinner_color=runez.yellow)
 
     logger = logging.info
     for i in runez.ProgressBar(range(args.iterations)):
         i += 1
-        logger("Running\niteration %s %s", runez.red(i), "-" * 50)
-        logger = logging.debug
+        if args.log_every and i % args.log_every == 0:
+            logger("Running\niteration %s %s", runez.red(i), "-" * 50)
+            logger = logging.debug
+
+        else:
+            runez.log.trace("At iteration %s" % i)
+
         if args.verbose and i % 10 == 0:  # pragma: no cover
             print("iteration %s" % runez.bold(i))
 

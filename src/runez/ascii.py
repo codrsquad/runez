@@ -4,9 +4,6 @@ from itertools import cycle
 from runez.system import flattened
 
 
-SPINNER_FPS = 10  # Animation overhead is ~0.1% at 10 FPS
-
-
 class AsciiAnimation(object):
     """Contains a few progress spinner animation examples"""
 
@@ -87,7 +84,7 @@ class AsciiAnimation(object):
 class AsciiFrames(object):
     """Holds ascii animation frames, one-line animations of arbitrary size (should be playable in a loop for good visual effect)"""
 
-    def __init__(self, frames, fps=SPINNER_FPS):
+    def __init__(self, frames, fps=10):
         """
         Args:
             frames: Frames composing the ascii animation

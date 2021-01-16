@@ -436,8 +436,7 @@ def test_setup(temp_log, monkeypatch):
         assert not temp_log
 
         # Change stream
-        runez.log.setup(console_stream=sys.stdout)
-        runez.log.enable_trace("SOME_ENV_VAR")
+        runez.log.setup(console_stream=sys.stdout, trace="SOME_ENV_VAR")
         logging.info("hello")
         runez.log.trace("some trace info")
         assert not temp_log.stderr
@@ -445,8 +444,7 @@ def test_setup(temp_log, monkeypatch):
         assert "INFO hello" in temp_log.stdout.pop()
 
         # Change logging level
-        runez.log.setup(console_level=logging.WARNING)
-        runez.log.enable_trace(True)
+        runez.log.setup(console_level=logging.WARNING, trace=True)
         logging.info("hello")
         assert not temp_log
         logging.warning("hello")
@@ -457,9 +455,7 @@ def test_setup(temp_log, monkeypatch):
 
         # Change format and enable debug + tracing
         monkeypatch.setenv("SOME_ENV_VAR", "1")
-        runez.log.setup(debug=True, console_format="%(levelname)s - %(message)s")
-        runez.log.enable_trace("SOME_ENV_VAR")
-        runez.log.tracer.prefix = "..."
+        runez.log.setup(debug=True, console_format="%(levelname)s - %(message)s", trace="SOME_ENV_VAR+...")
         assert runez.log.debug
         assert runez.log.console_handler.level == logging.DEBUG
         logging.debug("hello")
@@ -504,7 +500,7 @@ def test_progress_bar():
 
 
 def test_progress_command(cli):
-    cli.run("progress-bar", "-i2", "-d1", "--sleep", "0.01")
+    cli.run("progress-bar", "-i10", "-d1", "--sleep", "0.01")
     assert cli.succeeded
     assert "done" in cli.logged.stdout
 
@@ -541,15 +537,22 @@ def test_progress_operation(isolated_log_setup, logged):
     logged.clear()
     with patch("runez.system.TerminalInfo.isatty", return_value=True):
         # Simulate progress with alternating foo/bar "spinner", using `str` to cover color code path
-        runez.log.progress.start(max_columns=10, message_color=str, spinner_color=str)
-        runez.log.progress.show("some progress")
-        assert runez.log.progress.is_running
         p1 = runez.ProgressBar(total=3)
         p1.start()
         p1.update()
+        assert runez.log.progress._progress_bar
+        runez.log.progress.start(max_columns=10, message_color=str, spinner_color=str)
+        assert runez.log.progress.is_running
+        runez.log.progress.show("some progress")
+        assert runez.log.progress._progress_bar
         time.sleep(0.1)
-        print("hello")
+        assert runez.log.progress._progress_bar
+        with runez.log.progress._lock:  # Ensure edge case is triggered
+            runez.log.progress._has_progress_line = True
+            print("hello")
+
         logging.error("some error")
+        time.sleep(0.1)
         p2 = runez.ProgressBar(total=3)
         p3 = runez.ProgressBar(total=3)
         p4 = runez.ProgressBar(total=3)
@@ -559,6 +562,7 @@ def test_progress_operation(isolated_log_setup, logged):
         p4.start()
 
         assert runez.log.progress._progress_bar is p4
+        time.sleep(0.1)
 
         # Stop progress bar in a different order
         p2.stop()
@@ -570,15 +574,12 @@ def test_progress_operation(isolated_log_setup, logged):
         p1.stop()
         assert runez.log.progress._progress_bar is None
 
-        assert runez.log.progress._state.get_line(force=True)
         runez.log.progress.stop()
-        time.sleep(0.1)
         assert not runez.log.progress.is_running
 
         assert "[?25l" in logged.stderr
         assert "hello" in logged.stdout
         assert "some error" in logged.stderr
-        assert "[K" in logged.stderr
         assert "[?25h" in logged.stderr
 
         # Simulate progress without spinner
