@@ -12,15 +12,23 @@ class AsciiAnimation(object):
     default = "dots"  # Default spinner to use
 
     @classmethod
-    def available_names(cls):
+    def available_names(cls, include_virtual=True):
         """(list[str]): Available ascii animation names from this sample collection"""
-        return sorted(k[3:] for k in dir(cls) if k.startswith("af_")) + ["off"]
+        return sorted(k[3:] for k in dir(cls) if k.startswith("af_")) + (["random", "off"] if include_virtual else [])
 
     @classmethod
     def predefined(cls, name):
         """(AsciiFrames | None): Predefined animation with 'name', if any"""
         if name == "off":
             return AsciiFrames(None)
+
+        if name == "random":
+            import random
+
+            names = cls.available_names(include_virtual=False)
+            n = len(names)
+            n = max(0, min(n - 1, int(n * random.random())))
+            name = names[n]
 
         if name in cls.available_names():
             return getattr(cls, "af_%s" % name)()

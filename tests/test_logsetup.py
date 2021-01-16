@@ -511,6 +511,7 @@ def test_progress_command(cli, monkeypatch):
     assert AsciiAnimation.from_spec(f) is f
 
     assert AsciiAnimation.predefined("foo") is None
+    assert AsciiAnimation.predefined("random")
     off = AsciiAnimation.predefined("off")
     assert off.frames is None
     assert str(off) == "off"

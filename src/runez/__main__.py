@@ -132,7 +132,7 @@ def cmd_progress_bar():
     if not args.no_spinner:
         runez.log.progress.start(frames=args.spinner, max_columns=40, spinner_color=runez.yellow)
 
-    logger = logging.info
+    logger = logging.info if args.verbose else logging.debug
     for i in runez.ProgressBar(range(args.iterations)):
         i += 1
         if args.log_every and i % args.log_every == 0:
