@@ -2,7 +2,7 @@
 History
 =======
 
-2.4.1 (2021-01-16)
+2.4.2 (2021-01-17)
 ------------------
 
 * Added ``ProgressBar``, corrected flickering in spinner

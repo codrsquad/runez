@@ -22,7 +22,7 @@ try:
 except ImportError:
     faulthandler = None
 
-from runez.ascii import AsciiAnimation, AsciiFrames
+from runez.ascii import AsciiAnimation
 from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone
 from runez.file import basename as get_basename, parent_folder
@@ -258,7 +258,7 @@ class _SpinnerState(object):
         """
         Args:
             parent (ProgressSpinner): Parent object
-            frames (AsciiFrames | Unset | None): Frames to use for spinner
+            frames (AsciiFrames): Frames to use for spinner
             max_columns (int | None): Optional max number of columns to use
             message_color (callable | None): Optional color to use for the message
             progress_color (callable | None): Optional color to use for the spinner
@@ -267,12 +267,6 @@ class _SpinnerState(object):
         self.columns = TERMINAL_INFO.columns - 2
         if max_columns and max_columns > 0:
             self.columns = min(max_columns, self.columns)
-
-        if frames is UNSET:
-            frames = AsciiAnimation.predefined(os.environ.get("SPINNER")) or AsciiAnimation.af_dots()
-
-        if not frames:
-            frames = AsciiFrames(None)
 
         self.frames = _SpinnerComponent(frames.fps, frames.next_frame, spinner_color)
         self.progress_bar = _SpinnerComponent(2, parent._get_progress, progress_color)
@@ -324,7 +318,7 @@ class ProgressSpinner(object):
         """Start a background thread to handle spinner, if stderr is a tty
 
         Args:
-            frames (AsciiFrames | None): Frames to use for spinner animation
+            frames (AsciiFrames | callable | str | None): Frames to use for spinner animation
             max_columns (int | None): Maximum number of terminal columns to use for progress line
             message_color (callable | None): Optional color to use for the message part
             progress_color (callable | None): Optional color to use for the progress bar
@@ -340,6 +334,7 @@ class ProgressSpinner(object):
                     if progress_color is UNSET:
                         progress_color = _R._runez_module().teal
 
+                    frames = AsciiAnimation.get_frames(frames)
                     self._state = _SpinnerState(self, frames, max_columns, message_color, progress_color, spinner_color)
                     atexit.register(self.stop)
                     try:

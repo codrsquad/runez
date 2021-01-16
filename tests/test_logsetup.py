@@ -499,10 +499,16 @@ def test_progress_bar():
     assert pb.rendered() is None
 
 
-def test_progress_command(cli):
+def test_progress_command(cli, monkeypatch):
     cli.run("progress-bar", "-i10", "-d1", "--sleep", "0.01")
     assert cli.succeeded
     assert "done" in cli.logged.stdout
+
+    assert AsciiAnimation.get_frames(None)
+    assert AsciiAnimation.get_frames(AsciiAnimation.af_dots)
+    f = AsciiFrames(list("ab"))
+    assert AsciiAnimation.get_frames(f) is f
+    assert AsciiAnimation.from_spec(f) is f
 
     assert AsciiAnimation.predefined("foo") is None
     off = AsciiAnimation.predefined("off")
@@ -512,6 +518,11 @@ def test_progress_command(cli):
     assert names
     for name in names:
         assert AsciiAnimation.predefined(name)
+
+    monkeypatch.setattr(AsciiAnimation, "env_var", None)
+    monkeypatch.setattr(AsciiAnimation, "default", None)
+    f = AsciiAnimation.get_frames(None)
+    assert not f.frames
 
 
 def test_progress_frames():

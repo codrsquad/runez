@@ -1,11 +1,15 @@
 # -*- encoding: utf-8 -*-
+import os
 from itertools import cycle
 
-from runez.system import flattened
+from runez.system import flattened, string_type
 
 
 class AsciiAnimation(object):
     """Contains a few progress spinner animation examples"""
+
+    env_var = "SPINNER"  # Env var overriding which predefined spinner to use
+    default = "dots"  # Default spinner to use
 
     @classmethod
     def available_names(cls):
@@ -20,6 +24,49 @@ class AsciiAnimation(object):
 
         if name in cls.available_names():
             return getattr(cls, "af_%s" % name)()
+
+    @classmethod
+    def from_spec(cls, spec):
+        """
+        Args:
+            spec (AsciiFrames | callable | str | None): Possible reference to some frames, by predefined name or callable returning frames
+
+        Returns:
+            (AsciiFrames | None): Corresponding AsciiFrames object, if any
+        """
+        if callable(spec):
+            spec = spec()
+
+        if isinstance(spec, string_type):
+            return cls.predefined(spec)
+
+        if isinstance(spec, AsciiFrames):
+            return spec
+
+    @classmethod
+    def from_specs(cls, *specs):
+        """First usable frames from given specs"""
+        for spec in specs:
+            frames = cls.from_spec(spec)
+            if frames:
+                return frames
+
+        return AsciiFrames(None)
+
+    @classmethod
+    def get_frames(cls, spec, default=None):
+        """
+        Args:
+            spec (AsciiFrames | callable | str | None): What frame animation to use
+            default (AsciiFrames | callable | str | None): Default
+
+        Returns:
+            (AsciiFrames): First found: from env var, then given 'spec', then 'default, finally 'cls.default'
+        """
+        if isinstance(spec, AsciiFrames):
+            return spec
+
+        return cls.from_specs(os.environ.get(cls.env_var or ""), spec, default, cls.default)
 
     @classmethod
     def af_dots(cls):
