@@ -26,8 +26,8 @@ from runez.ascii import AsciiAnimation, AsciiFrames
 from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone
 from runez.file import basename as get_basename, parent_folder
-from runez.system import _R, cached_property, find_caller_frame, flattened, LOG, quoted, short, Slotted, string_type, stringified
-from runez.system import TERMINAL_INFO, ThreadGlobalContext, UNSET, WINDOWS
+from runez.system import _getframe, _R, cached_property, find_caller_frame, flattened, quoted, short, string_type, stringified
+from runez.system import LOG, Slotted, TERMINAL_INFO, ThreadGlobalContext, UNSET, WINDOWS
 
 
 ORIGINAL_CF = logging.currentframe
@@ -792,7 +792,7 @@ class LogManager(object):
             rotate_count (int): How many rotations to keep
             timezone (str | None): Time zone, use None to deactivate time zone logging
             tmp (str | None): Optional temp folder to use (auto determined)
-            trace (str): Env var to enable tracing, example: "DEBUG+.. " to trace when $DEBUG defined (+ use ".. " as custom prefix)
+            trace (str | bool): Env var to enable tracing, example: "DEBUG+| " to trace when $DEBUG defined (+ [optional] "| " as prefix)
         """
         with cls._lock:
             cls.set_debug(debug)
@@ -1183,7 +1183,7 @@ class LogManager(object):
         logging.logProcesses = cls.is_using_format("%(process)")
         logging.logThreads = cls.is_using_format("%(thread) %(threadName)")
 
-        if not isinstance(logging.info, _LogWrap) and hasattr(sys, "_getframe"):
+        if not isinstance(logging.info, _LogWrap) and _getframe is not None:
             logging.critical = _LogWrap(logging.CRITICAL)
             logging.fatal = logging.critical
             logging.error = _LogWrap(logging.ERROR)
@@ -1205,10 +1205,10 @@ class _LogWrap(object):
     @staticmethod
     def log(level, msg, *args, **kwargs):
         offset = kwargs.pop("_stack_offset", 1)
-        name = sys._getframe(offset).f_globals.get("__name__")
+        name = _getframe(offset).f_globals.get("__name__")
         logger = logging.getLogger(name)
         try:
-            logging.currentframe = lambda: sys._getframe(3 + offset)
+            logging.currentframe = lambda: _getframe(3 + offset)
             logger.log(level, msg, *args, **kwargs)
 
         finally:

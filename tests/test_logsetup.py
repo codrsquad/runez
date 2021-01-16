@@ -455,12 +455,12 @@ def test_setup(temp_log, monkeypatch):
 
         # Change format and enable debug + tracing
         monkeypatch.setenv("SOME_ENV_VAR", "1")
-        runez.log.setup(debug=True, console_format="%(levelname)s - %(message)s", trace="SOME_ENV_VAR+...")
+        runez.log.setup(debug=True, console_format="%(levelname)s - %(message)s", trace="SOME_ENV_VAR+... ")
         assert runez.log.debug
         assert runez.log.console_handler.level == logging.DEBUG
         logging.debug("hello")
         runez.log.trace("some trace info")
-        assert "...some trace info" in temp_log  # We're now tracing (because env var is set)
+        assert "... some trace info" in temp_log  # We're now tracing (because env var is set)
         assert "DEBUG - hello" in temp_log.stdout.pop()
         assert not temp_log.stderr
 

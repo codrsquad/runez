@@ -30,6 +30,7 @@ LOG = logging.getLogger("runez")
 SYMBOLIC_TMP = "<tmp>"
 WINDOWS = sys.platform.startswith("win")
 RE_SPACES = re.compile(r"[\s\n]+", re.MULTILINE)
+_getframe = getattr(sys, "_getframe", None)
 
 
 class Undefined(object):
@@ -202,13 +203,13 @@ def find_caller_frame(validator=None, depth=2, maximum=1000):
     Returns:
         (frame): First frame found
     """
-    if hasattr(sys, "_getframe"):
+    if _getframe is not None:
         if validator is None:
             validator = _is_actual_caller_frame
 
         while not maximum or depth <= maximum:
             try:
-                f = sys._getframe(depth)
+                f = _getframe(depth)
                 value = validator(f)
                 if value is not None:
                     return value
@@ -413,7 +414,7 @@ def quoted(*items, **kwargs):
         if adapter is UNSET:
             text = Anchored.short(stringified(text))
 
-        elif adapter is not None:
+        elif callable(adapter):
             text = adapter(text)
 
         if text and " " in text:
@@ -541,7 +542,7 @@ class AdaptedProperty(object):
         Args:
             validator (callable | str | None): Function to use to validate/adapt passed values, or name of property
             default: Default value
-            doc (str): Doctring (applies to anonymous properties only)
+            doc (str): Docstring (applies to anonymous properties only)
             caster (callable): Optional caster called for non-None values only (applies to anonymous properties only)
             type (type): Optional type, must have initializer with one argument if provided
         """
@@ -997,7 +998,7 @@ class Slotted(object):
         return delimiter.join(result)
 
     def get(self, key, default=None):
-        """This makes Slotted objects able to mimic dict's get() function
+        """This makes Slotted objects able to mimic dict get() function
 
         Args:
             key (str | None): Field name (on defined in __slots__)
@@ -1232,7 +1233,7 @@ class TerminalInfo(object):
                 cols = size.columns
                 lines = size.lines
 
-            except Exception:
+            except AttributeError:
                 pass
 
         return cols or default_columns, lines or default_lines
