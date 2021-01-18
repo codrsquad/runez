@@ -231,7 +231,7 @@ class _SpinnerComponent(object):
             text = self.adapter(text)
 
         size = len(text)
-        if size > columns:
+        if self.adapter is not None or size > columns:
             text = short(text, size=columns)
 
         if self.color:
