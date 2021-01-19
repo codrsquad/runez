@@ -121,7 +121,7 @@ class ProgressHandler(logging.Handler):
     @classmethod
     def handle(cls, record):
         """Intercept all log chatter and show it as progress message"""
-        LogManager.progress.show(record.getMessage())
+        LogManager.progress._show_debug(record.getMessage())
 
     @classmethod
     def emit(cls, record):
@@ -170,19 +170,23 @@ class ProgressBar(object):
         self.stop()
 
     def start(self):
+        """Start tracking progress with this progressbar"""
         if self.n is None:
             self.n = 0
             LogManager.progress._add_progress_bar(self)
 
     def stop(self):
+        """Stop / cleanup this progressbar"""
         if self.n is not None:
             self.n = None
             LogManager.progress._remove_progress_bar(self)
 
     def update(self, n=1):
+        """Manually update the progress bar, advance progress by 'n'"""
         self.n += n
 
     def rendered(self):
+        """Called in spinner thread (lock already acquired)"""
         if self.n is None:
             return None
 
@@ -223,6 +227,7 @@ class _SpinnerComponent(object):
         self.current_text = None  # type: Optional[str]
 
     def add_text(self, line, columns):
+        """(int): size of text added to 'line' (lock already acquired)"""
         text = self.current_text
         if not text or columns <= 0:
             return 0
@@ -241,7 +246,7 @@ class _SpinnerComponent(object):
         return size
 
     def update_text(self, ts):
-        """(int): 1 if changed, 0 otherwise"""
+        """(int): 1 if changed, 0 otherwise, called by spinner thread (lock already acquired)"""
         if self.next_update < ts:
             self.next_update = ts + self.update_delay
             text = self.source()
@@ -274,6 +279,7 @@ class _SpinnerState(object):
         self.max_fps = max(2, frames.fps)
 
     def get_line(self, ts):
+        """Called by spinner thread (lock already acquired)"""
         n = self.frames.update_text(ts) + self.progress_bar.update_text(ts) + self.message.update_text(ts)
         if n > 0:
             line = []
@@ -301,7 +307,8 @@ class ProgressSpinner(object):
         self._current_line = None
         self._fps = 60.0  # Higher fps for _run(), to reduce flickering as much as possible (float for py2 compat)
         self._has_progress_line = False
-        self._message = None  # type: Optional[str] # Message coming from trace(), show() or debug() calls
+        self._msg_show = None  # type: Optional[str] # Message coming from show() calls
+        self._msg_debug = None  # type: Optional[str] # Message coming from trace() or debug() calls
         self._progress_bar = None  # type: Optional[ProgressBar]
         self._state = None  # type: Optional[_SpinnerState]
         self._stderr_write = None
@@ -309,10 +316,12 @@ class ProgressSpinner(object):
         self._thread = None  # type: Optional[threading.Thread] # Background daemon thread used to display progress
 
     def show(self, message):
-        """Show 'message' on next progress line update, called in main thread"""
-        if message:
-            with self._lock:
-                self._message = message
+        """
+        Args:
+            message (str | None): Show 'message' on progress spinner line (this overrides any debug/trace inferred messages)
+        """
+        with self._lock:
+            self._msg_show = message
 
     def start(self, frames=UNSET, max_columns=140, message_color=UNSET, progress_color=UNSET, spinner_color=None):
         """Start a background thread to handle spinner, if stderr is a tty
@@ -393,12 +402,20 @@ class ProgressSpinner(object):
     def _lock(self):
         return threading.RLock()
 
+    def _show_debug(self, message):
+        """Show 'message' on next progress line update, called in main thread"""
+        with self._lock:
+            self._msg_debug = message
+
     def _get_message(self):
-        """Called in spinner thread, lock has already been acquired"""
-        return self._message
+        """Called in spinner thread (lock already acquired)"""
+        if self._msg_show is not None:
+            return self._msg_show
+
+        return self._msg_debug
 
     def _get_progress(self):
-        """Called in spinner thread, lock has already been acquired"""
+        """Called in spinner thread (lock already acquired)"""
         if self._progress_bar:
             return self._progress_bar.rendered()
 
@@ -420,7 +437,7 @@ class ProgressSpinner(object):
 
     @staticmethod
     def _original_write(stream):
-        """Called in main thread, lock has already been acquired"""
+        """Called in main thread (lock already acquired)"""
         if TERMINAL_INFO.isatty(stream):
             return getattr(stream, "write", None)
 
@@ -446,19 +463,19 @@ class ProgressSpinner(object):
         self._clean_write(self._stderr_write, message)
 
     def _hide_cursor(self):
-        """Called in main thread, lock has already been acquired"""
+        """Called in main thread (lock already acquired)"""
         self._write("\033[?25l")
 
     def _show_cursor(self):
-        """Called in any thread, lock has already been acquired"""
+        """Called in any thread (lock already acquired)"""
         self._write("\033[?25h")
 
     def _clear_line(self):
-        """Called in spinner thread, lock has already been acquired"""
+        """Called in spinner thread (lock already acquired)"""
         self._write("\r\033[K")
 
     def _write(self, text):
-        """Called in any thread, lock has already been acquired"""
+        """Called in any thread (lock already acquired)"""
         self._stderr_write(text)
 
     def _run(self):
@@ -1064,7 +1081,7 @@ class LogManager(object):
         """
         if cls.tracer or cls.progress.is_running:
             message = formatted(message, *args, **kwargs)
-            cls.progress.show(message)
+            cls.progress._show_debug(message)
             if cls.tracer:
                 cls.tracer.trace(message)
 

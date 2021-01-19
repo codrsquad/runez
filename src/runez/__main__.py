@@ -146,6 +146,7 @@ def cmd_progress_bar():
             print("iteration %s" % runez.bold(i))
 
         if i == 42:  # pragma: no cover
+            runez.log.progress.show("some progress msg")  # debug() and trace() messages don't appear any more after this
             for _ in runez.ProgressBar(range(10)):
                 time.sleep(0.1)
 
