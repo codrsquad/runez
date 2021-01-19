@@ -240,7 +240,7 @@ class _SpinnerComponent(object):
         line.append(text)
         return size
 
-    def update(self, ts):
+    def update_text(self, ts):
         """(int): 1 if changed, 0 otherwise"""
         if self.next_update < ts:
             self.next_update = ts + self.update_delay
@@ -274,7 +274,7 @@ class _SpinnerState(object):
         self.max_fps = max(2, frames.fps)
 
     def get_line(self, ts):
-        n = self.frames.update(ts) + self.progress_bar.update(ts) + self.message.update(ts)
+        n = self.frames.update_text(ts) + self.progress_bar.update_text(ts) + self.message.update_text(ts)
         if n > 0:
             line = []
             columns = self.columns
@@ -361,6 +361,8 @@ class ProgressSpinner(object):
 
             self._thread = None
             self._show_cursor()
+            if hasattr(atexit, "unregister"):
+                atexit.unregister(self.stop)
 
         attempts = 10
         while attempts > 0:

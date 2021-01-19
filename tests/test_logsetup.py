@@ -499,10 +499,29 @@ def test_progress_bar():
     assert pb.rendered() is None
 
 
-def test_progress_command(cli, monkeypatch):
+def test_progress_command(cli):
     cli.run("progress-bar", "-i10", "-d1", "--sleep", "0.01")
     assert cli.succeeded
     assert "done" in cli.logged.stdout
+
+    with patch("runez.system.TerminalInfo.isatty", return_value=True):
+        # Verify that short messages with newlines get their newline changed to a space
+        p = runez.logsetup.ProgressSpinner()
+        p.start(frames=AsciiFrames(None))
+        p.show("\n a \n\n\n b \n")
+        assert p._state.get_line(time.time() + 1) == "a b"
+        p.stop()
+
+
+def test_progress_frames(monkeypatch):
+    foo = AsciiFrames(["a", ["b", ""]], fps=10)
+    assert foo.frames == ["a", "b"]
+    assert foo.index == 0
+    assert foo.next_frame() == "b"
+    assert foo.index == 1
+    assert foo.next_frame() == "a"
+    assert foo.index == 0
+    assert foo.next_frame() == "b"
 
     assert AsciiAnimation.get_frames(None)
     assert AsciiAnimation.get_frames(AsciiAnimation.af_dots)
@@ -524,17 +543,6 @@ def test_progress_command(cli, monkeypatch):
     monkeypatch.setattr(AsciiAnimation, "default", None)
     f = AsciiAnimation.get_frames(None)
     assert not f.frames
-
-
-def test_progress_frames():
-    foo = AsciiFrames(["a", ["b", ""]], fps=10)
-    assert foo.frames == ["a", "b"]
-    assert foo.index == 0
-    assert foo.next_frame() == "b"
-    assert foo.index == 1
-    assert foo.next_frame() == "a"
-    assert foo.index == 0
-    assert foo.next_frame() == "b"
 
 
 def test_progress_operation(isolated_log_setup, logged):
