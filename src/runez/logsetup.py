@@ -302,6 +302,8 @@ class ProgressSpinner(object):
     Optionally, a ProgressBar can be added
     """
 
+    _cursor_hidden = None  # Allows to ensure we restore cursor in all cases
+
     def __init__(self):
         self.is_running = False
         self._current_line = None
@@ -345,7 +347,6 @@ class ProgressSpinner(object):
 
                     frames = AsciiAnimation.get_frames(frames)
                     self._state = _SpinnerState(self, frames, max_columns, message_color, progress_color, spinner_color)
-                    atexit.register(self.stop)
                     try:
                         sys.stderr.write = self._on_stderr  # Will fail in py2
                         self._stdout_write = self._original_write(sys.stdout)
@@ -360,18 +361,16 @@ class ProgressSpinner(object):
                     self._thread.start()
                     self.is_running = True
                     LogManager._auto_enable_progress_handler()
-                    self._hide_cursor()
+                    ProgressSpinner._hide_cursor()
 
     def stop(self):
         """Stop progress spinner thread, called in any thread"""
         with self._lock:
+            ProgressSpinner._show_cursor()
             if self._thread is None:
                 return
 
             self._thread = None
-            self._show_cursor()
-            if hasattr(atexit, "unregister"):
-                atexit.unregister(self.stop)
 
         attempts = 10
         while attempts > 0:
@@ -385,7 +384,7 @@ class ProgressSpinner(object):
         with self._lock:
             self.is_running = False
             LogManager._auto_enable_progress_handler()
-            if self._has_progress_line:
+            if self._has_progress_line:  # pragma: no cover (hard to cover in tests)
                 self._clear_line()
                 self._has_progress_line = False
 
@@ -462,13 +461,22 @@ class ProgressSpinner(object):
         """Intercepted sys.stderr.write()"""
         self._clean_write(self._stderr_write, message)
 
-    def _hide_cursor(self):
+    @classmethod
+    def _hide_cursor(cls):
         """Called in main thread (lock already acquired)"""
-        self._write("\033[?25l")
+        if not cls._cursor_hidden:
+            if cls._cursor_hidden is None:
+                atexit.register(cls._show_cursor)
 
-    def _show_cursor(self):
+            cls._cursor_hidden = True
+            sys.stderr.write("\033[?25l")
+
+    @classmethod
+    def _show_cursor(cls):
         """Called in any thread (lock already acquired)"""
-        self._write("\033[?25h")
+        if cls._cursor_hidden:
+            sys.stderr.write("\033[?25h")
+            cls._cursor_hidden = False
 
     def _clear_line(self):
         """Called in spinner thread (lock already acquired)"""

@@ -575,15 +575,12 @@ def test_progress_operation(isolated_log_setup, logged):
         assert runez.log.progress._progress_bar
         runez.log.progress.start(max_columns=10, message_color=str, spinner_color=str)
         assert runez.log.progress.is_running
+        assert runez.log.progress._progress_bar
+        logging.error("some error")
+        time.sleep(0.1)
         runez.log.progress.show("some progress")
         assert runez.log.progress._progress_bar
-        time.sleep(0.1)
-        assert runez.log.progress._progress_bar
-        with runez.log.progress._lock:  # Ensure edge case is triggered
-            runez.log.progress._has_progress_line = True
-            print("hello")
-
-        logging.error("some error")
+        print("hello")
         time.sleep(0.1)
         p2 = runez.ProgressBar(total=3)
         p3 = runez.ProgressBar(total=3)
