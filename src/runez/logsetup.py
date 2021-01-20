@@ -519,7 +519,7 @@ class TraceHandler(object):
         MY_APP_DEBUG=1 my-app ...
     """
 
-    def __init__(self, prefix, stream=sys.stderr):
+    def __init__(self, prefix, stream):
         self.prefix = prefix
         self.stream = stream
 
@@ -1069,17 +1069,11 @@ class LogManager(object):
             stream: Where to trace (by default: current 'console_stream' if configured, otherwise sys.stderr)
         """
         if spec is not UNSET:
-            cls.tracer = None
-            if spec:
-                if not stream:
-                    stream = cls.spec.console_stream or sys.stderr
+            if spec and (not isinstance(spec, string_type) or spec in os.environ):
+                cls.tracer = TraceHandler(prefix, stream or cls.spec.console_stream or sys.stderr)
 
-                if isinstance(spec, bool):
-                    if spec:
-                        cls.tracer = TraceHandler(prefix, stream)
-
-                elif os.environ.get(spec):
-                    cls.tracer = TraceHandler(prefix, stream)
+            else:
+                cls.tracer = None
 
     @classmethod
     def trace(cls, message, *args, **kwargs):
