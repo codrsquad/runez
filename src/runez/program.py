@@ -418,7 +418,7 @@ def require_installed(program, instructions=None, platform=sys.platform):
         abort(message)
 
 
-def require_vpn(message=None):
+def require_vpn(message="You're not currently on VPN, this program requires you to be on VPN"):
     """Call sys.exit() if we're not currently on VPN
 
     Args:
@@ -431,9 +431,6 @@ def require_vpn(message=None):
             for line in r.output.splitlines():
                 if line.startswith("default") and "tun" in line:
                     return
-
-            if not message:
-                message = "You're not currently on VPN, this program requires you to be on VPN"
 
             abort(message, fatal=SystemExit)
 
