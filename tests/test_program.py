@@ -229,7 +229,7 @@ def test_require_installed(monkeypatch):
 
 def test_require_vpn(logged):
     with patch("runez.program.run", return_value=RunResult("default 172.... UGSc utun2", code=0)):
-        assert runez.require_vpn() is True
+        runez.require_vpn()
         assert not logged
 
     with patch("runez.program.run", return_value=RunResult("default 192.... UGSc en0", code=0)):

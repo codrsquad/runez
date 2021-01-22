@@ -430,12 +430,12 @@ def require_vpn(message=None):
         if r.succeeded and r.output:
             for line in r.output.splitlines():
                 if line.startswith("default") and "tun" in line:
-                    return True
+                    return
 
             if not message:
                 message = "You're not currently on VPN, this program requires you to be on VPN"
 
-            return abort(message, fatal=SystemExit)
+            abort(message, fatal=SystemExit)
 
 
 def _added_env_paths(env_vars, env=None):
