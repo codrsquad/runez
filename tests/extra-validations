@@ -132,7 +132,7 @@ def signature_representation(sig: dict):
 def io_api_problem(sig: dict, expected: dict, docstring: str):
     """Problem (if any) with function signature of an IO API"""
     if sig != expected:
-        return "Bad IO API: %s" % signature_representation(sig)
+        return "Bad IO API: %s (expecting: [%s])" % (signature_representation(sig), expected)
 
     if not docstring:
         return "No docstring"

@@ -418,6 +418,26 @@ def require_installed(program, instructions=None, platform=sys.platform):
         abort(message)
 
 
+def require_vpn(message=None):
+    """Call sys.exit() if we're not currently on VPN
+
+    Args:
+        message (str | None): Optional custom message to show
+    """
+    netstat = which("netstat", ignore_own_venv=True)
+    if netstat:
+        r = run(netstat, "-nr", "-f", "inet", fatal=None, logger=None)
+        if r.succeeded and r.output:
+            for line in r.output.splitlines():
+                if line.startswith("default") and "tun" in line:
+                    return True
+
+            if not message:
+                message = "You're not currently on VPN, this program requires you to be on VPN"
+
+            return abort(message, fatal=SystemExit)
+
+
 def _added_env_paths(env_vars, env=None):
     """
     Args:

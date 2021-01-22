@@ -3,6 +3,7 @@ import os
 import subprocess
 
 import pytest
+from mock import patch
 
 import runez
 from runez.conftest import verify_abort
@@ -224,6 +225,17 @@ def test_require_installed(monkeypatch):
     assert "foo is not installed:\n" in r
     assert "- on darwin: run: `brew install foo`" in r
     assert "- on linux: run: `apt install foo`" in r
+
+
+def test_require_vpn(logged):
+    with patch("runez.program.run", return_value=RunResult("default 172.... UGSc utun2", code=0)):
+        assert runez.require_vpn() is True
+        assert not logged
+
+    with patch("runez.program.run", return_value=RunResult("default 192.... UGSc en0", code=0)):
+        with pytest.raises(SystemExit):
+            runez.require_vpn()
+        assert "not currently on VPN" in logged
 
 
 def test_which():

@@ -65,7 +65,7 @@ def abort(message, code=1, exc_info=None, return_value=None, fatal=True, logger=
     foo
     runez.system.AbortException: 1
     >>> # Not fatal, but will log/print message:
-    >>> abort("foo", fatal=False)  # Returns False
+    >>> abort("foo", return_value=False, fatal=False)  # Returns False
     foo
     False
     >>> abort("foo", fatal=False)  # Returns None
@@ -83,7 +83,7 @@ def abort(message, code=1, exc_info=None, return_value=None, fatal=True, logger=
         code (int): Exit code used when runez.system.AbortException is set to SystemExit
         exc_info (Exception): Exception info to pass on to logger
         return_value (Any): Value to return when `fatal` is not True
-        fatal (bool | None): True: abort execution, False: don't abort but log, None: don't abort, don't log
+        fatal (type | bool | None): True: abort execution, False: don't abort but log, None: don't abort, don't log
         logger (callable | None): Logger to use, or None to disable log chatter
 
     Returns:

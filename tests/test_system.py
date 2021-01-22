@@ -21,6 +21,12 @@ def failed_function(message, fatal=True, logger=runez.UNSET):
 
 
 def test_abort(logged, monkeypatch):
+    assert runez.abort("aborted", fatal=False) is None
+    assert "aborted" in logged.pop()
+
+    assert runez.abort("aborted", fatal=None) is None
+    assert not logged
+
     assert runez.abort("aborted", return_value="some-return", fatal=False) == "some-return"
     assert "ERROR" in logged
     assert "aborted" in logged.pop()
