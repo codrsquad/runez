@@ -1420,13 +1420,6 @@ class _R:
         return cls._runez_module().log.current_test()
 
     @classmethod
-    def expanded_message(cls, message):
-        if callable(message):
-            message = message()  # Allow message to be late-called function
-
-        return message
-
-    @classmethod
     def hdef(cls, default, message, e=None):
         """Handle IO default
 
@@ -1439,7 +1432,7 @@ class _R:
             'default', if it is not UNSET
         """
         if default is UNSET:
-            abort(cls.expanded_message(message), exc_info=e)
+            abort(_actual_message(message), exc_info=e)
 
         if callable(default):
             default = default()
@@ -1463,7 +1456,7 @@ class _R:
 
         if dryrun:
             if logger is not None and logger is not False:  # Accept UNSET
-                message = "Would %s" % cls.expanded_message(message)
+                message = "Would %s" % _actual_message(message)
                 if callable(logger):
                     logger(message)
 
@@ -1487,7 +1480,7 @@ class _R:
                 logger = cls._runez_module().log.spec.default_logger
 
             if callable(logger):
-                message = cls.expanded_message(message)
+                message = _actual_message(message)
                 logger(message)
 
     @classmethod
@@ -1540,6 +1533,13 @@ class _R:
             r.DRYRUN = bool(dryrun)
 
         return old_dryrun
+
+
+def _actual_message(message):
+    if callable(message):
+        message = message()  # Allow message to be late-called function
+
+    return message
 
 
 def _flatten(result, value, keep_empty, split, shellify, unique):

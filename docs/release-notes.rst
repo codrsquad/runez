@@ -2,6 +2,12 @@
 History
 =======
 
+2.4.7 (2021-01-28)
+------------------
+
+* Simplified how logsetup references are resolved
+
+
 2.4.6 (2021-01-22)
 ------------------
 
@@ -28,8 +34,6 @@ History
 * Renamed ``terminal_info()`` -> ``TERMINAL_INFO``, moved ``is_tty()`` to it
 
 * Using ``monkeypatch`` instead of ``mock``
-
-* Moved ``expanded()`` to ``runez.logsetup``
 
 * Added ``runez.log.trace()``
 
@@ -147,7 +151,6 @@ History
 * Renamed:
 
     * ``first_meaningful_line()`` -> ``first_line()`` applies to strings or list (not file anymore)
-    * ``formatted()`` -> ``expanded()``
     * ``shortened()`` -> ``short()``
     * ``represented_args()`` -> ``quoted()`` (can quote a single string, or a list of strings)
 

@@ -11,7 +11,7 @@ from mock import patch
 import runez
 from runez.ascii import AsciiAnimation, AsciiFrames
 from runez.conftest import TMP, WrappedHandler
-from runez.logsetup import _find_parent_folder, expanded, formatted, LogSpec
+from runez.logsetup import _find_parent_folder, _formatted_text, formatted, LogSpec
 
 
 LOG = logging.getLogger(__name__)
@@ -173,56 +173,38 @@ def test_default(temp_log):
     assert temp_log.pop() == "test_default test_logsetup WARNING hello"
 
 
-def test_expanded():
-    class Record(object):
-        basename = "my-name"
-        filename = "{basename}.txt"
-
+def test_formatted_text():
     # Unsupported formats
-    with pytest.raises(IndexError):
-        expanded("{}", "foo", a="b")
-
-    with pytest.raises(IndexError):
-        expanded("{0}", "foo", a="b")
-
-    assert expanded("{filename}", Record, "foo") == "my-name.txt"
-    assert expanded("{filename}", [Record]) == "my-name.txt"  # Value found even in nested list
-    assert expanded("{filename}", filename="foo.yml") == "foo.yml"
-    assert expanded("{filename}", "unused positional", filename="bar.yml", unused="x") == "bar.yml"
-    assert expanded("{basename}/~/{filename}", Record) == "my-name/~/my-name.txt"
-    assert expanded("~/{basename}/{filename}", Record) == os.path.expanduser("~/my-name/my-name.txt")
+    assert _formatted_text("{filename}", {}) == "{filename}"
+    assert _formatted_text("{filename}", {}, strict=True) is None  # In strict mode, all named refs must be defined
+    assert _formatted_text("{filename}", {"filename": "foo"}) == "foo"
+    assert _formatted_text("{filename}", {"filename": "foo"}, strict=True) == "foo"
+    assert _formatted_text("{foo}/{foo}", {"foo": "bar", "unused": "ok"}) == "bar/bar"
+    assert _formatted_text("~/.cache/{foo}", {"foo": "bar"}) == os.path.expanduser("~/.cache/bar")
 
     # Verify that not all '{...}' text is considered a marker
-    assert expanded(":: {argv} {a}", argv='{"foo": "bar"}', a="{b}", b="b") == ':: {"foo": "bar"} b'
-
-    assert expanded("") == ""
-    assert expanded("", Record) == ""
-    assert expanded("{not_there} {0}", "foo", strict=True) is None  # In strict mode, all named refs must be defined
-    assert expanded("{not_there}", Record, name="susan", strict=True) is None
-    assert expanded("{not_there}", Record, not_there="psyched!") == "psyched!"
-    assert expanded("{not_there}", Record) == "{not_there}"
+    props = dict(argv='{a} {"foo": "bar {a}"} {a}', a="{b}", b="b")
+    assert _formatted_text(":: {argv} {a}", props) == ':: {a} {"foo": "bar {a}"} {a} b'
 
     deep = dict(a="a", b="b", aa="{a}", bb="{b}", ab="{aa}{bb}", ba="{bb}{aa}", abba="{ab}{ba}", deep="{abba}")
-    assert expanded("{deep}", deep, max_depth=-1) == "{deep}"
-    assert expanded("{deep}", deep, max_depth=0) == "{deep}"
-    assert expanded("{deep}", deep, max_depth=1) == "{abba}"
-    assert expanded("{deep}", deep, max_depth=2) == "{ab}{ba}"
-    assert expanded("{deep}", deep, max_depth=3) == "{aa}{bb}{bb}{aa}"
-    assert expanded("{deep}", deep, max_depth=4) == "{a}{b}{b}{a}"
-    assert expanded("{deep}", deep, max_depth=5) == "abba"
-    assert expanded("{deep}", deep, max_depth=6) == "abba"
+    assert _formatted_text("{deep}", deep, max_depth=-1) == "{deep}"
+    assert _formatted_text("{deep}", deep, max_depth=0) == "{deep}"
+    assert _formatted_text("{deep}", deep, max_depth=1) == "{abba}"
+    assert _formatted_text("{deep}", deep, max_depth=2) == "{ab}{ba}"
+    assert _formatted_text("{deep}", deep, max_depth=3) == "{aa}{bb}{bb}{aa}"
+    assert _formatted_text("{deep}", deep, max_depth=4) == "{a}{b}{b}{a}"
+    assert _formatted_text("{deep}", deep, max_depth=5) == "abba"
+    assert _formatted_text("{deep}", deep, max_depth=6) == "abba"
 
     recursive = dict(a="a{b}", b="b{c}", c="c{a}")
-    assert expanded("{a}", recursive) == "abc{a}"
-    assert expanded("{a}", recursive, max_depth=10) == "abcabcabca{b}"
+    assert _formatted_text("{a}", recursive) == "abc{a}"
+    assert _formatted_text("{a}", recursive, max_depth=10) == "abcabcabca{b}"
 
     cycle = dict(a="{b}", b="{a}")
-    assert expanded("{a}", cycle, max_depth=0) == "{a}"
-    assert expanded("{a}", cycle, max_depth=1) == "{b}"
-    assert expanded("{a}", cycle, max_depth=2) == "{a}"
-    assert expanded("{a}", cycle, max_depth=3) == "{b}"
-
-    assert expanded("{filename}") == "{filename}"
+    assert _formatted_text("{a}", cycle, max_depth=0) == "{a}"
+    assert _formatted_text("{a}", cycle, max_depth=1) == "{b}"
+    assert _formatted_text("{a}", cycle, max_depth=2) == "{a}"
+    assert _formatted_text("{a}", cycle, max_depth=3) == "{b}"
 
 
 @pytest.mark.skipif(runez.WINDOWS, reason="No /dev/null on Windows")
@@ -351,14 +333,6 @@ def test_logspec(isolated_log_setup):
     s1.file_location = TMP
     assert s1.should_log_to_file
     assert s1.usable_location() is None
-
-    # Location referring to env var
-    s1.set(file_location=None, locations=[os.path.join(".", "{FOO}", "bar")])
-    with patch.dict(os.environ, {"FOO": "foo"}, clear=True):
-        assert s1.usable_location() == os.path.join(".", "foo", "bar")
-
-    with patch.dict(os.environ, {}, clear=True):
-        assert s1.usable_location() is None
 
     # Restore from other spec
     s1.set(s2)

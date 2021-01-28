@@ -34,59 +34,6 @@ ORIGINAL_CF = logging.currentframe
 RE_FORMAT_MARKERS = re.compile(r"{([a-z][a-z0-9_]*)}", re.IGNORECASE)
 
 
-def expanded(text, *args, **kwargs):
-    """Generically expanded 'text': '{...}' placeholders are resolved from given objects / keyword arguments
-
-    >>> expanded("{foo}", foo="bar")
-    'bar'
-    >>> expanded("{foo} {age}", {"age": 5}, foo="bar")
-    'bar 5'
-
-    Args:
-        text (str): Text to format
-        *args: Objects to extract values from (as attributes)
-        **kwargs: Optional values provided as named args
-
-    Returns:
-        (str): '{...}' placeholders expanded from given `args` object's properties/fields, or as `kwargs`
-    """
-    if not text:
-        return text
-
-    if text.startswith("~"):
-        text = os.path.expanduser(text)
-
-    if "{" not in text:
-        return text
-
-    strict = kwargs.pop("strict", False)
-    max_depth = kwargs.pop("max_depth", 3)
-    objects = list(args) + [kwargs] if kwargs else args
-    if not objects:
-        return text
-
-    definitions = {}
-    markers = RE_FORMAT_MARKERS.findall(text)
-    while markers:
-        key = markers.pop()
-        if key in definitions:
-            continue
-
-        val = _find_value(key, objects, max_depth)
-        if strict and val is None:
-            return None
-
-        val = stringified(val) if val is not None else "{%s}" % key
-        markers.extend(m for m in RE_FORMAT_MARKERS.findall(val) if m not in definitions)
-        definitions[key] = val
-
-    if not max_depth or not isinstance(max_depth, int) or max_depth <= 0:
-        return text
-
-    result = dict((k, _rformat(k, v, definitions, max_depth)) for k, v in definitions.items())
-    return text.format(**result)
-
-
 def formatted(message, *args, **kwargs):
     """
     Args:
@@ -623,6 +570,12 @@ class LogSpec(Slotted):
 
         return bool(self.locations)
 
+    def _props(self, **additional):
+        r = dict(argv=self.argv, pid=self.pid)
+        r.update(self.to_dict())
+        r.update(additional)
+        return r
+
     def _auto_complete_filename(self, location):
         """
         Args:
@@ -631,10 +584,11 @@ class LogSpec(Slotted):
         Returns:
             (str | None): {location}/{basename}
         """
-        path = expanded(location, self, os.environ, strict=True)
+        props = self._props()
+        path = _formatted_text(location, props, strict=True)
         if path:
             if os.path.isdir(path):
-                filename = expanded(self.basename, self, strict=True)
+                filename = _formatted_text(self.basename, props, strict=True)
                 if not filename or not is_writable_folder(path):
                     return None
 
@@ -1000,7 +954,7 @@ class LogManager(object):
             else:
                 location = "no usable locations from {locations}"
 
-            return expanded(greeting, cls.spec, location=location)
+            return _formatted_text(greeting, cls.spec._props(location=location))
 
     @classmethod
     def silence(cls, *modules, **kwargs):
@@ -1271,38 +1225,6 @@ def _canonical_format(fmt):
     return _replace_and_pad(fmt, "%(timezone)s", LogManager.spec.timezone)
 
 
-def _find_value(key, objects, max_depth):
-    """Find a value for 'key' in any of the objects given as 'args'"""
-    for obj in objects:
-        v = _get_value(obj, key, max_depth)
-        if v is not None:
-            return v
-
-
-def _get_value(obj, key, max_depth):
-    """Get a value for 'key' from 'obj', if possible"""
-    if obj is not None:
-        if isinstance(obj, (list, tuple)):
-            return _find_value(key, obj, max_depth - 1) if max_depth > 0 else None
-
-        if hasattr(obj, "get"):
-            return obj.get(key)
-
-        return getattr(obj, key, None)
-
-
-def _rformat(key, value, definitions, max_depth):
-    m = RE_FORMAT_MARKERS.search(value)
-    if not m:
-        return value
-
-    if max_depth > 1 and value and "{" in value:
-        value = value.format(**definitions)
-        return _rformat(key, value, definitions, max_depth=max_depth - 1)
-
-    return value
-
-
 def _find_parent_folder(path, basenames):
     if not path or len(path) <= 1:
         return None
@@ -1314,13 +1236,60 @@ def _find_parent_folder(path, basenames):
     return _find_parent_folder(dirpath, basenames)
 
 
-def _validated_project_path(*funcs):
-    for func in funcs:
-        path = func()
-        if path:
-            path = os.path.dirname(path)
-            if os.path.exists(os.path.join(path, "setup.py")) or os.path.exists(os.path.join(path, "project.toml")):
-                return path
+def _format_recursive(key, value, definitions, max_depth):
+    m = RE_FORMAT_MARKERS.search(value)
+    if not m:
+        return value
+
+    if max_depth > 1 and value and "{" in value:
+        try:
+            value = value.format(**definitions)
+            return _format_recursive(key, value, definitions, max_depth=max_depth - 1)
+
+        except KeyError:
+            pass
+
+    return value
+
+
+def _formatted_text(text, props, strict=False, max_depth=3):
+    """
+    Args:
+        text (str): Text with '{...}' placeholders to be resolved
+        props (dict): Available values
+
+    Returns:
+        (str): '{...}' placeholders resolved from given `props`
+    """
+    if not text:
+        return text
+
+    if text.startswith("~"):
+        text = os.path.expanduser(text)
+
+    if "{" not in text:
+        return text
+
+    definitions = {}
+    markers = RE_FORMAT_MARKERS.findall(text)
+    while markers:
+        key = markers.pop()
+        if key in definitions:
+            continue
+
+        val = props.get(key)
+        if strict and val is None:
+            return None
+
+        val = stringified(val) if val is not None else "{%s}" % key
+        markers.extend(m for m in RE_FORMAT_MARKERS.findall(val) if m not in definitions)
+        definitions[key] = val
+
+    if not max_depth or not isinstance(max_depth, int) or max_depth <= 0:
+        return text
+
+    result = dict((k, _format_recursive(k, v, definitions, max_depth)) for k, v in definitions.items())
+    return text.format(**result)
 
 
 def _get_fmt(handler):
@@ -1373,3 +1342,12 @@ def _get_file_handler(location, rotate, rotate_count):
         return RotatingFileHandler(location, maxBytes=size, backupCount=rotate_count)
 
     raise ValueError("Invalid 'rotate' (unknown type): %s" % rotate)
+
+
+def _validated_project_path(*funcs):
+    for func in funcs:
+        path = func()
+        if path:
+            path = os.path.dirname(path)
+            if os.path.exists(os.path.join(path, "setup.py")) or os.path.exists(os.path.join(path, "project.toml")):
+                return path
