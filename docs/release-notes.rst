@@ -2,16 +2,12 @@
 History
 =======
 
-2.4.7 (2021-01-28)
-------------------
-
-* Simplified how logsetup references are resolved
-
-
-2.4.6 (2021-01-22)
+2.4.6 (2021-02-00)
 ------------------
 
 * Added ``require_vpn()``
+
+* Simplified how logsetup references are resolved
 
 
 2.4.5 (2021-01-20)

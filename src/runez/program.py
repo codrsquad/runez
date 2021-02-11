@@ -494,7 +494,7 @@ class _WrappedArgs(object):
 
     def __enter__(self):
         args = self.args
-        if not WINDOWS and "PYCHARM_HOSTED" in os.environ and len(args) > 1 and "python" in args[0] and args[1][:2] in ("-m", "-X"):
+        if not WINDOWS and "PYCHARM_HOSTED" in os.environ and len(args) > 1 and "python" in args[0] and args[1][:2] in ("-m", "-X", "-c"):
             self.tmp_folder = os.path.realpath(tempfile.mkdtemp())
             wrapper = os.path.join(self.tmp_folder, "pydev-wrapper.sh")
             with open(wrapper, "wt") as fh:
