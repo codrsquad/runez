@@ -4,7 +4,6 @@
 Convenience logging setup
 """
 
-import atexit
 import logging
 import os
 import re
@@ -234,7 +233,7 @@ class _SpinnerState(object):
             columns -= self.frames.add_text(line, columns)
             columns -= self.progress_bar.add_text(line, columns)
             self.message.add_text(line, columns)
-            return " ".join(line)
+            return " %s" % " ".join(line) if line else ""
 
 
 class ProgressSpinner(object):
@@ -248,8 +247,6 @@ class ProgressSpinner(object):
 
     Optionally, a ProgressBar can be added
     """
-
-    _cursor_hidden = None  # Allows to ensure we restore cursor in all cases
 
     def __init__(self):
         self.is_running = False
@@ -308,12 +305,10 @@ class ProgressSpinner(object):
                     self._thread.start()
                     self.is_running = True
                     LogManager._auto_enable_progress_handler()
-                    ProgressSpinner._hide_cursor()
 
     def stop(self):
         """Stop progress spinner thread, called in any thread"""
         with self._lock:
-            ProgressSpinner._show_cursor()
             if self._thread is None:
                 return
 
@@ -408,23 +403,6 @@ class ProgressSpinner(object):
         """Intercepted sys.stderr.write()"""
         self._clean_write(self._stderr_write, message)
 
-    @classmethod
-    def _hide_cursor(cls):
-        """Called in main thread (lock already acquired)"""
-        if not cls._cursor_hidden:
-            if cls._cursor_hidden is None:
-                atexit.register(cls._show_cursor)
-
-            cls._cursor_hidden = True
-            sys.stderr.write("\033[?25l")
-
-    @classmethod
-    def _show_cursor(cls):
-        """Called in any thread (lock already acquired)"""
-        if cls._cursor_hidden:
-            sys.stderr.write("\033[?25h")
-            cls._cursor_hidden = False
-
     def _clear_line(self):
         """Called in spinner thread (lock already acquired)"""
         self._write("\r\033[K")
@@ -455,11 +433,7 @@ class ProgressSpinner(object):
                             self._write("\r")
                             self._has_progress_line = True
 
-        except BaseException:  # pragma: no cover
-            ProgressSpinner._show_cursor()
-
         finally:
-            ProgressSpinner._show_cursor()
             self.is_running = False
             self.stop()
 
