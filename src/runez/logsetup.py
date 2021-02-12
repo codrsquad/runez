@@ -455,7 +455,11 @@ class ProgressSpinner(object):
                             self._write("\r")
                             self._has_progress_line = True
 
+        except BaseException:
+            ProgressSpinner._show_cursor()
+
         finally:
+            ProgressSpinner._show_cursor()
             self.is_running = False
             self.stop()
 
