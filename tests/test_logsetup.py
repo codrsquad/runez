@@ -528,7 +528,7 @@ def test_progress_grooming():
     p._state = runez.logsetup._SpinnerState(p, AsciiFrames(None), 80, None, None, None)
     assert next_progress_line(p) is None
     p.show("\n a \n\n\n b \n")
-    assert next_progress_line(p) == "a b"
+    assert next_progress_line(p) == " a b"
 
 
 def test_progress_operation(isolated_log_setup, logged):
@@ -580,10 +580,8 @@ def test_progress_operation(isolated_log_setup, logged):
         runez.log.progress.stop()
         assert not runez.log.progress.is_running
 
-        assert "[?25l" in logged.stderr
         assert "hello" in logged.stdout
         assert "some error" in logged.stderr
-        assert "[?25h" in logged.stderr
 
         # Simulate progress without spinner
         logged.clear()
