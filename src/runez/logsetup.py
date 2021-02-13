@@ -1204,14 +1204,15 @@ def _canonical_format(fmt):
 
 
 def _find_parent_folder(path, basenames):
-    if not path or len(path) <= 1:
+    if not path or len(path) <= 3:
         return None
 
     dirpath, basename = os.path.split(path)
-    if basename and basename.lower() in basenames:
-        return path
+    if dirpath and basename:
+        if basename and basename.lower() in basenames:
+            return path
 
-    return _find_parent_folder(dirpath, basenames)
+        return _find_parent_folder(dirpath, basenames)
 
 
 def _format_recursive(key, value, definitions, max_depth):
