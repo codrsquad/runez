@@ -221,13 +221,11 @@ def test_file_location_not_writable(temp_log):
 def test_find_parent_folder():
     assert "test_logsetup.py" in runez.log.current_test()
     assert _find_parent_folder("", {"foo"}) is None
-    assert _find_parent_folder("/a/b//", {""}) is None
-    assert _find_parent_folder("/a/b", {"a"}) == "/a"
-    assert _find_parent_folder("/a/b//", {"a"}) == "/a"
-    assert _find_parent_folder("//a/b//", {"a"}) == "//a"
-    assert _find_parent_folder("/a/b", {"b"}) == "/a/b"
-    assert _find_parent_folder("/a/B", {"a", "b"}) == "/a/B"  # case insensitive
-    assert _find_parent_folder("/a/b", {"c"}) is None
+    assert _find_parent_folder(os.path.join("/foo", "b"), {""}) is None
+    assert _find_parent_folder(os.path.join("/foo", "b"), {"foo"}) == "/foo"
+    assert _find_parent_folder(os.path.join("/foo", "b"), {"b"}) == os.path.join("/foo", "b")
+    assert _find_parent_folder(os.path.join("/foo", "B"), {"foo", "b"}) == os.path.join("/foo", "B")  # case insensitive
+    assert _find_parent_folder(os.path.join("/foo", "b"), {"c"}) is None
     assert _find_parent_folder("/dev/null", {"foo"}) is None
 
     assert runez.log.dev_folder()

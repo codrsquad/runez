@@ -831,6 +831,10 @@ class LogManager(object):
         Returns:
             (str | None): Path to development build folder (such as .venv, .tox etc), if we're currently running a dev build
         """
+        venv = os.environ.get("VIRTUAL_ENV")
+        if venv:
+            return venv
+
         folder = _find_parent_folder(sys.prefix, {"venv", ".venv", ".tox", "build"})
         if folder and relative_path:
             folder = os.path.join(folder, *relative_path)
