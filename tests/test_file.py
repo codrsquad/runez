@@ -254,6 +254,35 @@ def test_file_operations(temp_folder):
         assert "source contained in destination" in logged.pop()
 
 
+@pytest.mark.skipif(runez.PY2, reason="no pathlib on py2")
+def test_pathlib(temp_folder):
+    from pathlib import Path
+
+    subfolder = Path("subfolder")
+    assert not subfolder.is_dir()
+    runez.ensure_folder(subfolder)
+    assert subfolder.is_dir()
+
+    with runez.CurrentFolder(subfolder, anchor=True):
+        path = Path("foo")
+        assert runez.short(path) == "foo"
+        assert runez.short(path.absolute()) == "foo"
+
+        assert runez.resolved_path(path)
+        assert runez.parent_folder(path) == os.path.join(temp_folder, "subfolder")
+        assert runez.touch(path) == 1
+        assert runez.copy(path, Path("bar")) == 1
+        assert runez.copy(Path("bar"), Path("baz")) == 1
+
+        foo_json = Path("foo.json")
+        runez.write(path, '{"a": "b"}')
+        runez.symlink(path, foo_json)
+        assert runez.read_json(foo_json) == {"a": "b"}
+        assert runez.readlines(foo_json) == ['{"a": "b"}']
+
+        assert runez.basename(foo_json.absolute()) == "foo"
+
+
 def test_parent_folder():
     cwd = os.getcwd()
 

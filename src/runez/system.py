@@ -435,7 +435,7 @@ def resolved_path(path, base=None):
     Returns:
         (str): Absolute path
     """
-    if not path or path.startswith(SYMBOLIC_TMP):
+    if not path or str(path).startswith(SYMBOLIC_TMP):
         return path
 
     path = os.path.expanduser(path)
