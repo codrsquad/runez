@@ -4,6 +4,7 @@ This is module should not import any other runez module, it's the lowest on the 
 
 import re
 import sys
+from collections import defaultdict
 
 from runez.system import flattened, joined, string_type, stringified
 
@@ -460,11 +461,12 @@ class _TabularInterval(object):
     def __repr__(self):  # pragma: no cover, for debugging
         return "%s [%s:%s]" % (self.name, self.start or "", self.end or "")
 
-    def intersects(self, start, end):
-        if self.end is None:
-            return self.start >= start or self.start >= end
+    def intersect(self, index):
+        """Find next interval intersecting with given 'index'"""
+        if self.next is not None and index >= self.next.start:
+            return self.next.intersect(index)
 
-        return self.start <= start <= self.end or self.start <= end <= self.end
+        return self
 
 
 class _TabularHeader(object):
@@ -478,29 +480,24 @@ class _TabularHeader(object):
             header (str): First line from `ps -f` output
         """
         self.header = header
-        self.first = None
-        self.last = None
         self.tabs = []
         self.tabs_by_name = {}
         m = self.regex.search(header, 0)
+        prev_tab = None
         while m:
             wstart, wend = m.span(2)
             word = header[wstart:wend].upper()
             tab = _TabularInterval(word, wstart, wend)
             self.tabs.append(tab)
             self.tabs_by_name[word] = tab
-            if self.first is None:
-                tab.start = 0
-                self.first = tab
+            if prev_tab is not None:
+                prev_tab.next = tab
 
-            elif self.last is not None:
-                self.last.next = tab
-
-            self.last = tab
+            prev_tab = tab
             m = self.regex.search(header, wend + 1)
 
-        if self.last is not None:
-            self.last.end = None
+        if self.tabs:
+            self.tabs[0].start = 0
 
     def __repr__(self):  # pragma: no cover, for debugging
         return joined(self.tabs)
@@ -532,26 +529,15 @@ class _TabularHeader(object):
         Returns:
             (dict): Extracted info
         """
-        data = {}
+        data = defaultdict(list)
         current = self.tabs[0]
-        content = []
         m = self.regex.search(line, 0)
-        while m and current:
+        while m:
             wstart, wend = m.span(2)
             text = line[wstart:wend]
-            if current.intersects(wstart, wend):
-                content.append(text)
-
-            else:
-                data[current.name] = joined(content)
-                content = [text]
-                while current and not current.intersects(wstart, wend):
-                    current = current.next
-
-                if current is self.last:
-                    data[current.name] = line[wstart:]
-                    break
-
+            current = current.intersect(wend)
+            data[current.name].append(text)
             m = self.regex.search(line, wend + 1)
 
+        data = dict((k, joined(v)) for k, v in data.items())
         return data

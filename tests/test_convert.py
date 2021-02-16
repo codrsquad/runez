@@ -126,6 +126,36 @@ def test_tabulated_parsing():
         assert "bash" in parsed[0]["CMD"]
 
 
+DOCKER_PS_SAMPLE = """
+CONTAINER_ID  IMAGE                  COMMAND  CREATED         STATUS         PORTS                   NAMES
+d7907cca5247  foo/bar:stable         "/init"  18 minutes ago  Up 18 minutes                          foo
+6bda1a6f83eb  linuxserver/syncthing  "/init"  7 days ago      Up 43 hours    0.0.0.0:8384->8384/tcp  syncthing
+"""
+
+
+def test_tabulated_docker_ps():
+    info = runez.parsed_tabular(DOCKER_PS_SAMPLE.strip())
+    assert info == [
+        {
+            "CONTAINER_ID": "d7907cca5247",
+            "IMAGE": "foo/bar:stable",
+            "COMMAND": '"/init"',
+            "CREATED": "18 minutes ago",
+            "STATUS": "Up 18 minutes",
+            "NAMES": "foo"
+        },
+        {
+            "CONTAINER_ID": "6bda1a6f83eb",
+            "IMAGE": "linuxserver/syncthing",
+            "COMMAND": '"/init"',
+            "CREATED": "7 days ago",
+            "STATUS": "Up 43 hours",
+            "PORTS": "0.0.0.0:8384->8384/tcp",
+            "NAMES": "syncthing"
+        }
+    ]
+
+
 def test_to_float():
     assert runez.to_float(None) is None
     assert runez.to_float("foo") is None

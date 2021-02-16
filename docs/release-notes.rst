@@ -2,12 +2,10 @@
 History
 =======
 
-2.4.7 (2021-02-11)
+2.4.9 (2021-02-15)
 ------------------
 
 * Don't hide cursor in progress spinner, so we can't ever miss not showing it back
-
-* Added ``require_vpn()``
 
 * Simplified how logsetup references are resolved
 
