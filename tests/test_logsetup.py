@@ -218,7 +218,7 @@ def test_file_location_not_writable(temp_log):
     assert runez.log.file_handler is None
 
 
-def test_find_parent_folder():
+def test_find_parent_folder(monkeypatch):
     assert "test_logsetup.py" in runez.log.current_test()
     assert _find_parent_folder("", {"foo"}) is None
     assert _find_parent_folder(os.path.join("/foo", "b"), {""}) is None
@@ -229,6 +229,8 @@ def test_find_parent_folder():
     assert _find_parent_folder("/dev/null", {"foo"}) is None
 
     assert runez.log.dev_folder()
+    assert runez.log.dev_folder("foo")
+    monkeypatch.setenv("VIRTUAL_ENV", "")
     assert runez.log.dev_folder("foo")
 
 

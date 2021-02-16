@@ -126,11 +126,6 @@ def test_success(cli, monkeypatch):
     assert cli.project_path() == project_folder
     assert cli.project_path("foo") == os.path.join(project_folder, "foo")
 
-    with monkeypatch.context() as m:
-        m.setattr(runez.logsetup.LogManager, "tests_path", staticmethod(lambda *_: None))
-        # Test alternative method of finding project folder
-        assert cli.project_path() == project_folder
-
     cli.run("quiet")
     assert cli.succeeded
     assert not cli.match(".*", regex=True)
