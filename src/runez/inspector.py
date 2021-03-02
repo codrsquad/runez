@@ -178,6 +178,10 @@ class ImportTime(object):
     def __repr__(self):
         return "%s %.3g" % (self.module_name, self.elapsed or 0)
 
+    def __lt__(self, other):
+        if isinstance(other, ImportTime) and self.cumulative and other.cumulative:
+            return self.cumulative < other.cumulative
+
     def _get_importtime(self):
         result = run(sys.executable, "-Ximporttime", "-c", "import %s" % self.module_name, fatal=None)
         if result.failed:
