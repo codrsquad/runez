@@ -2,6 +2,14 @@
 History
 =======
 
+2.4.11 (2021-03-10)
+-------------------
+
+* Corrected bug with progress stdout/err re-capture
+
+* Show sorted import times in ``import-speed`` command
+
+
 2.4.9 (2021-02-15)
 ------------------
 

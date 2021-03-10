@@ -25,7 +25,7 @@ from runez.ascii import AsciiAnimation
 from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone
 from runez.file import basename as get_basename, parent_folder
-from runez.system import _getframe, _R, cached_property, find_caller_frame, flattened, quoted, short, string_type, stringified
+from runez.system import _getframe, _R, cached_property, decode, find_caller_frame, flattened, quoted, short, string_type, stringified
 from runez.system import LOG, Slotted, TERMINAL_INFO, ThreadGlobalContext, UNSET, WINDOWS
 
 
@@ -385,6 +385,7 @@ class ProgressSpinner(object):
     def _clean_write(self, write, message):
         """Output 'message' using 'write' function, ensure any pending progress line is cleared first"""
         if message:
+            message = decode(message)
             with self._lock:
                 if self._has_progress_line:
                     self._clear_line()
