@@ -1,0 +1,463 @@
+import logging
+import os
+import re
+import sys
+from collections import defaultdict
+
+from runez.program import is_executable, run
+from runez.system import _R, cached_property, flattened, resolved_path, short, UNSET
+
+
+K_PYTHON = "python"
+PYTHON_EXE_NAMES = (K_PYTHON, "python3", "python2")
+DEFAULT_FAMILY = "cpython"
+_FAMILIES = ["conda", "pypy"]
+_SHORTCUTS = {"", "p", "py", K_PYTHON, "cpython"}
+RE_PYSPEC = re.compile(r"^\s*((|py?|c?python|(ana|mini)?conda[23]?|pypy)\s*[:-]?)\s*([0-9]*)\.?([0-9]*)\.?([0-9]*)\s*$", re.IGNORECASE)
+RE_VERSION = re.compile(r"^((\d+)((\.(\d+))*)((a|b|c|rc)(\d+))?(\.(dev|post|final)\.?(\d+))?).*$")
+LOG = logging.getLogger(__name__)
+
+
+def guess_family(text):
+    for name in _FAMILIES:
+        if name in text:
+            return name
+
+    return DEFAULT_FAMILY
+
+
+class PythonSpec(object):
+    """
+    Holds a canonical reference to a desired python installation
+    Examples: 3, 3.9, py39, conda3.7.1, /usr/bin/python
+    """
+
+    version = None  # type: Version
+
+    def __init__(self, text, family=None):
+        """
+        Args:
+            text (str | None): Text describing desired python
+            family (str | None): Pre-determined python family, if any
+        """
+        text = text.strip() if text else ""
+        self.given_name = None
+        self.text = text
+        self.family = family or guess_family(text)
+        if text in _SHORTCUTS:
+            self.given_name = K_PYTHON
+            # self.version = Version("3")
+            # self.canonical = "%s:%s" % (self.family, self.version.text)
+            self.canonical = "%s" % self.family
+            return
+
+        if os.path.isabs(text) or text.startswith("~") or "/" in text:
+            self.canonical = resolved_path(text)
+            return
+
+        self.canonical = "?%s" % text  # Don't let arbitrary given text accidentally count as valid canonical
+        m = RE_PYSPEC.match(text)
+        if not m:
+            return
+
+        self.given_name = m.group(2).lower()
+        components = [s for s in (m.group(4), m.group(5), m.group(6)) if s]
+        if len(components) == 1:
+            components = [c for c in components[0]]  # Support notation of the form: py37
+
+        if components and len(components) <= 3:
+            self.version = Version(".".join(components))
+            self.canonical = "%s:%s" % (self.family, self.version.text)
+            if self.given_name in _SHORTCUTS:
+                self.given_name = K_PYTHON
+
+    def __repr__(self):
+        return self.canonical
+
+    def __eq__(self, other):
+        return isinstance(other, PythonSpec) and self.canonical == other.canonical
+
+    def __lt__(self, other):
+        if isinstance(other, PythonSpec):
+            if self.family == other.family:
+                return self.version and other.version and self.version < other.version
+
+            if self.family != DEFAULT_FAMILY:
+                return other.family == DEFAULT_FAMILY or self.family < other.family
+
+
+class PythonDepot(object):
+    """Holds a reference to all discovered python installations so far, designed to be used as singleton via DEPOT"""
+
+    def __init__(self):
+        self.invalid = []  # type: list[PythonInstallation]  # Invalid python installations found
+        self.available = []  # type: list[PythonInstallation]  # Available installations (used to find pythons by spec)
+        self._cache = {}  # type: dict[str, PythonInstallation]
+
+    def reset(self):
+        """Reset scanned python installation references, calls this if you'd like to rescan"""
+        self.invalid = []
+        self.available = []
+        self._cache = {}
+
+    @cached_property
+    def invoker(self):
+        """Python we're currently running under"""
+        return InvokerPython()
+
+    def _cached_equivalents(self, python):
+        count = 0
+        for p in python.equivalent:
+            if p not in self._cache:
+                self._cache[p] = python
+                count += 1
+
+        return count
+
+    def _register(self, python):
+        count = self._cached_equivalents(python)
+        if count:
+            if python.problem:
+                self.invalid.append(python)
+
+            else:
+                self.available.append(python)
+
+    def register_invoker(self):
+        """Use invoker python"""
+        self._register(self.invoker)
+
+    def scan_pyenv(self, path, logger=UNSET):
+        """Find pythons from pyenv-style installation folders
+
+        Args:
+            path (str | list[str]): Folder(s) to scan
+            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+        """
+        available = []
+        paths = flattened(path, keep_empty=None)
+        for path in paths:
+            path = resolved_path(path)
+            if not path or not os.path.isdir(path):
+                _R.hlog(logger, "Folder '%s' does not exist, ignoring pyenv location" % short(path))
+                continue
+
+            pv = os.path.join(path, "versions")
+            if os.path.isdir(pv):
+                path = pv
+
+            for fname in os.listdir(path):
+                spec = PythonSpec(fname)
+                if spec.version:
+                    python = PythonPyenvInstallation(os.path.join(path, fname), spec)
+                    available.append(python)
+
+        for p in sorted(available, reverse=True):
+            self._register(p)
+
+    def scan_path(self, env_var="PATH"):
+        """Register pythons from PATH-like env var ('os.pathsep'-separated)"""
+        explored = set()
+        for folder in flattened(os.environ.get(env_var), split=os.pathsep, keep_empty=None):
+            folder = resolved_path(folder)
+            if folder not in explored:
+                explored.add(folder)
+                real_paths = defaultdict(list)
+                for name in PYTHON_EXE_NAMES:
+                    path = os.path.join(folder, name)
+                    if is_executable(path):
+                        real_path = os.path.realpath(path)
+                        real_paths[real_path].append(path)
+
+                for k, paths in real_paths.items():
+                    python = PythonFromPath(paths[0])
+                    for path in paths:
+                        python._add_equivalent(path, add_realpath=False)
+
+                    self._register(python)
+
+    def find_python(self, spec, fatal=True, logger=UNSET):
+        """
+        Args:
+            spec (str | PythonSpec | None): Example: 3.7, py37, pypy3.7, conda3.7, /usr/bin/python
+            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+
+        Returns:
+            (PythonInstallation | None): Object representing python installation (may not be usable, see reported .problem)
+        """
+        if not isinstance(spec, PythonSpec):
+            spec = PythonSpec(spec)
+
+        if not self._cache:
+            self.register_invoker()
+
+        python = self._cache.get(spec.canonical)
+        if python:
+            return python
+
+        if spec.canonical and os.path.isabs(spec.canonical):
+            python = PythonFromPath(spec.canonical)  # Absolute path: look it up and remember it
+            if not python.problem:
+                self._cached_equivalents(python)
+
+            return python
+
+        for python in self.available:
+            if python.satisfies(spec):
+                return python
+
+        return UnknownPython(spec)
+
+
+DEPOT = PythonDepot()
+
+
+class Version(object):
+    """
+    Parse versions according to PEP-0440, ordering for non pre-releases is well supported
+    Pre-releases are partially supported, no complex combinations (such as ".post.dev") are paid attention to
+    """
+
+    def __init__(self, text, max_parts=4):
+        self.text = text
+        self.components = None
+        self.prerelease = None
+        m = RE_VERSION.match(text)
+        if not m:
+            return
+
+        self.text, major, main_part, pre, pre_num, rel, rel_num = m.group(1, 2, 3, 7, 8, 10, 11)
+        if rel:
+            rel = rel.lower()
+
+        components = (major + main_part).split(".")
+        if len(components) > max_parts:
+            return  # Invalid version
+
+        while len(components) < max_parts:
+            components.append(0)
+
+        if rel in ("final", "post"):
+            components.append(rel_num or 0)
+
+        else:
+            components.append(0)
+
+        self.components = tuple(map(int, components))
+        pre = "dev" if rel == "dev" else "_" + pre if pre else None  # Ensure 'dev' is sorted higher than other pre-release markers
+        if pre:
+            self.prerelease = (pre, int(pre_num or 0))
+
+    @classmethod
+    def from_text(cls, text):
+        v = cls(text)
+        if v.is_valid:
+            return v
+
+    def __repr__(self):
+        return self.text
+
+    def __hash__(self):
+        return hash(self.text)
+
+    def __eq__(self, other):
+        return isinstance(other, Version) and self.components == other.components and self.prerelease == other.prerelease
+
+    def __lt__(self, other):
+        if isinstance(other, Version):
+            if self.components == other.components:
+                if self.prerelease:
+                    return other.prerelease and self.prerelease < other.prerelease
+
+                return bool(other.prerelease)
+
+            return self.components < other.components
+
+    @property
+    def is_valid(self):
+        return self.components is not None
+
+    @property
+    def main(self):
+        if self.components:
+            return "%s.%s.%s" % (self.major, self.minor, self.patch)
+
+    @property
+    def major(self):
+        return self.components and self.components[0]
+
+    @property
+    def minor(self):
+        return self.components and self.components[1]
+
+    @property
+    def patch(self):
+        return self.components and self.components[2]
+
+
+class PythonInstallation(object):
+    """Models a specific python installation"""
+
+    equivalent = None  # type: set[str] # Paths that are equivalent to this python installation
+    executable = None  # type: str # Full path to python executable
+    is_venv = None  # type: bool # Is this python installation a venv?
+    problem = None  # type: str # String describing a problem with this installation, if there is one
+    spec = None  # type: PythonSpec # Corresponding spec
+
+    def __repr__(self):
+        return "%s [%s]" % (short(self.executable), self.problem or self.spec.canonical)
+
+    def __eq__(self, other):
+        return isinstance(other, PythonInstallation) and self.executable == other.executable
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __lt__(self, other):
+        if isinstance(other, PythonInstallation):
+            return self.spec < other.spec
+
+    def satisfies(self, spec):
+        """
+        Args:
+            spec (PythonSpec): Spec expressed by user or configuration
+
+        Returns:
+            (bool): True if this python installation satisfies it
+        """
+        if spec.canonical in self.equivalent:
+            return True
+
+        if self.problem:
+            return False
+
+        return self.spec.canonical.startswith(spec.canonical)
+
+    def _add_equivalent(self, path, add_realpath=True):
+        if self.equivalent is None:
+            self.equivalent = set()
+
+        if path and path not in self.equivalent:
+            self.equivalent.add(path)
+            if add_realpath:
+                self.equivalent.add(os.path.realpath(path))
+
+
+class InvokerPython(PythonInstallation):
+    """Python we're currently running under"""
+
+    def __init__(self):
+        family = getattr(sys, "implementation", None)
+        if family:
+            family = getattr(family, "name", None)
+
+        self.spec = PythonSpec(".".join(str(c) for c in sys.version_info[:3]), family=family)
+        prefix = getattr(sys, "real_prefix", None)  # old py2 case
+        if not prefix:
+            prefix = getattr(sys, "base_prefix", sys.prefix)
+
+        if not prefix:
+            parent = sys.executable
+
+        else:
+            parent = os.path.join(prefix, "bin/python%s" % self.spec.version.major)
+            if not is_executable(parent):
+                parent = os.path.join(prefix, "bin/python")
+
+        self.executable = self._simplified_python_path(parent)
+        self._add_equivalent(self.executable)
+        self._add_equivalent(parent)
+        self._add_equivalent("invoker", add_realpath=False)
+
+    @staticmethod
+    def _simplified_python_path(path):
+        """Simplify macos ridiculous paths"""
+        if path and ".framework/" in path:
+            location = "/usr/bin"
+            if "Cellar" in path:
+                i = path.index("Cellar")
+                location = path[:i].rstrip("/")
+                if not location.endswith("bin"):
+                    location = os.path.join(location, "bin")
+
+            if "Versions/3" in path:
+                return os.path.join(location, "python3")
+
+            if "Versions/2" in path:
+                return os.path.join(location, "python2")
+
+        return path
+
+
+class PythonPyenvInstallation(PythonInstallation):
+    """Models a pyenv-style installation"""
+
+    def __init__(self, folder, spec):
+        self.spec = spec
+        for name in PYTHON_EXE_NAMES:
+            exe = os.path.join(folder, "bin", name)
+            if is_executable(exe):
+                self._add_equivalent(exe)
+                if self.executable is None:
+                    self.executable = exe
+
+        if not self.executable:
+            self.executable = os.path.join(folder, "bin", K_PYTHON)
+            self._add_equivalent(self.executable)
+            self.problem = "invalid pyenv installation"
+
+
+class PythonFromPath(PythonInstallation):
+    """Python installation from a specific local path"""
+
+    def __init__(self, path):
+        """
+        Args:
+            path (str): Absolute path to python executable
+        """
+        self.executable = path
+        self.base_prefix = None
+        self.prefix = None
+        self._add_equivalent(path, add_realpath=False)
+        pv = _Introspect.get_pv()
+        r = run(path, pv, dryrun=False, fatal=False, logger=None)
+        if not r.succeeded:
+            self.problem = "can't be introspected: %s" % short(r.full_output)
+            return
+
+        try:
+            lines = r.output.strip().splitlines()
+            version, self.prefix, self.base_prefix = lines
+            self.is_venv = self.prefix != self.base_prefix
+            version, _, family_text = version.partition(" ")
+            self.spec = PythonSpec(version, guess_family(family_text))
+            if not self.spec.version:
+                self.problem = "unknown version"
+
+        except Exception as e:
+            self.problem = "can't be introspected: %s" % short(e)
+
+
+class UnknownPython(PythonInstallation):
+    """Holds a problematic reference to an unknown python"""
+
+    def __init__(self, spec):
+        self.spec = spec
+        self.executable = spec.text or spec.canonical
+        self._add_equivalent(self.executable, add_realpath=False)
+        self.problem = "not available"
+
+
+class _Introspect(object):
+    """Introspect a python installation via the built-in `_pv.py` script"""
+
+    _pv = None
+
+    @classmethod
+    def get_pv(cls):
+        if cls._pv is None:
+            cls._pv = os.path.dirname(os.path.abspath(__file__))
+            cls._pv = os.path.join(cls._pv, "_pv.py")
+
+        return cls._pv

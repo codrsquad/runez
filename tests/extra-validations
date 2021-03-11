@@ -13,6 +13,10 @@ TESTS = os.path.dirname(os.path.abspath(__file__))
 PROJECT = os.path.dirname(TESTS)
 SRC = os.path.join(PROJECT, "src", "runez")
 
+API_EXCEPTIONS = {
+    "pyenv.scan_pyenv": collections.OrderedDict(logger="UNSET"),
+    "pyenv.find_python": collections.OrderedDict(fatal=True, logger="UNSET"),
+}
 IO_API_NO_CONTENT = collections.OrderedDict(fatal=True, logger="UNSET", dryrun="UNSET")
 EXPECTED_DRYRUN_UNSET = collections.OrderedDict(dryrun="UNSET")
 IO_API_DOCSTRINGS = dict(
@@ -178,6 +182,10 @@ def expected_sig(path, node, sig):
     func_name = "%s.%s" % (module_name, node.name)
     if func_name in ("system.abort", "system.get_version"):
         return None
+
+    exception = API_EXCEPTIONS.get(func_name)
+    if exception:
+        return exception
 
     if "fatal" in sig or "logger" in sig or "dryrun" in sig:
         return IO_API_NO_CONTENT
