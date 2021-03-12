@@ -9,11 +9,74 @@ from runez.system import _R, abort, cached_property, flattened, resolved_path, s
 
 
 CPYTHON_NAMES = ["python", "", "p", "py", "cpython"]
-DEFAULT_FAMILY = CPYTHON_NAMES[-1]
-FAMILIES = ["conda", "pypy"]
 R_SPEC = re.compile(r"^\s*((|py?|c?python|(ana|mini)?conda[23]?|pypy)\s*[:-]?)\s*([0-9]*)\.?([0-9]*)\.?([0-9]*)\s*$", re.IGNORECASE)
 R_VERSION = re.compile(r"^((\d+)((\.(\d+))*)((a|b|c|rc)(\d+))?(\.(dev|post|final)\.?(\d+))?).*$")
 LOG = logging.getLogger(__name__)
+
+
+class PrioritizedName(object):
+    """Name with an assigned sorting priority"""
+
+    def __init__(self, name, priority):
+        self.name = name
+        self.priority = priority
+
+    def __repr__(self):
+        return self.name
+
+    def __lt__(self, other):
+        if isinstance(other, PrioritizedName):
+            return self.priority < other.priority
+
+    def __eq__(self, other):
+        return isinstance(other, PrioritizedName) and self.priority == other.priority
+
+
+class OrderedByName(object):
+    """Allows to order things arbitrarily by name"""
+
+    effective_order = None  # type: list
+
+    def __init__(self, order=None, reverse=True, separator=","):
+        order = flattened(order, split=separator, keep_empty=None)
+        for name in self.__slots__:
+            if name not in order:
+                order.append(name)
+
+        count = len(order)
+        self.effective_order = []
+        for i, name in enumerate(order):
+            if name in self.__slots__:
+                obj = PrioritizedName(name, count - i if reverse else i)
+                setattr(self, name, obj)
+                self.effective_order.append(obj)
+
+
+class Origins(OrderedByName):
+    """Allows to sort installations by origin"""
+
+    __slots__ = ["adhoc", "pyenv", "invoker", "path", "deferred", "unknown"]
+
+
+class Families(OrderedByName):
+    """Allows to sort installations by python family"""
+
+    __slots__ = ["cpython", "pypy", "conda"]
+
+    @property
+    def default_family(self):
+        return self.effective_order[0]
+
+    def guess_family(self, text):
+        """Guessed python family from given 'text' (typically path to installation)"""
+        for family in self.effective_order:
+            if family.name in text:
+                return family
+
+        return self.default_family
+
+
+FAMILIES = Families()
 
 
 class PythonSpec(object):
@@ -24,16 +87,16 @@ class PythonSpec(object):
 
     version = None  # type: Version
 
-    def __init__(self, text, family=None):
+    def __init__(self, text, family_text=None):
         """
         Args:
             text (str | None): Text describing desired python
-            family (str | None): Pre-determined python family, if any
+            family_text (str | None): Pre-determined python family, if any
         """
         text = text.strip() if text else ""
         self.given_name = None
         self.text = text
-        self.family = family or self.guess_family(text)
+        self.family = FAMILIES.guess_family(family_text or text)
         if text in CPYTHON_NAMES:
             self.given_name = CPYTHON_NAMES[0]
             self.canonical = "%s" % self.family
@@ -70,81 +133,7 @@ class PythonSpec(object):
             if self.family == other.family:
                 return self.version and other.version and self.version < other.version
 
-            if self.family != DEFAULT_FAMILY:
-                return other.family == DEFAULT_FAMILY or self.family < other.family
-
-    @staticmethod
-    def guess_family(text):
-        """Guessed python familty from given 'text' (typically path to installation)"""
-        for name in FAMILIES:
-            if name in text:
-                return name
-
-        return DEFAULT_FAMILY
-
-
-class OrderedByName(object):
-    """Allows to order things arbitrarily by name"""
-
-    effective_order = None  # type: list
-
-    def set_order(self, order, default, reverse=True, separator=","):
-        order = flattened(order, split=separator, keep_empty=None)
-        default = flattened(default, split=separator, keep_empty=None)
-        for name in default:
-            if name not in order:
-                order.append(name)
-
-        count = len(order)
-        self.effective_order = []
-        for i, name in enumerate(order):
-            if reverse:
-                i = count - i
-
-            obj = self.get_object(name, i)
-            setattr(self, name, obj)
-            self.effective_order.append(obj)
-
-    def get_object(self, name, index):
-        """Deferred to descendant"""
-        return index, name
-
-
-class InstallationOrigin(object):
-    """Represents where a python installation came from, used for sorting available pythons"""
-
-    def __init__(self, name, priority):
-        self.name = name
-        self.priority = priority
-
-    def __repr__(self):
-        return self.name
-
-    def __lt__(self, other):
-        if isinstance(other, InstallationOrigin):
-            return self.priority < other.priority
-
-    def __eq__(self, other):
-        return isinstance(other, InstallationOrigin) and self.priority == other.priority
-
-
-class Origins(OrderedByName):
-    """Allows to keep installations sorted by origin"""
-
-    adhoc = None  # type: InstallationOrigin
-    pyenv = None  # type: InstallationOrigin
-    invoker = None  # type: InstallationOrigin
-    path = None  # type: InstallationOrigin
-    deferred = None  # type: InstallationOrigin
-    unknown = None  # type: InstallationOrigin
-
-    DEFAULT_ORDER = "adhoc,pyenv,invoker,path,deferred,unknown"
-
-    def __init__(self, order=None):
-        self.set_order(order, self.DEFAULT_ORDER)
-
-    def get_object(self, name, index):
-        return InstallationOrigin(name, index)
+            return self.family < other.family
 
 
 class PythonDepot(object):
@@ -365,7 +354,7 @@ class PythonDepot(object):
         """
         Args:
             python (PythonInstallation): Python installation to register
-            origin (InstallationOrigin | None): Where the python installation came from
+            origin (PrioritizedName | None): Where the python installation came from
 
         Returns:
             (int): >0 if registered (not registered if already known, or invalid)
@@ -486,7 +475,7 @@ class PythonInstallation(object):
     is_venv = None  # type: bool # Is this python installation a venv?
     problem = None  # type: str # String describing a problem with this installation, if there is one
     spec = None  # type: PythonSpec # Corresponding spec
-    origin = None  # type: InstallationOrigin # Where this installation came from (pyenv, invoker, deferred, PATH, ...)
+    origin = None  # type: PrioritizedName # Where this installation came from (pyenv, invoker, deferred, PATH, ...)
 
     def __repr__(self):
         return "%s [%s]" % (short(self.executable), self.problem or self.spec.canonical)
@@ -550,11 +539,11 @@ class InvokerPython(PythonInstallation):
     """Python we're currently running under"""
 
     def __init__(self):
-        family = getattr(sys, "implementation", None)
-        if family:
-            family = getattr(family, "name", None)
+        family_text = getattr(sys, "implementation", None)
+        if family_text:
+            family_text = getattr(family_text, "name", None)
 
-        self.spec = PythonSpec(".".join(str(c) for c in sys.version_info[:3]), family=family)
+        self.spec = PythonSpec(".".join(str(c) for c in sys.version_info[:3]), family_text=family_text)
         self.spec.given_name = "invoker"
         prefix = getattr(sys, "real_prefix", None)  # old py2 case
         if not prefix:
@@ -634,7 +623,7 @@ class PythonFromPath(PythonInstallation):
             version, self.prefix, self.base_prefix = lines
             self.is_venv = self.prefix != self.base_prefix
             version, _, family_text = version.partition(" ")
-            self.spec = PythonSpec(version, PythonSpec.guess_family(family_text))
+            self.spec = PythonSpec(version, family_text=family_text)
             if not self.spec.version:
                 self.problem = "unknown version"
 

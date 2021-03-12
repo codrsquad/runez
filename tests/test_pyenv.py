@@ -5,7 +5,7 @@ import pytest
 from mock import patch
 
 import runez
-from runez.pyenv import InstallationOrigin, InvokerPython, OrderedByName, PythonDepot, PythonFromPath, PythonSpec, UnknownPython, Version
+from runez.pyenv import FAMILIES, InvokerPython, PrioritizedName, PythonDepot, PythonFromPath, PythonSpec, UnknownPython, Version
 
 
 def mk_python(basename, prefix=None, base_prefix=None, executable=True, content=None, folder=None, version=None):
@@ -132,7 +132,8 @@ def test_depot(temp_folder, monkeypatch):
     # Trigger a deferred find
     assert len(depot.invalid) == 3
     assert len(depot.available) == 5
-    assert all(isinstance(p.origin, InstallationOrigin) for p in depot.available)
+    assert all(isinstance(p.origin, PrioritizedName) for p in depot.available)
+    assert all(isinstance(p.spec.family, PrioritizedName) for p in depot.available)
     mk_python("python2", folder="extra", version="2.6.0")
     monkeypatch.setenv("PATH", "extra/bin")
     depot.deferred = ["$PATH"]
@@ -210,18 +211,11 @@ def test_invoker():
     assert p.spec.version.major == 3
 
 
-def test_ordering():
-    o = OrderedByName()
-    o.set_order("a,c,b", "e,b,d,c,a")
-    # If given order is incomplete, non-stated entries go at the end
-    assert o.effective_order == [(5, "a"), (4, "c"), (3, "b"), (2, "e"), (1, "d")]
-
-
 def check_spec(text, canonical, family="cpython"):
     d = PythonSpec(text)
     assert d.text == (text.strip() if text else "")
     assert str(d) == canonical
-    assert d.family == family
+    assert d.family is getattr(FAMILIES, family)
 
 
 def test_spec():
@@ -334,7 +328,7 @@ def test_unknown():
     assert p.major is None
     assert p.problem == "not available"
     assert p.spec.canonical == "?foo"
-    assert p.spec.family == "cpython"
+    assert p.spec.family is FAMILIES.cpython
     assert p.spec.given_name is None
     assert p.spec.text == "foo"
     assert p.spec.version is None
