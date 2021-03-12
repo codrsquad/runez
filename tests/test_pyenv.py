@@ -5,7 +5,7 @@ import pytest
 from mock import patch
 
 import runez
-from runez.pyenv import InvokerPython, PythonDepot, PythonFromPath, PythonSpec, UnknownPython, Version
+from runez.pyenv import InstallationOrigin, InvokerPython, OrderedByName, PythonDepot, PythonFromPath, PythonSpec, UnknownPython, Version
 
 
 def mk_python(basename, prefix=None, base_prefix=None, executable=True, content=None, folder=None, version=None):
@@ -90,7 +90,7 @@ def test_depot(temp_folder, monkeypatch):
     check_find_python(depot, "2", "foo/bin/python [cpython:2.7.1]")
     check_find_python(depot, "2.6", "2.6 [not available]")
     check_find_python(depot, "foo", "foo [not available]")
-    check_find_python(depot, "python:3.0.0", "python:3.0.0 [not available]")
+    check_find_python(depot, "python:11.0.0", "python:11.0.0 [not available]")
 
     with pytest.raises(runez.system.AbortException):
         depot.find_python("/bar", fatal=True)
@@ -107,7 +107,7 @@ def test_depot(temp_folder, monkeypatch):
     assert p38.major == 3
     assert str(p3) == ".pyenv/versions/3.9.0/bin/python [cpython:3.9.0]"
     assert str(p38) == "3.8 [not available]"
-    assert str(p3) == p3.colored_representation()
+    assert str(p3) == p3.colored_representation(include_origin=False)
     assert p3 is p39
     assert p3 == p39
     assert p3 != p38
@@ -117,11 +117,11 @@ def test_depot(temp_folder, monkeypatch):
     assert p3.satisfies(PythonSpec("py3.9.0"))
     assert not p3.satisfies(PythonSpec("py3.9.1"))
 
-    mk_python("python", folder="extra", version="3.0.0")
+    mk_python("python", folder="extra", version="11.0.0")
     extra_path = os.path.realpath("extra/bin/python")
     pextra1 = depot.find_python(extra_path)
     pextra2 = PythonFromPath(extra_path)
-    assert str(pextra1) == "extra/bin/python [cpython:3.0.0]"
+    assert str(pextra1) == "extra/bin/python [cpython:11.0.0]"
     assert pextra2 != p3
     assert pextra2 is not pextra1
     assert pextra2 == pextra1
@@ -132,6 +132,7 @@ def test_depot(temp_folder, monkeypatch):
     # Trigger a deferred find
     assert len(depot.invalid) == 3
     assert len(depot.available) == 5
+    assert all(isinstance(p.origin, InstallationOrigin) for p in depot.available)
     mk_python("python2", folder="extra", version="2.6.0")
     monkeypatch.setenv("PATH", "extra/bin")
     depot.deferred = ["$PATH"]
@@ -146,13 +147,16 @@ def test_depot(temp_folder, monkeypatch):
     assert not depot.invalid
     assert not depot.available
     depot.deferred = []
-    pextra = depot.find_python("3.0.0")
+    pextra = depot.find_python("11.0.0")
     assert pextra.problem == "not available"
     depot.deferred = [extra_path]
-    pextra = depot.find_python("3.0.0")
+    pextra = depot.find_python("11.0.0")
     assert not pextra.problem
     assert pextra == pextra1
     assert len(depot.available) == 2  # Invoker is auto-added
+    depot.sort()
+    assert len(depot.available) == 2  # Sorts 2nd because origin == deferred
+    assert depot.available[1].major == 11
 
 
 def mocked_invoker(**sysattrs):
@@ -204,6 +208,13 @@ def test_invoker():
     p = mocked_invoker(base_prefix="/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.7")
     assert p.executable == "/usr/bin/python3"
     assert p.spec.version.major == 3
+
+
+def test_ordering():
+    o = OrderedByName()
+    o.set_order("a,c,b", "e,b,d,c,a")
+    # If given order is incomplete, non-stated entries go at the end
+    assert o.effective_order == [(5, "a"), (4, "c"), (3, "b"), (2, "e"), (1, "d")]
 
 
 def check_spec(text, canonical, family="cpython"):
