@@ -5,7 +5,7 @@ import pytest
 from mock import patch
 
 import runez
-from runez.pyenv import InvokerPython, PythonDepot, PythonFromPath, PythonSpec, Version
+from runez.pyenv import InvokerPython, PythonDepot, PythonFromPath, PythonSpec, UnknownPython, Version
 
 
 def mk_python(basename, prefix=None, base_prefix=None, executable=True, content=None, folder=None, version=None):
@@ -103,6 +103,8 @@ def test_depot(temp_folder, monkeypatch):
     p3 = depot.find_python("3")
     p38 = depot.find_python("3.8")
     p39 = depot.find_python("3.9")
+    assert p3.major == 3
+    assert p38.major == 3
     assert str(p3) == ".pyenv/versions/3.9.0/bin/python [cpython:3.9.0]"
     assert str(p38) == "3.8 [not available]"
     assert str(p3) == p3.colored_representation()
@@ -134,6 +136,7 @@ def test_depot(temp_folder, monkeypatch):
     monkeypatch.setenv("PATH", "extra/bin")
     depot.deferred = ["$PATH"]
     p26 = depot.find_python("2.6")
+    assert p26.major == 2
     assert not p26.problem
     assert len(depot.available) == 6
     check_find_python(depot, "2.6", "extra/bin/python2 [cpython:2.6.0]")
@@ -310,6 +313,20 @@ def test_venv(logged):
     assert lines[0].startswith("%s " % ".".join(str(c) for c in sys.version_info[:3]))
     assert sys.prefix == lines[1]
     assert sys.base_prefix == lines[2]
+
+
+def test_unknown():
+    p = UnknownPython("foo")
+    assert str(p) == "foo [not available]"
+    assert p.executable == "foo"
+    assert not p.is_venv
+    assert p.major is None
+    assert p.problem == "not available"
+    assert p.spec.canonical == "?foo"
+    assert p.spec.family == "cpython"
+    assert p.spec.given_name is None
+    assert p.spec.text == "foo"
+    assert p.spec.version is None
 
 
 def test_version():

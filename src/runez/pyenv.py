@@ -88,6 +88,7 @@ class PythonDepot(object):
 
     # Paths to scan in a deferred fashion (as late as possible), in PythonDepot.find_python()
     DEFAULT_DEFERRED = ["$PATH"]
+    EXE_NAMES = ("python", "python3", "python2")
 
     def __init__(self):
         self.invalid = []  # type: list[PythonInstallation]  # Invalid python installations found
@@ -177,7 +178,7 @@ class PythonDepot(object):
             if folder not in explored:
                 explored.add(folder)
                 real_paths = defaultdict(list)
-                for name in _Introspect.python_exe_names:
+                for name in self.EXE_NAMES:
                     path = os.path.join(folder, name)
                     if path not in self._cache and is_executable(path):
                         real_path = os.path.realpath(path)
@@ -235,6 +236,22 @@ class PythonDepot(object):
                 return python
 
         return self._checked_pyinstall(UnknownPython(spec), fatal)
+
+    @classmethod
+    def python_from_path(cls, path):
+        """Find python executable from 'path'"""
+        if path and os.path.isdir(path):
+            folder = path
+            bin_folder = os.path.join(folder, "bin")
+            if os.path.isdir(bin_folder):
+                folder = bin_folder
+
+            for name in cls.EXE_NAMES:
+                candidate = os.path.join(folder, name)
+                if is_executable(candidate):
+                    return candidate
+
+        return path
 
     def scan_deferred(self, logger=UNSET, spec=None):
         """Scan remaining 'self.deferred' to find more potential python installations
@@ -388,6 +405,12 @@ class PythonInstallation(object):
         if isinstance(other, PythonInstallation):
             return self.spec < other.spec
 
+    @property
+    def major(self):
+        """Major python version, if any"""
+        if self.spec and self.spec.version:
+            return self.spec.version.major
+
     def colored_representation(self):
         """Colored textual representation of this python installation"""
         color = _R._runez_module().red if self.problem else _R._runez_module().dim
@@ -475,7 +498,7 @@ class PythonPyenvInstallation(PythonInstallation):
 
     def __init__(self, folder, spec):
         self.spec = spec
-        for name in _Introspect.python_exe_names:
+        for name in PythonDepot.EXE_NAMES:
             exe = os.path.join(folder, "bin", name)
             if is_executable(exe):
                 self._add_equivalent(exe)
@@ -498,7 +521,7 @@ class PythonFromPath(PythonInstallation):
         """
         if isinstance(path, PythonSpec):
             self.spec = path
-            path = _Introspect.find_python_exe(path.canonical)
+            path = PythonDepot.python_from_path(path.canonical)
 
         self.executable = path
         self.base_prefix = None
@@ -527,6 +550,13 @@ class UnknownPython(PythonInstallation):
     """Holds a problematic reference to an unknown python"""
 
     def __init__(self, spec):
+        """
+        Args:
+            spec (str | PythonSpec): Given (invalid) spec
+        """
+        if not isinstance(spec, PythonSpec):
+            spec = PythonSpec(spec)
+
         self.spec = spec
         self.executable = spec.text or spec.canonical
         self._add_equivalent(self.executable, add_realpath=False)
@@ -536,24 +566,7 @@ class UnknownPython(PythonInstallation):
 class _Introspect(object):
     """Introspect a python installation via the built-in `_pv.py` script"""
 
-    python_exe_names = ("python", "python3", "python2")
     _pv = None
-
-    @classmethod
-    def find_python_exe(cls, path):
-        """Find python executable from 'path'"""
-        if os.path.isdir(path):
-            folder = path
-            bin_folder = os.path.join(folder, "bin")
-            if os.path.isdir(bin_folder):
-                folder = bin_folder
-
-            for name in cls.python_exe_names:
-                candidate = os.path.join(folder, name)
-                if is_executable(candidate):
-                    return candidate
-
-        return path
 
     @classmethod
     def get_pv(cls):
