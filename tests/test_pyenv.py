@@ -1,5 +1,7 @@
 import os
+import sys
 
+import pytest
 from mock import patch
 
 import runez
@@ -49,6 +51,9 @@ def test_depot(temp_folder, monkeypatch):
     assert depot.find_python(depot.invoker.executable) is depot.invoker
     assert not depot.invalid
     assert depot.available == [depot.invoker]
+    assert depot.invoker.spec.given_name == "invoker"
+    assert depot.find_python("invoker") is depot.invoker
+    assert depot.find_python("%s" % sys.version_info[0]) is depot.invoker
 
     depot.reset()
     assert not depot.invalid
@@ -65,17 +70,29 @@ def test_depot(temp_folder, monkeypatch):
     mk_python("python2", folder="foo")  # Invalid: no version
     mk_python("python3", folder="foo", content=["foo"])  # Invalid: mocked _pv.py does not return the right number of lines
 
-    depot.scan_pyenv([".pyenv", "non-existent-folder"])
+    depot.scan_pyenv(".pyenv:non-existent-folder")
     assert len(depot.invalid) == 1
     assert len(depot.available) == 3
 
+    depot.register_deferred("no-such-python", "")
+    assert depot.deferred == depot.DEFAULT_DEFERRED + ["no-such-python"]
+    depot.deferred = ["", "$PATH", "no-such-python"]
+
     monkeypatch.setenv("PATH", "foo/bin:bar")
-    depot.scan_path()
+    scanned = depot.scan_deferred()
+    assert len(scanned) == 1
+    from_path = depot.scan_path()
+    assert not from_path  # We already scanned $PATH via deferred
     assert len(depot.invalid) == 3
     assert len(depot.available) == 4
 
     check_find_python(depot, "2", "foo/bin/python [cpython:2.7.1]")
+    check_find_python(depot, "2.6", "2.6 [not available]")
     check_find_python(depot, "foo", "foo [not available]")
+    check_find_python(depot, "python:3.0.0", "python:3.0.0 [not available]")
+
+    with pytest.raises(runez.system.AbortException):
+        depot.find_python("/bar", fatal=True)
 
     pbar = depot.find_python("/bar")
     assert str(pbar) == "/bar [can't be introspected: /bar is not installed]"
@@ -87,6 +104,7 @@ def test_depot(temp_folder, monkeypatch):
     p39 = depot.find_python("3.9")
     assert str(p3) == ".pyenv/versions/3.9.0/bin/python [cpython:3.9.0]"
     assert str(p38) == "3.8 [not available]"
+    assert str(p3) == p3.colored_representation()
     assert p3 is p39
     assert p3 == p39
     assert p3 != p38
@@ -97,13 +115,38 @@ def test_depot(temp_folder, monkeypatch):
     assert not p3.satisfies(PythonSpec("py3.9.1"))
 
     mk_python("python", folder="extra", version="3.0.0")
-    pextra1 = depot.find_python("extra/bin/python")
-    pextra2 = PythonFromPath(os.path.realpath("extra/bin/python"))
+    extra_path = os.path.realpath("extra/bin/python")
+    pextra1 = depot.find_python(extra_path)
+    pextra2 = PythonFromPath(extra_path)
     assert str(pextra1) == "extra/bin/python [cpython:3.0.0]"
     assert pextra2 != p3
     assert pextra2 is not pextra1
     assert pextra2 == pextra1
     assert pextra1.satisfies(PythonSpec(pextra1.executable))
+
+    # Trigger a deferred find
+    assert len(depot.invalid) == 3
+    assert len(depot.available) == 5
+    mk_python("python2", folder="extra", version="2.6.0")
+    monkeypatch.setenv("PATH", "extra/bin")
+    depot.deferred = ["$PATH"]
+    p26 = depot.find_python("2.6")
+    assert not p26.problem
+    assert len(depot.available) == 6
+    check_find_python(depot, "2.6", "extra/bin/python2 [cpython:2.6.0]")
+
+    # Trigger a deferred find by path
+    depot.reset()
+    assert not depot.invalid
+    assert not depot.available
+    depot.deferred = []
+    pextra = depot.find_python("3.0.0")
+    assert pextra.problem == "not available"
+    depot.deferred = [extra_path]
+    pextra = depot.find_python("3.0.0")
+    assert not pextra.problem
+    assert pextra == pextra1
+    assert len(depot.available) == 2  # Invoker is auto-added
 
 
 def mocked_invoker(**sysattrs):

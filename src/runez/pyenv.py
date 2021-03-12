@@ -5,7 +5,7 @@ import sys
 from collections import defaultdict
 
 from runez.program import is_executable, run
-from runez.system import _R, cached_property, flattened, resolved_path, short, UNSET
+from runez.system import _R, abort, cached_property, flattened, resolved_path, short, UNSET
 
 
 K_PYTHON = "python"
@@ -46,8 +46,6 @@ class PythonSpec(object):
         self.family = family or guess_family(text)
         if text in _SHORTCUTS:
             self.given_name = K_PYTHON
-            # self.version = Version("3")
-            # self.canonical = "%s:%s" % (self.family, self.version.text)
             self.canonical = "%s" % self.family
             return
 
@@ -89,15 +87,20 @@ class PythonSpec(object):
 class PythonDepot(object):
     """Holds a reference to all discovered python installations so far, designed to be used as singleton via DEPOT"""
 
+    # Paths to scan in a deferred fashion in PythonDepot.find_python()
+    DEFAULT_DEFERRED = ["/usr/bin/python3", "/usr/bin/python", "$PATH"]
+
     def __init__(self):
         self.invalid = []  # type: list[PythonInstallation]  # Invalid python installations found
         self.available = []  # type: list[PythonInstallation]  # Available installations (used to find pythons by spec)
+        self.deferred = list(self.DEFAULT_DEFERRED)
         self._cache = {}  # type: dict[str, PythonInstallation]
 
     def reset(self):
         """Reset scanned python installation references, calls this if you'd like to rescan"""
         self.invalid = []
         self.available = []
+        self.deferred = list(self.DEFAULT_DEFERRED)
         self._cache = {}
 
     @cached_property
@@ -119,13 +122,21 @@ class PythonDepot(object):
         if count:
             if python.problem:
                 self.invalid.append(python)
+                return 0
 
-            else:
-                self.available.append(python)
+            self.available.append(python)
+
+        return count
 
     def register_invoker(self):
         """Use invoker python"""
-        self._register(self.invoker)
+        return self._register(self.invoker)
+
+    def register_deferred(self, *paths):
+        """Add 'paths' to self.deferred, to be examined as late as possible. when/if no python can be found in registered places so far"""
+        for path in paths:
+            if path and path not in self._cache and path not in self.deferred:
+                self.deferred.append(path)
 
     def scan_pyenv(self, path, logger=UNSET):
         """Find pythons from pyenv-style installation folders
@@ -135,7 +146,7 @@ class PythonDepot(object):
             logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
         """
         available = []
-        paths = flattened(path, keep_empty=None)
+        paths = flattened(path, split=":", keep_empty=None)
         for path in paths:
             path = resolved_path(path)
             if not path or not os.path.isdir(path):
@@ -152,11 +163,15 @@ class PythonDepot(object):
                     python = PythonPyenvInstallation(os.path.join(path, fname), spec)
                     available.append(python)
 
-        for p in sorted(available, reverse=True):
+        available = sorted(available, reverse=True)
+        for p in available:
             self._register(p)
+
+        return available
 
     def scan_path(self, env_var="PATH"):
         """Register pythons from PATH-like env var ('os.pathsep'-separated)"""
+        available = []
         explored = set()
         for folder in flattened(os.environ.get(env_var), split=os.pathsep, keep_empty=None):
             folder = resolved_path(folder)
@@ -165,18 +180,22 @@ class PythonDepot(object):
                 real_paths = defaultdict(list)
                 for name in PYTHON_EXE_NAMES:
                     path = os.path.join(folder, name)
-                    if is_executable(path):
+                    if path not in self._cache and is_executable(path):
                         real_path = os.path.realpath(path)
-                        real_paths[real_path].append(path)
+                        if real_path not in self._cache:
+                            real_paths[real_path].append(path)
 
                 for k, paths in real_paths.items():
                     python = PythonFromPath(paths[0])
                     for path in paths:
                         python._add_equivalent(path, add_realpath=False)
 
-                    self._register(python)
+                    if self._register(python):
+                        available.append(python)
 
-    def find_python(self, spec, fatal=True, logger=UNSET):
+        return available
+
+    def find_python(self, spec, fatal=False, logger=UNSET):
         """
         Args:
             spec (str | PythonSpec | None): Example: 3.7, py37, pypy3.7, conda3.7, /usr/bin/python
@@ -187,6 +206,9 @@ class PythonDepot(object):
             (PythonInstallation | None): Object representing python installation (may not be usable, see reported .problem)
         """
         if not isinstance(spec, PythonSpec):
+            if spec == self.invoker.spec.given_name:
+                return self.invoker
+
             spec = PythonSpec(spec)
 
         if not self._cache:
@@ -197,17 +219,66 @@ class PythonDepot(object):
             return python
 
         if spec.canonical and os.path.isabs(spec.canonical):
-            python = PythonFromPath(spec.canonical)  # Absolute path: look it up and remember it
+            python = PythonFromPath(spec.canonical)  # Absolute path: look it up and remember it (if valid)
             if not python.problem:
-                self._cached_equivalents(python)
+                if self._register(python):
+                    _R.hlog(logger, "Cached new python installation %s" % python)
 
-            return python
+            return self._checked_pyinstall(python, fatal)
 
         for python in self.available:
             if python.satisfies(spec):
                 return python
 
-        return UnknownPython(spec)
+        if self.deferred:
+            python = self.scan_deferred(logger=logger, spec=spec)
+            if python:
+                return python
+
+        return self._checked_pyinstall(UnknownPython(spec), fatal)
+
+    def scan_deferred(self, logger=UNSET, spec=None):
+        """Scan remaining 'self.deferred' to find more potential python installations
+        Args:
+            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+            spec (str | PythonSpec | None): Example: 3.7, py37, pypy3.7, conda3.7, /usr/bin/python
+
+        Returns:
+            (PythonInstallation | list | None): Python installation (if 'spec' provided), list of all found installations otherwise
+        """
+        cumulatively_added = []
+        while self.deferred:
+            path = self.deferred.pop(0)
+            if not path:
+                continue
+
+            if path.startswith("$"):
+                added = self.scan_path(path[1:])
+                if added:
+                    cumulatively_added.extend(added)
+                    _R.hlog(logger, "Found %s deferred pythons from %s: %s" % (len(added), path, added))
+                    if spec:
+                        for python in added:
+                            if python.satisfies(spec):
+                                return python
+
+            elif is_executable(path):
+                python = PythonFromPath(path)
+                if self._register(python):
+                    cumulatively_added.append(python)
+                    _R.hlog(logger, "Found deferred python: %s" % (python))
+                    if spec and python.satisfies(spec):
+                        return python
+
+        return cumulatively_added if spec is None else None
+
+    @staticmethod
+    def _checked_pyinstall(python, fatal):
+        """Optionally abort if 'python' installation is not valid"""
+        if fatal and python.problem:
+            abort("Invalid python installation: %s" % python)
+
+        return python
 
 
 DEPOT = PythonDepot()
@@ -318,6 +389,12 @@ class PythonInstallation(object):
         if isinstance(other, PythonInstallation):
             return self.spec < other.spec
 
+    def colored_representation(self):
+        """Colored textual representation of this python installation"""
+        color = _R._runez_module().red if self.problem else _R._runez_module().dim
+        note = "[%s]" % (self.problem or self.spec.canonical)
+        return "%s %s" % (_R._runez_module().bold(short(self.executable)), color(note))
+
     def satisfies(self, spec):
         """
         Args:
@@ -353,6 +430,7 @@ class InvokerPython(PythonInstallation):
             family = getattr(family, "name", None)
 
         self.spec = PythonSpec(".".join(str(c) for c in sys.version_info[:3]), family=family)
+        self.spec.given_name = "invoker"
         prefix = getattr(sys, "real_prefix", None)  # old py2 case
         if not prefix:
             prefix = getattr(sys, "base_prefix", sys.prefix)
@@ -368,7 +446,7 @@ class InvokerPython(PythonInstallation):
         self.executable = self._simplified_python_path(parent)
         self._add_equivalent(self.executable)
         self._add_equivalent(parent)
-        self._add_equivalent("invoker", add_realpath=False)
+        self._add_equivalent(self.spec.given_name, add_realpath=False)
 
     @staticmethod
     def _simplified_python_path(path):
