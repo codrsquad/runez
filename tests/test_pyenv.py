@@ -54,6 +54,7 @@ def test_depot(temp_folder, monkeypatch):
     assert depot.invoker.spec.given_name == "invoker"
     assert depot.find_python("invoker") is depot.invoker
     assert depot.find_python("%s" % sys.version_info[0]) is depot.invoker
+    assert "invoker" in depot.invoker.colored_representation()
 
     depot.reset()
     assert not depot.invalid
@@ -123,6 +124,8 @@ def test_depot(temp_folder, monkeypatch):
     assert pextra2 is not pextra1
     assert pextra2 == pextra1
     assert pextra1.satisfies(PythonSpec(pextra1.executable))
+    pextra3 = depot.find_python("./extra/")
+    assert pextra3 == pextra1
 
     # Trigger a deferred find
     assert len(depot.invalid) == 3
@@ -289,9 +292,7 @@ def test_spec():
     # Full path remains as-is
     check_spec("/foo/python2.7", "/foo/python2.7")
     check_spec("/foo/python2.7", "/foo/python2.7")
-
-    user_path = "~/.pyenv/3.8.1"
-    check_spec(user_path, os.path.expanduser(user_path))
+    check_spec("~/.pyenv/3.8.1", "~/.pyenv/3.8.1")
 
 
 def test_venv(logged):

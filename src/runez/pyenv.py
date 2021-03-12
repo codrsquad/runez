@@ -8,22 +8,12 @@ from runez.program import is_executable, run
 from runez.system import _R, abort, cached_property, flattened, resolved_path, short, UNSET
 
 
-K_PYTHON = "python"
-PYTHON_EXE_NAMES = (K_PYTHON, "python3", "python2")
-DEFAULT_FAMILY = "cpython"
-_FAMILIES = ["conda", "pypy"]
-_SHORTCUTS = {"", "p", "py", K_PYTHON, "cpython"}
-RE_PYSPEC = re.compile(r"^\s*((|py?|c?python|(ana|mini)?conda[23]?|pypy)\s*[:-]?)\s*([0-9]*)\.?([0-9]*)\.?([0-9]*)\s*$", re.IGNORECASE)
-RE_VERSION = re.compile(r"^((\d+)((\.(\d+))*)((a|b|c|rc)(\d+))?(\.(dev|post|final)\.?(\d+))?).*$")
+CPYTHON_NAMES = ["python", "", "p", "py", "cpython"]
+DEFAULT_FAMILY = CPYTHON_NAMES[-1]
+FAMILIES = ["conda", "pypy"]
+R_SPEC = re.compile(r"^\s*((|py?|c?python|(ana|mini)?conda[23]?|pypy)\s*[:-]?)\s*([0-9]*)\.?([0-9]*)\.?([0-9]*)\s*$", re.IGNORECASE)
+R_VERSION = re.compile(r"^((\d+)((\.(\d+))*)((a|b|c|rc)(\d+))?(\.(dev|post|final)\.?(\d+))?).*$")
 LOG = logging.getLogger(__name__)
-
-
-def guess_family(text):
-    for name in _FAMILIES:
-        if name in text:
-            return name
-
-    return DEFAULT_FAMILY
 
 
 class PythonSpec(object):
@@ -43,9 +33,9 @@ class PythonSpec(object):
         text = text.strip() if text else ""
         self.given_name = None
         self.text = text
-        self.family = family or guess_family(text)
-        if text in _SHORTCUTS:
-            self.given_name = K_PYTHON
+        self.family = family or self.guess_family(text)
+        if text in CPYTHON_NAMES:
+            self.given_name = CPYTHON_NAMES[0]
             self.canonical = "%s" % self.family
             return
 
@@ -54,7 +44,7 @@ class PythonSpec(object):
             return
 
         self.canonical = "?%s" % text  # Don't let arbitrary given text accidentally count as valid canonical
-        m = RE_PYSPEC.match(text)
+        m = R_SPEC.match(text)
         if not m:
             return
 
@@ -66,11 +56,11 @@ class PythonSpec(object):
         if components and len(components) <= 3:
             self.version = Version(".".join(components))
             self.canonical = "%s:%s" % (self.family, self.version.text)
-            if self.given_name in _SHORTCUTS:
-                self.given_name = K_PYTHON
+            if self.given_name in CPYTHON_NAMES:
+                self.given_name = CPYTHON_NAMES[0]
 
     def __repr__(self):
-        return self.canonical
+        return short(self.canonical)
 
     def __eq__(self, other):
         return isinstance(other, PythonSpec) and self.canonical == other.canonical
@@ -83,12 +73,21 @@ class PythonSpec(object):
             if self.family != DEFAULT_FAMILY:
                 return other.family == DEFAULT_FAMILY or self.family < other.family
 
+    @staticmethod
+    def guess_family(text):
+        """Guessed python familty from given 'text' (typically path to installation)"""
+        for name in FAMILIES:
+            if name in text:
+                return name
+
+        return DEFAULT_FAMILY
+
 
 class PythonDepot(object):
     """Holds a reference to all discovered python installations so far, designed to be used as singleton via DEPOT"""
 
-    # Paths to scan in a deferred fashion in PythonDepot.find_python()
-    DEFAULT_DEFERRED = ["/usr/bin/python3", "/usr/bin/python", "$PATH"]
+    # Paths to scan in a deferred fashion (as late as possible), in PythonDepot.find_python()
+    DEFAULT_DEFERRED = ["$PATH"]
 
     def __init__(self):
         self.invalid = []  # type: list[PythonInstallation]  # Invalid python installations found
@@ -178,7 +177,7 @@ class PythonDepot(object):
             if folder not in explored:
                 explored.add(folder)
                 real_paths = defaultdict(list)
-                for name in PYTHON_EXE_NAMES:
+                for name in _Introspect.python_exe_names:
                     path = os.path.join(folder, name)
                     if path not in self._cache and is_executable(path):
                         real_path = os.path.realpath(path)
@@ -219,7 +218,7 @@ class PythonDepot(object):
             return python
 
         if spec.canonical and os.path.isabs(spec.canonical):
-            python = PythonFromPath(spec.canonical)  # Absolute path: look it up and remember it (if valid)
+            python = PythonFromPath(spec)  # Absolute path: look it up and remember it (if valid)
             if not python.problem:
                 if self._register(python):
                     _R.hlog(logger, "Cached new python installation %s" % python)
@@ -294,7 +293,7 @@ class Version(object):
         self.text = text
         self.components = None
         self.prerelease = None
-        m = RE_VERSION.match(text)
+        m = R_VERSION.match(text)
         if not m:
             return
 
@@ -393,6 +392,9 @@ class PythonInstallation(object):
         """Colored textual representation of this python installation"""
         color = _R._runez_module().red if self.problem else _R._runez_module().dim
         note = "[%s]" % (self.problem or self.spec.canonical)
+        if self.spec and self.spec.given_name and self.spec.given_name != CPYTHON_NAMES[0]:
+            note += _R._runez_module().orange(_R._runez_module().dim(" [%s]" % self.spec.given_name))
+
         return "%s %s" % (_R._runez_module().bold(short(self.executable)), color(note))
 
     def satisfies(self, spec):
@@ -473,7 +475,7 @@ class PythonPyenvInstallation(PythonInstallation):
 
     def __init__(self, folder, spec):
         self.spec = spec
-        for name in PYTHON_EXE_NAMES:
+        for name in _Introspect.python_exe_names:
             exe = os.path.join(folder, "bin", name)
             if is_executable(exe):
                 self._add_equivalent(exe)
@@ -481,7 +483,7 @@ class PythonPyenvInstallation(PythonInstallation):
                     self.executable = exe
 
         if not self.executable:
-            self.executable = os.path.join(folder, "bin", K_PYTHON)
+            self.executable = os.path.join(folder, "bin", CPYTHON_NAMES[0])
             self._add_equivalent(self.executable)
             self.problem = "invalid pyenv installation"
 
@@ -492,8 +494,12 @@ class PythonFromPath(PythonInstallation):
     def __init__(self, path):
         """
         Args:
-            path (str): Absolute path to python executable
+            path (str | PythonSpec): Absolute path to python executable
         """
+        if isinstance(path, PythonSpec):
+            self.spec = path
+            path = _Introspect.find_python_exe(path.canonical)
+
         self.executable = path
         self.base_prefix = None
         self.prefix = None
@@ -509,7 +515,7 @@ class PythonFromPath(PythonInstallation):
             version, self.prefix, self.base_prefix = lines
             self.is_venv = self.prefix != self.base_prefix
             version, _, family_text = version.partition(" ")
-            self.spec = PythonSpec(version, guess_family(family_text))
+            self.spec = PythonSpec(version, PythonSpec.guess_family(family_text))
             if not self.spec.version:
                 self.problem = "unknown version"
 
@@ -530,7 +536,24 @@ class UnknownPython(PythonInstallation):
 class _Introspect(object):
     """Introspect a python installation via the built-in `_pv.py` script"""
 
+    python_exe_names = ("python", "python3", "python2")
     _pv = None
+
+    @classmethod
+    def find_python_exe(cls, path):
+        """Find python executable from 'path'"""
+        if os.path.isdir(path):
+            folder = path
+            bin_folder = os.path.join(folder, "bin")
+            if os.path.isdir(bin_folder):
+                folder = bin_folder
+
+            for name in cls.python_exe_names:
+                candidate = os.path.join(folder, name)
+                if is_executable(candidate):
+                    return candidate
+
+        return path
 
     @classmethod
     def get_pv(cls):
