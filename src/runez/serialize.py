@@ -645,7 +645,7 @@ def read_json(path, default=UNSET):
             return json.load(fh)
 
     except Exception as e:
-        return _R.hdef(default, "Couldn't read %s" % short(path), e=e)
+        return _R.hdef(default, "Can't read %s" % short(path), e=e)
 
 
 def represented_json(data, stringify=stringified, dt=str, none=False, indent=2, sort_keys=True, **kwargs):
@@ -717,4 +717,4 @@ def save_json(
         return 1
 
     except Exception as e:
-        return abort("Couldn't save %s" % short(path), exc_info=e, return_value=-1, fatal=fatal, logger=logger)
+        return abort("Can't save %s" % short(path), exc_info=e, return_value=-1, fatal=fatal, logger=logger)

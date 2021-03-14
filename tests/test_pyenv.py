@@ -44,21 +44,9 @@ def check_find_python(depot, spec, expected):
 
 def test_depot(temp_folder, monkeypatch):
     depot = PythonDepot()
-    assert depot.find_python(None) is depot.invoker
-    assert depot.find_python("") is depot.invoker
-    assert depot.find_python("py") is depot.invoker
-    assert depot.find_python("python") is depot.invoker
-    assert depot.find_python(depot.invoker.executable) is depot.invoker
-    assert not depot.invalid
-    assert depot.available == [depot.invoker]
-    assert depot.invoker.spec.given_name == "invoker"
-    assert depot.find_python("invoker") is depot.invoker
-    assert depot.find_python("%s" % sys.version_info[0]) is depot.invoker
-    assert "invoker" in depot.invoker.colored_representation()
-
-    depot.reset()
     assert not depot.invalid
     assert not depot.available
+    assert not depot.deferred
 
     # Create some pyenv-style python installation mocks
     mk_python("3.6.1")
@@ -75,13 +63,19 @@ def test_depot(temp_folder, monkeypatch):
     assert len(depot.invalid) == 1
     assert len(depot.available) == 3
 
-    depot.register_deferred("no-such-python", "")
-    assert depot.deferred == depot.DEFAULT_DEFERRED + ["no-such-python"]
-    depot.deferred = ["", "$PATH", "no-such-python"]
+    depot.register_deferred("$PATH", "no-such-python", "")
+    assert depot.deferred == ["$PATH", "no-such-python"]
 
     monkeypatch.setenv("PATH", "foo/bin:bar")
     scanned = depot.scan_deferred()
-    assert len(scanned) == 1
+    assert len(depot.invalid) == 3
+    assert len(depot.available) == 4
+    assert len(scanned) == 3
+    assert len([p for p in scanned if not p.problem]) == 1
+
+    scanned = depot.scan_deferred()
+    assert not scanned  # 2nd scan is a no-op
+
     from_path = depot.scan_path()
     assert not from_path  # We already scanned $PATH via deferred
     assert len(depot.invalid) == 3
@@ -96,7 +90,7 @@ def test_depot(temp_folder, monkeypatch):
         depot.find_python("/bar", fatal=True)
 
     pbar = depot.find_python("/bar")
-    assert str(pbar) == "/bar [can't be introspected: /bar is not installed]"
+    assert str(pbar) == "/bar [/bar is not installed]"
     assert pbar.problem
     assert not pbar.satisfies(PythonSpec("python"))
 
@@ -107,7 +101,7 @@ def test_depot(temp_folder, monkeypatch):
     assert p38.major == 3
     assert str(p3) == ".pyenv/versions/3.9.0/bin/python [cpython:3.9.0]"
     assert str(p38) == "3.8 [not available]"
-    assert str(p3) == p3.colored_representation(include_origin=False)
+    assert str(p3) == p3.representation(include_origin=False)
     assert p3 is p39
     assert p3 == p39
     assert p3 != p38
@@ -130,7 +124,7 @@ def test_depot(temp_folder, monkeypatch):
     assert pextra3 == pextra1
 
     # Trigger a deferred find
-    assert len(depot.invalid) == 3
+    assert len(depot.invalid) == 4
     assert len(depot.available) == 5
     assert all(isinstance(p.origin, PrioritizedName) for p in depot.available)
     assert all(isinstance(p.spec.family, PrioritizedName) for p in depot.available)
@@ -144,17 +138,15 @@ def test_depot(temp_folder, monkeypatch):
     check_find_python(depot, "2.6", "extra/bin/python2 [cpython:2.6.0]")
 
     # Trigger a deferred find by path
-    depot.reset()
-    assert not depot.invalid
-    assert not depot.available
-    depot.deferred = []
+    depot = PythonDepot()
+    depot.scan_invoker()
     pextra = depot.find_python("11.0.0")
     assert pextra.problem == "not available"
     depot.deferred = [extra_path]
     pextra = depot.find_python("11.0.0")
     assert not pextra.problem
     assert pextra == pextra1
-    assert len(depot.available) == 2  # Invoker is auto-added
+    assert len(depot.available) == 2
     depot.sort()
     assert len(depot.available) == 2  # Sorts 2nd because origin == deferred
     assert depot.available[1].major == 11
@@ -180,6 +172,26 @@ def mocked_invoker(**sysattrs):
 
 
 def test_invoker():
+    depot = PythonDepot()
+    depot.scan_invoker()
+    assert not depot.invalid
+    assert depot.find_python(None) is depot.invoker
+    assert depot.find_python("") is depot.invoker
+    assert depot.find_python("py") is depot.invoker
+    assert depot.find_python("python") is depot.invoker
+    assert depot.find_python(depot.invoker.executable) is depot.invoker
+    assert not depot.invalid
+    assert depot.available == [depot.invoker]
+    assert depot.invoker.spec.given_name == "invoker"
+    assert depot.find_python("invoker") is depot.invoker
+    assert depot.find_python("%s" % sys.version_info[0]) is depot.invoker
+    assert "invoker" in depot.invoker.representation()
+
+    p = depot.python_from_path(sys.executable)
+    assert p.is_venv
+    assert "[venv]" in str(p)
+    assert len(depot.available) == 2
+
     # Linux case with py3
     p = mocked_invoker()
     assert p.executable == "/usr/bin/python3"

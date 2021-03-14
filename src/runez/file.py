@@ -140,7 +140,7 @@ def ini_to_dict(path, default=UNSET, keep_empty=False):
     """
     lines = readlines(path, default=None)
     if lines is None:
-        return _R.hdef(default, "Couldn't read ini file '%s'" % short(path))
+        return _R.hdef(default, "Can't read ini file '%s'" % short(path))
 
     result = {}
     section_key = None
@@ -239,7 +239,7 @@ def readlines(path, default=UNSET, first=None, errors=None):
             return result
 
     except Exception as e:
-        return _R.hdef(default, "Couldn't read %s" % short(path), e=e)
+        return _R.hdef(default, "Can't read %s" % short(path), e=e)
 
 
 def move(source, destination, fatal=True, logger=UNSET, dryrun=UNSET):

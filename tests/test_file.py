@@ -136,7 +136,7 @@ def test_failure(monkeypatch):
 
         with pytest.raises(runez.system.AbortException):
             runez.file.ini_to_dict("bar")
-        assert "Couldn't read ini file" in logged.pop()
+        assert "Can't read ini file" in logged.pop()
 
         assert runez.write("bar", "some content", fatal=False)
         assert "Can't write" in logged.pop()

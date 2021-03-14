@@ -98,7 +98,7 @@ class PythonSpec(object):
         self.text = text
         self.family = FAMILIES.guess_family(family_text or text)
         if text in CPYTHON_NAMES:
-            self.given_name = CPYTHON_NAMES[0]
+            self.given_name = "python"
             self.canonical = "%s" % self.family
             return
 
@@ -120,7 +120,7 @@ class PythonSpec(object):
             self.version = Version(".".join(components))
             self.canonical = "%s:%s" % (self.family, self.version.text)
             if self.given_name in CPYTHON_NAMES:
-                self.given_name = CPYTHON_NAMES[0]
+                self.given_name = "python"
 
     def __repr__(self):
         return short(self.canonical)
@@ -137,25 +137,25 @@ class PythonSpec(object):
 
 
 class PythonDepot(object):
-    """Holds a reference to all discovered python installations so far, designed to be used as singleton via DEPOT"""
+    """
+    Scan usual locations to discover python installations
+    Example usage:
+        my_depot = PythonDepot()
+    """
 
     # Paths to scan in a deferred fashion (as late as possible), in PythonDepot.find_python()
-    DEFAULT_DEFERRED = ["$PATH"]
     EXE_NAMES = ("python", "python3", "python2")
 
-    def __init__(self):
+    def __init__(self, deferred=None):
+        """
+        Args:
+            deferred (list[str] | None): List locations to examine as late as possible
+        """
         self.invalid = []  # type: list[PythonInstallation]  # Invalid python installations found
         self.available = []  # type: list[PythonInstallation]  # Available installations (used to find pythons by spec)
-        self.deferred = list(self.DEFAULT_DEFERRED)
+        self.deferred = deferred
         self.order = Origins()
         self._cache = {}  # type: dict[str, PythonInstallation]
-
-    def reset(self):
-        """Reset scanned python installation references, calls this if you'd like to rescan"""
-        self.invalid = []
-        self.available = []
-        self.deferred = list(self.DEFAULT_DEFERRED)
-        self._cache = {}
 
     @cached_property
     def invoker(self):
@@ -164,8 +164,84 @@ class PythonDepot(object):
         invoker.origin = self.order.invoker
         return invoker
 
+    def find_python(self, spec, fatal=False, logger=UNSET):
+        """
+        Args:
+            spec (str | PythonSpec | None): Example: 3.7, py37, pypy3.7, conda3.7, /usr/bin/python
+            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+
+        Returns:
+            (PythonInstallation | None): Object representing python installation (may not be usable, see reported .problem)
+        """
+        if not isinstance(spec, PythonSpec):
+            if spec == self.invoker.spec.given_name:
+                return self.invoker
+
+            spec = PythonSpec(spec)
+
+        python = self._cache.get(spec.canonical)
+        if python:
+            return python
+
+        if spec.canonical and os.path.isabs(spec.canonical):
+            python = self.python_from_path(spec.canonical, logger=logger)  # Absolute path: look it up and remember it
+            return self._checked_pyinstall(python, fatal)
+
+        for python in self.available:
+            if python.satisfies(spec):
+                return python
+
+        if self.deferred:
+            added = self.scan_deferred(logger=logger)
+            for python in added:
+                if python.satisfies(spec):
+                    return python
+
+        python = UnknownPython(spec)
+        python.origin = self.order.unknown
+        return self._checked_pyinstall(python, fatal)
+
+    def python_from_path(self, path, equivalents=None, origin=None, logger=UNSET):
+        """
+        Args:
+            path (str): Path to python executable
+            equivalents (list | None): Additional equivalent paths
+            origin (OrderedByName | None): Optional origin that triggered the scan
+            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+
+        Returns:
+            (PythonInstallation): Corresponding python installation
+        """
+        if equivalents is None:
+            path = self.resolved_python_path(path)
+
+        python = self._cache.get(path)
+        if python:
+            return python
+
+        python = PythonFromPath(path)
+        python.origin = origin or self.order.adhoc
+        if equivalents:
+            for path in equivalents:
+                python._add_equivalent(path, add_realpath=False)
+
+        if self._register(python):
+            _R.hlog(logger, "Found %s python: %s" % (python.origin, python))
+
+        return python
+
+    def register_deferred(self, *locations):
+        """Add 'paths' to self.deferred, to be examined as late as possible. when/if no python can be found in registered places so far"""
+        if self.deferred is None:
+            self.deferred = []
+
+        for location in locations:
+            if location and location not in self._cache and location not in self.deferred:
+                self.deferred.append(location)
+
     @classmethod
-    def python_from_path(cls, path):
+    def resolved_python_path(cls, path):
         """Find python executable from 'path'
         Args:
             path (str): Path to a bin/python, or a folder containing bin/python
@@ -186,103 +262,45 @@ class PythonDepot(object):
 
         return path
 
-    def find_python(self, spec, fatal=False, logger=UNSET):
-        """
-        Args:
-            spec (str | PythonSpec | None): Example: 3.7, py37, pypy3.7, conda3.7, /usr/bin/python
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
-
-        Returns:
-            (PythonInstallation | None): Object representing python installation (may not be usable, see reported .problem)
-        """
-        if not isinstance(spec, PythonSpec):
-            if spec == self.invoker.spec.given_name:
-                return self.invoker
-
-            spec = PythonSpec(spec)
-
-        if not self._cache:
-            self.register_invoker()
-
-        python = self._cache.get(spec.canonical)
-        if python:
-            return python
-
-        if spec.canonical and os.path.isabs(spec.canonical):
-            path = self.python_from_path(spec.canonical)  # Absolute path: look it up and remember it (if valid)
-            python = self._cache.get(path)
-            if not python:
-                python = PythonFromPath(path)
-                if not python.problem:
-                    python.origin = self.order.adhoc
-                    if self._register(python):
-                        _R.hlog(logger, "Cached new python installation %s" % python)
-
-            return self._checked_pyinstall(python, fatal)
-
-        for python in self.available:
-            if python.satisfies(spec):
-                return python
-
-        if self.deferred:
-            python = self.scan_deferred(logger=logger, spec=spec)
-            if python:
-                return python
-
-        python = UnknownPython(spec)
-        python.origin = self.order.unknown
-        return self._checked_pyinstall(python, fatal)
-
-    def register_deferred(self, *paths):
-        """Add 'paths' to self.deferred, to be examined as late as possible. when/if no python can be found in registered places so far"""
-        for path in paths:
-            if path and path not in self._cache and path not in self.deferred:
-                self.deferred.append(path)
-
-    def register_invoker(self):
-        """Use invoker python"""
-        return self._register(self.invoker)
-
-    def scan_deferred(self, logger=UNSET, spec=None):
+    def scan_deferred(self, logger=UNSET):
         """Scan remaining 'self.deferred' to find more potential python installations
         Args:
             logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
-            spec (str | PythonSpec | None): Example: 3.7, py37, pypy3.7, conda3.7, /usr/bin/python
 
         Returns:
-            (PythonInstallation | list | None): Python installation (if 'spec' provided), list of all found installations otherwise
+            (list[PythonInstallation]): List of found installations via `self.deferred`
         """
         cumulatively_added = []
         while self.deferred:
             path = self.deferred.pop(0)
-            if not path:
-                continue
-
-            if path.startswith("$"):
-                added = self.scan_path(path[1:], origin=self.order.deferred)
-                if added:
+            if path:
+                if path.startswith("$"):
+                    added = self.scan_path(env_var=path[1:], origin=self.order.deferred, logger=logger)
                     cumulatively_added.extend(added)
-                    _R.hlog(logger, "Found %s deferred pythons from %s: %s" % (len(added), path, added))
-                    if spec:
-                        for python in added:
-                            if python.satisfies(spec):
-                                return python
 
-            elif is_executable(path):
-                python = PythonFromPath(path)
-                if self._register(python, origin=self.order.deferred):
-                    cumulatively_added.append(python)
-                    _R.hlog(logger, "Found deferred python: %s" % (python))
-                    if spec and python.satisfies(spec):
-                        return python
+                elif is_executable(path):
+                    python = self.python_from_path(path, origin=self.order.deferred, logger=logger)
+                    if python.origin is self.order.deferred:
+                        cumulatively_added.append(python)
 
-        return cumulatively_added if spec is None else None
+        return cumulatively_added
 
-    def scan_path(self, env_var="PATH", origin=None):
-        """Register pythons from PATH-like env var ('os.pathsep'-separated)"""
-        available = []
+    def scan_invoker(self):
+        self._register(self.invoker)
+
+    def scan_path(self, env_var="PATH", origin=None, logger=UNSET):
+        """
+        Args:
+            env_var (str): PATH-like environment variable to examine
+            origin (OrderedByName | None): Optional origin that triggered the scan
+            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+
+        Returns:
+            (list[PythonInstallation]): List of found installations
+        """
+        added = []
         explored = set()
+        origin = origin or self.order.path
         for folder in flattened(os.environ.get(env_var), split=os.pathsep, keep_empty=None):
             folder = resolved_path(folder)
             if folder not in explored:
@@ -296,14 +314,11 @@ class PythonDepot(object):
                             real_paths[real_path].append(path)
 
                 for k, paths in real_paths.items():
-                    python = PythonFromPath(paths[0])
-                    for path in paths:
-                        python._add_equivalent(path, add_realpath=False)
+                    python = self.python_from_path(paths[0], equivalents=paths, origin=origin, logger=logger)
+                    if python.origin is origin:
+                        added.append(python)
 
-                    if self._register(python, origin=origin or self.order.path):
-                        available.append(python)
-
-        return available
+        return added
 
     def scan_pyenv(self, path, logger=UNSET):
         """Find pythons from pyenv-style installation folders
@@ -311,6 +326,9 @@ class PythonDepot(object):
         Args:
             path (str | list[str]): Folder(s) to scan
             logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+
+        Returns:
+            (list[PythonInstallation]): List of found installations
         """
         available = []
         paths = flattened(path, split=":", keep_empty=None)
@@ -328,8 +346,9 @@ class PythonDepot(object):
                 spec = PythonSpec(fname)
                 if spec.version:
                     python = PythonPyenvInstallation(os.path.join(path, fname), spec)
-                    python.origin = self.order.pyenv
-                    available.append(python)
+                    if python.executable not in self._cache:
+                        python.origin = self.order.pyenv
+                        available.append(python)
 
         available = sorted(available, reverse=True)
         for p in available:
@@ -343,6 +362,10 @@ class PythonDepot(object):
 
     def _cached_equivalents(self, python):
         count = 0
+        if python.executable not in self._cache:
+            self._cache[python.executable] = python
+            count += 1
+
         for p in python.equivalent:
             if p not in self._cache:
                 self._cache[p] = python
@@ -350,11 +373,10 @@ class PythonDepot(object):
 
         return count
 
-    def _register(self, python, origin=None):
+    def _register(self, python):
         """
         Args:
             python (PythonInstallation): Python installation to register
-            origin (PrioritizedName | None): Where the python installation came from
 
         Returns:
             (int): >0 if registered (not registered if already known, or invalid)
@@ -364,9 +386,6 @@ class PythonDepot(object):
             if python.problem:
                 self.invalid.append(python)
                 return 0
-
-            if origin is not None:
-                python.origin = origin
 
             self.available.append(python)
 
@@ -379,9 +398,6 @@ class PythonDepot(object):
             abort("Invalid python installation: %s" % python)
 
         return python
-
-
-DEPOT = PythonDepot()
 
 
 class Version(object):
@@ -478,7 +494,7 @@ class PythonInstallation(object):
     origin = None  # type: PrioritizedName # Where this installation came from (pyenv, invoker, deferred, PATH, ...)
 
     def __repr__(self):
-        return "%s [%s]" % (short(self.executable), self.problem or self.spec.canonical)
+        return self.representation(colored=False, include_origin=False)
 
     def __eq__(self, other):
         return isinstance(other, PythonInstallation) and self.executable == other.executable
@@ -499,15 +515,27 @@ class PythonInstallation(object):
         if self.spec and self.spec.version:
             return self.spec.version.major
 
-    def colored_representation(self, include_origin=True):
+    def representation(self, colored=True, include_origin=True):
         """Colored textual representation of this python installation"""
-        rm = _R._runez_module()
-        color = rm.red if self.problem else rm.dim
-        note = "[%s]" % (self.problem or self.spec.canonical)
-        if include_origin:
-            note += rm.orange(rm.dim(" [%s]" % self.origin))
+        if colored:
+            rm = _R._runez_module()
+            bold = rm.bold
+            dim = rm.dim
+            orange = rm.orange
+            red = rm.red
 
-        return "%s %s" % (rm.bold(short(self.executable)), color(note))
+        else:
+            bold = dim = orange = red = str
+
+        note = "[%s]" % (self.problem or self.spec.canonical)
+        note = red(note) if self.problem else dim(note)
+        if include_origin:
+            note += orange(dim(" [%s]" % self.origin))
+
+        if self.is_venv:
+            note += orange(" [venv]")
+
+        return "%s %s" % (bold(short(self.executable)), note)
 
     def satisfies(self, spec):
         """
@@ -595,7 +623,7 @@ class PythonPyenvInstallation(PythonInstallation):
                     self.executable = exe
 
         if not self.executable:
-            self.executable = os.path.join(folder, "bin", CPYTHON_NAMES[0])
+            self.executable = os.path.join(folder, "bin", "python")
             self._add_equivalent(self.executable)
             self.problem = "invalid pyenv installation"
 
@@ -615,11 +643,15 @@ class PythonFromPath(PythonInstallation):
         pv = _Introspect.get_pv()
         r = run(path, pv, dryrun=False, fatal=False, logger=None)
         if not r.succeeded:
-            self.problem = "can't be introspected: %s" % short(r.full_output)
+            self.problem = short(r.full_output)
             return
 
         try:
             lines = r.output.strip().splitlines()
+            if len(lines) != 3:
+                self.problem = "introspection yielded %s lines instead of 3" % len(lines)
+                return
+
             version, self.prefix, self.base_prefix = lines
             self.is_venv = self.prefix != self.base_prefix
             version, _, family_text = version.partition(" ")
@@ -627,8 +659,8 @@ class PythonFromPath(PythonInstallation):
             if not self.spec.version:
                 self.problem = "unknown version"
 
-        except Exception as e:
-            self.problem = "can't be introspected: %s" % short(e)
+        except Exception as e:  # pragma: no cover
+            self.problem = "introspection error: %s" % short(e)
 
 
 class UnknownPython(PythonInstallation):
