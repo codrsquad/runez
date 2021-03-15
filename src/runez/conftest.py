@@ -174,6 +174,7 @@ class IsolatedLogSetup(object):
         LogManager.spec = self.old_spec
         logging.root.handlers = self.old_handlers
         WrappedHandler.isolation -= 1
+        LogManager.reset()
         if self.temp_folder:
             self.temp_folder.__exit__()
 
@@ -240,14 +241,22 @@ temp_folder = temp_folder  # type: str
 class WrappedHandler(_pytest.logging.LogCaptureHandler):
     """pytest aggressively imposes its own capture, this allows to impose our capture where applicable"""
 
+    _current_instance = None
     isolation = 0
+
+    def __new__(cls, *args, **kwargs):
+        if cls._current_instance is not None:
+            return cls._current_instance
+
+        cls._current_instance = super(WrappedHandler, cls).__new__(cls, *args, **kwargs)
+        return cls._current_instance
 
     @classmethod
     def count_non_wrapped_handlers(cls):
         return len([h for h in logging.root.handlers if not isinstance(h, cls)])
 
     def emit(self, record):
-        if WrappedHandler.isolation == 0:
+        if self.__class__.isolation == 0:
             stream = CaptureOutput.current_capture_buffer()
             if stream is not None:
                 try:
@@ -262,12 +271,9 @@ class WrappedHandler(_pytest.logging.LogCaptureHandler):
                 super(WrappedHandler, self).emit(record)
 
     @classmethod
-    def remove_accumulated_logs(cls):
+    def clean_accumulated_logs(cls):
         """Reset pytest log accumulator"""
-        if logging.root.handlers:
-            for handler in logging.root.handlers:
-                if handler and handler.__class__ is WrappedHandler:
-                    handler.reset()
+        cls._current_instance.reset()
 
 
 _pytest.logging.LogCaptureHandler = WrappedHandler
@@ -429,7 +435,7 @@ class ClickRunner(object):
                     self.exit_code = result.exit_code
 
         if self.logged:
-            WrappedHandler.remove_accumulated_logs()
+            WrappedHandler.clean_accumulated_logs()
             title = Header.aerated("Captured output for: %s" % quoted(self.args), border="==")
             LOG.info("\n%s\nmain: %s\nexit_code: %s\n%s\n", title, self.main, self.exit_code, self.logged)
 

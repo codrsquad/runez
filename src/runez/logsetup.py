@@ -722,7 +722,7 @@ class LogManager(object):
         rotate_count=UNSET,
         timezone=UNSET,
         tmp=UNSET,
-        trace=UNSET,
+        trace="TRACE_DEBUG",
     ):
         """
         Args:
@@ -919,6 +919,7 @@ class LogManager(object):
         cls.debug = None
         cls.console_handler = None
         cls.file_handler = None
+        cls.progress.stop()
         cls.tracer = None
         cls.used_formats = None
 
@@ -1001,7 +1002,7 @@ class LogManager(object):
     def enable_trace(cls, spec, prefix=":: ", stream=UNSET):
         """
         Args:
-            spec (str | bool | UNSET | None): If string given, enable tracing when corresponding env var is set to a non-empty value
+            spec (str | bool | None): If string given, enable tracing when corresponding env var is set to a non-empty value
             prefix (str | None): Prefix to use for trace messages (default: ":: ")
             stream: Where to trace (by default: current 'console_stream' if configured, otherwise sys.stderr)
         """

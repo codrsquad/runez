@@ -1477,13 +1477,15 @@ class _R:
             logger (callable | None): Logger to use, or None to disable log chatter
             message (str | callable): Message to log
         """
-        if logger is not None and logger is not False:  # Accept UNSET
-            if not callable(logger):
-                logger = cls._runez_module().log.spec.default_logger
+        if logger is None or logger is False:  # Accept UNSET
+            return cls.trace(message)
 
-            if callable(logger):
-                message = _actual_message(message)
-                logger(message)
+        if not callable(logger):
+            logger = cls._runez_module().log.spec.default_logger
+
+        if callable(logger):
+            message = _actual_message(message)
+            logger(message)
 
     @classmethod
     def is_dryrun(cls):
@@ -1535,6 +1537,14 @@ class _R:
             r.DRYRUN = bool(dryrun)
 
         return old_dryrun
+
+    @classmethod
+    def trace(cls, message, *args, **kwargs):
+        """
+        Args:
+            message (str): Message to trace
+        """
+        cls._runez_module().log.trace(message, *args, **kwargs)
 
 
 def _actual_message(message):
