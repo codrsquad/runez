@@ -2,7 +2,7 @@ from runez.serialize import read_json, save_json
 from runez.system import _R, resolved_path, stringified, TERMINAL_INFO, UNSET
 
 
-def ask_once(name, instructions, serializer=stringified, default=UNSET, logger=UNSET, base="~/.config"):
+def ask_once(name, instructions, serializer=stringified, default=UNSET, logger=None, base="~/.config"):
     """
     Args:
         name (str): Name under which to store provided answer (will be stored in ~/.config/<name>.json)
@@ -19,7 +19,7 @@ def ask_once(name, instructions, serializer=stringified, default=UNSET, logger=U
     if not path.endswith(".json"):
         path += ".json"
 
-    existing = read_json(path, default=None)
+    existing = read_json(path, default=None, logger=logger)
     if existing is not None:
         return existing
 

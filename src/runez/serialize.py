@@ -627,7 +627,7 @@ class Serializable(object):
         return json_sanitized(raw, stringify=stringify, dt=dt, none=none)
 
 
-def read_json(path, default=UNSET, logger=UNSET):
+def read_json(path, default=UNSET, logger=None):
     """
     Args:
         path (str | None): Path to file to deserialize

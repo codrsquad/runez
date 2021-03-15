@@ -127,7 +127,7 @@ def ensure_folder(path, clean=False, fatal=True, logger=UNSET, dryrun=UNSET):
         return abort("Can't create folder %s" % short(path), exc_info=e, return_value=-1, fatal=fatal, logger=logger)
 
 
-def ini_to_dict(path, default=UNSET, logger=UNSET, keep_empty=False):
+def ini_to_dict(path, default=UNSET, logger=None, keep_empty=False):
     """Contents of an INI-style config file as a dict of dicts: section -> key -> value
 
     Args:
@@ -209,7 +209,7 @@ def parent_folder(path, base=None):
     return path and os.path.dirname(resolved_path(path, base=base))
 
 
-def readlines(path, default=UNSET, logger=UNSET, first=None, errors=None):
+def readlines(path, default=UNSET, logger=None, first=None, errors=None):
     """
     Args:
         path (str | None): Path to file to read lines from

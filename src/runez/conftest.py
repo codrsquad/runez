@@ -135,8 +135,8 @@ def verify_abort(func, *args, **kwargs):
             value = func(*args, **kwargs)
             assert False, "%s did not raise, but returned %s" % (func, value)
 
-        except expected_exception:
-            return stringified(logged)
+        except expected_exception as e:
+            return "%s %s" % (e, stringified(logged))
 
 
 class IsolatedLogSetup(object):

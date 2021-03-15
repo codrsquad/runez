@@ -129,7 +129,7 @@ def test_json(temp_folder, monkeypatch):
 
     with runez.CaptureOutput() as logged:
         with pytest.raises(runez.system.AbortException):
-            runez.read_json(None)
+            runez.read_json(None, logger=logging.debug)
         assert "No file None" in logged.pop()
 
         assert runez.read_json("sample.json", default=None, logger=None) is None
@@ -149,11 +149,11 @@ def test_json(temp_folder, monkeypatch):
         with monkeypatch.context() as m:
             runez.conftest.patch_raise(m, io, "open")
             with pytest.raises(runez.system.AbortException):
-                runez.read_json("sample.json")
+                runez.read_json("sample.json", logger=logging.debug)
             assert "Can't read sample.json" in logged.pop()
 
             assert runez.read_json("sample.json", default=None) is None
-            assert "Can't read" in logged
+            assert not logged
 
 
 def test_meta(logged):
@@ -299,7 +299,7 @@ def test_serialization(logged):
     obj3 = SomeSerializable.from_json("", default=lambda: {"sub": {"identifier": "some-id"}})
     assert obj == obj2
     assert obj == obj3
-    assert "No file" in logged.pop()
+    assert not logged
 
     obj.some_int = 5
     obj.reset()

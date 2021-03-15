@@ -7,6 +7,8 @@ History
 
 * Use fewer globals in ``PythonDepot``
 
+* Better formalized what is logged by ``read_json()`` and ``readlines()``
+
 
 2.5.0 (2021-03-11)
 ------------------

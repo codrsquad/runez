@@ -135,7 +135,7 @@ def test_failure(monkeypatch):
         assert "bad unlink" in logged.pop()
 
         with pytest.raises(runez.system.AbortException):
-            runez.file.ini_to_dict("bar")
+            runez.file.ini_to_dict("bar", logger=logging.debug)
         assert "Can't read ini file" in logged.pop()
 
         assert runez.write("bar", "some content", fatal=False)

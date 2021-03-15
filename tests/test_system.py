@@ -42,7 +42,7 @@ def test_abort(logged, monkeypatch):
 
     monkeypatch.setattr(runez.system.logging.root, "handlers", [])
     assert "stderr: oops" in verify_abort(failed_function, "oops")  # logger is UNSET -> log failure
-    assert "oops" not in verify_abort(failed_function, "oops", logger=None)  # logger is None -> don't log failure
+    assert "oops" in verify_abort(failed_function, "oops", logger=None)  # Message is part of raised exception
 
     # Verify experimental passing of exception via 'fatal' works
     assert "stderr: oops" in verify_abort(failed_function, "oops", fatal=SystemExit, logger=None)  # log failure anyway due to sys.exit()

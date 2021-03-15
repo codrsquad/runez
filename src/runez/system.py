@@ -97,11 +97,14 @@ def abort(message, code=1, exc_info=None, return_value=None, fatal=True, logger=
 
     if fatal:
         exception = _R.abort_exception(override=fatal)
-        if exception is not None:
-            if logger is None and exception is SystemExit:
+        if exception is SystemExit:
+            if logger is None:
                 _show_abort_message(message, exc_info, fatal, logger)  # Must show message if we're about to raise SystemExit
 
-            _raise(exception, code)  # Raise from dedicated function to reduce stack trace shown in tests
+            raise SystemExit(code)
+
+        if isinstance(exception, type) and issubclass(exception, BaseException):
+            raise exception(message)
 
     return return_value
 
@@ -509,9 +512,6 @@ class AbortException(Exception):
     >>> import runez
     >>> runez.system.AbortException = SystemExit
     """
-
-    def __init__(self, code):
-        self.code = code
 
 
 class AdaptedProperty(object):
@@ -1615,11 +1615,6 @@ def _prettified(value):
 
     if callable(value):
         return "function '%s'" % value.__name__
-
-
-def _raise(exception, code):
-    if isinstance(exception, type) and issubclass(exception, BaseException):
-        raise exception(code)
 
 
 def _show_abort_message(message, exc_info, fatal, logger):
