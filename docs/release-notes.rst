@@ -9,6 +9,8 @@ History
 
 * Better formalized what is logged by ``read_json()`` and ``readlines()``
 
+* Use ``trace()`` when given ``logger=None``
+
 
 2.5.0 (2021-03-11)
 ------------------

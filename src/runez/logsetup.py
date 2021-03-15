@@ -674,6 +674,7 @@ class LogManager(object):
     tracer = None  # type: Optional[TraceHandler]
     used_formats = None  # type: Optional[str]
     faulthandler_signum = None  # type: Optional[int]
+    trace_env_var = "TRACE_DEBUG"
 
     _lock = threading.RLock()
     _logging_snapshot = LoggingSnapshot()
@@ -722,7 +723,7 @@ class LogManager(object):
         rotate_count=UNSET,
         timezone=UNSET,
         tmp=UNSET,
-        trace="TRACE_DEBUG",
+        trace=UNSET,
     ):
         """
         Args:
@@ -783,6 +784,13 @@ class LogManager(object):
             root_level = min(flattened([cls.spec.console_level, cls.spec.file_level], keep_empty=None))
             if root_level and root_level != logging.root.level:
                 logging.root.setLevel(root_level)
+
+            if trace is UNSET:
+                if cls.tracer is None:
+                    trace = cls.trace_env_var
+
+            elif isinstance(trace, string_type):
+                cls.trace_env_var = trace
 
             if isinstance(trace, string_type) and "+" in trace:
                 p = trace.partition("+")

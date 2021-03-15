@@ -92,19 +92,21 @@ def abort(message, code=1, exc_info=None, return_value=None, fatal=True, logger=
     if exc_info is not None:
         message = "%s: %s" % (message, exc_info)
 
-    if logger is not None and fatal is not None:
-        _show_abort_message(message, exc_info, fatal, logger)
+    if logger is UNSET or logger is False:
+        logger = LOG.error
 
     if fatal:
         exception = _R.abort_exception(override=fatal)
-        if exception is SystemExit:
-            if logger is None:
-                _show_abort_message(message, exc_info, fatal, logger)  # Must show message if we're about to raise SystemExit
-
+        if exception is SystemExit:  # Ensure message shown if we raise SystemExit
+            _show_abort_message(message, exc_info, LOG.error)
             raise SystemExit(code)
 
         if isinstance(exception, type) and issubclass(exception, BaseException):
+            _show_abort_message(message, exc_info, logger)
             raise exception(message)
+
+    elif fatal is not None:
+        _show_abort_message(message, exc_info, logger)
 
     return return_value
 
@@ -1457,13 +1459,15 @@ class _R:
             dryrun = cls.is_dryrun()
 
         if dryrun:
-            if logger is not None and logger is not False:  # Accept UNSET
-                message = "Would %s" % _actual_message(message)
-                if callable(logger):
-                    logger(message)
+            message = "Would %s" % _actual_message(message)
+            if logger is None or logger is False:
+                cls.trace(message)
 
-                else:
-                    print(message)
+            elif callable(logger):
+                logger(message)
+
+            else:
+                print(message)
 
             return True
 
@@ -1477,15 +1481,14 @@ class _R:
             logger (callable | None): Logger to use, or None to disable log chatter
             message (str | callable): Message to log
         """
-        if logger is None or logger is False:  # Accept UNSET
-            return cls.trace(message)
+        if logger is None or logger is False:
+            return cls.trace(_actual_message(message))
 
-        if not callable(logger):
+        if logger is UNSET:
             logger = cls._runez_module().log.spec.default_logger
 
         if callable(logger):
-            message = _actual_message(message)
-            logger(message)
+            logger(_actual_message(message))
 
     @classmethod
     def is_dryrun(cls):
@@ -1627,13 +1630,13 @@ def _prettified(value):
         return "function '%s'" % value.__name__
 
 
-def _show_abort_message(message, exc_info, fatal, logger):
-    if not fatal and callable(logger):
-        logger(message, exc_info=exc_info)
-        return
-
+def _show_abort_message(message, exc_info, logger):
     if logging.root.handlers:
-        LOG.error(message, exc_info=exc_info)
+        if callable(logger):
+            logger(message, exc_info=exc_info)
+
+        else:
+            _R.hlog(logger, message)
 
     else:
         sys.stderr.write("%s\n" % message)
