@@ -99,7 +99,7 @@ def test_ensure_folder(temp_folder, logged):
 
 
 def test_ini_to_dict(temp_folder, logged):
-    foo = runez.file.ini_to_dict("foo", default={})
+    foo = runez.file.ini_to_dict("foo", default={}, logger=None)
     assert not logged
     assert foo == {}
 
@@ -107,7 +107,7 @@ def test_ini_to_dict(temp_folder, logged):
     runez.write("test.ini", SAMPLE_CONF)
     logged.pop()
 
-    actual = runez.file.ini_to_dict("test.ini", keep_empty=True)
+    actual = runez.file.ini_to_dict("test.ini", logger=None, keep_empty=True)
     assert not logged
     assert actual == expected
 

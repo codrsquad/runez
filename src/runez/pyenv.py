@@ -146,16 +146,18 @@ class PythonDepot(object):
     # Paths to scan in a deferred fashion (as late as possible), in PythonDepot.find_python()
     EXE_NAMES = ("python", "python3", "python2")
 
-    def __init__(self, deferred=None):
+    def __init__(self, deferred=None, use_invoker=True):
         """
         Args:
             deferred (list[str] | None): List locations to examine as late as possible
         """
+        self.order = Origins()
         self.invalid = []  # type: list[PythonInstallation]  # Invalid python installations found
         self.available = []  # type: list[PythonInstallation]  # Available installations (used to find pythons by spec)
         self.deferred = deferred
-        self.order = Origins()
         self._cache = {}  # type: dict[str, PythonInstallation]
+        if use_invoker:
+            self._register(self.invoker)
 
     @cached_property
     def invoker(self):

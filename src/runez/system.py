@@ -1420,11 +1420,12 @@ class _R:
         return cls._runez_module().log.current_test()
 
     @classmethod
-    def hdef(cls, default, message, e=None):
+    def hdef(cls, default, logger, message, e=None):
         """Handle IO default
 
         Args:
             default (Any): The default value to return, if it is not UNSET
+            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
             message (str): Message explaining failure
             e (Exception): Exception, if this comes from a try/except block
 
@@ -1432,11 +1433,12 @@ class _R:
             'default', if it is not UNSET
         """
         if default is UNSET:
-            abort(_actual_message(message), exc_info=e)
+            abort(_actual_message(message), exc_info=e, logger=logger)
 
         if callable(default):
             default = default()
 
+        cls.hlog(logger, message)
         return default
 
     @classmethod

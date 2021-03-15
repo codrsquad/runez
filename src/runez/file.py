@@ -127,20 +127,21 @@ def ensure_folder(path, clean=False, fatal=True, logger=UNSET, dryrun=UNSET):
         return abort("Can't create folder %s" % short(path), exc_info=e, return_value=-1, fatal=fatal, logger=logger)
 
 
-def ini_to_dict(path, default=UNSET, keep_empty=False):
+def ini_to_dict(path, default=UNSET, logger=UNSET, keep_empty=False):
     """Contents of an INI-style config file as a dict of dicts: section -> key -> value
 
     Args:
         path (str | None): Path to file to parse
         default (dict | callable | None): Object to return if conf couldn't be read
+        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
         keep_empty (bool): If True, keep definitions with empty values
 
     Returns:
         (dict): Dict of section -> key -> value
     """
-    lines = readlines(path, default=None)
+    lines = readlines(path, default=None, logger=logger)
     if lines is None:
-        return _R.hdef(default, "Can't read ini file '%s'" % short(path))
+        return _R.hdef(default, logger, "Can't read ini file '%s'" % short(path))
 
     result = {}
     section_key = None
@@ -208,11 +209,12 @@ def parent_folder(path, base=None):
     return path and os.path.dirname(resolved_path(path, base=base))
 
 
-def readlines(path, default=UNSET, first=None, errors=None):
+def readlines(path, default=UNSET, logger=UNSET, first=None, errors=None):
     """
     Args:
         path (str | None): Path to file to read lines from
         default (list | callable | None): Default if file is not present, or it could not be read
+        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
         first (int | None): Return only the 'first' lines when specified
         errors (str | None): Optional string specifying how encoding errors are to be handled
 
@@ -221,7 +223,7 @@ def readlines(path, default=UNSET, first=None, errors=None):
     """
     path = resolved_path(path)
     if not path or not os.path.exists(path):
-        return _R.hdef(default, "No file %s" % short(path))
+        return _R.hdef(default, logger, "No file %s" % short(path))
 
     try:
         result = []
@@ -239,7 +241,7 @@ def readlines(path, default=UNSET, first=None, errors=None):
             return result
 
     except Exception as e:
-        return _R.hdef(default, "Can't read %s" % short(path), e=e)
+        return _R.hdef(default, logger, "Can't read %s" % short(path), e=e)
 
 
 def move(source, destination, fatal=True, logger=UNSET, dryrun=UNSET):

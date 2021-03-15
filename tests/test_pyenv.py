@@ -43,7 +43,7 @@ def check_find_python(depot, spec, expected):
 
 
 def test_depot(temp_folder, monkeypatch):
-    depot = PythonDepot()
+    depot = PythonDepot(use_invoker=False)
     assert not depot.invalid
     assert not depot.available
     assert not depot.deferred
@@ -172,7 +172,7 @@ def mocked_invoker(**sysattrs):
 
 
 def test_invoker():
-    depot = PythonDepot()
+    depot = PythonDepot(use_invoker=False)
     depot.scan_invoker()
     assert not depot.invalid
     assert depot.find_python(None) is depot.invoker

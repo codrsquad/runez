@@ -132,10 +132,10 @@ def test_json(temp_folder, monkeypatch):
             runez.read_json(None)
         assert "No file None" in logged.pop()
 
-        assert runez.read_json("sample.json", default=None) is None
+        assert runez.read_json("sample.json", default=None, logger=None) is None
         assert not logged
 
-        assert runez.read_json("sample.json", default={}) == {}
+        assert runez.read_json("sample.json", default={}, logger=None) == {}
         assert not logged
 
         with monkeypatch.context() as m:
@@ -153,7 +153,7 @@ def test_json(temp_folder, monkeypatch):
             assert "Can't read sample.json" in logged.pop()
 
             assert runez.read_json("sample.json", default=None) is None
-            assert not logged
+            assert "Can't read" in logged
 
 
 def test_meta(logged):
@@ -299,7 +299,7 @@ def test_serialization(logged):
     obj3 = SomeSerializable.from_json("", default=lambda: {"sub": {"identifier": "some-id"}})
     assert obj == obj2
     assert obj == obj3
-    assert not logged
+    assert "No file" in logged.pop()
 
     obj.some_int = 5
     obj.reset()
@@ -311,7 +311,6 @@ def test_serialization(logged):
 
     if not runez.WINDOWS:
         obj3 = SomeSerializable.from_json("/dev/null/not-there", default=None)
-        assert not logged
         assert obj == obj3
 
     obj.sub = obj2.sub

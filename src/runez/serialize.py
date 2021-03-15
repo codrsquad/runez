@@ -627,25 +627,26 @@ class Serializable(object):
         return json_sanitized(raw, stringify=stringify, dt=dt, none=none)
 
 
-def read_json(path, default=UNSET):
+def read_json(path, default=UNSET, logger=UNSET):
     """
     Args:
         path (str | None): Path to file to deserialize
         default (dict | list | str | callable | None): Default if file is not present, or if it's not json
+        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
 
     Returns:
         (dict | list | str): Deserialized data from file
     """
     path = resolved_path(path)
     if not path or not os.path.exists(path):
-        return _R.hdef(default, "No file %s" % short(path))
+        return _R.hdef(default, logger, "No file %s" % short(path))
 
     try:
         with io.open(path) as fh:
             return json.load(fh)
 
     except Exception as e:
-        return _R.hdef(default, "Can't read %s" % short(path), e=e)
+        return _R.hdef(default, logger, "Can't read %s" % short(path), e=e)
 
 
 def represented_json(data, stringify=stringified, dt=str, none=False, indent=2, sort_keys=True, **kwargs):

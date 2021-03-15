@@ -2,13 +2,14 @@ from runez.serialize import read_json, save_json
 from runez.system import _R, resolved_path, stringified, TERMINAL_INFO, UNSET
 
 
-def ask_once(name, instructions, serializer=stringified, default=UNSET, base="~/.config"):
+def ask_once(name, instructions, serializer=stringified, default=UNSET, logger=UNSET, base="~/.config"):
     """
     Args:
         name (str): Name under which to store provided answer (will be stored in ~/.config/<name>.json)
         instructions (str): Instructions to show to user when prompt is necessary
         serializer (callable): Function that will turn provided value into object to be stored
         default: Default value to return if answer not available
+        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
         base (str): Base folder where to stored provided answer
 
     Returns:
@@ -23,7 +24,7 @@ def ask_once(name, instructions, serializer=stringified, default=UNSET, base="~/
         return existing
 
     if not TERMINAL_INFO.is_stdout_tty:
-        return _R.hdef(default, "Can't prompt for %s, not on a tty" % name)
+        return _R.hdef(default, logger, "Can't prompt for %s, not on a tty" % name)
 
     try:
         provided = interactive_prompt(instructions)
@@ -32,12 +33,12 @@ def ask_once(name, instructions, serializer=stringified, default=UNSET, base="~/
             if value is not None and save_json(value, path, fatal=False) >= 0:
                 return value
 
-            return _R.hdef(default, "Invalid value provided for %s" % name)
+            return _R.hdef(default, logger, "Invalid value provided for %s" % name)
 
-        return _R.hdef(default, "No value provided for %s" % name)
+        return _R.hdef(default, logger, "No value provided for %s" % name)
 
     except KeyboardInterrupt:
-        return _R.hdef(default, "Cancelled by user")
+        return _R.hdef(default, logger, "Cancelled by user")
 
 
 def interactive_prompt(message):
