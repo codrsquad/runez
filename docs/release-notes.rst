@@ -9,7 +9,7 @@ History
 
 * Better formalized what is logged by ``read_json()`` and ``readlines()``
 
-* Use ``trace()`` when given ``logger=None``
+* Respect ``logger=None`` (no log chatter at all), vs ``logger=False`` (fall back to trace)
 
 
 2.5.0 (2021-03-11)

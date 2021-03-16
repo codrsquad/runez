@@ -1459,15 +1459,16 @@ class _R:
             dryrun = cls.is_dryrun()
 
         if dryrun:
-            message = "Would %s" % _actual_message(message)
-            if logger is None or logger is False:
-                cls.trace(message)
+            if logger is not None:
+                message = "Would %s" % _actual_message(message)
+                if logger is False:
+                    cls.trace(message)
 
-            elif callable(logger):
-                logger(message)
+                elif callable(logger):
+                    logger(message)
 
-            else:
-                print(message)
+                else:
+                    print(message)
 
             return True
 
@@ -1481,7 +1482,10 @@ class _R:
             logger (callable | None): Logger to use, or None to disable log chatter
             message (str | callable): Message to log
         """
-        if logger is None or logger is False:
+        if logger is None:
+            return
+
+        if logger is False:
             return cls.trace(_actual_message(message))
 
         if logger is UNSET:

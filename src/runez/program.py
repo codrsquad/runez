@@ -9,7 +9,7 @@ import sys
 import tempfile
 
 from runez.convert import parsed_tabular, to_int
-from runez.system import _R, abort, cached_property, decode, flattened, LOG, quoted, short, UNSET, WINDOWS
+from runez.system import _R, abort, cached_property, decode, flattened, quoted, short, UNSET, WINDOWS
 
 
 DEFAULT_INSTRUCTIONS = {
@@ -274,19 +274,18 @@ def run(program, *args, **kwargs):
                 result.error = "%s failed: %s" % (short(program), e)
 
         if fatal and result.exit_code:
+            message = []
             if logger is not None:
                 # Log full output, unless user explicitly turned it off
-                message = ["Run failed: %s" % description]
+                message.append("Run failed: %s" % description)
                 if result.error:
                     message.append("\nstderr:\n%s" % result.error)
 
                 if result.output:
                     message.append("\nstdout:\n%s" % result.output)
 
-                LOG.error("\n".join(message))
-
-            message = "%s exited with code %s" % (short(program), result.exit_code)
-            abort(message, code=result.exit_code, exc_info=result.exc_info, fatal=fatal, logger=logger)
+            message.append("%s exited with code %s" % (short(program), result.exit_code))
+            abort("\n".join(message), code=result.exit_code, exc_info=result.exc_info, fatal=fatal, logger=logger)
 
         return result
 

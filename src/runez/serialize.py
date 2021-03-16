@@ -703,10 +703,10 @@ def save_json(
 
     try:
         path = resolved_path(path)
-        ensure_folder(parent_folder(path), fatal=fatal, logger=False)
         if _R.hdry(dryrun, logger, "save %s" % short(path)):
             return 1
 
+        ensure_folder(parent_folder(path), fatal=fatal, logger=None)
         data = json_sanitized(data, stringify=stringify, dt=dt, none=none)
         kwargs.setdefault("separators", K_INDENTED_SEPARATORS if indent else K_COMPACT_SEPARATORS)
         with open(path, "wt") as fh:

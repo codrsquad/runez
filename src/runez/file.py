@@ -105,7 +105,7 @@ def ensure_folder(path, clean=False, fatal=True, logger=UNSET, dryrun=UNSET):
 
         cleaned = 0
         for fname in os.listdir(path):
-            cleaned += delete(os.path.join(path, fname), fatal=fatal, logger=False, dryrun=dryrun)
+            cleaned += delete(os.path.join(path, fname), fatal=fatal, logger=None, dryrun=dryrun)
 
         if cleaned:
             msg = "%s from %s" % (plural(cleaned, "file"), short(path))
@@ -356,7 +356,7 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
     if _R.hdry(dryrun, logger, lambda: "%s %s" % ("write %s to" % byte_size if byte_size else "touch", short(path))):
         return 1
 
-    ensure_folder(parent_folder(path), fatal=fatal, logger=False, dryrun=dryrun)
+    ensure_folder(parent_folder(path), fatal=fatal, logger=None, dryrun=dryrun)
     try:
         with io.open(path, "wt") as fh:
             if contents is None:
@@ -438,7 +438,7 @@ def _file_op(source, destination, func, fatal, logger, dryrun, must_exist=True, 
 
     try:
         # Ensure parent folder exists
-        ensure_folder(parent_folder(destination), fatal=fatal, logger=False, dryrun=dryrun)
+        ensure_folder(parent_folder(destination), fatal=fatal, logger=None, dryrun=dryrun)
         _R.hlog(logger, lambda: "%s%s" % (description[0].upper(), description[1:]))
         if ignore is not None:
             if callable(ignore):
