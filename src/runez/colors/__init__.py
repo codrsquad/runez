@@ -159,7 +159,7 @@ class NamedRenderables(Slotted):
 
         colors = {}
         for key in self.__slots__:
-            # Fill all slots, with default (plain) `Renderable` for non-specified ones
+            # Fill all slots, with default (plain) for non-specified ones
             color = color_names.pop(key, None)
             if color is None or cls is None:
                 color = Renderable(key)
@@ -170,7 +170,6 @@ class NamedRenderables(Slotted):
 
             colors[key] = color
 
-        assert not color_names  # Verify no unknown colors were mentioned
         super(NamedRenderables, self).__init__(**colors)
 
 

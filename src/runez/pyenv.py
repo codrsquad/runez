@@ -54,9 +54,6 @@ class OrderedByName(object):
     def __repr__(self):
         return ",".join(str(s) for s in self.effective_order)
 
-    def __contains__(self, item):
-        return item in self.effective_order
-
 
 class Origins(OrderedByName):
     """Allows to sort installations by origin"""
@@ -507,7 +504,6 @@ class PythonInstallation(object):
             equivalents (list[str] | None): Optional equivalent identifiers for this installation
             spec (PythonSpec | None): Associated spec
         """
-        assert origin in depot.order
         self.depot = depot
         self.equivalent = {exe}
         self.executable = exe
