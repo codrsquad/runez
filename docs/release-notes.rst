@@ -2,10 +2,10 @@
 History
 =======
 
-2.5.1 (2021-03-15)
+2.5.1 (2021-03-17)
 ------------------
 
-* Use fewer globals in ``PythonDepot``
+* Don't use globals in ``PythonDepot``
 
 * Better formalized what is logged by ``read_json()`` and ``readlines()``
 

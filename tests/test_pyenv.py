@@ -5,7 +5,7 @@ import pytest
 from mock import patch
 
 import runez
-from runez.pyenv import FAMILIES, InvokerPython, PythonDepot, PythonFromPath, PythonSpec, UnknownPython, Version
+from runez.pyenv import InvokerPython, PythonDepot, PythonFromPath, UnknownPython, Version
 
 
 def mk_python(basename, prefix=None, base_prefix=None, executable=True, content=None, folder=None, version=None):
@@ -61,11 +61,10 @@ def test_depot(temp_folder, monkeypatch):
     assert len(depot.invalid) == 1
     assert len(depot.available) == 3
 
-    depot.register_deferred("$PATH", "no-such-python", "")
-    assert depot.deferred == ["$PATH", "no-such-python"]
-
     monkeypatch.setenv("PATH", "foo/bin:bar")
+    depot.deferred = ["$PATH", "no-such-python", ""]
     scanned = depot.scan_deferred()
+    assert not depot.deferred
     assert len(depot.invalid) == 3
     assert len(depot.available) == 4
     assert len(scanned) == 3
@@ -91,7 +90,7 @@ def test_depot(temp_folder, monkeypatch):
     assert pbar in depot.invalid
     assert str(pbar) == "/bar [not available]"
     assert pbar.problem
-    assert not pbar.satisfies("python")
+    assert not pbar.satisfies(depot.spec_from_text("python"))
     assert len(depot.invalid) == 4
     assert len(depot.available) == 4
 
@@ -111,10 +110,10 @@ def test_depot(temp_folder, monkeypatch):
     assert p3 == p39
     assert p3 != p38
     assert p3 != pbar
-    assert p3.satisfies("python")
-    assert p3.satisfies("python3")
-    assert p3.satisfies("py3.9.0")
-    assert not p3.satisfies("py3.9.1")
+    assert p3.satisfies(depot.spec_from_text("python"))
+    assert p3.satisfies(depot.spec_from_text("python3"))
+    assert p3.satisfies(depot.spec_from_text("py3.9.0"))
+    assert not p3.satisfies(depot.spec_from_text("py3.9.1"))
 
 
 def test_depot_adhoc(temp_folder, monkeypatch):
@@ -133,8 +132,14 @@ def test_depot_adhoc(temp_folder, monkeypatch):
     assert str(p11) == "some-path/bin/python [cpython:11.0.0]"
     assert p11b is not p11
     assert p11b == p11
-    assert p11.satisfies(p11b.executable)
+    assert p11.satisfies(depot.spec_from_text(p11b.executable))
     assert depot.find_python("./some-path/") is p11
+    assert len(depot.invalid) == 0
+    assert depot.available == [depot.invoker, p11]
+
+    # Check caching
+    assert depot.find_python(py_path) is p11
+    assert depot.find_python("some-path/bin/python") is p11
     assert len(depot.invalid) == 0
     assert depot.available == [depot.invoker, p11]
 
@@ -142,7 +147,7 @@ def test_depot_adhoc(temp_folder, monkeypatch):
     mk_python("python2", folder="some-path", version="2.6.0")
     mk_python("python3", folder="some-path", content=["; foo"])
     monkeypatch.setenv("PATH", "some-path/bin")
-    depot.deferred = ["$PATH"]
+    depot.deferred = "$PATH"
     p26 = depot.find_python("2.6")
     assert p26.major == 2
     assert not p26.problem
@@ -193,7 +198,6 @@ def test_invoker():
     assert depot.find_python("py") is depot.invoker
     assert depot.find_python("python") is depot.invoker
     assert depot.find_python(depot.invoker.executable) is depot.invoker
-    assert depot.invoker.spec.given_name == "invoker"
     assert depot.find_python("invoker") is depot.invoker
     assert depot.find_python("%s" % sys.version_info[0]) is depot.invoker
     assert "invoker" in depot.invoker.representation()
@@ -208,124 +212,147 @@ def test_invoker():
     # Linux case with py3
     p = mocked_invoker(depot)
     assert p.executable == "/usr/bin/python3"
-    assert p.spec.version.major == 3
+    assert p.major == 3
 
     # Linux case without py3
     p = mocked_invoker(depot, major=2, real_prefix="/usr/local")
     assert p.executable == "/usr/local/bin/python2"
-    assert p.spec.version.major == 2
+    assert p.major == 2
 
     # Linux case without py3 or py2 (but only /usr/bin/python)
     p = mocked_invoker(depot, major=2, exe_exists=lambda x: "python2" not in x)
     assert p.executable == "/usr/bin/python"
-    assert p.spec.version.major == 2
+    assert p.major == 2
 
     # Use sys.executable when prefix can't be used to determine invoker
     p = mocked_invoker(depot, major=2, base_prefix=None, executable="/foo", exe_exists=False)
     assert p.executable == "/foo"
-    assert p.spec.version.major == 2
+    assert p.major == 2
 
     # OSX py2 case
     p = mocked_invoker(depot, major=2, base_prefix="/System/Library/Frameworks/Python.framework/Versions/2.7")
     assert p.executable == "/usr/bin/python2"
-    assert p.spec.version.major == 2
+    assert p.major == 2
 
     # OSX py3 case
     p = mocked_invoker(depot, base_prefix="/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.7")
     assert p.executable == "/usr/bin/python3"
-    assert p.spec.version.major == 3
+    assert p.major == 3
 
 
-def check_spec(text, canonical, family="cpython"):
-    d = PythonSpec(text)
-    assert d.text == (text.strip() if text else "")
+def test_sorting(temp_folder):
+    mk_python("3.6.1")
+    mk_python("3.7.2")
+    mk_python("3.8.3")
+    mk_python("3.6.0", folder=".pyenv/versions/conda-4.6.1")
+    mk_python("3.9.2", folder=".pyenv/versions/miniconda3-4.3.2")
+    depot = PythonDepot(use_invoker=False, pyenv=".pyenv")
+    assert str(depot.families) == "cpython,pypy,conda"
+    assert len(depot.available) == 5
+    versions = [p.spec.canonical for p in depot.available]
+    assert versions == ["cpython:3.8.3", "cpython:3.7.2", "cpython:3.6.1", "conda:4.6.1", "conda:4.3.2"]
+
+    depot = PythonDepot(use_invoker=False, pyenv=".pyenv", families="conda,cpython")
+    assert str(depot.families) == "conda,cpython,pypy"
+    versions = [p.spec.canonical for p in depot.available]
+    assert versions == ["conda:4.6.1", "conda:4.3.2", "cpython:3.8.3", "cpython:3.7.2", "cpython:3.6.1"]
+
+
+def check_spec(depot, text, canonical):
+    d = depot.spec_from_text(text)
+    assert d.text == text.strip()
     assert str(d) == canonical
-    assert d.family is getattr(FAMILIES, family)
 
 
 def test_spec():
-    p37a = PythonSpec("py37")
-    p37b = PythonSpec("python3.7")
-    p38 = PythonSpec("3.8")
-    p381 = PythonSpec("3.8.1")
+    depot = PythonDepot(use_invoker=False)
+    p37a = depot.spec_from_text("py37")
+    p37b = depot.spec_from_text("python3.7")
+    p38 = depot.spec_from_text("3.8")
+    p381 = depot.spec_from_text("3.8.1")
     assert p37a == p37b
     assert p37a < p38 < p381
     assert p381 > p37b
 
-    c381 = PythonSpec("conda:381")
-    c392 = PythonSpec("conda:3.9.2")
+    c381 = depot.spec_from_text("conda:381")
+    c392 = depot.spec_from_text("conda:3.9.2")
     assert c381 != p381
     assert c381.version == p381.version
     assert c381 < p381
     assert c392 < p381  # because 'family' sorts lower
 
     # Sorting on non-cpython families first, then by version, cpython family sorts highest
-    pp381 = PythonSpec("pypy:3.8.1")
-    pp39 = PythonSpec("pypy:39")
+    pp381 = depot.spec_from_text("pypy:3.8.1")
+    pp39 = depot.spec_from_text("pypy:39")
     assert sorted([p37a, p38, p381, c381, c392, pp381, pp39]) == [c381, c392, pp381, pp39, p37a, p38, p381]
 
-    check_spec(None, "cpython")
-    check_spec("", "cpython")
-    check_spec(" ", "cpython")
-    check_spec("2", "cpython:2")
-    check_spec("3", "cpython:3")
-    check_spec("P3", "cpython:3")
-    check_spec("py3", "cpython:3")
-    check_spec(" pY 3 ", "cpython:3")
-    check_spec("python3", "cpython:3")
-    check_spec(" python  3 ", "cpython:3")
-    check_spec(" p3.7 ", "cpython:3.7")
-    check_spec(" cpython:3.7 ", "cpython:3.7")
+    check_spec(depot, "", "cpython")
+    check_spec(depot, " ", "cpython")
+    check_spec(depot, "2", "cpython:2")
+    check_spec(depot, "3", "cpython:3")
+    check_spec(depot, "P3", "cpython:3")
+    check_spec(depot, "py3", "cpython:3")
+    check_spec(depot, " pY 3 ", "cpython:3")
+    check_spec(depot, "python3", "cpython:3")
+    check_spec(depot, " python  3 ", "cpython:3")
+    check_spec(depot, " p3.7 ", "cpython:3.7")
+    check_spec(depot, " cpython:3.7 ", "cpython:3.7")
 
     # Various convenience notations
-    check_spec("37", "cpython:3.7")
-    check_spec("3.7", "cpython:3.7")
-    check_spec("py37", "cpython:3.7")  # tox.ini style
-    check_spec("py3.7", "cpython:3.7")
-    check_spec("python37", "cpython:3.7")
-    check_spec("python3.7", "cpython:3.7")
+    check_spec(depot, "37", "cpython:3.7")
+    check_spec(depot, "3.7", "cpython:3.7")
+    check_spec(depot, "py37", "cpython:3.7")  # tox.ini style
+    check_spec(depot, "py3.7", "cpython:3.7")
+    check_spec(depot, "python37", "cpython:3.7")
+    check_spec(depot, "python3.7", "cpython:3.7")
 
     # One separator OK
-    check_spec(":37", "cpython:3.7")
-    check_spec("-37", "cpython:3.7")
-    check_spec("py:3.7", "cpython:3.7")
-    check_spec("py-3.7", "cpython:3.7")
+    check_spec(depot, ":37", "cpython:3.7")
+    check_spec(depot, "-37", "cpython:3.7")
+    check_spec(depot, "py:3.7", "cpython:3.7")
+    check_spec(depot, "py-3.7", "cpython:3.7")
 
     # More than one separator not OK
-    check_spec("::37", "?::37")
-    check_spec(":-37", "?:-37")
-    check_spec("--37", "?--37")
-    check_spec("py::3.7", "?py::3.7")
-    check_spec("py:-3.7", "?py:-3.7")
-    check_spec("py--3.7", "?py--3.7")
+    check_spec(depot, "::37", "?::37")
+    check_spec(depot, ":-37", "?:-37")
+    check_spec(depot, "--37", "?--37")
+    check_spec(depot, "py::3.7", "?py::3.7")
+    check_spec(depot, "py:-3.7", "?py:-3.7")
+    check_spec(depot, "py--3.7", "?py--3.7")
 
     # Non-cpython families
-    check_spec("pypy36", "pypy:3.6", "pypy")
-    check_spec("pypy:37", "pypy:3.7", "pypy")
-    check_spec("pypy:3.8", "pypy:3.8", "pypy")
-    check_spec("conda:38", "conda:3.8", "conda")
-    check_spec("conda:3.9.1", "conda:3.9.1", "conda")
-    check_spec("miniconda-3.18.3", "conda:3.18.3", "conda")
-    check_spec("miniconda3-4.7.12", "conda:4.7.12", "conda")
+    check_spec(depot, "pypy36", "pypy:3.6")
+    check_spec(depot, "pypy:37", "pypy:3.7")
+    check_spec(depot, "pypy:3.8", "pypy:3.8")
+    check_spec(depot, "conda:38", "conda:3.8")
+    check_spec(depot, "conda:3.9.1", "conda:3.9.1")
+    check_spec(depot, "miniconda-3.18.3", "conda:3.18.3")
+    check_spec(depot, "miniconda3-4.7.12", "conda:4.7.12")
 
     # Up to 3 version components are valid
-    check_spec("391", "cpython:3.9.1")
-    check_spec("3.9.1", "cpython:3.9.1")
-    check_spec("py391", "cpython:3.9.1")
+    check_spec(depot, "391", "cpython:3.9.1")
+    check_spec(depot, "3.9.1", "cpython:3.9.1")
+    check_spec(depot, "py391", "cpython:3.9.1")
 
     # Invalid marked with starting '?' for canonical form
-    check_spec("cpython:3.7a", "?cpython:3.7a")
-    check_spec("miniconda3--4.7.1", "?miniconda3--4.7.1", "conda")
-    check_spec(" : ", "?:")
-    check_spec(" - ", "?-")
-    check_spec("foo3.7", "?foo3.7")
-    check_spec("3777", "?3777")  # Too many components
-    check_spec("3.7.7.7", "?3.7.7.7")
+    check_spec(depot, "cpython:3.7a", "?cpython:3.7a")
+    check_spec(depot, "miniconda3--4.7.1", "?miniconda3--4.7.1")
+    check_spec(depot, " : ", "?:")
+    check_spec(depot, " - ", "?-")
+    check_spec(depot, "foo3.7", "?foo3.7")
+    check_spec(depot, "3777", "?3777")  # Too many components
+    check_spec(depot, "3.7.7.7", "?3.7.7.7")
 
     # Full path remains as-is
-    check_spec("/foo/python2.7", "/foo/python2.7")
-    check_spec("/foo/python2.7", "/foo/python2.7")
-    check_spec("~/.pyenv/3.8.1", "~/.pyenv/3.8.1")
+    check_spec(depot, "/foo/python2.7", "/foo/python2.7")
+    check_spec(depot, "/foo/python2.7", "/foo/python2.7")
+    check_spec(depot, "~/.pyenv/3.8.1", "~/.pyenv/3.8.1")
+
+
+def import_pv():
+    import runez._pv
+
+    assert runez._pv
 
 
 def test_venv(logged):
@@ -337,13 +364,10 @@ def test_venv(logged):
     assert p.is_venv
     assert not logged
 
-    import runez._pv  # noqa
-
-    assert logged
-    lines = logged.stdout.contents().splitlines()
-    assert lines[0].startswith("%s " % ".".join(str(c) for c in sys.version_info[:3]))
-    assert sys.prefix == lines[1]
-    assert sys.base_prefix == lines[2]
+    # Trigger code coverage for private _pv module
+    with runez.TempArgv(["dump"]):
+        import_pv()
+        assert logged
 
 
 def test_unknown():
@@ -355,10 +379,10 @@ def test_unknown():
     assert p.major is None
     assert p.problem == "not available"
     assert p.spec.canonical == "?foo"
-    assert p.spec.family is FAMILIES.cpython
-    assert p.spec.given_name is None
+    assert p.family is depot.families.default_family
     assert p.spec.text == "foo"
-    assert p.spec.version is None
+    assert p.major is None
+    assert p.version is None
 
 
 def test_version():

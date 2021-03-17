@@ -51,6 +51,9 @@ class OrderedByName(object):
                 setattr(self, name, obj)
                 self.effective_order.append(obj)
 
+    def __repr__(self):
+        return ",".join(str(s) for s in self.effective_order)
+
     def __contains__(self, item):
         return item in self.effective_order
 
@@ -68,18 +71,16 @@ class Families(OrderedByName):
 
     @property
     def default_family(self):
-        return self.effective_order[0]
+        return self.cpython
 
     def guess_family(self, text):
         """Guessed python family from given 'text' (typically path to installation)"""
-        for family in self.effective_order:
-            if family.name in text:
-                return family
+        if text:
+            for family in self.effective_order:
+                if family.name in text:
+                    return family
 
         return self.default_family
-
-
-FAMILIES = Families()
 
 
 class PythonSpec(object):
@@ -88,25 +89,18 @@ class PythonSpec(object):
     Examples: 3, 3.9, py39, conda3.7.1, /usr/bin/python
     """
 
-    canonical = None  # type: str
-    family = None  # type: PrioritizedName
-    given_name = None  # type: str
-    text = None  # type: str
-    version = None  # type: Version
-
-    def __init__(self, text, family_text=None):
+    def __init__(self, text, family):
         """
         Args:
-            text (str | None): Text describing desired python
-            family_text (str | None): Pre-determined python family, if any
+            text (str): Text describing desired python
+            family (PrioritizedName): Corresponding python family
         """
         text = text.strip() if text else ""
-        self.given_name = None
+        self.family = family
         self.text = text
-        self.family = FAMILIES.guess_family(family_text or text)
+        self.version = None
         if text in CPYTHON_NAMES:
-            self.given_name = "python"
-            self.canonical = "%s" % self.family
+            self.canonical = "%s" % family
             return
 
         if os.path.isabs(text) or text.startswith("~") or "/" in text:
@@ -118,16 +112,13 @@ class PythonSpec(object):
         if not m:
             return
 
-        self.given_name = m.group(2).lower()
         components = [s for s in (m.group(4), m.group(5), m.group(6)) if s]
         if len(components) == 1:
             components = [c for c in components[0]]  # Support notation of the form: py37
 
         if components and len(components) <= 3:
             self.version = Version(".".join(components))
-            self.canonical = "%s:%s" % (self.family, self.version.text)
-            if self.given_name in CPYTHON_NAMES:
-                self.given_name = "python"
+            self.canonical = "%s:%s" % (family, self.version.text)
 
     def __repr__(self):
         return short(self.canonical)
@@ -150,16 +141,16 @@ class PythonDepot(object):
         my_depot = PythonDepot()
     """
 
-    # Paths to scan in a deferred fashion (as late as possible), in PythonDepot.find_python()
-    EXE_NAMES = ("python", "python3", "python2")
-
-    def __init__(self, deferred=None, use_invoker=True):
+    def __init__(self, deferred=None, use_invoker=True, pyenv=None, families=None):
         """
         Args:
             deferred (list[str] | None): List locations to examine as late as possible
+            use_invoker (bool): If True, make python we're currently running under ("invoker") part of 'self.available' pythons
+            pyenv (list[str] | str | None): Pyenv-like folder(s) to scan
+            families (str | None): Optional comma separated list of preferred ordering for python families
         """
         self.order = Origins()
-        self.families = Families()
+        self.families = Families(order=families)
         self.invalid = []  # type: list[PythonInstallation]  # Invalid python installations found
         self.available = []  # type: list[PythonInstallation]  # Available installations (used to find pythons by spec)
         self.deferred = deferred
@@ -167,10 +158,26 @@ class PythonDepot(object):
         if use_invoker:
             self._register(self.invoker)
 
+        self.scan_pyenv(pyenv)
+
     @cached_property
     def invoker(self):
         """Python we're currently running under"""
         return InvokerPython(self)
+
+    def spec_from_text(self, text, family=None):
+        """
+        Args:
+            text (str): Given text describing a desired python
+            family (PrioritizedName | str | None): Optional alternative text to examine to guess family
+
+        Returns:
+            (PythonSpec): Object formalizing how that spec is handled internally
+        """
+        if not isinstance(family, PrioritizedName):
+            family = self.families.guess_family(family or text)
+
+        return PythonSpec(text, family)
 
     def find_python(self, spec, fatal=False, logger=UNSET):
         """
@@ -183,10 +190,11 @@ class PythonDepot(object):
             (PythonInstallation): Object representing python installation (may not be usable, see reported .problem)
         """
         if not isinstance(spec, PythonSpec):
-            if spec == self.invoker.spec.given_name:
-                return self.invoker
+            python = self._cache.get(spec)
+            if python:
+                return python
 
-            spec = PythonSpec(spec)
+            spec = self.spec_from_text(spec)
 
         python = self._cache.get(spec.canonical)
         if python:
@@ -244,15 +252,6 @@ class PythonDepot(object):
 
         return python
 
-    def register_deferred(self, *locations):
-        """Add 'paths' to self.deferred, to be examined as late as possible. when/if no python can be found in registered places so far"""
-        if self.deferred is None:
-            self.deferred = []
-
-        for location in locations:
-            if location and location not in self._cache and location not in self.deferred:
-                self.deferred.append(location)
-
     def python_exes_in_folder(self, path):
         """
         Args:
@@ -268,7 +267,7 @@ class PythonDepot(object):
                 if os.path.isdir(bin_folder):
                     path = bin_folder
 
-                for name in self.EXE_NAMES:
+                for name in ("python", "python3", "python2"):
                     candidate = os.path.join(path, name)
                     if is_executable(candidate):
                         yield candidate
@@ -296,6 +295,7 @@ class PythonDepot(object):
             (list[PythonInstallation]): List of found installations via `self.deferred`
         """
         cumulatively_added = []
+        self.deferred = flattened(self.deferred, split=":", keep_empty=None)
         while self.deferred:
             path = self.deferred.pop(0)
             if path:
@@ -347,7 +347,7 @@ class PythonDepot(object):
         """Find pythons from pyenv-style installation folders
 
         Args:
-            path (str | list[str]): Folder(s) to scan
+            path (str | list[str] | None): Folder(s) to scan
             logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
 
         Returns:
@@ -366,9 +366,10 @@ class PythonDepot(object):
                 path = pv
 
             for fname in os.listdir(path):
-                spec = PythonSpec(fname)
+                folder = os.path.join(path, fname)
+                spec = self.spec_from_text(fname, folder)
                 if spec.version:
-                    python = PythonPyenvInstallation(self, self.order.pyenv, os.path.join(path, fname), spec)
+                    python = PythonPyenvInstallation(self, self.order.pyenv, folder, spec)
                     if self._register(python):
                         available.append(python)
 
@@ -513,20 +514,21 @@ class PythonInstallation(object):
     spec = None  # type: PythonSpec # Corresponding spec
     origin = None  # type: PrioritizedName # Where this installation came from (pyenv, invoker, deferred, PATH, ...)
 
-    def __init__(self, depot, origin, exe, equivalents=None):
+    def __init__(self, depot, origin, exe, equivalents=None, spec=None):
         """
         Args:
             depot (PythonDepot): Associated depot
             origin (PrioritizedName): Where this installation came from (pyenv, invoker, deferred, PATH, ...)
             exe (str): Path to executable
             equivalents (list[str] | None): Optional equivalent identifiers for this installation
+            spec (PythonSpec | None): Associated spec
         """
         assert origin in depot.order
         self.depot = depot
         self.equivalent = {exe}
         self.executable = exe
-        self.family = FAMILIES.guess_family(exe)
         self.origin = origin
+        self.spec = spec
         if equivalents:
             self.equivalent.update(equivalents)
 
@@ -547,10 +549,19 @@ class PythonInstallation(object):
             return self.origin < other.origin
 
     @property
+    def family(self):
+        """Python family"""
+        return self.spec and self.spec.family
+
+    @property
     def major(self):
         """Major python version, if any"""
-        if self.spec and self.spec.version:
-            return self.spec.version.major
+        return self.spec and self.spec.version and self.spec.version.major
+
+    @property
+    def version(self):
+        """Python version, if any"""
+        return self.spec and self.spec.version
 
     def representation(self, colored=True, include_origin=True):
         """Colored textual representation of this python installation"""
@@ -577,15 +588,12 @@ class PythonInstallation(object):
     def satisfies(self, spec):
         """
         Args:
-            spec (str | PythonSpec): Spec expressed by user or configuration
+            spec (PythonSpec): Spec expressed by user or configuration
 
         Returns:
             (bool): True if this python installation satisfies it
         """
         if not self.problem:
-            if not isinstance(spec, PythonSpec):
-                spec = PythonSpec(spec)
-
             return spec.canonical in self.equivalent or self.spec.canonical.startswith(spec.canonical)
 
 
@@ -593,12 +601,9 @@ class InvokerPython(PythonInstallation):
     """Python we're currently running under"""
 
     def __init__(self, depot):
-        family_text = getattr(sys, "implementation", None)
-        if family_text:
-            family_text = getattr(family_text, "name", None)
-
-        self.spec = PythonSpec(".".join(str(c) for c in sys.version_info[:3]), family_text=family_text)
-        self.spec.given_name = "invoker"
+        version = sys.version_info[:3]
+        major = version[0]
+        version = ".".join(str(c) for c in version)
         prefix = getattr(sys, "real_prefix", None)  # old py2 case
         if not prefix:
             prefix = getattr(sys, "base_prefix", sys.prefix)
@@ -607,13 +612,19 @@ class InvokerPython(PythonInstallation):
             parent = sys.executable
 
         else:
-            parent = os.path.join(prefix, "bin/python%s" % self.spec.version.major)
+            parent = os.path.join(prefix, "bin/python%s" % major)
             if not is_executable(parent):
                 parent = os.path.join(prefix, "bin/python")
 
+        family_text = getattr(sys, "implementation", None)
+        if family_text:
+            family_text = getattr(family_text, "name", None)
+
         exe = self._simplified_python_path(parent)
-        equivalents = [self.spec.given_name, parent, os.path.realpath(parent)]
-        super(InvokerPython, self).__init__(depot, depot.order.invoker, exe, equivalents=equivalents)
+        equivalents = ["invoker", parent, os.path.realpath(parent)]
+        family = depot.families.guess_family(family_text or exe)
+        spec = depot.spec_from_text(version, family)
+        super(InvokerPython, self).__init__(depot, depot.order.invoker, exe, equivalents=equivalents, spec=spec)
 
     @staticmethod
     def _simplified_python_path(path):
@@ -639,21 +650,18 @@ class PythonPyenvInstallation(PythonInstallation):
     """Models a pyenv-style installation"""
 
     def __init__(self, depot, origin, folder, spec):
-        self.spec = spec
         exes = []
-        for name in PythonDepot.EXE_NAMES:
-            exe = os.path.join(folder, "bin", name)
-            if is_executable(exe):
-                if not exes:
-                    exes.append(os.path.realpath(exe))
+        for path in depot.python_exes_in_folder(folder):
+            if not exes:
+                exes.append(os.path.realpath(path))
 
-                exes.append(exe)
+            exes.append(path)
 
         if not exes:
             exes.append(os.path.join(folder, "bin", "python"))
             self.problem = "invalid pyenv installation"
 
-        super(PythonPyenvInstallation, self).__init__(depot, origin, exes[0], equivalents=exes)
+        super(PythonPyenvInstallation, self).__init__(depot, origin, exes[0], equivalents=exes, spec=spec)
 
 
 class PythonFromPath(PythonInstallation):
@@ -677,8 +685,7 @@ class PythonFromPath(PythonInstallation):
 
             version, self.prefix, self.base_prefix = lines
             self.is_venv = self.prefix != self.base_prefix
-            version, _, family_text = version.partition(" ")
-            self.spec = PythonSpec(version, family_text=family_text)
+            self.spec = depot.spec_from_text(version, exe)
             if not self.spec.version:
                 self.problem = "unknown version"
 
@@ -689,9 +696,8 @@ class PythonFromPath(PythonInstallation):
 class UnknownPython(PythonInstallation):
     """Holds a problematic reference to an unknown python"""
 
-    def __init__(self, depot, origin, spec):
-        super(UnknownPython, self).__init__(depot, origin, spec)
-        self.spec = PythonSpec(spec)
+    def __init__(self, depot, origin, path):
+        super(UnknownPython, self).__init__(depot, origin, path, spec=depot.spec_from_text(path))
         self.problem = "not available"
 
 
