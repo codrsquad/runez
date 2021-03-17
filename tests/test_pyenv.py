@@ -41,7 +41,7 @@ def check_find_python(depot, spec, expected):
 
 
 def test_depot(temp_folder, monkeypatch):
-    depot = PythonDepot(use_invoker=False)
+    depot = PythonDepot(locations=None, use_invoker=False)
     assert not depot.invalid
     assert not depot.available
     assert not depot.deferred
@@ -57,24 +57,16 @@ def test_depot(temp_folder, monkeypatch):
     mk_python("python2", folder="foo")  # Invalid: no version
     mk_python("python3", folder="foo", content=["foo"])  # Invalid: mocked _pv.py does not return the right number of lines
 
-    depot.scan_pyenv(".pyenv:non-existent-folder")
+    monkeypatch.setenv("PATH", "foo/bin:bar")
+    depot = PythonDepot(locations=".pyenv:non-existent-folder:@$PATH", use_invoker=False)
     assert len(depot.invalid) == 1
     assert len(depot.available) == 3
+    assert depot.deferred == ["$PATH"]
+    assert depot.locations == [".pyenv", "non-existent-folder"]
 
-    monkeypatch.setenv("PATH", "foo/bin:bar")
-    depot.deferred = ["$PATH", "no-such-python", ""]
-    scanned = depot.scan_deferred()
-    assert not depot.deferred
-    assert len(depot.invalid) == 3
-    assert len(depot.available) == 4
-    assert len(scanned) == 3
-    assert len([p for p in scanned if not p.problem]) == 1
-
-    scanned = depot.scan_deferred()
-    assert not scanned  # 2nd scan is a no-op
-
-    from_path = depot.scan_path()
-    assert not from_path  # We already scanned $PATH via deferred
+    # Trigger deferred scan
+    p26 = depot.find_python("2.7.1")
+    assert str(p26) == "foo/bin/python [cpython:2.7.1]"
     assert len(depot.invalid) == 3
     assert len(depot.available) == 4
 
@@ -117,7 +109,7 @@ def test_depot(temp_folder, monkeypatch):
 
 
 def test_depot_adhoc(temp_folder, monkeypatch):
-    depot = PythonDepot()
+    depot = PythonDepot(locations=None)
     p11 = depot.find_python("11.0.0")
     assert p11.problem == "not available"
     assert len(depot.invalid) == 0
@@ -126,45 +118,38 @@ def test_depot_adhoc(temp_folder, monkeypatch):
     mk_python("python", folder="some-path", version="11.0.0")
     py_path = os.path.realpath("some-path/bin/python")
     p11 = depot.find_python(py_path)
-    assert p11.origin is depot.order.adhoc
-    assert depot.available == [depot.invoker, p11]
-    p11b = PythonFromPath(depot, depot.order.unknown, py_path)
+    assert depot.find_python("./some-path/") is p11
+    assert depot.find_python("some-path/bin") is p11
     assert str(p11) == "some-path/bin/python [cpython:11.0.0]"
+    assert p11.origin is depot.order.adhoc
+    assert depot.available == [p11, depot.invoker]
+
+    p11b = PythonFromPath(depot, depot.order.unknown, py_path)
     assert p11b is not p11
     assert p11b == p11
-    assert p11.satisfies(depot.spec_from_text(p11b.executable))
-    assert depot.find_python("./some-path/") is p11
-    assert len(depot.invalid) == 0
-    assert depot.available == [depot.invoker, p11]
 
     # Check caching
     assert depot.find_python(py_path) is p11
     assert depot.find_python("some-path/bin/python") is p11
     assert len(depot.invalid) == 0
-    assert depot.available == [depot.invoker, p11]
+    assert depot.available == [p11, depot.invoker]
 
     # Trigger a deferred find, with one valid one invalid installation
     mk_python("python2", folder="some-path", version="2.6.0")
     mk_python("python3", folder="some-path", content=["; foo"])
     monkeypatch.setenv("PATH", "some-path/bin")
-    depot.deferred = "$PATH"
+    depot = PythonDepot(locations="@$PATH")
     p26 = depot.find_python("2.6")
+    p11 = depot.find_python(py_path)  # Looking up p11 second so that it does not get found as "adhoc"
     assert p26.major == 2
     assert not p26.problem
-    assert depot.available == [p11, depot.invoker, p26]  # Sorts first because first found as adhoc
+    assert depot.available == [depot.invoker, p11, p26]  # Sorts 2nd because deferred
     check_find_python(depot, "2.6", "some-path/bin/python2 [cpython:2.6.0]")
-    assert len(depot.invalid) == 1
+    p3bad = depot.find_python("some-path/bin/python3")
+    assert depot.invalid == [p3bad]
 
-    depot.deferred = [py_path]
     assert depot.find_python("11.0.0") is p11
-    assert depot.available == [p11, depot.invoker, p26]
-
-    # Trigger a deferred search
-    depot = PythonDepot()
-    depot.deferred = ["$PATH", py_path]
-    p11 = depot.find_python("11.0")
-    p26 = depot.find_python("2.6")
-    assert depot.available == [depot.invoker, p11, p26]  # Now sorts 2nd due to deferred origin
+    assert depot.available == [depot.invoker, p11, p26]
 
 
 def mocked_invoker(depot, **sysattrs):
@@ -186,11 +171,11 @@ def mocked_invoker(depot, **sysattrs):
 
 
 def test_invoker():
-    depot = PythonDepot(use_invoker=False)
+    depot = PythonDepot(locations=None, use_invoker=False)
     assert not depot.invalid
     assert not depot.available
 
-    depot.scan_invoker()
+    depot = PythonDepot(locations=None, use_invoker=True)
     assert not depot.invalid
     assert depot.available == [depot.invoker]
     assert depot.find_python(None) is depot.invoker
@@ -246,16 +231,11 @@ def test_sorting(temp_folder):
     mk_python("3.8.3")
     mk_python("3.6.0", folder=".pyenv/versions/conda-4.6.1")
     mk_python("3.9.2", folder=".pyenv/versions/miniconda3-4.3.2")
-    depot = PythonDepot(use_invoker=False, pyenv=".pyenv")
+    depot = PythonDepot(locations=".pyenv", use_invoker=False)
     assert str(depot.families) == "cpython,pypy,conda"
     assert len(depot.available) == 5
     versions = [p.spec.canonical for p in depot.available]
     assert versions == ["cpython:3.8.3", "cpython:3.7.2", "cpython:3.6.1", "conda:4.6.1", "conda:4.3.2"]
-
-    depot = PythonDepot(use_invoker=False, pyenv=".pyenv", families="conda,cpython")
-    assert str(depot.families) == "conda,cpython,pypy"
-    versions = [p.spec.canonical for p in depot.available]
-    assert versions == ["conda:4.6.1", "conda:4.3.2", "cpython:3.8.3", "cpython:3.7.2", "cpython:3.6.1"]
 
 
 def check_spec(depot, text, canonical):

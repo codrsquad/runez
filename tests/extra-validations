@@ -19,9 +19,6 @@ API_EXCEPTIONS = {
     "prompt.ask_once": collections.OrderedDict(logger=None),
     "pyenv.find_python": collections.OrderedDict(fatal=False, logger="UNSET"),
     "pyenv.python_from_path": collections.OrderedDict(logger="UNSET"),
-    "pyenv.scan_deferred": collections.OrderedDict(logger="UNSET"),
-    "pyenv.scan_path": collections.OrderedDict(logger="UNSET"),
-    "pyenv.scan_pyenv": collections.OrderedDict(logger="UNSET"),
     "serialize.read_json": collections.OrderedDict(logger=None),
 }
 IO_API_NO_CONTENT = collections.OrderedDict(fatal=True, logger="UNSET", dryrun="UNSET")
@@ -200,7 +197,7 @@ def expected_sig(path, node, sig):
 
 def FunctionDef_problem(path: str, node: ast.FunctionDef):
     """Visitor for ast.FunctionDef nodes"""
-    if node.args.defaults:
+    if node.args.defaults and not node.name.startswith("_"):
         sig = named_arg_defaults(node)
         expected = expected_sig(path, node, sig)
         if expected:

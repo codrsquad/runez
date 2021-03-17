@@ -139,45 +139,40 @@ class PythonDepot(object):
     Scan usual locations to discover python installations
     Example usage:
         my_depot = PythonDepot()
+        p = my_depot.find_python("3.7")
     """
 
-    def __init__(self, deferred=None, use_invoker=True, pyenv=None, families=None):
+    def __init__(self, locations="@$PATH", use_invoker=True):
         """
         Args:
-            deferred (list[str] | None): List locations to examine as late as possible
+            locations (str | list[str] | None): Locations to scan for python installations
             use_invoker (bool): If True, make python we're currently running under ("invoker") part of 'self.available' pythons
-            pyenv (list[str] | str | None): Pyenv-like folder(s) to scan
-            families (str | None): Optional comma separated list of preferred ordering for python families
         """
-        self.order = Origins()
-        self.families = Families(order=families)
-        self.invalid = []  # type: list[PythonInstallation]  # Invalid python installations found
         self.available = []  # type: list[PythonInstallation]  # Available installations (used to find pythons by spec)
-        self.deferred = deferred
+        self.families = Families()
+        self.order = Origins()
         self._cache = {}  # type: dict[str, PythonInstallation]
+        self._deferred_scanned = False
+        self.deferred = []
+        self.invalid = []  # type: list[PythonInstallation]  # Invalid python installations found
+        self.locations = []
+        locations = flattened(locations, split=":", keep_empty=None)
+        for location in locations:
+            if location.startswith("@"):
+                self.deferred.append(location[1:])
+
+            else:
+                self.locations.append(location)
+
         if use_invoker:
             self._register(self.invoker)
 
-        self.scan_pyenv(pyenv)
+        self._scan_locations(self.locations)
 
     @cached_property
     def invoker(self):
         """Python we're currently running under"""
         return InvokerPython(self)
-
-    def spec_from_text(self, text, family=None):
-        """
-        Args:
-            text (str): Given text describing a desired python
-            family (PrioritizedName | str | None): Optional alternative text to examine to guess family
-
-        Returns:
-            (PythonSpec): Object formalizing how that spec is handled internally
-        """
-        if not isinstance(family, PrioritizedName):
-            family = self.families.guess_family(family or text)
-
-        return PythonSpec(text, family)
 
     def find_python(self, spec, fatal=False, logger=UNSET):
         """
@@ -208,8 +203,9 @@ class PythonDepot(object):
             if python.satisfies(spec):
                 return python
 
-        if self.deferred:
-            added = self.scan_deferred(logger=logger)
+        if not self._deferred_scanned:
+            self._deferred_scanned = True
+            added = self._scan_locations(self.deferred, origin=self.order.deferred, logger=logger)
             for python in added:
                 if python.satisfies(spec):
                     return python
@@ -234,7 +230,7 @@ class PythonDepot(object):
             if python:
                 return python
 
-            exe = self.resolved_python_path(path)
+            exe = self.resolved_python_exe(path)
             if not exe:
                 python = UnknownPython(self, origin, path)
                 self._register(python)
@@ -249,8 +245,23 @@ class PythonDepot(object):
         python = PythonFromPath(self, origin, path, equivalents=equivalents)
         if self._register(python):
             _R.hlog(logger, "Found %s python: %s" % (origin, python))
+            self._sort()
 
         return python
+
+    def spec_from_text(self, text, family=None):
+        """
+        Args:
+            text (str): Given text describing a desired python
+            family (PrioritizedName | str | None): Optional alternative text to examine to guess family
+
+        Returns:
+            (PythonSpec): Object formalizing how that spec is handled internally
+        """
+        if not isinstance(family, PrioritizedName):
+            family = self.families.guess_family(family or text)
+
+        return PythonSpec(text, family)
 
     def python_exes_in_folder(self, path):
         """
@@ -275,48 +286,58 @@ class PythonDepot(object):
             elif is_executable(path):
                 yield path
 
-    def resolved_python_path(self, path):
+    def resolved_python_exe(self, path):
         """Find python executable from 'path'
         Args:
             path (str): Path to a bin/python, or a folder containing bin/python
 
         Returns:
-            (str): Path to bin/python
+            (str): Full path to bin/python, if any
         """
         for exe in self.python_exes_in_folder(path):
             return exe
 
-    def scan_deferred(self, logger=UNSET):
-        """Scan remaining 'self.deferred' to find more potential python installations
-        Args:
-            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+    def _sort(self):
+        self.available = sorted(self.available, reverse=True)
 
-        Returns:
-            (list[PythonInstallation]): List of found installations via `self.deferred`
-        """
-        cumulatively_added = []
-        self.deferred = flattened(self.deferred, split=":", keep_empty=None)
-        while self.deferred:
-            path = self.deferred.pop(0)
-            if path:
-                if path.startswith("$"):
-                    added = self.scan_path(env_var=path[1:], origin=self.order.deferred, logger=logger)
-                    cumulatively_added.extend(added)
+    def _scan_locations(self, locations, origin=None, logger=UNSET):
+        added = []
+        for location in locations:
+            if location.startswith("$"):
+                location = location[1:]
+                scanner = self._scan_path_env_var
 
-                elif is_executable(path):
-                    equivalents = [os.path.realpath(path)]
-                    python = self.python_from_path(path, equivalents=equivalents, origin=self.order.deferred, logger=logger)
-                    if python.origin is self.order.deferred:
-                        cumulatively_added.append(python)
+            else:
+                scanner = self._scan_pyenv
 
-        self.sort()
-        return cumulatively_added
+            added.extend(scanner(location, origin=origin, logger=logger))
 
-    def scan_invoker(self):
-        self._register(self.invoker)
-        self.sort()
+        if added:
+            self._sort()
 
-    def scan_path(self, env_var="PATH", origin=None, logger=UNSET):
+        return added
+
+    def _scan_pyenv(self, location, origin=None, logger=UNSET):
+        added = []
+        location = resolved_path(location)
+        if location and os.path.isdir(location):
+            origin = origin or self.order.pyenv
+            pv = os.path.join(location, "versions")
+            if os.path.isdir(pv):
+                location = pv
+
+            for fname in os.listdir(location):
+                folder = os.path.join(location, fname)
+                spec = self.spec_from_text(fname, folder)
+                if spec.version:
+                    python = PythonPyenvInstallation(self, origin, folder, spec)
+                    if self._register(python):
+                        added.append(python)
+
+        _R.hlog(logger, "Found %s pythons in %s" % (len(added), short(location)))
+        return added
+
+    def _scan_path_env_var(self, env_var, origin=None, logger=UNSET):
         """
         Args:
             env_var (str): PATH-like environment variable to examine
@@ -340,45 +361,8 @@ class PythonDepot(object):
             if python.origin is origin:
                 added.append(python)
 
-        self.sort()
+        _R.hlog(logger, "Found %s pythons in $%s" % (len(added), env_var))
         return added
-
-    def scan_pyenv(self, path, logger=UNSET):
-        """Find pythons from pyenv-style installation folders
-
-        Args:
-            path (str | list[str] | None): Folder(s) to scan
-            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
-
-        Returns:
-            (list[PythonInstallation]): List of found installations
-        """
-        available = []
-        paths = flattened(path, split=":", keep_empty=None)
-        for path in paths:
-            path = resolved_path(path)
-            if not path or not os.path.isdir(path):
-                _R.hlog(logger, "Folder '%s' does not exist, ignoring pyenv location" % short(path))
-                continue
-
-            pv = os.path.join(path, "versions")
-            if os.path.isdir(pv):
-                path = pv
-
-            for fname in os.listdir(path):
-                folder = os.path.join(path, fname)
-                spec = self.spec_from_text(fname, folder)
-                if spec.version:
-                    python = PythonPyenvInstallation(self, self.order.pyenv, folder, spec)
-                    if self._register(python):
-                        available.append(python)
-
-        self.sort()
-        return available
-
-    def sort(self):
-        """Sort available python installations by family, then version descending"""
-        self.available = sorted(self.available, reverse=True)
 
     def _cached_equivalents(self, python):
         count = 0
