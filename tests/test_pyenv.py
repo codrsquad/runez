@@ -41,9 +41,9 @@ def check_find_python(depot, spec, expected):
 
 
 def test_depot(temp_folder, monkeypatch):
-    depot = PythonDepot(locations=None, use_invoker=False)
+    depot = PythonDepot(pyenv=None, use_invoker=False, use_path=False)
+    depot.rescan(scan_path=True)
     assert not depot.available
-    assert not depot.env_vars
     assert not depot.invalid
 
     # Create some pyenv-style python installation mocks
@@ -58,16 +58,14 @@ def test_depot(temp_folder, monkeypatch):
     mk_python("python3", folder="foo", content=["foo"])  # Invalid: mocked _pv.py does not return the right number of lines
 
     monkeypatch.setenv("PATH", "foo/bin:bar")
-    depot = PythonDepot(locations=".pyenv:non-existent-folder:$PATH", use_invoker=False)
-    assert depot.env_vars == ["PATH"]
-    assert depot.locations == [".pyenv", "non-existent-folder"]
+    depot = PythonDepot(pyenv=".pyenv:non-existent-folder", use_invoker=False)
     assert len(depot.invalid) == 1
     assert len(depot.available) == 3
-    depot.rescan(include_env_vars=True)  # Scan PATH explicitly
+    depot.rescan(scan_path=True)  # Scan PATH immediately
     assert len(depot.invalid) == 3
     assert len(depot.available) == 4
 
-    depot = PythonDepot(locations=".pyenv:non-existent-folder:$PATH", use_invoker=False)
+    depot = PythonDepot(pyenv=".pyenv:non-existent-folder", use_invoker=False)
     assert len(depot.invalid) == 1
     assert len(depot.available) == 3
     p26 = depot.find_python("2.7.1")  # This triggers an env-var scan because 2.7.1 is only found via $PATH
@@ -114,7 +112,7 @@ def test_depot(temp_folder, monkeypatch):
 
 
 def test_depot_adhoc(temp_folder, monkeypatch):
-    depot = PythonDepot(locations=None)
+    depot = PythonDepot(pyenv=None, use_path=False)
     p11 = depot.find_python("11.0.0")
     assert p11.problem == "not available"
     assert len(depot.invalid) == 0
@@ -126,10 +124,10 @@ def test_depot_adhoc(temp_folder, monkeypatch):
     assert depot.find_python("./some-path/") is p11
     assert depot.find_python("some-path/bin") is p11
     assert str(p11) == "some-path/bin/python [cpython:11.0.0]"
-    assert p11.origin is depot.order.adhoc
+    assert p11.origin is depot.origin.adhoc
     assert depot.available == [p11, depot.invoker]
 
-    p11b = PythonFromPath(depot, depot.order.unknown, py_path)
+    p11b = PythonFromPath(depot, depot.origin.adhoc, py_path)
     assert p11b is not p11
     assert p11b == p11
 
@@ -143,7 +141,7 @@ def test_depot_adhoc(temp_folder, monkeypatch):
     mk_python("python2", folder="some-path", version="2.6.0")
     mk_python("python3", folder="some-path", content=["; foo"])
     monkeypatch.setenv("PATH", "some-path/bin")
-    depot = PythonDepot(locations="$PATH")
+    depot = PythonDepot(pyenv=None, use_path=True)
     p26 = depot.find_python("2.6")
     p11 = depot.find_python(py_path)  # Looking up p11 second so that it does not get found as "adhoc"
     assert p26.major == 2
@@ -163,24 +161,25 @@ def mocked_invoker(depot, **sysattrs):
     sysattrs.setdefault("base_prefix", "/usr")
     sysattrs.setdefault("real_prefix", None)
     sysattrs.setdefault("version_info", (major, 7, 1))
-    with patch("runez.pyenv.sys") as mocked:
-        for k, v in sysattrs.items():
-            setattr(mocked, k, v)
+    with patch("runez.pyenv.os.path.realpath", side_effect=lambda x: x):
+        with patch("runez.pyenv.sys") as mocked:
+            for k, v in sysattrs.items():
+                setattr(mocked, k, v)
 
-        if isinstance(exe_exists, bool):
-            with patch("runez.pyenv.is_executable", return_value=exe_exists):
+            if isinstance(exe_exists, bool):
+                with patch("runez.pyenv.is_executable", return_value=exe_exists):
+                    return InvokerPython(depot)
+
+            with patch("runez.pyenv.is_executable", side_effect=exe_exists):
                 return InvokerPython(depot)
-
-        with patch("runez.pyenv.is_executable", side_effect=exe_exists):
-            return InvokerPython(depot)
 
 
 def test_invoker():
-    depot = PythonDepot(locations=None, use_invoker=False)
+    depot = PythonDepot(pyenv=None, use_invoker=False, use_path=False)
     assert not depot.invalid
     assert not depot.available
 
-    depot = PythonDepot(locations=None, use_invoker=True)
+    depot = PythonDepot(pyenv=None, use_invoker=True, use_path=False)
     assert not depot.invalid
     assert depot.available == [depot.invoker]
     assert depot.find_python(None) is depot.invoker
@@ -241,7 +240,7 @@ def test_sorting(temp_folder):
     mk_python("3.8.3")
     mk_python("3.6.0", folder=".pyenv/versions/conda-4.6.1")
     mk_python("3.9.2", folder=".pyenv/versions/miniconda3-4.3.2")
-    depot = PythonDepot(locations=".pyenv", use_invoker=False)
+    depot = PythonDepot(pyenv=".pyenv", use_invoker=False, use_path=False)
     assert str(depot.families) == "cpython,pypy,conda"
     assert len(depot.available) == 5
     versions = [p.spec.canonical for p in depot.available]
@@ -255,7 +254,7 @@ def check_spec(depot, text, canonical):
 
 
 def test_spec():
-    depot = PythonDepot(locations=None, use_invoker=False)
+    depot = PythonDepot(pyenv=None, use_invoker=False, use_path=False)
     p37a = depot.spec_from_text("py37")
     p37b = depot.spec_from_text("python3.7")
     p38 = depot.spec_from_text("3.8")
@@ -346,9 +345,9 @@ def import_pv():
 
 
 def test_venv(logged):
-    depot = PythonDepot(locations=None, use_invoker=False)
+    depot = PythonDepot(pyenv=None, use_invoker=False, use_path=False)
     import sys
-    p = PythonFromPath(depot, depot.order.adhoc, sys.executable)
+    p = PythonFromPath(depot, depot.origin.adhoc, sys.executable)
     assert p.executable == sys.executable
     assert sys.executable in p.equivalent
     assert p.is_venv
@@ -361,8 +360,8 @@ def test_venv(logged):
 
 
 def test_unknown():
-    depot = PythonDepot(locations=None, use_invoker=False)
-    p = UnknownPython(depot, depot.order.unknown, "foo")
+    depot = PythonDepot(pyenv=None, use_invoker=False, use_path=False)
+    p = UnknownPython(depot, depot.origin.adhoc, "foo")
     assert str(p) == "foo [not available]"
     assert p.executable == "foo"
     assert not p.is_venv
