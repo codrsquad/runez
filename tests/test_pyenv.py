@@ -42,9 +42,9 @@ def check_find_python(depot, spec, expected):
 
 def test_depot(temp_folder, monkeypatch):
     depot = PythonDepot(locations=None, use_invoker=False)
-    assert not depot.invalid
     assert not depot.available
-    assert not depot.deferred
+    assert not depot.env_vars
+    assert not depot.invalid
 
     # Create some pyenv-style python installation mocks
     mk_python("3.6.1")
@@ -58,18 +58,23 @@ def test_depot(temp_folder, monkeypatch):
     mk_python("python3", folder="foo", content=["foo"])  # Invalid: mocked _pv.py does not return the right number of lines
 
     monkeypatch.setenv("PATH", "foo/bin:bar")
-    depot = PythonDepot(locations=".pyenv:non-existent-folder:@$PATH", use_invoker=False)
+    depot = PythonDepot(locations=".pyenv:non-existent-folder:$PATH", use_invoker=False)
+    assert depot.env_vars == ["PATH"]
+    assert depot.locations == [".pyenv", "non-existent-folder"]
     assert len(depot.invalid) == 1
     assert len(depot.available) == 3
-    assert depot.deferred == ["$PATH"]
-    assert depot.locations == [".pyenv", "non-existent-folder"]
-
-    # Trigger deferred scan
-    p26 = depot.find_python("2.7.1")
-    assert str(p26) == "foo/bin/python [cpython:2.7.1]"
+    depot.rescan(include_env_vars=True)  # Scan PATH explicitly
     assert len(depot.invalid) == 3
     assert len(depot.available) == 4
 
+    depot = PythonDepot(locations=".pyenv:non-existent-folder:$PATH", use_invoker=False)
+    assert len(depot.invalid) == 1
+    assert len(depot.available) == 3
+    p26 = depot.find_python("2.7.1")  # This triggers an env-var scan because 2.7.1 is only found via $PATH
+    assert len(depot.invalid) == 3
+    assert len(depot.available) == 4
+
+    assert str(p26) == "foo/bin/python [cpython:2.7.1]"
     check_find_python(depot, "2", "foo/bin/python [cpython:2.7.1]")
     check_find_python(depot, "2.6", "cpython:2.6 [not available]")
     check_find_python(depot, "foo", "?foo [not available]")
@@ -138,7 +143,7 @@ def test_depot_adhoc(temp_folder, monkeypatch):
     mk_python("python2", folder="some-path", version="2.6.0")
     mk_python("python3", folder="some-path", content=["; foo"])
     monkeypatch.setenv("PATH", "some-path/bin")
-    depot = PythonDepot(locations="@$PATH")
+    depot = PythonDepot(locations="$PATH")
     p26 = depot.find_python("2.6")
     p11 = depot.find_python(py_path)  # Looking up p11 second so that it does not get found as "adhoc"
     assert p26.major == 2
@@ -224,6 +229,11 @@ def test_invoker():
     assert p.executable == "/usr/bin/python3"
     assert p.major == 3
 
+    # OSX brew
+    p = mocked_invoker(depot, base_prefix="/usr/local/Cellar/python@3.7/3.7.1_1/Frameworks/Python.framework/Versions/3.7")
+    assert p.executable == "/usr/local/bin/python3"
+    assert p.major == 3
+
 
 def test_sorting(temp_folder):
     mk_python("3.6.1")
@@ -245,7 +255,7 @@ def check_spec(depot, text, canonical):
 
 
 def test_spec():
-    depot = PythonDepot(use_invoker=False)
+    depot = PythonDepot(locations=None, use_invoker=False)
     p37a = depot.spec_from_text("py37")
     p37b = depot.spec_from_text("python3.7")
     p38 = depot.spec_from_text("3.8")
@@ -336,7 +346,7 @@ def import_pv():
 
 
 def test_venv(logged):
-    depot = PythonDepot(use_invoker=False)
+    depot = PythonDepot(locations=None, use_invoker=False)
     import sys
     p = PythonFromPath(depot, depot.order.adhoc, sys.executable)
     assert p.executable == sys.executable
@@ -351,7 +361,7 @@ def test_venv(logged):
 
 
 def test_unknown():
-    depot = PythonDepot(use_invoker=False)
+    depot = PythonDepot(locations=None, use_invoker=False)
     p = UnknownPython(depot, depot.order.unknown, "foo")
     assert str(p) == "foo [not available]"
     assert p.executable == "foo"

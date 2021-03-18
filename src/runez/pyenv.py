@@ -56,9 +56,16 @@ class OrderedByName(object):
 
 
 class Origins(OrderedByName):
-    """Allows to sort installations by origin"""
+    """
+    Scanned python installations are sorted by where they came from, in this default order (highest priority first):
+    - adhoc: python installations that were explicitly given by user, via full path to python exe
+    - pyenv: pyenv-like installations (very quick to scan)
+    - invoker: the python that we're currently running under
+    - env_var: PATH-like env var (slower to scan), this
+    - unknown: placeholder order for invalid python installations
+    """
 
-    __slots__ = ["adhoc", "pyenv", "invoker", "path", "deferred", "unknown"]
+    __slots__ = ["adhoc", "pyenv", "invoker", "env_var", "unknown"]
 
 
 class Families(OrderedByName):
@@ -133,38 +140,61 @@ class PythonSpec(object):
 
 class PythonDepot(object):
     """
-    Scan usual locations to discover python installations
+    Scan usual locations to discover python installations.
+    2 types of location are scanned:
+    - pyenv-like folders (very quick scan, scanned immediately)
+    - PATH-like env vars (slower scan, scanned as late as possible)
+    - 'locations' is accepted as a ':'-separated string, to make configuration easier
+
     Example usage:
-        my_depot = PythonDepot()
+        my_depot = PythonDepot(locations="~/.pyenv:$PATH")
         p = my_depot.find_python("3.7")
     """
 
-    def __init__(self, locations="@$PATH", use_invoker=True):
+    available = None  # type: list[PythonInstallation]  # Available installations (used to find pythons by spec)
+    invalid = None  # type: list[PythonInstallation]  # Invalid python installations found
+    _cache = None  # type: dict[str, PythonInstallation]
+    _env_vars_scanned = False
+
+    def __init__(self, locations="$PATH", use_invoker=True):
         """
         Args:
             locations (str | list[str] | None): Locations to scan for python installations
             use_invoker (bool): If True, make python we're currently running under ("invoker") part of 'self.available' pythons
         """
-        self.available = []  # type: list[PythonInstallation]  # Available installations (used to find pythons by spec)
+        self.env_vars = []  # type: list[str] # PATH-like env vars to be scanned (as late as possible)
+        self.locations = []  # type: list[str] # pyenv-like folders to scan (immediately)
         self.families = Families()
         self.order = Origins()
-        self._cache = {}  # type: dict[str, PythonInstallation]
-        self._deferred_scanned = False
-        self.deferred = []
-        self.invalid = []  # type: list[PythonInstallation]  # Invalid python installations found
-        self.locations = []
+        self.use_invoker = use_invoker
         locations = flattened(locations, split=":", keep_empty=None)
         for location in locations:
-            if location.startswith("@"):
-                self.deferred.append(location[1:])
+            if location.startswith("$"):
+                self.env_vars.append(location[1:])
 
             else:
                 self.locations.append(location)
 
-        if use_invoker:
+        self.rescan()
+
+    def rescan(self, include_env_vars=False):
+        """Rescan configured locations for python installations
+
+        Args:
+            include_env_vars (bool): If True, scan PATH-like env vars immediately
+        """
+        self.available = []
+        self.invalid = []
+        self._cache = {}
+        self._env_vars_scanned = not self.env_vars
+        self._scan_pyenv()
+        if self.use_invoker:
             self._register(self.invoker)
 
-        self._scan_locations(self.locations)
+        if include_env_vars:
+            self.scan_env_vars()
+
+        self._sort()
 
     @cached_property
     def invoker(self):
@@ -200,15 +230,57 @@ class PythonDepot(object):
             if python.satisfies(spec):
                 return python
 
-        if not self._deferred_scanned:
-            self._deferred_scanned = True
-            added = self._scan_locations(self.deferred, origin=self.order.deferred, logger=logger)
-            for python in added:
+        from_env_var = self.scan_env_vars(logger=logger)
+        if from_env_var:
+            for python in from_env_var:
                 if python.satisfies(spec):
                     return python
 
         python = UnknownPython(self, self.order.unknown, spec.canonical)
         return self._checked_pyinstall(python, fatal)
+
+    def scan_env_vars(self, logger=UNSET):
+        """Ensure env vars locations are scanned
+
+        Args:
+            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+
+        Returns:
+            (list[PythonInstallation] | None): Installations
+        """
+        if self._env_vars_scanned:
+            return None
+
+        self._env_vars_scanned = True
+        added = []
+        real_paths = defaultdict(list)
+        for env_var in self.env_vars:
+            for folder in flattened(os.environ.get(env_var), split=os.pathsep, keep_empty=None):
+                for path in self.python_exes_in_folder(folder):
+                    real_path = os.path.realpath(path)
+                    if real_path not in self._cache:
+                        real_paths[real_path].append(path)
+
+        for real_path, paths in real_paths.items():
+            python = self.python_from_path(real_path, equivalents=paths, origin=self.order.env_var, logger=logger)
+            if python.origin is self.order.env_var:
+                added.append(python)
+
+        _R.hlog(logger, "Found %s pythons in env var $%s" % (len(added), ":$".join(self.env_vars)))
+        return added
+
+    def _cached_equivalents(self, python):
+        count = 0
+        if python.executable not in self._cache:
+            self._cache[python.executable] = python
+            count += 1
+
+        for p in python.equivalent:
+            if p not in self._cache:
+                self._cache[p] = python
+                count += 1
+
+        return count
 
     def python_from_path(self, path, equivalents=None, origin=None, logger=UNSET):
         """
@@ -297,82 +369,23 @@ class PythonDepot(object):
     def _sort(self):
         self.available = sorted(self.available, reverse=True)
 
-    def _scan_locations(self, locations, origin=None, logger=UNSET):
-        added = []
-        for location in locations:
-            if location.startswith("$"):
-                location = location[1:]
-                scanner = self._scan_path_env_var
+    def _scan_pyenv(self, logger=UNSET):
+        for location in self.locations:
+            location = resolved_path(location)
+            if location and os.path.isdir(location):
+                count = 0
+                pv = os.path.join(location, "versions")
+                if os.path.isdir(pv):
+                    location = pv
 
-            else:
-                scanner = self._scan_pyenv
+                for fname in os.listdir(location):
+                    folder = os.path.join(location, fname)
+                    spec = self.spec_from_text(fname, folder)
+                    if spec.version:
+                        python = PythonPyenvInstallation(self, self.order.pyenv, folder, spec)
+                        count += self._register(python)
 
-            added.extend(scanner(location, origin=origin, logger=logger))
-
-        if added:
-            self._sort()
-
-        return added
-
-    def _scan_pyenv(self, location, origin=None, logger=UNSET):
-        added = []
-        location = resolved_path(location)
-        if location and os.path.isdir(location):
-            origin = origin or self.order.pyenv
-            pv = os.path.join(location, "versions")
-            if os.path.isdir(pv):
-                location = pv
-
-            for fname in os.listdir(location):
-                folder = os.path.join(location, fname)
-                spec = self.spec_from_text(fname, folder)
-                if spec.version:
-                    python = PythonPyenvInstallation(self, origin, folder, spec)
-                    if self._register(python):
-                        added.append(python)
-
-        _R.hlog(logger, "Found %s pythons in %s" % (len(added), short(location)))
-        return added
-
-    def _scan_path_env_var(self, env_var, origin=None, logger=UNSET):
-        """
-        Args:
-            env_var (str): PATH-like environment variable to examine
-            origin (OrderedByName | None): Optional origin that triggered the scan
-            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
-
-        Returns:
-            (list[PythonInstallation]): List of found installations
-        """
-        added = []
-        origin = origin or self.order.path
-        real_paths = defaultdict(list)
-        for folder in flattened(os.environ.get(env_var), split=os.pathsep, keep_empty=None):
-            for path in self.python_exes_in_folder(folder):
-                real_path = os.path.realpath(path)
-                if real_path not in self._cache:
-                    real_paths[real_path].append(path)
-
-        for real_path, paths in real_paths.items():
-            python = self.python_from_path(real_path, equivalents=paths, origin=origin, logger=logger)
-            if python.origin is origin:
-                added.append(python)
-
-        _R.hlog(logger, "Found %s pythons in $%s" % (len(added), env_var))
-        return added
-
-    def _cached_equivalents(self, python):
-        count = 0
-        if python.executable not in self._cache:
-            self._cache[python.executable] = python
-            count += 1
-
-        for p in python.equivalent:
-            if p not in self._cache:
-                self._cache[p] = python
-                count += 1
-
-        return count
+                _R.hlog(logger, "Found %s pythons in %s" % (count, short(location)))
 
     def _register(self, python):
         """
@@ -380,17 +393,16 @@ class PythonDepot(object):
             python (PythonInstallation): Python installation to register
 
         Returns:
-            (int): >0 if registered (not registered if already known, or invalid)
+            (int): 1 if registered (0 if python was invalid, or already known)
         """
-        count = self._cached_equivalents(python)
-        if count:
-            if python.problem:
-                self.invalid.append(python)
-                return 0
+        if self._cached_equivalents(python):
+            if not python.problem:
+                self.available.append(python)
+                return 1
 
-            self.available.append(python)
+            self.invalid.append(python)
 
-        return count
+        return 0
 
     @staticmethod
     def _checked_pyinstall(python, fatal):
@@ -493,13 +505,13 @@ class PythonInstallation(object):
     is_venv = None  # type: bool # Is this python installation a venv?
     problem = None  # type: str # String describing a problem with this installation, if there is one
     spec = None  # type: PythonSpec # Corresponding spec
-    origin = None  # type: PrioritizedName # Where this installation came from (pyenv, invoker, deferred, PATH, ...)
+    origin = None  # type: PrioritizedName # Where this installation came from (pyenv, invoker, PATH, ...)
 
     def __init__(self, depot, origin, exe, equivalents=None, spec=None):
         """
         Args:
             depot (PythonDepot): Associated depot
-            origin (PrioritizedName): Where this installation came from (pyenv, invoker, deferred, PATH, ...)
+            origin (PrioritizedName): Where this installation came from (pyenv, invoker, PATH, ...)
             exe (str): Path to executable
             equivalents (list[str] | None): Optional equivalent identifiers for this installation
             spec (PythonSpec | None): Associated spec
