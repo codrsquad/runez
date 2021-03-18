@@ -150,7 +150,10 @@ class PythonSpec(object):
     def __lt__(self, other):
         if isinstance(other, PythonSpec):
             if self.family == other.family:
-                return self.version and other.version and self.version < other.version
+                if self.version:
+                    return other.version and self.version < other.version
+
+                return other.version or self.canonical < other.canonical
 
             return self.family < other.family
 
@@ -224,13 +227,13 @@ class PythonDepot(object):
         if not isinstance(spec, PythonSpec):
             python = self._cache.get(spec)
             if python:
-                return python
+                return self._checked_pyinstall(python, fatal)
 
             spec = self.spec_from_text(spec)
 
         python = self._cache.get(spec.canonical)
         if python:
-            return python
+            return self._checked_pyinstall(python, fatal)
 
         if spec.canonical and os.path.isabs(spec.canonical):
             python = self.python_from_path(spec.canonical, logger=logger)  # Absolute path: look it up and remember it
@@ -280,7 +283,7 @@ class PythonDepot(object):
         if sort and found:
             self._sort()
 
-        return found
+        return sorted(found, reverse=True)
 
     def _cached_equivalents(self, python):
         count = 0
@@ -487,7 +490,7 @@ class Version(object):
                 if self.prerelease:
                     return other.prerelease and self.prerelease < other.prerelease
 
-                return bool(other.prerelease)
+                return other.prerelease
 
             return self.components < other.components
 
@@ -553,7 +556,10 @@ class PythonInstallation(object):
     def __lt__(self, other):
         if isinstance(other, PythonInstallation):
             if self.origin == other.origin:
-                return self.spec < other.spec
+                if self.spec:
+                    return other.spec and self.spec < other.spec
+
+                return other.spec
 
             return self.origin < other.origin
 
