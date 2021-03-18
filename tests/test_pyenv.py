@@ -98,7 +98,7 @@ def test_depot(temp_folder, monkeypatch):
     p39 = depot.find_python("3.9")
     assert p3.major == 3
     assert p38.major == 3
-    assert str(p3) == ".pyenv/versions/3.9.0/bin/python [cpython:3.9.0]"
+    assert str(p3) == ".pyenv/versions/3.9.0 [cpython:3.9.0]"
     assert str(p38) == "cpython:3.8 [not available]"
     assert str(p3) == p3.representation(include_origin=False)
     assert p3 is p39
@@ -258,22 +258,29 @@ def test_spec():
     p37a = depot.spec_from_text("py37")
     p37b = depot.spec_from_text("python3.7")
     p38 = depot.spec_from_text("3.8")
-    p381 = depot.spec_from_text("3.8.1")
+    p389 = depot.spec_from_text("3.8.9")
+    p3811 = depot.spec_from_text("3.8.11")
     assert p37a == p37b
-    assert p37a < p38 < p381
-    assert p381 > p37b
+    assert p37a < p38 < p389 < p3811
+    assert p3811 > p389
 
-    c381 = depot.spec_from_text("conda:381")
+    c38 = depot.spec_from_text("conda:38")
     c392 = depot.spec_from_text("conda:3.9.2")
-    assert c381 != p381
-    assert c381.version == p381.version
-    assert c381 < p381
-    assert c392 < p381  # because 'family' sorts lower
+    assert c38 != p38
+    assert c38.version == p38.version
+    assert c38 < p38
+    assert c392 < p38  # because 'family' sorts lower
 
     # Sorting on non-cpython families first, then by version, cpython family sorts highest
     pp381 = depot.spec_from_text("pypy:3.8.1")
     pp39 = depot.spec_from_text("pypy:39")
-    assert sorted([p37a, p38, p381, c381, c392, pp381, pp39]) == [c381, c392, pp381, pp39, p37a, p38, p381]
+    assert sorted([p37a, p38, p389, p3811, c38, c392, pp381, pp39]) == [c38, c392, pp381, pp39, p37a, p38, p389, p3811]
+
+    p1 = depot.spec_from_text("python1.0.1")
+    bad1 = depot.spec_from_text("bad1")
+    bad2 = depot.spec_from_text("bad2")
+    assert bad1 < p1  # sorts lower than any version
+    assert bad1 < bad2  # falls back to alphabetical sort
 
     check_spec(depot, "", "cpython")
     check_spec(depot, " ", "cpython")

@@ -578,6 +578,11 @@ class PythonInstallation(object):
         """Python version, if any"""
         return self.spec and self.spec.version
 
+    @property
+    def short_name(self):
+        """Shortened representation of self.executable"""
+        return short(self.executable)
+
     def representation(self, colored=True, include_origin=True):
         """Colored textual representation of this python installation"""
         if colored:
@@ -598,7 +603,7 @@ class PythonInstallation(object):
         if self.is_venv:
             note += orange(" [venv]")
 
-        return "%s %s" % (bold(short(self.executable)), note)
+        return "%s %s" % (bold(self.short_name), note)
 
     def satisfies(self, spec):
         """
@@ -646,6 +651,7 @@ class PythonPyenvInstallation(PythonInstallation):
     """Models a pyenv-style installation"""
 
     def __init__(self, depot, origin, folder, spec):
+        self.folder = folder
         exes = []
         for path in depot.python_exes_in_folder(folder):
             if not exes:
@@ -658,6 +664,10 @@ class PythonPyenvInstallation(PythonInstallation):
             self.problem = "invalid pyenv installation"
 
         super(PythonPyenvInstallation, self).__init__(depot, origin, exes[0], equivalents=exes, spec=spec)
+
+    @property
+    def short_name(self):
+        return short(self.folder)
 
 
 class PythonFromPath(PythonInstallation):
