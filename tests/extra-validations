@@ -18,7 +18,6 @@ API_EXCEPTIONS = {
     "file.readlines": collections.OrderedDict(logger=None),
     "prompt.ask_once": collections.OrderedDict(logger=None),
     "pyenv.find_python": collections.OrderedDict(fatal=False, logger="UNSET"),
-    "pyenv.python_from_path": collections.OrderedDict(logger="UNSET"),
     "pyenv.scan_path_env_var": collections.OrderedDict(logger="UNSET"),
     "serialize.read_json": collections.OrderedDict(logger=None),
 }

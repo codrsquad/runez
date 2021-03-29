@@ -2,6 +2,12 @@
 History
 =======
 
+2.5.2 (2021-03-29)
+------------------
+
+* Use same ``PythonInstallation`` class for all origins
+
+
 2.5.1 (2021-03-18)
 ------------------
 

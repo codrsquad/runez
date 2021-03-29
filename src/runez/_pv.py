@@ -7,4 +7,4 @@ if len(sys.argv) == 2 and sys.argv[1] == "dump":
 
 print(".".join(str(s) for s in sys.version_info[:3]))
 print(sys.prefix)
-print(getattr(sys, "base_prefix", sys.prefix))
+print(getattr(sys, "real_prefix", None) or getattr(sys, "base_prefix", sys.prefix))
