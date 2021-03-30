@@ -1,4 +1,3 @@
-import logging
 import os
 import re
 import sys
@@ -12,7 +11,6 @@ from runez.system import _R, abort, flattened, resolved_path, short, UNSET
 CPYTHON_NAMES = ["python", "", "p", "py", "cpython"]
 R_SPEC = re.compile(r"^\s*((|py?|c?python|(ana|mini)?conda[23]?|pypy)\s*[:-]?)\s*([0-9]*)\.?([0-9]*)\.?([0-9]*)\s*$", re.IGNORECASE)
 R_VERSION = re.compile(r"^((\d+)((\.(\d+))*)((a|b|c|rc)(\d+))?(\.(dev|post|final)\.?(\d+))?).*$")
-LOG = logging.getLogger(__name__)
 
 
 def _is_path(text):
@@ -113,6 +111,10 @@ class PythonSpec(object):
     """
     Holds a canonical reference to a desired python installation
     Examples: 3, 3.9, py39, conda3.7.1, /usr/bin/python
+
+    Scanned pythons have a full spec of the form: 'cpython:3.9.2'
+    Desired pythons are typically partial (like: 'py39', turned into canonical 'cpython:3.9')
+    `PythonDepot` can then search for pythons satisfying the partial specs given
     """
 
     def __init__(self, text, family):
@@ -181,17 +183,17 @@ class PythonDepot(object):
     Scan usual locations to discover python installations.
     2 types of location are scanned:
     - pyenv-like folders (very quick scan, scanned immediately)
-    - PATH-like env vars (slower scan, scanned as late as possible)
-    - 'locations' is accepted as a ':'-separated string, to make configuration easier
+    - PATH env var (slower scan, scanned as late as possible)
 
     Example usage:
-        my_depot = PythonDepot(locations="~/.pyenv:$PATH")
+        my_depot = PythonDepot(pyenv="~/.pyenv")
         p = my_depot.find_python("3.7")
     """
 
     available = None  # type: list[PythonInstallation]  # Available installations (used to find pythons by spec)
-    invalid = None  # type: list[PythonInstallation]  # Invalid python installations found
-    invoker = None  # type: PythonInstallation
+    invalid = None  # type: list[PythonInstallation]  # Invalid python installations found (for introspection)
+    invoker = None  # type: PythonInstallation  # The python installation (parent python, non-venv) that we're currently running under
+    fatal = False  # abort() by default when a python could not be found?
     _cache = None  # type: dict[str, PythonInstallation]
     _path_scanned = False
 
@@ -199,7 +201,7 @@ class PythonDepot(object):
         """
         Args:
             pyenv (str | list[str] | None): pyenv-like installations to scan (multiple possible, ':'-separated)
-            use_path (bool): If True, scan $PATH for python installations as well (this is done "as late as possible")
+            use_path (bool): If True, scan $PATH env var for python installations as well (this is done "as late as possible")
         """
         self.pyenv = pyenv
         self.use_path = use_path
@@ -207,20 +209,13 @@ class PythonDepot(object):
         self.origin = Origins()
         self.rescan()
 
-    def rescan(self, scan_path=False):
-        """Rescan configured locations for python installations
-
-        Args:
-            scan_path (bool): If True, scan PATH env var immediately
-        """
+    def rescan(self):
+        """Rescan configured locations for python installations"""
         self.available = []
         self.invalid = []
         self._cache = {}
         self._path_scanned = not self.use_path
         self._scan_pyenv()
-        if scan_path:
-            self.scan_path_env_var(sort=False)
-
         base_prefix = getattr(sys, "real_prefix", None) or getattr(sys, "base_prefix", sys.prefix)
         self.invoker = self._cache.get(base_prefix) or self._find_invoker(base_prefix)
         self.invoker.is_invoker = True
@@ -250,12 +245,11 @@ class PythonDepot(object):
         self._register(python)
         return python
 
-    def find_python(self, spec, fatal=False, logger=UNSET):
+    def find_python(self, spec, fatal=UNSET):
         """
         Args:
             spec (str | PythonSpec | None): Example: 3.7, py37, pypy3.7, conda3.7, /usr/bin/python
             fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
 
         Returns:
             (PythonInstallation): Object representing python installation (may not be usable, see reported .problem)
@@ -290,7 +284,7 @@ class PythonDepot(object):
             if python.satisfies(spec):
                 return python
 
-        from_path = self.scan_path_env_var(logger=logger)
+        from_path = self.scan_path_env_var()
         if from_path:
             for python in from_path:
                 if python.satisfies(spec):
@@ -300,11 +294,10 @@ class PythonDepot(object):
         self._register(python)
         return self._checked_pyinstall(python, fatal)
 
-    def scan_path_env_var(self, logger=UNSET, sort=True):
+    def scan_path_env_var(self, sort=True):
         """Ensure env vars locations are scanned
 
         Args:
-            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
             sort (bool): Internal, used to minimize number of times self.available gets sorted
 
         Returns:
@@ -327,7 +320,7 @@ class PythonDepot(object):
             if python.origin is self.origin.path:
                 found.append(python)
 
-        _R.hlog(logger, "Found %s pythons in $PATH" % (len(found)))
+        _R.trace("Found %s pythons in $PATH" % (len(found)))
         if sort and found:
             self._sort()
 
@@ -335,7 +328,7 @@ class PythonDepot(object):
 
     def _cached_equivalents(self, python):
         cached = False
-        for p in python.equivalent:
+        for p in python._equivalents:
             if p not in self._cache:
                 self._cache[p] = python
                 cached = True
@@ -434,7 +427,7 @@ class PythonDepot(object):
 
         return python
 
-    def _scan_pyenv(self, logger=UNSET):
+    def _scan_pyenv(self):
         for location in flattened(self.pyenv, split=":", keep_empty=None):
             location = resolved_path(location)
             if location and os.path.isdir(location):
@@ -456,7 +449,7 @@ class PythonDepot(object):
                         python = PythonInstallation(exes[0], origin=self.origin.pyenv, equivalents=exes, spec=spec, problem=problem)
                         count += self._register(python)
 
-                _R.hlog(logger, "Found %s pythons in %s" % (count, short(location)))
+                _R.trace("Found %s pythons in %s" % (count, short(location)))
 
     def _register(self, python):
         """
@@ -475,18 +468,21 @@ class PythonDepot(object):
 
         return 0
 
-    @staticmethod
-    def _checked_pyinstall(python, fatal):
+    def _checked_pyinstall(self, python, fatal):
         """Optionally abort if 'python' installation is not valid"""
-        if fatal and python.problem:
-            abort("Invalid python installation: %s" % python)
+        if python.problem:
+            if fatal is UNSET:
+                fatal = self.fatal
+
+            if fatal:
+                abort("Invalid python installation: %s" % python)
 
         return python
 
 
 class Version(object):
     """
-    Parse versions according to PEP-0440, ordering for non pre-releases is well supported
+    Parse versions according to PEP-440, ordering for non pre-releases is well supported
     Pre-releases are partially supported, no complex combinations (such as ".post.dev") are paid attention to
     """
 
@@ -527,6 +523,13 @@ class Version(object):
 
     @classmethod
     def from_text(cls, text):
+        """
+        Args:
+            text (str | None): Text to be parsed
+
+        Returns:
+            (Version | None): Parsed version, if valid
+        """
         v = cls(text)
         if v.is_valid:
             return v
@@ -555,36 +558,43 @@ class Version(object):
 
     @property
     def is_valid(self):
+        """Is this version valid?"""
         return self.components is not None
 
     @property
     def main(self):
+        """(str): Main part of version (Major.minor.patch)"""
         if self.components:
             return "%s.%s.%s" % (self.major, self.minor, self.patch)
 
     @property
     def major(self):
+        """(int): Major part of version"""
         return self.components and self.components[0]
 
     @property
     def minor(self):
+        """(int): Minor part of version"""
         return self.components and self.components[1]
 
     @property
     def patch(self):
+        """(int): Patch part of version"""
         return self.components and self.components[2]
 
 
 class PythonInstallation(object):
     """Models a specific python installation"""
 
-    equivalent = None  # type: set[str] # Paths that are equivalent to this python installation
     executable = None  # type: str # Full path to python executable
     family = None  # type: PrioritizedName
     is_invoker = False  # Is this the python we're currently running under?
+    short_name = None  # type: str # Used to textually represent this installation
     problem = None  # type: str # String describing a problem with this installation, if there is one
     spec = None  # type: PythonSpec # Corresponding spec
     origin = None  # type: PrioritizedName # Where this installation came from (pyenv, invoker, PATH, ...)
+
+    _equivalents = None  # type: set[str] # Paths that are equivalent to this python installation
 
     def __init__(self, exe, origin=None, equivalents=None, spec=None, problem=None):
         """
@@ -596,24 +606,24 @@ class PythonInstallation(object):
             problem (str | None): Problem with this installation, if any
         """
         self.executable = _simplified_python_path(exe)
-        self.location = self.executable
-        if "pyenv" in self.location:
-            self.location = parent_folder(parent_folder(self.location))
+        self.short_name = self.executable
+        if "pyenv" in self.short_name:
+            self.short_name = parent_folder(parent_folder(self.short_name))
 
         self.origin = origin
         self.spec = spec
         self.problem = problem
-        self.equivalent = {exe}
+        self._equivalents = {exe}
         if not problem:
-            self.equivalent.add(os.path.realpath(exe))
+            self._equivalents.add(os.path.realpath(exe))
 
         if self.executable != exe:
-            self.equivalent.add(self.executable)
+            self._equivalents.add(self.executable)
             if not problem:
-                self.equivalent.add(os.path.realpath(self.executable))
+                self._equivalents.add(os.path.realpath(self.executable))
 
         if equivalents:
-            self.equivalent.update(equivalents)
+            self._equivalents.update(equivalents)
 
     def __repr__(self):
         return self.representation(colored=False, canonical=True, origin=False)
@@ -636,38 +646,38 @@ class PythonInstallation(object):
 
     @property
     def family(self):
-        """Python family"""
+        """(PrioritizedName): Python family"""
         return self.spec and self.spec.family
 
     @property
     def major(self):
-        """Major python version, if any"""
+        """(int | None): Major python version, if any"""
         return self.spec and self.spec.version and self.spec.version.major
 
     @property
     def version(self):
-        """Python version, if any"""
+        """(Version | None): Python version, if any"""
         return self.spec and self.spec.version
 
     def representation(self, colored=True, canonical=True, origin=True):
-        """Colored textual representation of this python installation"""
-        bold = dim = orange = red = str
+        """(str): Colored textual representation of this python installation"""
+        bold = dim = blue = green = red = str
         if colored:
             rm = _R._runez_module()
-            bold, dim, orange, red = rm.bold, rm.dim, rm.orange, rm.red
+            bold, dim, blue, green, red = rm.bold, rm.dim, rm.blue, rm.green, rm.red
 
         note = []
         if canonical:
-            note.append(red(self.problem) if self.problem else dim(self.spec.canonical))
+            note.append(red(self.problem) if self.problem else self.spec.canonical)
 
         if origin:
-            note.append(orange(dim(self.origin)))
+            note.append(blue(self.origin))
             if self.is_invoker:
-                note.append(orange("invoker"))
+                note.append(green("invoker"))
 
-        text = bold(short(self.location))
+        text = bold(short(self.short_name))
         if note:
-            text += " [%s]" % ", ".join(note)
+            text += " [%s]" % ", ".join(dim(s) for s in note)
 
         return text
 
@@ -680,7 +690,7 @@ class PythonInstallation(object):
             (bool): True if this python installation satisfies it
         """
         if not self.problem:
-            return spec.canonical in self.equivalent or self.spec.canonical.startswith(spec.canonical)
+            return self.spec.canonical.startswith(spec.canonical)
 
 
 class _Introspect(object):

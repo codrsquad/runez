@@ -42,7 +42,15 @@ def check_find_python(depot, spec, expected):
 
 def test_empty_depot():
     depot = PythonDepot(pyenv=None, use_path=False)
-    depot.rescan(scan_path=True)
+    assert depot.available == [depot.invoker]
+    assert not depot.invalid
+
+    p = depot.find_python("foo")
+    assert p.problem == "not available"
+    assert depot.available == [depot.invoker]
+    assert len(depot.invalid) == 1
+
+    depot.rescan()
     assert depot.available == [depot.invoker]
     assert not depot.invalid
 
@@ -73,7 +81,8 @@ def test_depot(temp_folder, monkeypatch):
     depot = PythonDepot(pyenv=".pyenv:non-existent-folder")
     assert len(depot.invalid) == 1
     assert len(depot.available) == 4
-    depot.rescan(scan_path=True)  # Scan PATH immediately
+
+    depot.scan_path_env_var()  # Scan PATH immediately
     assert len(depot.invalid) == 3
     assert len(depot.available) == 5
 

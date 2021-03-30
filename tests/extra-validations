@@ -17,8 +17,7 @@ API_EXCEPTIONS = {
     "file.ini_to_dict": collections.OrderedDict(logger=None),
     "file.readlines": collections.OrderedDict(logger=None),
     "prompt.ask_once": collections.OrderedDict(logger=None),
-    "pyenv.find_python": collections.OrderedDict(fatal=False, logger="UNSET"),
-    "pyenv.scan_path_env_var": collections.OrderedDict(logger="UNSET"),
+    "pyenv.find_python": collections.OrderedDict(fatal="UNSET"),
     "serialize.read_json": collections.OrderedDict(logger=None),
 }
 IO_API_NO_CONTENT = collections.OrderedDict(fatal=True, logger="UNSET", dryrun="UNSET")
