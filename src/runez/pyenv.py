@@ -4,6 +4,7 @@ import re
 import sys
 from collections import defaultdict
 
+from runez.file import parent_folder
 from runez.program import is_executable, run
 from runez.system import _R, abort, flattened, resolved_path, short, UNSET
 
@@ -422,7 +423,7 @@ class PythonDepot(object):
                 return python
 
             if not equivalents:
-                equivalents = self.python_exes_in_folder(os.path.dirname(path), major=info.version.major)
+                equivalents = self.python_exes_in_folder(parent_folder(path), major=info.version.major)
 
             path = exe
 
@@ -597,7 +598,7 @@ class PythonInstallation(object):
         self.executable = _simplified_python_path(exe)
         self.location = self.executable
         if "pyenv" in self.location:
-            self.location = os.path.dirname(os.path.dirname(self.location))
+            self.location = parent_folder(parent_folder(self.location))
 
         self.origin = origin
         self.spec = spec
@@ -714,7 +715,6 @@ class _Introspect(object):
     @classmethod
     def get_pv(cls):
         if cls._pv is None:
-            cls._pv = os.path.dirname(os.path.abspath(__file__))
-            cls._pv = os.path.join(cls._pv, "_pv.py")
+            cls._pv = os.path.join(parent_folder(__file__), "_pv.py")
 
         return cls._pv
