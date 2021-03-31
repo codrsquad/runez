@@ -3,6 +3,7 @@ import os
 import subprocess
 
 import pytest
+from mock import patch
 
 import runez
 from runez.conftest import verify_abort
@@ -143,13 +144,6 @@ def test_executable(temp_folder):
         assert "does not exist, can't make it executable" in logged.pop()
 
 
-def check_process_tree(pinfo, max_depth=10):
-    """Verify that process info .parent does not recurse infinitely"""
-    if pinfo:
-        assert max_depth > 0
-        check_process_tree(pinfo.parent, max_depth=max_depth - 1)
-
-
 def test_pids():
     assert not runez.check_pid(None)
     assert not runez.check_pid(0)
@@ -159,11 +153,25 @@ def test_pids():
     assert not runez.check_pid(1)  # No privilege to do this (tests shouldn't run as root)
 
 
-def test_ps(monkeypatch):
-    p = runez.ps_info(os.getpid())
-    check_process_tree(p)
-    info = p.info
+def check_process_tree(pinfo, max_depth=10):
+    """Verify that process info .parent does not recurse infinitely"""
+    if pinfo:
+        assert max_depth > 0
+        check_process_tree(pinfo.parent, max_depth=max_depth - 1)
 
+
+def test_ps():
+    assert runez.PsInfo.from_pid(None) is None
+    assert runez.PsInfo.from_pid(0) is None
+
+    p = runez.PsInfo()
+    check_process_tree(p)
+    assert p == runez.PsInfo(0)
+    assert p == runez.PsInfo("0")
+    assert p == runez.PsInfo(os.getpid())
+    assert p == runez.PsInfo("%s" % os.getpid())
+
+    info = p.info
     assert info["PID"] in str(p)
     assert p.cmd
     assert p.cmd_basename
@@ -173,33 +181,91 @@ def test_ps(monkeypatch):
     parent = p.parent
     assert parent.pid == p.ppid
 
-    # Test edge cases on `cmd_basename` extraction
-    p.cmd = "/dev/null/foo bar baz"
-    del p.cmd_basename
-    assert p.cmd_basename == "/dev/null/foo"  # Fall back to using 1st sequence with space as basename
-
-    with monkeypatch.context() as m:
-        m.setattr(runez.program, "is_executable", lambda x: x == "/dev/null/foo bar")
-        del p.cmd_basename
-        assert p.cmd_basename == "foo bar"
-
+    # Verify that both variants (user name or uid number) for UID work
     uid = p.uid
     userid = p.userid
+    p = runez.PsInfo()
     if runez.to_int(info["UID"]) is None:
-        info["UID"] = uid
+        p.info["UID"] = uid
 
     else:
-        info["UID"] = userid
+        p.info["UID"] = userid
 
-    # Trigger re-computation simulating opposite uid report by `ps`, verify it came back to the same values
-    del p.uid
-    del p.userid
     assert p.uid == uid
     assert p.userid == userid
 
-    # Edge case for __repr__
-    p.info = None
-    assert str(p)
+    # Edge case: verify __eq__ based on pid
+    p.pid = 0
+    assert p != runez.PsInfo(0)
+
+
+def simulated_ps_output(pid, ppid, cmd):
+    template = "UID   PID  PPID CMD\n  0 {pid:>5} {ppid:>5} {cmd}"
+    return RunResult(output=template.format(pid=pid, ppid=ppid, cmd=cmd), code=0)
+
+
+def simulated_tmux(program, *args, **kwargs):
+    if program == "tmux":
+        return RunResult(output="3", code=0)
+
+    if program == "id":
+        if args[0] == "-un":
+            return RunResult(output="root", code=0)
+
+        return RunResult(output="0", code=0)
+
+    assert program == "ps"
+    pid = args[1]
+    if pid == 1:
+        return simulated_ps_output(pid, 0, "/sbin/init")
+
+    if pid == 2:
+        return simulated_ps_output(pid, 1, "tmux new-session ...")
+
+    if pid == 3:
+        return simulated_ps_output(pid, 1, "tmux attach-session ...")
+
+    if pid == -1:
+        return RunResult(code=1)
+
+    return simulated_ps_output(pid, 2, "/dev/null/some-test foo bar")
+
+
+def test_ps_follow():
+    with patch("runez.program.run", side_effect=simulated_tmux):
+        assert runez.PsInfo.from_pid(-1) is None
+        bad_pid = runez.PsInfo(-1)
+        assert str(bad_pid) == "-1 None None"
+        assert bad_pid.cmd is None
+        assert bad_pid.cmd_basename is None
+        assert bad_pid.info is None
+        assert bad_pid.followed_parent is None
+        assert bad_pid.parent is None
+        assert bad_pid.pid == -1
+        assert bad_pid.ppid is None
+        assert bad_pid.uid is None
+        assert bad_pid.userid is None
+        assert bad_pid.parent_list(follow=True) == []
+        assert bad_pid.parent_list(follow=False) == []
+
+        p = runez.PsInfo()
+        assert p.cmd == "/dev/null/some-test foo bar"
+        assert p.cmd_basename == "/dev/null/some-test"  # Falls back to using 1st sequence with space as basename
+        assert p.uid == 0
+        assert p.userid == "root"
+        parents = p.parent_list(follow=False)
+        followed_parents = p.parent_list(follow=True)
+
+        # Verify that parent_list(follow=True) follows parent processes properly
+        assert parents != followed_parents
+        assert parents == [p.parent, p.parent.parent]
+        assert followed_parents == [p.followed_parent, p.followed_parent.parent]
+
+        with patch("runez.program.is_executable", side_effect=lambda x: x == "/dev/null/some-test foo"):
+            # Edge case: verify that `ps` lack of quoting is properly detected
+            p = runez.PsInfo()
+            assert p.cmd == "/dev/null/some-test foo bar"
+            assert p.cmd_basename == "some-test foo"
 
 
 def check_ri(platform, instructions=None):

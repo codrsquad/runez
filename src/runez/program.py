@@ -16,20 +16,9 @@ DEFAULT_INSTRUCTIONS = {
     "darwin": "run: `brew install {program}`",
     "linux": "run: `apt install {program}`",
 }
-
-
-def ps_info(pid):
-    """
-    Args:
-        pid (int): PID of process to get info for
-
-    Returns:
-        (PsInfo | None): Process info, if available
-    """
-    if pid:
-        p = PsInfo(pid)
-        if p.ppid is not None:
-            return p
+PS_FOLLOW = {
+    "tmux": ("tmux", "display-message", "-p", "#{client_pid}"),
+}
 
 
 class PsInfo(object):
@@ -37,33 +26,38 @@ class PsInfo(object):
 
     info = None  # type: dict # Info returned by `ps`
 
-    def __init__(self, pid):
+    def __init__(self, pid=None):
         """
         Args:
-            pid (int): PID of process to get info for
+            pid (int | str): PID of process to get info for (default: current process)
         """
-        self.pid = pid
-        if pid:
-            r = run("ps", "-f", pid, dryrun=False, fatal=False, logger=None)
+        self.pid = to_int(pid) or os.getpid()
+        if self.pid:
+            r = run("ps", "-f", self.pid, dryrun=False, fatal=False, logger=None)
             if r.succeeded:
                 info = parsed_tabular(r.output)
                 if info:
                     self.info = info[0]
 
     def __repr__(self):
-        if self.info is None:
-            return "%s" % self.pid
+        return "%s %s %s" % (self.pid, self.ppid, self.cmd)
 
-        return "%s %s %s" % (self.pid, self.info.get("PPID"), self.info.get("CMD"))
+    def __eq__(self, other):
+        return isinstance(other, PsInfo) and self.pid == other.pid
 
-    @cached_property
-    def parent(self):
+    @classmethod
+    def from_pid(cls, pid):
         """
+        Args:
+            pid (int | None): PID of process to get info for
+
         Returns:
-            (PsInfo | None): Parent process info (if any)
+            (PsInfo | None): Process info, if available
         """
-        if self.ppid:
-            return PsInfo(self.ppid)
+        if pid:
+            p = PsInfo(pid)
+            if p.info is not None:
+                return p
 
     @cached_property
     def cmd(self):
@@ -90,6 +84,32 @@ class PsInfo(object):
                         return os.path.basename(acc)
 
         return cmd
+
+    @cached_property
+    def followed_parent(self):
+        """
+        Returns:
+            (PsInfo | None): Parent process info (if any), special processes like tmux are followed through
+        """
+        if self.parent and self.parent.ppid == 1:
+            follow_command = PS_FOLLOW.get(self.parent.cmd_basename)
+            if follow_command:
+                r = run(*follow_command, dryrun=False, fatal=False, logger=None)
+                if r.succeeded:
+                    p = PsInfo.from_pid(to_int(r.output))
+                    if p:
+                        return p
+
+        return self.parent
+
+    @cached_property
+    def parent(self):
+        """
+        Returns:
+            (PsInfo | None): Parent process info (if any)
+        """
+        if self.ppid:
+            return PsInfo(self.ppid)
 
     @cached_property
     def ppid(self):
@@ -124,6 +144,17 @@ class PsInfo(object):
                 r = run("id", "-un", uid, dryrun=False, fatal=False, logger=None)
                 if r.succeeded:
                     return r.output
+
+    def parent_list(self, follow=True):
+        """
+        Args:
+            follow (bool): If True, try and follow special processes like tmux
+
+        Returns:
+            (list[PsInfo]): List of parent processes
+        """
+        p = self.followed_parent if follow else self.parent
+        return [p] + p.parent_list(follow=follow) if p else []
 
 
 def check_pid(pid):

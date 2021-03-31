@@ -2,6 +2,12 @@
 History
 =======
 
+2.5.5 (2021-03-31)
+------------------
+
+* Export class ``PsInfo`` instead of function ``ps_info``
+
+
 2.5.4 (2021-03-30)
 ------------------
 
