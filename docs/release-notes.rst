@@ -2,8 +2,10 @@
 History
 =======
 
-2.5.3 (2021-03-30)
+2.5.4 (2021-03-30)
 ------------------
+
+* Allow to reorder python installation origins and families
 
 * Use same ``PythonInstallation`` class for all origins
 

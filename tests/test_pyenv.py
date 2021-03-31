@@ -1,19 +1,29 @@
 import os
+import re
 import sys
 
 import pytest
 from mock import patch
 
 import runez
-from runez.pyenv import PythonDepot, Version
+from runez.pyenv import PythonDepot, PythonSpec, Version
+
+
+RE_VERSION = re.compile(r"^(.*)(\d+\.\d+.\d+)$")
 
 
 def mk_python(basename, prefix=None, base_prefix=None, executable=True, content=None, folder=None, version=None):
-    if version is None and basename[0].isdigit():
-        version = basename
+    if version is None:
+        m = RE_VERSION.match(basename)
+        if m:
+            if not folder:
+                folder = os.path.join(".pyenv/versions", basename)
 
-    if folder is None:
-        folder = os.path.join(".pyenv/versions", basename)
+            version = m.group(2)
+            basename = "python"
+
+    if not folder:
+        folder = ".pyenv/versions"
 
     path = runez.resolved_path(folder)
     if not prefix:
@@ -21,9 +31,6 @@ def mk_python(basename, prefix=None, base_prefix=None, executable=True, content=
 
     if not base_prefix:
         base_prefix = prefix
-
-    if basename[0].isdigit():
-        basename = "python"
 
     path = os.path.join(path, "bin", basename)
     if not content:
@@ -71,6 +78,7 @@ def test_depot(temp_folder, monkeypatch):
 
     mk_python("8.8.3", executable=False)
     mk_python("8.9.0")
+    mk_python("miniconda3-4.7.12")
 
     # Create some PATH-style python installation mocks (using version 9 so it sorts higher than pyenv ones)
     mk_python("python", folder="foo", version="9.5.1")
@@ -80,18 +88,18 @@ def test_depot(temp_folder, monkeypatch):
     monkeypatch.setenv("PATH", "foo/bin:bar")
     depot = PythonDepot(pyenv=".pyenv:non-existent-folder")
     assert len(depot.invalid) == 1
-    assert len(depot.available) == 4
+    assert len(depot.available) == 5
 
     depot.scan_path_env_var()  # Scan PATH immediately
     assert len(depot.invalid) == 3
-    assert len(depot.available) == 5
+    assert len(depot.available) == 6
 
     depot = PythonDepot(pyenv=".pyenv")
     assert len(depot.invalid) == 1
-    assert len(depot.available) == 4
+    assert len(depot.available) == 5
     p95 = depot.find_python("9.5.1")  # This triggers an env-var scan because 9.5.1 is only found via $PATH
     assert len(depot.invalid) == 3
-    assert len(depot.available) == 5
+    assert len(depot.available) == 6
 
     assert str(p95) == "foo/bin/python [cpython:9.5.1]"
     check_find_python(depot, "9", "foo/bin/python [cpython:9.5.1]")
@@ -108,23 +116,32 @@ def test_depot(temp_folder, monkeypatch):
     assert pbar.problem
     assert not pbar.satisfies(depot.spec_from_text("python"))
     assert len(depot.invalid) == 7
-    assert len(depot.available) == 5
+    assert len(depot.available) == 6
 
     # Ensure we use cached object for 2nd lookup
     assert pbar is depot.find_python("/bar")
     assert pbar is depot.find_python("/bar")
 
     p8 = depot.find_python("8")
+    p8a = depot.find_python(PythonSpec("8"))
+    assert p8a is p8
     p86 = depot.find_python("8.6")
     p87 = depot.find_python("8.7")
     p88 = depot.find_python("8.8")
     p89 = depot.find_python("8.9")
-    assert depot.available == [p89, p87, p86, p95, depot.invoker]
+    c47 = depot.find_python("conda:4.7")
+    assert depot.find_python(PythonSpec("conda47")) is c47
+    assert depot.available == [p89, p87, p86, c47, p95, depot.invoker]
+
+    depot.families.set_order("conda,cpython")
+    assert depot.available == [c47, p89, p87, p86, p95, depot.invoker]
+
     assert p8.major == 8
     assert p88.major == 8
     assert str(p8) == ".pyenv/versions/8.9.0 [cpython:8.9.0]"
     assert str(p88) == "8.8 [not available]"
     assert str(p8) == p8.representation(origin=False)
+    assert str(c47) == ".pyenv/versions/miniconda3-4.7.12 [conda:4.7.12]"
     assert p8 is p89
     assert p8 == p89
     assert p8 != p88
@@ -133,14 +150,29 @@ def test_depot(temp_folder, monkeypatch):
     assert p8.satisfies(depot.spec_from_text("python8"))
     assert p8.satisfies(depot.spec_from_text("py8.9.0"))
     assert not p8.satisfies(depot.spec_from_text("py8.9.1"))
+    assert c47.satisfies(depot.spec_from_text("conda47"))
 
 
 def test_depot_adhoc(temp_folder, monkeypatch):
     depot = PythonDepot(pyenv=None, use_path=False)
     p11 = depot.find_python("11.0.0")
+    pfoo = depot.find_python("/foo")
     assert p11.problem == "not available"
-    assert len(depot.invalid) == 1
+    assert len(depot.invalid) == 2
     assert depot.available == [depot.invoker]
+
+    # Edge case: check we can still compare incomplete objects (missing spec.version here for 'pfoo')
+    assert pfoo == pfoo
+    assert pfoo < p11
+    assert p11 > pfoo
+    assert not (pfoo > p11)
+    assert not (pfoo < pfoo)
+
+    # Edge case: no family
+    p11.family = None
+    assert p11 < pfoo
+    assert not (p11 > pfoo)
+    assert pfoo > p11
 
     mk_python("python", folder="some-path", version="11.0.0")
     py_path = os.path.realpath("some-path/bin/python")
@@ -154,7 +186,7 @@ def test_depot_adhoc(temp_folder, monkeypatch):
     # Check caching
     assert depot.find_python(py_path) is p11
     assert depot.find_python("some-path/bin/python") is p11
-    assert len(depot.invalid) == 1
+    assert len(depot.invalid) == 2
     assert depot.available == [p11, depot.invoker]
 
     mk_python("python2", folder="some-path", version="2.5.0")
@@ -262,8 +294,8 @@ def test_sorting(temp_folder):
     mk_python("3.6.1")
     mk_python("3.7.2")
     mk_python("3.8.3")
-    mk_python("3.6.0", folder=".pyenv/versions/conda-4.6.1")
-    mk_python("3.9.2", folder=".pyenv/versions/miniconda3-4.3.2")
+    mk_python("conda-4.6.1")
+    mk_python("miniconda3-4.3.2")
     depot = PythonDepot(pyenv=".pyenv", use_path=False)
     assert str(depot.families) == "cpython,pypy,conda"
     assert len(depot.available) == 6
@@ -281,30 +313,14 @@ def test_spec():
     depot = PythonDepot(pyenv=None, use_path=False)
     p37a = depot.spec_from_text("py37")
     p37b = depot.spec_from_text("python3.7")
-    p38 = depot.spec_from_text("3.8")
-    p389 = depot.spec_from_text("3.8.9")
-    p3811 = depot.spec_from_text("3.8.11")
     assert p37a == p37b
-    assert p37a < p38 < p389 < p3811
-    assert p3811 > p389
 
-    c38 = depot.spec_from_text("conda:38")
-    c392 = depot.spec_from_text("conda:3.9.2")
-    assert c38 != p38
-    assert c38.version == p38.version
-    assert c38 < p38
-    assert c392 < p38  # because 'family' sorts lower
-
-    # Sorting on non-cpython families first, then by version, cpython family sorts highest
-    pp381 = depot.spec_from_text("pypy:3.8.1")
-    pp39 = depot.spec_from_text("pypy:39")
-    assert sorted([p37a, p38, p389, p3811, c38, c392, pp381, pp39]) == [c38, c392, pp381, pp39, p37a, p38, p389, p3811]
-
-    p1 = depot.spec_from_text("python1.0.1")
-    bad1 = depot.spec_from_text("bad1")
-    bad2 = depot.spec_from_text("bad2")
-    assert bad1 < p1  # sorts lower than any version
-    assert bad1 < bad2  # falls back to alphabetical sort
+    p38 = depot.spec_from_text("3.8")
+    c38a = depot.spec_from_text("conda:38")
+    c38b = depot.spec_from_text("conda:3.8")
+    assert c38a != p38
+    assert c38a.version == p38.version
+    assert c38a == c38b
 
     check_spec(depot, "", "cpython")
     check_spec(depot, " ", "cpython")
@@ -414,7 +430,6 @@ def test_unknown():
     assert p.major is None
     assert p.problem == "not available"
     assert p.spec.canonical == "?foo"
-    assert p.family is depot.families.default_family
     assert p.spec.text == "foo"
     assert p.major is None
     assert p.version is None

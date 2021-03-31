@@ -58,7 +58,15 @@ class PrioritizedName(object):
 class OrderedByName(object):
     """Allows to order things arbitrarily by name"""
 
-    def __init__(self, order=None, reverse=True, separator=","):
+    def __init__(self, listener=None):
+        count = len(self.__slots__)
+        for i, name in enumerate(self.__slots__):
+            obj = PrioritizedName(name, count - i)
+            setattr(self, name, obj)
+
+        self._listener = listener
+
+    def set_order(self, order=None, reverse=True, separator=","):
         order = flattened(order, split=separator, keep_empty=None)
         for name in self.__slots__:
             if name not in order:
@@ -66,8 +74,10 @@ class OrderedByName(object):
 
         count = len(order)
         for i, name in enumerate(order):
-            obj = PrioritizedName(name, count - i if reverse else i)
-            setattr(self, name, obj)
+            getattr(self, name).priority = count - i if reverse else i
+
+        if self._listener:
+            self._listener()
 
     @property
     def effective_order(self):
@@ -93,18 +103,26 @@ class Families(OrderedByName):
 
     __slots__ = ["cpython", "pypy", "conda"]
 
-    @property
-    def default_family(self):
-        return self.cpython
+    @classmethod
+    def guess_family_name(cls, text):
+        """
+        Args:
+            text (str | None): Text to examine
+
+        Returns:
+            (str): Guessed python family from given 'text' (typically path to installation)
+        """
+        if text:
+            for name in cls.__slots__:
+                if name in text:
+                    return name
+
+        return cls.__slots__[0]
 
     def guess_family(self, text):
         """Guessed python family from given 'text' (typically path to installation)"""
-        if text:
-            for name in self.__slots__:
-                if name in text:
-                    return getattr(self, name)
-
-        return self.default_family
+        name = self.guess_family_name(text)
+        return getattr(self, name)
 
 
 class PythonSpec(object):
@@ -117,18 +135,18 @@ class PythonSpec(object):
     `PythonDepot` can then search for pythons satisfying the partial specs given
     """
 
-    def __init__(self, text, family):
+    def __init__(self, text, family=None):
         """
         Args:
             text (str): Text describing desired python
-            family (PrioritizedName): Corresponding python family
+            family (PrioritizedName | str | None): Corresponding python family (if already known)
         """
         text = text.strip() if text else ""
-        self.family = family
+        self.family = family or Families.guess_family_name(text)
         self.text = text
         self.version = None
         if text in CPYTHON_NAMES:
-            self.canonical = "%s" % family
+            self.canonical = "%s" % self.family
             return
 
         if _is_path(text):
@@ -146,23 +164,13 @@ class PythonSpec(object):
 
         if components and len(components) <= 3:
             self.version = Version(".".join(components))
-            self.canonical = "%s:%s" % (family, self.version)
+            self.canonical = "%s:%s" % (self.family, self.version)
 
     def __repr__(self):
         return short(self.canonical)
 
     def __eq__(self, other):
         return isinstance(other, PythonSpec) and self.canonical == other.canonical
-
-    def __lt__(self, other):
-        if isinstance(other, PythonSpec):
-            if self.family == other.family:
-                if self.version:
-                    return other.version and self.version < other.version
-
-                return other.version or self.canonical < other.canonical
-
-            return self.family < other.family
 
 
 class PyInstallInfo:
@@ -205,8 +213,8 @@ class PythonDepot(object):
         """
         self.pyenv = pyenv
         self.use_path = use_path
-        self.families = Families()
-        self.origin = Origins()
+        self.families = Families(listener=self._sort)
+        self.origin = Origins(listener=self._sort)
         self.rescan()
 
     def rescan(self):
@@ -240,8 +248,8 @@ class PythonDepot(object):
             if python and not python.problem:
                 return python
 
-        spec = self.spec_from_text(info.version.text, exe)
-        python = PythonInstallation(exe, origin=self.origin.path, equivalents=equivalents, spec=spec)
+        spec = self.spec_from_text(info.version.text, family=exe)
+        python = PythonInstallation(exe, self.origin.path, spec, equivalents=equivalents)
         self._register(python)
         return python
 
@@ -269,7 +277,7 @@ class PythonDepot(object):
             # Path reference: look it up and remember it "/"
             exe = self.resolved_python_exe(spec.canonical, major=sys.version_info[0])
             if not exe:
-                python = PythonInstallation(spec.canonical, origin=self.origin.adhoc, problem="not an executable")
+                python = PythonInstallation(spec.canonical, self.origin.adhoc, spec, problem="not an executable")
                 self._register(python)
                 return self._checked_pyinstall(python, fatal)
 
@@ -290,7 +298,7 @@ class PythonDepot(object):
                 if python.satisfies(spec):
                     return python
 
-        python = PythonInstallation(spec.text, origin=self.origin.adhoc, spec=spec, problem="not available")
+        python = PythonInstallation(spec.text, self.origin.adhoc, spec, problem="not available")
         self._register(python)
         return self._checked_pyinstall(python, fatal)
 
@@ -347,7 +355,7 @@ class PythonDepot(object):
         if not isinstance(family, PrioritizedName):
             family = self.families.guess_family(family or text)
 
-        return PythonSpec(text, family)
+        return PythonSpec(text, family=family)
 
     @staticmethod
     def python_exes_in_folder(path, major=None):
@@ -403,7 +411,7 @@ class PythonDepot(object):
         """
         info = _Introspect.scan_exe(path)
         if info.problem:
-            python = PythonInstallation(path, origin=origin, equivalents=equivalents, problem=info.problem)
+            python = PythonInstallation(path, origin, None, equivalents=equivalents, problem=info.problem)
             self._register(python)
             return python
 
@@ -420,7 +428,7 @@ class PythonDepot(object):
 
             path = exe
 
-        python = PythonInstallation(path, origin=origin, equivalents=equivalents, spec=spec)
+        python = PythonInstallation(path, origin, spec, equivalents=equivalents)
         if self._register(python):
             if sort:
                 self._sort()
@@ -446,7 +454,7 @@ class PythonDepot(object):
                             problem = "invalid pyenv installation"
 
                         exes.append(folder)
-                        python = PythonInstallation(exes[0], origin=self.origin.pyenv, equivalents=exes, spec=spec, problem=problem)
+                        python = PythonInstallation(exes[0], self.origin.pyenv, spec, equivalents=exes, problem=problem)
                         count += self._register(python)
 
                 _R.trace("Found %s pythons in %s" % (count, short(location)))
@@ -596,13 +604,13 @@ class PythonInstallation(object):
 
     _equivalents = None  # type: set[str] # Paths that are equivalent to this python installation
 
-    def __init__(self, exe, origin=None, equivalents=None, spec=None, problem=None):
+    def __init__(self, exe, origin, spec, equivalents=None, problem=None):
         """
         Args:
             exe (str): Path to executable
             origin (PrioritizedName): Where this installation came from (pyenv, invoker, PATH, ...)
-            equivalents (list | set | None): Optional equivalent identifiers for this installation
             spec (PythonSpec | None): Associated spec
+            equivalents (list | set | None): Optional equivalent identifiers for this installation
             problem (str | None): Problem with this installation, if any
         """
         self.executable = _simplified_python_path(exe)
@@ -610,6 +618,7 @@ class PythonInstallation(object):
         if "pyenv" in self.short_name:
             self.short_name = parent_folder(parent_folder(self.short_name))
 
+        self.family = spec.family if spec else None
         self.origin = origin
         self.spec = spec
         self.problem = problem
@@ -636,18 +645,19 @@ class PythonInstallation(object):
 
     def __lt__(self, other):
         if isinstance(other, PythonInstallation):
-            if self.origin == other.origin:
-                if self.spec:
-                    return other.spec and self.spec < other.spec
+            if self.origin != other.origin:
+                return self.origin < other.origin
 
-                return other.spec
+            if self.family is None or other.family is None:
+                return other.family
 
-            return self.origin < other.origin
+            if self.family != other.family:
+                return self.family < other.family
 
-    @property
-    def family(self):
-        """(PrioritizedName): Python family"""
-        return self.spec and self.spec.family
+            if self.spec is None or self.spec.version is None or other.spec is None or other.spec.version is None:
+                return other.spec and other.spec.version
+
+            return self.spec.version < other.spec.version
 
     @property
     def major(self):
