@@ -25,8 +25,8 @@ from runez.ascii import AsciiAnimation
 from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone
 from runez.file import basename as get_basename, parent_folder
-from runez.system import _getframe, _R, cached_property, decode, find_caller_frame, flattened, quoted, short, string_type, stringified
-from runez.system import LOG, Slotted, TERMINAL_INFO, ThreadGlobalContext, UNSET, WINDOWS
+from runez.system import _getframe, _R, abort, cached_property, decode, find_caller_frame, flattened, quoted, short, stringified
+from runez.system import LOG, Slotted, string_type, TERMINAL_INFO, ThreadGlobalContext, UNSET, WINDOWS
 
 
 ORIGINAL_CF = logging.currentframe
@@ -666,6 +666,9 @@ class LogManager(object):
     # Progress spinner, with animation (on tty only)
     progress = ProgressSpinner()
 
+    # Shown if user tries to run current program as root (and not allowed in setup() call)
+    disallow_root_message = "{appname} should not be ran as root!"
+
     # Below fields should be read-only for outside users, do not modify these
     debug = False
     console_handler = None  # type: Optional[logging.StreamHandler]
@@ -724,6 +727,7 @@ class LogManager(object):
         timezone=UNSET,
         tmp=UNSET,
         trace=UNSET,
+        allow_root=UNSET,
     ):
         """
         Args:
@@ -749,6 +753,7 @@ class LogManager(object):
             timezone (str | None): Time zone, use None to deactivate time zone logging
             tmp (str | None): Optional temp folder to use (auto determined)
             trace (str | bool): Env var to enable tracing, example: "DEBUG+| " to trace when $DEBUG defined (+ [optional] "| " as prefix)
+            allow_root (bool | None): True allows running as root, None aborts execution if ran as root (default: allowed in docker only)
         """
         with cls._lock:
             cls.set_debug(debug)
@@ -811,6 +816,25 @@ class LogManager(object):
                 cls.clean_handlers()
 
             cls.greet(greetings)
+            if allow_root is UNSET:
+                allow_root = cls.is_running_in_docker()
+
+            if not allow_root and os.geteuid() == 0:
+                message = _formatted_text(cls.disallow_root_message, cls.spec._props(), strict=False)
+                if message.endswith("!"):
+                    bars = "=" * len(message)
+                    message = "\n%s\n%s\n%s\n\n" % (bars, message, bars)
+
+                message = _R._runez_module().red(message)
+                if allow_root is None:
+                    abort(message)
+
+                LOG.warning(message)
+
+    @classmethod
+    def is_running_in_docker(cls):
+        """Are we currently running in a docker container?"""
+        return os.path.exists("/.dockerenv")
 
     @classmethod
     def current_test(cls):

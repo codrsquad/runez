@@ -2,6 +2,12 @@
 History
 =======
 
+2.5.7 (2021-04-01)
+------------------
+
+* Complain if running as root (by default) in ``runez.log.setup()``
+
+
 2.5.6 (2021-04-01)
 ------------------
 

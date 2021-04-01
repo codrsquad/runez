@@ -17,6 +17,36 @@ from runez.logsetup import _find_parent_folder, _formatted_text, formatted, LogS
 LOG = logging.getLogger(__name__)
 
 
+def test_allow_root(temp_log):
+    with patch("runez.logsetup.os.geteuid", return_value=0):
+        with patch("runez.logsetup.LogManager.is_running_in_docker", return_value=True):
+            # Default: don't complain about running as root inside docker
+            runez.log.setup()
+            assert "should not be ran as root" not in temp_log.stderr.pop()
+
+            # Complain if explicitly disallowed
+            runez.log.setup(allow_root=False)
+            assert "should not be ran as root" in temp_log.stderr.pop()
+
+        with patch("runez.logsetup.LogManager.is_running_in_docker", return_value=False):
+            # Default: complain about running as root outside of docker
+            runez.log.setup()
+            assert "====\npytest should not be ran as root" in temp_log.stderr.pop()
+
+            # Abort execution with 'allow_root=None'
+            with pytest.raises(runez.system.AbortException):
+                runez.log.setup(allow_root=None)
+            assert "should not be ran as root" in temp_log.stderr.pop()
+
+            # If message doesn't end with '!', then don't do the multi-line '====...' bar decoration
+            prev = runez.log.disallow_root_message
+            runez.log.disallow_root_message = "no-root-plz"
+            runez.log.setup()
+            assert "====" not in temp_log.stderr
+            assert "no-root-plz" in temp_log.stderr.pop()
+            runez.log.disallow_root_message = prev
+
+
 def test_auto_location_not_writable(temp_log):
     with patch("runez.file.os.access", return_value=False):
         runez.log.setup(

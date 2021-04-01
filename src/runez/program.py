@@ -354,7 +354,7 @@ class PassthroughCapture(object):
 
     @staticmethod
     def handle_output(incoming, outgoing, buffer):
-        """A little inline function to handle the stdout business. """
+        """Pass-through output from `incoming` -> `outgoing`, and capture it in `buffer` as well"""
         try:
             s = incoming.readline()
             while s:
@@ -364,24 +364,24 @@ class PassthroughCapture(object):
                 s = incoming.readline()
 
         except IOError:
-            pass  # Non-blocking readline raises an IOError when empty (with py2)
+            pass  # Non-blocking readline() raises IOError when empty (py2 only)
 
     def communicate(self):
         stdout = self.process.stdout
         stderr = self.process.stderr
         self._mark_non_blocking(stdout)
         self._mark_non_blocking(stderr)
-        bufout = StringIO()
-        buferr = StringIO()
+        buffer_stdout = StringIO()
+        buffer_stderr = StringIO()
         while self.process.poll() is None:
-            self.handle_output(stdout, sys.stdout, bufout)
-            self.handle_output(stderr, sys.stderr, buferr)
+            self.handle_output(stdout, sys.stdout, buffer_stdout)
+            self.handle_output(stderr, sys.stderr, buffer_stderr)
             time.sleep(0.1)
 
         # Ensure no bits left behind
-        self.handle_output(stdout, sys.stdout, bufout)
-        self.handle_output(stderr, sys.stderr, buferr)
-        return bufout.getvalue(), buferr.getvalue()
+        self.handle_output(stdout, sys.stdout, buffer_stdout)
+        self.handle_output(stderr, sys.stderr, buffer_stderr)
+        return buffer_stdout.getvalue(), buffer_stderr.getvalue()
 
 
 class RunAudit(object):
