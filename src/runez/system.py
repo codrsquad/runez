@@ -1166,6 +1166,11 @@ class TerminalInfo(object):
     """Info about current terminal"""
 
     @cached_property
+    def term_program(self):
+        """Info on terminal program being currently used, if any"""
+        return TerminalProgram()
+
+    @cached_property
     def columns(self):
         return self.size[0]
 
@@ -1239,6 +1244,60 @@ class TerminalInfo(object):
                 pass
 
         return cols or default_columns, lines or default_lines
+
+
+class TerminalProgram(object):
+    """Info on terminal program being currently used, if any"""
+
+    name = None  # type: str # Terminal program name
+    extra_info = None  # type: str # Extra info, if available
+
+    def __init__(self, ps=None):
+        for k in ("LC_TERMINAL", "TERM_PROGRAM"):
+            self.name = os.environ.get(k)
+            if self.name:
+                version = os.environ.get(k + "_VERSION")
+                if version:
+                    self.extra_info = "v%s" % version
+
+                return
+
+        ps = ps or _R._runez_module().PsInfo()
+        for p in ps.parent_list(follow=True):
+            self.name = self.known_terminal(p.cmd_basename)
+            if self.name:
+                version = os.environ.get(self.name + "_VERSION")
+                self.extra_info = "v%s" % version if version else p.cmd
+                return
+
+    def __repr__(self):
+        return self.representation(colored=False)
+
+    @staticmethod
+    def known_terminal(text):
+        regex = r"alacritty|(gnome|xfce.?|[eiwxz])?-?term(in(ator|ology|al(\.app|-server)?))?|(g|yak)uake|konsole|rxvt|til(da|ix)"
+        regex = re.compile(r"^(%s)$" % regex, re.IGNORECASE)
+        m = regex.match(text)
+        if m:
+            return m.group(1)
+
+    def representation(self, colored=True, unknown="-unknown-"):
+        """
+        Args:
+            colored (bool): If True, return a colored representation
+            unknown (str): Text to use when terminal program could not be determined
+
+        Returns:
+            (str): Textual representation of what terminal program we're currently running under
+        """
+        dim = _R._runez_module().dim if colored else str
+        if not self.name:
+            return dim(unknown)
+
+        if self.extra_info:
+            return "%s %s" % (self.name, dim("(%s)" % short(self.extra_info)))
+
+        return self.name
 
 
 TERMINAL_INFO = TerminalInfo()

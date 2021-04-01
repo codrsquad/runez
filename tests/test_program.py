@@ -85,7 +85,9 @@ def test_capture(monkeypatch):
         assert r.output == "hello there"
         assert r.full_output == "failed\nhello there"
 
-        assert runez.run("/dev/null", fatal=False) == RunResult(None, "/dev/null is not installed", 1)
+        r = runez.run("/dev/null", fatal=False)
+        assert r.exit_code == 1
+        assert "/dev/null is not installed" in r.error
         assert "/dev/null is not installed" in verify_abort(runez.run, "/dev/null")
 
         with monkeypatch.context() as m:

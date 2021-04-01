@@ -11,7 +11,7 @@ from mock import patch
 import runez
 from runez.conftest import verify_abort
 from runez.program import RunResult
-from runez.system import TerminalInfo
+from runez.system import TerminalInfo, TerminalProgram
 
 VERSION = "1.2.3.dev4"
 
@@ -487,7 +487,29 @@ def test_temp_folder():
     assert os.getcwd() == cwd
 
 
+def check_terminal_program_name(*names):
+    for name in names:
+        assert TerminalProgram.known_terminal(name) == name
+
+
 def test_terminal():
+    assert TerminalInfo().term_program
+    assert TerminalProgram.known_terminal("termin") is None
+    check_terminal_program_name(
+        "alacritty",
+        "eterm",
+        "gnome-terminal-server",
+        "guake",
+        "terminal",
+        "terminator",
+        "terminology",
+        "Terminal.app",
+        "tilix",
+        "rxvt",
+        "xfce4-terminal",
+        "xterm",
+        "yakuake",
+    )
     if hasattr(os, "terminal_size"):
         t = TerminalInfo()
         assert not t.is_stdout_tty  # False when testing
@@ -501,6 +523,22 @@ def test_terminal():
         with patch("runez.run", return_value=RunResult("12", code=0)):  # Simulate tput output
             assert t.get_columns() == 12
             assert t.get_lines() == 12
+
+    with patch.dict(os.environ, {"LC_TERMINAL": "foo", "LC_TERMINAL_VERSION": "2"}):
+        p = TerminalProgram()
+        assert str(p) == "foo (v2)"
+        p.extra_info = None
+        assert str(p) == "foo"
+        p.name = None
+        assert str(p) == "-unknown-"
+
+    with patch.dict(os.environ, {"LC_TERMINAL": "", "TERM_PROGRAM": ""}):
+        # Simulate a known terminal
+        ps = runez.PsInfo()
+        ps.followed_parent.cmd = "/dev/null/tilix"
+        ps.followed_parent.cmd_basename = "tilix"
+        p = TerminalProgram(ps=ps)
+        assert str(p) == "tilix (/dev/null/tilix)"
 
     with patch.dict(os.environ, {"COLUMNS": "foo", "LINES": "bar", "PYCHARM_HOSTED": "true"}, clear=True):
         t = TerminalInfo()

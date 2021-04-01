@@ -2,6 +2,12 @@
 History
 =======
 
+2.5.6 (2021-04-01)
+------------------
+
+* Added ``TerminalProgram``, detection of parent terminal (if any)
+
+
 2.5.5 (2021-03-31)
 ------------------
 

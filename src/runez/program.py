@@ -277,7 +277,7 @@ def run(program, *args, **kwargs):
         return result
 
     if not full_path:
-        result.error = "%s is not installed" % short(program)
+        result.error = "%s is not installed (PATH=%s)" % (short(program), short(os.environ.get("PATH")))
         return abort(result.error, return_value=result, fatal=fatal, logger=logger)
 
     _R.hlog(logger, "Running: %s" % description)
