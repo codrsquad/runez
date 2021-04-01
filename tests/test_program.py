@@ -39,6 +39,9 @@ def test_capture(monkeypatch):
         assert runez.run(CHATTER, "hello", fatal=True) == RunResult("hello", "", 0)
         assert "chatter hello" in logged.pop()
         assert runez.run(CHATTER, stdout=None) == RunResult(None, "", 0)
+        assert "Running:" in logged.pop()
+        assert runez.run(CHATTER, "hello", fatal=True, passthrough=True) == RunResult("hello", "", 0)
+        assert "hello" in logged.pop()
 
         # Test no-wait
         r = runez.run(CHATTER, "hello", fatal=None, stdout=None, stderr=None)

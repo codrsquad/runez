@@ -5,6 +5,8 @@ History
 2.5.6 (2021-04-01)
 ------------------
 
+* Added ``passthrough`` option for ``runez.run()`` (capture output, and let it pass-through)
+
 * Added ``TerminalProgram``, detection of parent terminal (if any)
 
 

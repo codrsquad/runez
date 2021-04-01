@@ -2,14 +2,16 @@
 Convenience methods for executing programs
 """
 
+import fcntl
 import os
 import shutil
 import subprocess  # nosec
 import sys
 import tempfile
+import time
 
 from runez.convert import parsed_tabular, to_int
-from runez.system import _R, abort, cached_property, decode, flattened, quoted, short, UNSET, WINDOWS
+from runez.system import _R, abort, cached_property, decode, flattened, quoted, short, StringIO, UNSET, WINDOWS
 
 
 DEFAULT_INSTRUCTIONS = {
@@ -239,6 +241,7 @@ def run(program, *args, **kwargs):
         dryrun (bool): When True, do not really run but call logger("Would run: ...") instead [default: runez.DRYRUN]
         fatal (bool): If True: abort() on error [default: True]
         logger (callable | None): When provided, call logger("Running: ...") [default: LOG.debug]
+        passthrough (bool): If True, pass-through stderr/stdout in addition to capturing it
         path_env (dict | None): Allows to inject PATH-like env vars, see `_added_env_paths()`
         stdout (int | IO[Any] | None): Passed-through to subprocess.Popen, [default: subprocess.PIPE]
         stderr (int | IO[Any] | None): Passed-through to subprocess.Popen, [default: subprocess.PIPE]
@@ -257,6 +260,7 @@ def run(program, *args, **kwargs):
     stdout = kwargs.pop("stdout", subprocess.PIPE)
     stderr = kwargs.pop("stderr", subprocess.PIPE)
     strip = kwargs.pop("strip", "\n")
+    passthrough = kwargs.pop("passthrough", False)
     path_env = kwargs.pop("path_env", None)
     if path_env:
         kwargs["env"] = _added_env_paths(path_env, env=kwargs.get("env"))
@@ -288,6 +292,9 @@ def run(program, *args, **kwargs):
                 out, err = None, None  # Don't wait on spawned process
 
             else:
+                if passthrough:
+                    p = PassthroughCapture(p)
+
                 out, err = p.communicate()
 
             result.output = decode(out, strip=strip)
@@ -319,6 +326,62 @@ def run(program, *args, **kwargs):
             abort("\n".join(message), code=result.exit_code, exc_info=result.exc_info, fatal=fatal, logger=logger)
 
         return result
+
+
+class PassthroughCapture(object):
+    """Capture process stdout/stderr while still letting pass through to sys.stdout/stderr"""
+
+    def __init__(self, process):
+        """
+        Args:
+            process (subprocess.Popen): Process to capture and let output pass-through
+        """
+        self.process = process
+
+    @property
+    def pid(self):
+        return self.process.pid
+
+    @property
+    def returncode(self):
+        return self.process.returncode
+
+    @staticmethod
+    def _mark_non_blocking(channel):
+        """Make `channel` non-blocking when using read/readline"""
+        fl = fcntl.fcntl(channel, fcntl.F_GETFL)
+        fcntl.fcntl(channel, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+
+    @staticmethod
+    def handle_output(incoming, outgoing, buffer):
+        """A little inline function to handle the stdout business. """
+        try:
+            s = incoming.readline()
+            while s:
+                s = decode(s)
+                outgoing.write(s)
+                buffer.write(s)
+                s = incoming.readline()
+
+        except IOError:
+            pass  # Non-blocking readline raises an IOError when empty (with py2)
+
+    def communicate(self):
+        stdout = self.process.stdout
+        stderr = self.process.stderr
+        self._mark_non_blocking(stdout)
+        self._mark_non_blocking(stderr)
+        bufout = StringIO()
+        buferr = StringIO()
+        while self.process.poll() is None:
+            self.handle_output(stdout, sys.stdout, bufout)
+            self.handle_output(stderr, sys.stderr, buferr)
+            time.sleep(0.1)
+
+        # Ensure no bits left behind
+        self.handle_output(stdout, sys.stdout, bufout)
+        self.handle_output(stderr, sys.stderr, buferr)
+        return bufout.getvalue(), buferr.getvalue()
 
 
 class RunAudit(object):
