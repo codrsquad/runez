@@ -2,13 +2,15 @@
 History
 =======
 
-2.5.7 (2021-04-01)
+2.5.7 (2021-04-02)
 ------------------
+
+* Allow to specify package in ``auto_import_siblings()``
 
 * Complain if running as root (by default) in ``runez.log.setup()``
 
 
-2.5.6 (2021-04-01)
+2.5.6 (2021-03-31)
 ------------------
 
 * Added ``passthrough`` option for ``runez.run()`` (capture output, and let it pass-through)

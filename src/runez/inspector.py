@@ -18,7 +18,7 @@ from runez.render import PrettyTable
 from runez.system import find_caller_frame, first_line, python_version, TempArgv
 
 
-def auto_import_siblings(auto_clean="TOX_WORK_DIR", skip=None):
+def auto_import_siblings(package=None, auto_clean="TOX_WORK_DIR", skip=None):
     """Auto-import all sibling submodules from caller.
 
     This is handy for click command groups for example.
@@ -41,30 +41,39 @@ def auto_import_siblings(auto_clean="TOX_WORK_DIR", skip=None):
             ...
 
     Args:
+        package (str | None): Name of package to import (default: caller's package)
         auto_clean (str | bool | None): If provided, auto-clean `.pyc`` files
         skip (list | None): Do not auto-import specified modules
 
     Returns:
         (list): List of imported modules, if any
     """
-    caller = find_caller_frame()
-    if not caller:
-        raise ImportError("Could not determine caller, can't auto-import")
+    if package:
+        given = __import__(package)
+        folder = getattr(given, "__file__", None)
+        if folder:
+            folder = os.path.dirname(os.path.abspath(folder))
 
-    if caller.f_globals.get("__name__") == "__main__":
-        raise ImportError("Calling auto_import_siblings() from __main__ is not supported: %s" % caller)
+    else:
+        caller = find_caller_frame()
+        if not caller:
+            raise ImportError("Could not determine caller, can't auto-import")
 
-    caller_package = caller.f_globals.get("__package__")
-    if not caller_package:
-        raise ImportError("Could not determine caller's __package__, can't auto-import: %s" % caller)
+        if caller.f_globals.get("__name__") == "__main__":
+            raise ImportError("Calling auto_import_siblings() from __main__ is not supported: %s" % caller)
 
-    caller_path = caller.f_globals.get("__file__")
-    if not caller_path:
-        raise ImportError("Could not determine caller's __file__, can't auto-import: %s" % caller)
+        package = caller.f_globals.get("__package__")
+        if not package:
+            raise ImportError("Could not determine caller's __package__, can't auto-import: %s" % caller)
 
-    folder = os.path.dirname(caller_path)
-    if not os.path.isdir(folder):
-        raise ImportError("Caller's __file__ points to a non-existing directory, can't auto-import: %s" % caller)
+        caller_path = caller.f_globals.get("__file__")
+        if not caller_path:
+            raise ImportError("Could not determine caller's __file__, can't auto-import: %s" % caller)
+
+        folder = os.path.dirname(caller_path)
+
+    if not folder or not os.path.isdir(folder):
+        raise ImportError("%s.__file__ points to a non-existing directory, can't auto-import: %s" % (package, folder))
 
     if auto_clean is not None and not isinstance(auto_clean, bool):
         auto_clean = os.environ.get(auto_clean)
@@ -76,7 +85,7 @@ def auto_import_siblings(auto_clean="TOX_WORK_DIR", skip=None):
     import pkgutil
 
     imported = []
-    for loader, module_name, _ in pkgutil.walk_packages([folder], prefix="%s." % caller_package):
+    for loader, module_name, _ in pkgutil.walk_packages([folder], prefix="%s." % package):
         if _should_auto_import(module_name, skip):
             __import__(module_name)
             imported.append(module_name)

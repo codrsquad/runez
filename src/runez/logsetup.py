@@ -681,6 +681,7 @@ class LogManager(object):
 
     _lock = threading.RLock()
     _logging_snapshot = LoggingSnapshot()
+    _is_running_in_docker = None
 
     @classmethod
     def set_debug(cls, debug):
@@ -834,7 +835,10 @@ class LogManager(object):
     @classmethod
     def is_running_in_docker(cls):
         """Are we currently running in a docker container?"""
-        return os.path.exists("/.dockerenv")
+        if cls._is_running_in_docker is None:
+            cls._is_running_in_docker = bool(cls._determine_is_running_in_docker())
+
+        return cls._is_running_in_docker
 
     @classmethod
     def current_test(cls):
@@ -1178,6 +1182,21 @@ class LogManager(object):
             logging.info = _LogWrap(logging.INFO)
             logging.debug = _LogWrap(logging.DEBUG)
             logging.log = _LogWrap.log
+
+    @classmethod
+    def _determine_is_running_in_docker(cls):  # pragma: no cover
+        if os.path.exists("/.dockerenv") or os.environ.get("container"):
+            return True
+
+        try:
+            with open("/proc/1/cgroup") as fh:
+                regex = re.compile(r"docker|lxc|kubepod", re.IGNORECASE)
+                for line in fh:
+                    if line and regex.search(line):
+                        return True
+
+        except (OSError, IOError):
+            pass
 
 
 class _LogWrap(object):

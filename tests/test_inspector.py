@@ -72,6 +72,9 @@ def test_auto_import_siblings(monkeypatch):
             auto_import_siblings()
 
     py_file_count = len(list(importable_test_py_files(runez.log.tests_path()))) - 1  # Remove one to not count tests/__init__.py itself
+    imported = auto_import_siblings(package="tests")
+    assert len(imported) == py_file_count
+
     imported = auto_import_siblings(skip=["tests.secondary"])
     assert len(imported) == py_file_count - 2
     assert "tests.conftest" in imported
