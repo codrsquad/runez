@@ -25,8 +25,8 @@ from runez.ascii import AsciiAnimation
 from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone
 from runez.file import basename as get_basename, parent_folder
-from runez.system import _getframe, _R, abort, cached_property, decode, find_caller_frame, flattened, quoted, short, stringified
-from runez.system import LOG, Slotted, string_type, TERMINAL_INFO, ThreadGlobalContext, UNSET, WINDOWS
+from runez.system import _getframe, _R, abort, cached_property, decode, flattened, quoted, short, stringified
+from runez.system import LOG, Slotted, string_type, SYS_INFO, ThreadGlobalContext, UNSET, WINDOWS
 
 
 ORIGINAL_CF = logging.currentframe
@@ -215,7 +215,7 @@ class _SpinnerState(object):
             progress_color (callable | None): Optional color to use for the spinner
             spinner_color (callable | None): Optional color to use for the spinner
         """
-        self.columns = TERMINAL_INFO.columns - 2
+        self.columns = SYS_INFO.terminal.columns - 2
         if max_columns and max_columns > 0:
             self.columns = min(max_columns, self.columns)
 
@@ -379,7 +379,7 @@ class ProgressSpinner(object):
     @staticmethod
     def _original_write(stream):
         """Called in main thread (lock already acquired)"""
-        if TERMINAL_INFO.isatty(stream):
+        if SYS_INFO.terminal.isatty(stream):
             return getattr(stream, "write", None)
 
     def _clean_write(self, write, message):
@@ -681,7 +681,6 @@ class LogManager(object):
 
     _lock = threading.RLock()
     _logging_snapshot = LoggingSnapshot()
-    _is_running_in_docker = None
 
     @classmethod
     def set_debug(cls, debug):
@@ -818,7 +817,7 @@ class LogManager(object):
 
             cls.greet(greetings)
             if allow_root is UNSET:
-                allow_root = cls.is_running_in_docker()
+                allow_root = SYS_INFO.is_running_in_docker
 
             if not allow_root and os.geteuid() == 0:
                 message = _formatted_text(cls.disallow_root_message, cls.spec._props(), strict=False)
@@ -832,52 +831,6 @@ class LogManager(object):
 
                 LOG.warning(message)
 
-    @classmethod
-    def is_running_in_docker(cls):
-        """Are we currently running in a docker container?"""
-        if cls._is_running_in_docker is None:
-            cls._is_running_in_docker = bool(cls._determine_is_running_in_docker())
-
-        return cls._is_running_in_docker
-
-    @classmethod
-    def current_test(cls):
-        """
-        Returns:
-            (str | None): Not empty if we're currently running a test (such as via pytest)
-                          Actual value will be path to test_<name>.py file if user followed usual conventions,
-                          otherwise path to first found test-framework module
-        """
-        import re
-
-        regex = re.compile(r"^(.+\.|)(conftest|(test_|_pytest|unittest).+|.+_test)$")
-
-        def is_test_frame(f):
-            name = f.f_globals.get("__name__")
-            if name and not name.startswith("runez"):
-                return regex.match(name.lower()) and f.f_globals.get("__file__")
-
-        return find_caller_frame(validator=is_test_frame)
-
-    @staticmethod
-    def dev_folder(*relative_path):
-        """
-        Args:
-            *relative_path: Optional additional relative path to add
-
-        Returns:
-            (str | None): Path to development build folder (such as .venv, .tox etc), if we're currently running a dev build
-        """
-        venv = os.environ.get("VIRTUAL_ENV")
-        if venv:
-            return venv
-
-        folder = _find_parent_folder(sys.prefix, {"venv", ".venv", ".tox", "build"})
-        if folder and relative_path:
-            folder = os.path.join(folder, *relative_path)
-
-        return folder
-
     @staticmethod
     def project_path(*relative_path):
         """
@@ -887,7 +840,7 @@ class LogManager(object):
         Returns:
             (str | None): Computed path, if we're currently running a dev build
         """
-        path = _validated_project_path(LogManager.tests_path, LogManager.dev_folder)
+        path = _validated_project_path(LogManager.tests_path, SYS_INFO.dev_folder())
         if path and relative_path:
             path = os.path.join(path, *relative_path)
 
@@ -902,7 +855,7 @@ class LogManager(object):
         Returns:
             (str | None): Computed path, if we're currently running a test
         """
-        path = _find_parent_folder(LogManager.current_test(), {"tests", "test"})
+        path = _R.find_parent_folder(SYS_INFO.current_test(), {"tests", "test"})
         if relative_path:
             path = os.path.join(path, *relative_path)
 
@@ -927,17 +880,6 @@ class LogManager(object):
         for h in list(logging.root.handlers):
             if h is not cls.console_handler and h is not cls.file_handler and h is not ProgressHandler:
                 logging.root.removeHandler(h)
-
-    @classmethod
-    def program_path(cls, path=None):
-        """
-        Args:
-            path (str | None): Optional, path or name to consider (default: `sys.argv[0]`)
-
-        Returns:
-            (str): Path of currently running program
-        """
-        return path or sys.argv[0]
 
     @classmethod
     def reset(cls):
@@ -1123,10 +1065,10 @@ class LogManager(object):
     def _auto_fill_defaults(cls):
         """Late auto-filled missing defaults (caller's value kept if provided)"""
         if not cls.spec.appname:
-            cls.spec.appname = get_basename(cls.program_path())
+            cls.spec.appname = get_basename(SYS_INFO.program_path)
 
         if not cls.spec.dev:
-            cls.spec.dev = cls.dev_folder()
+            cls.spec.dev = SYS_INFO.dev_folder()
 
     @classmethod
     def _disable_faulthandler(cls):
@@ -1182,21 +1124,6 @@ class LogManager(object):
             logging.info = _LogWrap(logging.INFO)
             logging.debug = _LogWrap(logging.DEBUG)
             logging.log = _LogWrap.log
-
-    @classmethod
-    def _determine_is_running_in_docker(cls):  # pragma: no cover
-        if os.path.exists("/.dockerenv") or os.environ.get("container"):
-            return True
-
-        try:
-            with open("/proc/1/cgroup") as fh:
-                regex = re.compile(r"docker|lxc|kubepod", re.IGNORECASE)
-                for line in fh:
-                    if line and regex.search(line):
-                        return True
-
-        except (OSError, IOError):
-            pass
 
 
 class _LogWrap(object):
@@ -1258,18 +1185,6 @@ def _canonical_format(fmt):
         return fmt
 
     return _replace_and_pad(fmt, "%(timezone)s", LogManager.spec.timezone)
-
-
-def _find_parent_folder(path, basenames):
-    if not path or len(path) <= 3:
-        return None
-
-    dirpath, basename = os.path.split(path)
-    if dirpath and basename:
-        if basename and basename.lower() in basenames:
-            return path
-
-        return _find_parent_folder(dirpath, basenames)
 
 
 def _format_recursive(key, value, definitions, max_depth):

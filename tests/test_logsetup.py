@@ -11,40 +11,40 @@ from mock import patch
 import runez
 from runez.ascii import AsciiAnimation, AsciiFrames
 from runez.conftest import TMP, WrappedHandler
-from runez.logsetup import _find_parent_folder, _formatted_text, formatted, LogSpec
+from runez.logsetup import _formatted_text, formatted, LogSpec
 
 
 LOG = logging.getLogger(__name__)
 
 
-def test_allow_root(temp_log):
+def test_allow_root(temp_log, monkeypatch):
     with patch("runez.logsetup.os.geteuid", return_value=0):
-        with patch("runez.logsetup.LogManager.is_running_in_docker", return_value=True):
-            # Default: don't complain about running as root inside docker
-            runez.log.setup()
-            assert "should not be ran as root" not in temp_log.stderr.pop()
+        # Default: don't complain about running as root inside docker
+        monkeypatch.setattr(runez.SYS_INFO, "is_running_in_docker", True)
+        runez.log.setup()
+        assert "should not be ran as root" not in temp_log.stderr.pop()
 
-            # Complain if explicitly disallowed
-            runez.log.setup(allow_root=False)
-            assert "should not be ran as root" in temp_log.stderr.pop()
+        # Complain if explicitly disallowed
+        runez.log.setup(allow_root=False)
+        assert "should not be ran as root" in temp_log.stderr.pop()
 
-        with patch("runez.logsetup.LogManager.is_running_in_docker", return_value=False):
-            # Default: complain about running as root outside of docker
-            runez.log.setup()
-            assert "====\npytest should not be ran as root" in temp_log.stderr.pop()
+        # Default: complain about running as root outside of docker
+        monkeypatch.setattr(runez.SYS_INFO, "is_running_in_docker", False)
+        runez.log.setup()
+        assert "====\npytest should not be ran as root" in temp_log.stderr.pop()
 
-            # Abort execution with 'allow_root=None'
-            with pytest.raises(runez.system.AbortException):
-                runez.log.setup(allow_root=None)
-            assert "should not be ran as root" in temp_log.stderr.pop()
+        # Abort execution with 'allow_root=None'
+        with pytest.raises(runez.system.AbortException):
+            runez.log.setup(allow_root=None)
+        assert "should not be ran as root" in temp_log.stderr.pop()
 
-            # If message doesn't end with '!', then don't do the multi-line '====...' bar decoration
-            prev = runez.log.disallow_root_message
-            runez.log.disallow_root_message = "no-root-plz"
-            runez.log.setup()
-            assert "====" not in temp_log.stderr
-            assert "no-root-plz" in temp_log.stderr.pop()
-            runez.log.disallow_root_message = prev
+        # If message doesn't end with '!', then don't do the multi-line '====...' bar decoration
+        prev = runez.log.disallow_root_message
+        runez.log.disallow_root_message = "no-root-plz"
+        runez.log.setup()
+        assert "====" not in temp_log.stderr
+        assert "no-root-plz" in temp_log.stderr.pop()
+        runez.log.disallow_root_message = prev
 
 
 def test_auto_location_not_writable(temp_log):
@@ -246,22 +246,6 @@ def test_file_location_not_writable(temp_log):
     )
     assert "DEBUG Logging to: given location '/dev/null/somewhere.log' is not usable" in temp_log.stderr
     assert runez.log.file_handler is None
-
-
-def test_find_parent_folder(monkeypatch):
-    assert "test_logsetup.py" in runez.log.current_test()
-    assert _find_parent_folder("", {"foo"}) is None
-    assert _find_parent_folder(os.path.join("/foo", "b"), {""}) is None
-    assert _find_parent_folder(os.path.join("/foo", "b"), {"foo"}) == "/foo"
-    assert _find_parent_folder(os.path.join("/foo", "b"), {"b"}) == os.path.join("/foo", "b")
-    assert _find_parent_folder(os.path.join("/foo", "B"), {"foo", "b"}) == os.path.join("/foo", "B")  # case insensitive
-    assert _find_parent_folder(os.path.join("/foo", "b"), {"c"}) is None
-    assert _find_parent_folder("/dev/null", {"foo"}) is None
-
-    assert runez.log.dev_folder()
-    assert runez.log.dev_folder("foo")
-    monkeypatch.setenv("VIRTUAL_ENV", "")
-    assert runez.log.dev_folder("foo")
 
 
 def test_formatted():

@@ -3,6 +3,7 @@
 import sys
 
 import pytest
+from mock import patch
 
 import runez
 from runez.colors import terminal
@@ -86,18 +87,18 @@ def test_default(monkeypatch):
     assert runez.color.backend.name == "plain"
     assert runez.blue("hello") == "hello"
 
-    monkeypatch.setattr(runez.colors._R, "current_test", classmethod(lambda *_: None))
-    check_flavor(monkeypatch, "ansi16 neutral")
-    check_flavor(monkeypatch, "ansi16 light", colorfgbg="15;0")
-    check_flavor(monkeypatch, "ansi16 dark", colorfgbg="15;9")
+    with patch("runez.SYS_INFO.current_test", return_value=None):  # simulate not running in test
+        check_flavor(monkeypatch, "ansi16 neutral")
+        check_flavor(monkeypatch, "ansi16 light", colorfgbg="15;0")
+        check_flavor(monkeypatch, "ansi16 dark", colorfgbg="15;9")
 
-    check_flavor(monkeypatch, "ansi256 neutral", term="xterm-256color")
-    check_flavor(monkeypatch, "ansi256 light", term="xterm-256color", colorfgbg="15;0")
-    check_flavor(monkeypatch, "ansi256 dark", term="xterm-256color", colorfgbg="15;9")
+        check_flavor(monkeypatch, "ansi256 neutral", term="xterm-256color")
+        check_flavor(monkeypatch, "ansi256 light", term="xterm-256color", colorfgbg="15;0")
+        check_flavor(monkeypatch, "ansi256 dark", term="xterm-256color", colorfgbg="15;9")
 
-    check_flavor(monkeypatch, "truecolor neutral", term="truecolor")
-    check_flavor(monkeypatch, "truecolor light", term="truecolor", colorfgbg="15;0")
-    check_flavor(monkeypatch, "truecolor dark", term="truecolor", colorfgbg="15;9")
+        check_flavor(monkeypatch, "truecolor neutral", term="truecolor")
+        check_flavor(monkeypatch, "truecolor light", term="truecolor", colorfgbg="15;0")
+        check_flavor(monkeypatch, "truecolor dark", term="truecolor", colorfgbg="15;9")
 
 
 def check_usable(monkeypatch, names, colorterm=None, term=None):

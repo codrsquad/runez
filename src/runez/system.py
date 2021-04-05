@@ -210,7 +210,7 @@ def find_caller_frame(validator=None, depth=2, maximum=1000):
     """
     if _getframe is not None:
         if validator is None:
-            validator = _is_actual_caller_frame
+            validator = _R.is_actual_caller_frame
 
         while not maximum or depth <= maximum:
             try:
@@ -464,7 +464,7 @@ def short(value, size=UNSET, none="None"):
     text = RE_SPACES.sub(" ", text)
     text = Anchored.short(text)
     if size is UNSET or isinstance(size, int) and size < 0:
-        size = TERMINAL_INFO.columns
+        size = SYS_INFO.terminal.columns
 
     if isinstance(size, int) and len(text) > size > 0:
         return "%s..." % text[:size - 3]
@@ -1144,6 +1144,84 @@ class Slotted(object):
             return dict((k, getattr(obj, k, UNSET)) for k in self.__slots__)
 
 
+class SystemInfo:
+    """GInformation on current run"""
+
+    @staticmethod
+    def current_test():
+        """
+        Returns:
+            (str | None): Not empty if we're currently running a test (such as via pytest)
+                          Actual value will be path to test_<name>.py file if user followed usual conventions,
+                          otherwise path to first found test-framework module
+        """
+        import re
+
+        regex = re.compile(r"^(.+\.|)(conftest|(test_|_pytest|unittest).+|.+_test)$")
+
+        def is_test_frame(f):
+            name = f.f_globals.get("__name__")
+            if name and not name.startswith("runez"):
+                return regex.match(name.lower()) and f.f_globals.get("__file__")
+
+        return find_caller_frame(validator=is_test_frame)
+
+    @staticmethod
+    def dev_folder(*relative_path):
+        """
+        Args:
+            *relative_path: Optional additional relative path to add
+
+        Returns:
+            (str | None): Path to development build folder (such as .venv, .tox etc), if we're currently running a dev build
+        """
+        venv = os.environ.get("VIRTUAL_ENV")
+        if venv:
+            return os.path.join(venv, *relative_path)
+
+        folder = _R.find_parent_folder(sys.prefix, {"venv", ".venv", ".tox", "build"})
+        if folder and relative_path:
+            folder = os.path.join(folder, *relative_path)
+
+        return folder
+
+    @cached_property
+    def current_process(self):
+        """Info on currently running process"""
+        return _R._runez_module().PsInfo()
+
+    @cached_property
+    def is_running_in_docker(self):
+        """Are we currently running in a docker container?"""
+        if os.path.exists("/.dockerenv") or os.environ.get("container"):
+            return True
+
+        try:
+            with open("/proc/1/cgroup") as fh:
+                regex = re.compile(r"docker|lxc|kubepod", re.IGNORECASE)
+                for line in fh:
+                    if line and regex.search(line):
+                        return True
+
+        except (OSError, IOError):
+            pass
+
+        return False
+
+    @cached_property
+    def program_path(self):
+        """(str): Path of currently running program"""
+        return sys.argv[0]
+
+    @cached_property
+    def terminal(self):
+        """Info on terminal (if any) we're currently running under"""
+        return TerminalInfo()
+
+
+SYS_INFO = SystemInfo()
+
+
 class TempArgv(object):
     """Context manager for changing the current sys.argv"""
 
@@ -1197,7 +1275,7 @@ class TerminalInfo(object):
     def isatty(channel):
         """True if we have a tty (or known equivalent), and are not running a test"""
         if channel.isatty() or "PYCHARM_HOSTED" in os.environ:
-            return not _R.current_test()
+            return not SYS_INFO.current_test()
 
     def padded_columns(self, padding=0, minimum=0):
         """
@@ -1262,7 +1340,7 @@ class TerminalProgram(object):
 
                 return
 
-        ps = ps or _R._runez_module().PsInfo()
+        ps = ps or SYS_INFO.current_process
         for p in ps.parent_list(follow=True):
             self.name = self.known_terminal(p.cmd_basename)
             if self.name:
@@ -1298,9 +1376,6 @@ class TerminalProgram(object):
             return "%s %s" % (self.name, dim("(%s)" % short(self.extra_info)))
 
         return self.name
-
-
-TERMINAL_INFO = TerminalInfo()
 
 
 class ThreadGlobalContext(object):
@@ -1477,10 +1552,6 @@ class _R:
         return cls._runez_module().system.AbortException
 
     @classmethod
-    def current_test(cls):
-        return cls._runez_module().log.current_test()
-
-    @classmethod
     def hdef(cls, default, logger, message, e=None):
         """Handle IO default
 
@@ -1612,6 +1683,29 @@ class _R:
         """
         cls._runez_module().log.trace(message, *args, **kwargs)
 
+    @staticmethod
+    def find_parent_folder(path, basenames):
+        if not path or len(path) <= 3:
+            return None
+
+        dirpath, basename = os.path.split(path)
+        if dirpath and basename:
+            if basename and basename.lower() in basenames:
+                return path
+
+            return _R.find_parent_folder(dirpath, basenames)
+
+    @staticmethod
+    def is_actual_caller_frame(f):
+        """Return `f` if it's a frame that looks like coming from actual caller (not runez itself, or an internal library package)"""
+        name = f.f_globals.get("__name__")
+        if name and "__main__" in name:
+            return f
+
+        package = f.f_globals.get("__package__")
+        if package and not package.startswith("_") and package.partition(".")[0] not in ("importlib", "pluggy", "runez"):
+            return f
+
 
 def _actual_message(message):
     if callable(message):
@@ -1658,17 +1752,6 @@ def _flatten(result, value, keep_empty, split, shellify, unique):
 
     if not unique or value not in result:
         result.append(value)
-
-
-def _is_actual_caller_frame(f):
-    """Return `f` if it's a frame that looks like coming from actual caller (not runez itself, or an internal library package)"""
-    name = f.f_globals.get("__name__")
-    if name and "__main__" in name:
-        return f
-
-    package = f.f_globals.get("__package__")
-    if package and not package.startswith("_") and package.partition(".")[0] not in ("importlib", "pluggy", "runez"):
-        return f
 
 
 def _prettified(value):

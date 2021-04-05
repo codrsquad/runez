@@ -28,7 +28,7 @@ def test_no_tty():
 def test_with_tty(monkeypatch):
     monkeypatch.setattr(runez.prompt, "interactive_prompt", lambda x: str(x))
     expected = {"value": "foo"}
-    runez.TERMINAL_INFO.is_stdout_tty = True
+    runez.SYS_INFO.terminal.is_stdout_tty = True
     with runez.TempFolder() as tmp:
         assert ask_once("test", "foo", serializer=custom_serializer, base=tmp) == expected
 
@@ -52,4 +52,4 @@ def test_with_tty(monkeypatch):
         response = verify_abort(ask_once, "test2", "test2", serializer=custom_serializer, base=tmp)
         assert "Cancelled by user" in response
 
-    runez.TERMINAL_INFO.is_stdout_tty = False
+    runez.SYS_INFO.terminal.is_stdout_tty = False

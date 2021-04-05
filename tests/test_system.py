@@ -6,12 +6,12 @@ import os
 import sys
 
 import pytest
-from mock import patch
+from mock import mock_open, patch
 
 import runez
 from runez.conftest import verify_abort
 from runez.program import RunResult
-from runez.system import TerminalInfo, TerminalProgram
+from runez.system import _R, SystemInfo, TerminalInfo, TerminalProgram
 
 VERSION = "1.2.3.dev4"
 
@@ -144,6 +144,21 @@ def test_decode():
     assert runez.decode(b" something ", strip=True) == "something"
 
 
+def test_docker_detection():
+    with patch.dict(os.environ, {"container": "foo"}):
+        info = SystemInfo()
+        assert info.is_running_in_docker is True
+
+    with patch.dict(os.environ, {"container": ""}):
+        with patch("runez.system.open", side_effect=OSError):
+            info = SystemInfo()
+            assert info.is_running_in_docker is False
+
+        with patch("runez.system.open", mock_open(read_data="1: /docker/foo")):
+            info = SystemInfo()
+            assert info.is_running_in_docker is True
+
+
 def test_fallback(logged):
     def oopsie(x):
         raise Exception()
@@ -203,6 +218,25 @@ def test_fallback(logged):
         c3("hello")
     assert not logged
     assert str(c3) == "[all failing] None (+0), failed: oopsie, a"
+
+
+def test_find_parent_folder(monkeypatch):
+    assert _R.find_parent_folder("", {"foo"}) is None
+    assert _R.find_parent_folder(os.path.join("/foo", "b"), {""}) is None
+    assert _R.find_parent_folder(os.path.join("/foo", "b"), {"foo"}) == "/foo"
+    assert _R.find_parent_folder(os.path.join("/foo", "b"), {"b"}) == os.path.join("/foo", "b")
+    assert _R.find_parent_folder(os.path.join("/foo", "B"), {"foo", "b"}) == os.path.join("/foo", "B")  # case insensitive
+    assert _R.find_parent_folder(os.path.join("/foo", "b"), {"c"}) is None
+    assert _R.find_parent_folder("/dev/null", {"foo"}) is None
+
+    # Verify that we still detect usual venvs (even if not run activated)
+    monkeypatch.setenv("VIRTUAL_ENV", "")
+    assert runez.SYS_INFO.dev_folder()
+    assert runez.SYS_INFO.dev_folder("foo")
+
+    # Verify that we use VIRTUAL_ENV when set (activated run)
+    monkeypatch.setenv("VIRTUAL_ENV", "bar")
+    assert runez.SYS_INFO.dev_folder("foo") == "bar/foo"
 
 
 def test_first_line():
@@ -444,6 +478,8 @@ def test_stringified():
 
 
 def test_system():
+    assert "test_system.py" in runez.SYS_INFO.current_test()
+
     # Ensure we stop once callstack is exhausted
     assert runez.system.find_caller_frame(lambda f: None, maximum=None) is None
 
@@ -552,6 +588,6 @@ def test_terminal():
         assert t.lines == 15
 
     with patch.dict(os.environ, {"PYCHARM_HOSTED": "true"}, clear=True):
-        with patch("runez.colors._R.current_test", return_value=None):  # simulate not running in test
+        with patch("runez.SYS_INFO.current_test", return_value=None):  # simulate not running in test
             t = TerminalInfo()
             assert t.is_stdout_tty  # Now True

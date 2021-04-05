@@ -5,6 +5,18 @@ History
 2.5.7 (2021-04-02)
 ------------------
 
+* Moved
+
+  * ``runez.TERMINAL_INFO`` -> ``runez.SYS_INFO.terminal``
+
+  * ``runez.log.current_test()`` -> ``runez.SYS_INFO.current_test()``
+
+  * ``runez.log.dev_folder()`` -> ``runez.SYS_INFO.dev_folder()``
+
+  * ``runez.log.program_path()`` -> ``runez.SYS_INFO.program_path``
+
+* Removed ``runez.log.program_path()``
+
 * Allow to specify package in ``auto_import_siblings()``
 
 * Complain if running as root (by default) in ``runez.log.setup()``

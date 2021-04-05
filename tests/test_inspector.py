@@ -5,7 +5,7 @@ import pytest
 
 import runez
 from runez.inspector import auto_import_siblings, ImportTime
-from runez.system import _is_actual_caller_frame
+from runez.system import _R
 
 
 class MockFrame(object):
@@ -35,16 +35,16 @@ def importable_test_py_files(folder):
 
 def test_auto_import_siblings(monkeypatch):
     # Check that none of these invocations raise an exception
-    assert not _is_actual_caller_frame(mock_package(None))
-    assert not _is_actual_caller_frame(mock_package(""))
-    assert not _is_actual_caller_frame(mock_package("_pydevd"))
-    assert not _is_actual_caller_frame(mock_package("_pytest.foo"))
-    assert not _is_actual_caller_frame(mock_package("pluggy.hooks"))
-    assert not _is_actual_caller_frame(mock_package("runez"))
-    assert not _is_actual_caller_frame(mock_package("runez.system"))
+    assert not _R.is_actual_caller_frame(mock_package(None))
+    assert not _R.is_actual_caller_frame(mock_package(""))
+    assert not _R.is_actual_caller_frame(mock_package("_pydevd"))
+    assert not _R.is_actual_caller_frame(mock_package("_pytest.foo"))
+    assert not _R.is_actual_caller_frame(mock_package("pluggy.hooks"))
+    assert not _R.is_actual_caller_frame(mock_package("runez"))
+    assert not _R.is_actual_caller_frame(mock_package("runez.system"))
 
-    assert _is_actual_caller_frame(mock_package("foo"))
-    assert _is_actual_caller_frame(mock_package("runez.system", name="__main__"))
+    assert _R.is_actual_caller_frame(mock_package("foo"))
+    assert _R.is_actual_caller_frame(mock_package("runez.system", name="__main__"))
 
     with pytest.raises(ImportError):
         with monkeypatch.context() as m:

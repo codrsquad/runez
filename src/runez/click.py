@@ -25,7 +25,7 @@ from runez.colors import ColorManager
 from runez.convert import affixed
 from runez.file import basename
 from runez.logsetup import LogManager
-from runez.system import _is_actual_caller_frame, find_caller_frame, flattened, get_version, string_type
+from runez.system import _R, find_caller_frame, flattened, get_version, string_type
 
 
 def command(help=None, width=140, **attrs):
@@ -264,7 +264,7 @@ class _ConfigOption(object):
 
 
 def _frame_has_package(f):
-    caller = _is_actual_caller_frame(f)
+    caller = _R.is_actual_caller_frame(f)
     if caller:
         package = caller.f_globals.get("__package__")
         if package:
