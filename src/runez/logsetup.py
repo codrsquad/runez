@@ -1003,6 +1003,14 @@ class LogManager(object):
             if cls.tracer:
                 cls.tracer.trace(message)
 
+    @staticmethod
+    def current_test():  # pragma: no cover (deprecated)
+        return SYS_INFO.current_test()
+
+    @staticmethod
+    def dev_folder(*relative_path):  # pragma: no cover (deprecated)
+        return SYS_INFO.dev_folder(*relative_path)
+
     @classmethod
     def _auto_enable_progress_handler(cls):
         if cls.progress.is_running:
