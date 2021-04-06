@@ -365,6 +365,8 @@ def joined(*args, **kwargs):
 
     Args:
         *args: Things to join
+
+    Keyword Args:
         delimiter (str): Delimiter to use (default: space character)
         keep_empty (str | bool): States how to filter 'None' and/or False-ish values
                                - string: Replace `None` with given string, keep False-ish values as-is
@@ -452,7 +454,7 @@ def resolved_path(path, base=None):
     return os.path.abspath(path)
 
 
-def short(value, size=UNSET, none="None"):
+def short(value, size=UNSET, none="None", uncolor=False):
     """
     Args:
         value: Value to textually represent in a shortened form
@@ -469,7 +471,7 @@ def short(value, size=UNSET, none="None"):
         size = SYS_INFO.terminal.columns
 
     if isinstance(size, int) and len(text) > size > 0:
-        if "\033" in text:
+        if uncolor and "\033" in text:
             uncolored = _R._runez_module().colors.uncolored(text)
             if len(uncolored) > size:
                 text = "%s..." % uncolored[:size - 3]
@@ -1198,7 +1200,7 @@ class SystemInfo:
 
         return folder
 
-    def diagnostics(self, verbose):
+    def diagnostics(self):
         """Usable by runez.render.PrettyTable.two_column_diagnostics()"""
         yield "platform", _R._runez_module().shell("uname -msrp")
         if self.terminal.term_program:
@@ -1217,12 +1219,11 @@ class SystemInfo:
             delim = "/" if PY2 else "⚡"
             yield "via", joined([p.cmd_basename for p in process_list], keep_empty=False, delimiter=" %s " % delim)
 
-        if verbose:
-            if "diagnostics" not in sys.argv:
-                yield "sys.argv", quoted(sys.argv)
+        if "diagnostics" not in sys.argv:
+            yield "sys.argv", quoted(sys.argv)
 
-            if not sys.executable.startswith(sys.prefix):
-                yield "sys.prefix", sys.prefix
+        if not sys.executable.startswith(sys.prefix):
+            yield "sys.prefix", sys.prefix
 
     @cached_property
     def is_running_in_docker(self):

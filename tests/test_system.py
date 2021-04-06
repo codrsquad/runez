@@ -444,7 +444,7 @@ def test_shortening():
     assert runez.short(" some  text ", size=0) == "some text"
 
     # Verify that coloring is not randomly truncated
-    assert runez.short(u"\033[38;2;255;0;0mfoo bar baz\033[39m", 6) == "foo..."
+    assert runez.short(u"\033[38;2;255;0;0mfoo bar baz\033[39m", size=6, uncolor=True) == "foo..."
 
     with runez.TempFolder() as tmp:
         assert runez.short(os.path.join(tmp, "some-file")) == "some-file"

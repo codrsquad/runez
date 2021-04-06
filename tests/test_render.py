@@ -48,21 +48,29 @@ def test_border():
 
 
 def test_diagnostics(monkeypatch):
+    def _custom_diag(foo, opt=None):
+        yield "foo", foo
+        yield "opt", opt
+
+        yield "---"
+        yield "additional info"
+
     s = SystemInfo()
     s.terminal.term_program = None
-    x = PrettyTable.two_column_diagnostics(sys_info=s, verbose=False)
-    x = str(x)
+    x = PrettyTable.two_column_diagnostics(_custom_diag, sys_info=s, foo="bar")
+    assert "foo : bar" in x
+    assert "opt : -missing-" in x
     assert "sys.executable" in x
-    assert "sys.prefix" not in x  # Not present when verbose=False:
+    assert "additional info" in x
     assert "terminal" not in x  # Not present when no terminal info available
 
     with patch.dict(os.environ, {"LC_TERMINAL": "foo", "LC_TERMINAL_VERSION": "2"}):
         monkeypatch.setattr(sys, "executable", "foo")
         s = SystemInfo()
-        x = PrettyTable.two_column_diagnostics(sys_info=s, verbose=True)
+        x = PrettyTable.two_column_diagnostics(sys_info=s)
         x = str(x)
         assert "sys.prefix" in x
-        assert "sys.executable : foo" in x
+        assert "sys.executable : foo" in x  # Present when sys.executable doesn't match sys.prefix
         assert "terminal : foo (v2)" in x
 
 
