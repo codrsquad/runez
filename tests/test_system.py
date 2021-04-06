@@ -443,6 +443,9 @@ def test_shortening():
     assert runez.short(" some  text ", size=7) == "some..."
     assert runez.short(" some  text ", size=0) == "some text"
 
+    # Verify that coloring is not randomly truncated
+    assert runez.short(u"\033[38;2;255;0;0mfoo bar baz\033[39m", 6) == "foo..."
+
     with runez.TempFolder() as tmp:
         assert runez.short(os.path.join(tmp, "some-file")) == "some-file"
 
@@ -560,8 +563,8 @@ def test_terminal():
             assert t.get_lines() == 12
 
     with patch.dict(os.environ, {"LC_TERMINAL": "foo", "LC_TERMINAL_VERSION": "2"}):
-        s = TerminalInfo()
-        p = s.term_program
+        t = TerminalInfo()
+        p = t.term_program
         assert str(p) == "foo (v2)"
         p.extra_info = None
         assert str(p) == "foo"

@@ -95,7 +95,7 @@ def log(*args, **attrs):
 def version(*args, **attrs):
     """Show the version and exit."""
     if "version" not in attrs:
-        attrs["version"] = get_version(find_caller_frame(validator=_frame_has_package))
+        attrs["version"] = get_version(find_caller_frame(validator=_R.frame_has_package))
 
     return click.version_option(*args, **attrs)
 
@@ -261,11 +261,3 @@ class _ConfigOption(object):
             runez.config.CONFIG = c
 
         return c
-
-
-def _frame_has_package(f):
-    caller = _R.is_actual_caller_frame(f)
-    if caller:
-        package = caller.f_globals.get("__package__")
-        if package:
-            return package

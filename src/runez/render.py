@@ -348,15 +348,14 @@ class PrettyTable(PrettyCustomizable):
         Args:
             sources (callable): Callables yielding 2 columns of information to show (must accept verbose= arg)
             border (str): Border to use
-            depot (runez.pyenv.PythonDepot | None): Optional python depot to show invoker python
             missing (str): String to use to represent missing values
 
         Returns:
             (PrettyTable): Rendered PrettyTable showing diagnostics info
         """
         border = kwargs.pop("border", "colon")
-        depot = kwargs.pop("depot", None)
         missing = kwargs.pop("missing", _R._runez_module().dim("-unknown-"))
+        sys_info = kwargs.pop("sys_info", SYS_INFO)
         verbose = kwargs.pop("verbose", True)
         table = PrettyTable(2, border=border)
         table.header[0].align = "right"
@@ -364,8 +363,8 @@ class PrettyTable(PrettyCustomizable):
         col1 = 0
         rows = []
         sources = flattened(sources)
-        if not sources:
-            sources = [SYS_INFO.diagnostics]
+        if sys_info and sys_info.diagnostics not in sources:
+            sources.append(sys_info.diagnostics)
 
         for source in sources:
             if callable(source):
@@ -377,13 +376,11 @@ class PrettyTable(PrettyCustomizable):
                     rows.append(row)
                     col1 = max(col1, len(row[0]))
 
-        if depot:
-            rows.append(["invoker python", depot.invoker.representation(colored=True)])
-
-        size_col2 = SYS_INFO.terminal.columns - col1 - 5
+        col2 = sys_info.terminal.columns if sys_info else 200
+        col2 = col2 - col1 - 5
         for row in rows:
             if len(row) == 2 and row[1]:
-                row[1] = short(row[1], size=size_col2)
+                row[1] = short(row[1], size=col2)
 
             table.add_row(row)
 

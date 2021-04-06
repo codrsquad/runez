@@ -469,7 +469,13 @@ def short(value, size=UNSET, none="None"):
         size = SYS_INFO.terminal.columns
 
     if isinstance(size, int) and len(text) > size > 0:
-        return "%s..." % text[:size - 3]
+        if "\033" in text:
+            uncolored = _R._runez_module().colors.uncolored(text)
+            if len(uncolored) > size:
+                text = "%s..." % uncolored[:size - 3]
+
+        else:
+            text = "%s..." % text[:size - 3]
 
     return text
 
@@ -1192,14 +1198,20 @@ class SystemInfo:
 
         return folder
 
-    def diagnostics(self, verbose=False):
+    def diagnostics(self, verbose):
         """Usable by runez.render.PrettyTable.two_column_diagnostics()"""
         yield "platform", _R._runez_module().shell("uname -msrp")
         if self.terminal.term_program:
-            yield "terminal", self.terminal.term_program
-            yield "TERM", os.environ.get("TERM")
+            yield "terminal", "%s (TERM=%s)" % (self.terminal.term_program, os.environ.get("TERM"))
 
         yield "userid", self.userid
+        caller = find_caller_frame(validator=_R.frame_has_package)
+        if caller:
+            version = get_version(caller, logger=None)
+            if version:
+                yield "version", "%s v%s" % (os.path.basename(self.program_path), version)
+
+        yield "sys.executable", sys.executable
         process_list = self.current_process.parent_list()
         if process_list:
             delim = "/" if PY2 else "⚡"
@@ -1209,7 +1221,6 @@ class SystemInfo:
             if "diagnostics" not in sys.argv:
                 yield "sys.argv", quoted(sys.argv)
 
-            yield "sys.executable", sys.executable
             if not sys.executable.startswith(sys.prefix):
                 yield "sys.prefix", sys.prefix
 
@@ -1720,6 +1731,15 @@ class _R:
         package = f.f_globals.get("__package__")
         if package and not package.startswith("_") and package.partition(".")[0] not in ("importlib", "pluggy", "runez"):
             return f
+
+    @staticmethod
+    def frame_has_package(f):
+        """Return package of frame `f`, if it has one"""
+        caller = _R.is_actual_caller_frame(f)
+        if caller:
+            package = caller.f_globals.get("__package__")
+            if package:
+                return package
 
 
 def _actual_message(message):

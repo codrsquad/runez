@@ -6,6 +6,7 @@ import pytest
 from mock import patch
 
 from runez.render import Align, Header, PrettyBorder, PrettyHeader, PrettyTable
+from runez.system import SystemInfo
 
 
 def test_align():
@@ -47,23 +48,22 @@ def test_border():
 
 
 def test_diagnostics(monkeypatch):
-    from runez.pyenv import PythonDepot
-
-    x = PrettyTable.two_column_diagnostics(verbose=False)
+    s = SystemInfo()
+    s.terminal.term_program = None
+    x = PrettyTable.two_column_diagnostics(sys_info=s, verbose=False)
     x = str(x)
-    assert "invoker python" not in x
-    assert "sys.prefix" not in x
-    assert "sys.executable" not in x
-    assert "TERM" not in x
+    assert "sys.executable" in x
+    assert "sys.prefix" not in x  # Not present when verbose=False:
+    assert "terminal" not in x  # Not present when no terminal info available
 
     with patch.dict(os.environ, {"LC_TERMINAL": "foo", "LC_TERMINAL_VERSION": "2"}):
         monkeypatch.setattr(sys, "executable", "foo")
-        x = PrettyTable.two_column_diagnostics(depot=PythonDepot())
+        s = SystemInfo()
+        x = PrettyTable.two_column_diagnostics(sys_info=s, verbose=True)
         x = str(x)
-        assert "invoker python" in x
         assert "sys.prefix" in x
         assert "sys.executable : foo" in x
-        assert "TERM" in x
+        assert "terminal : foo (v2)" in x
 
 
 def test_header():
