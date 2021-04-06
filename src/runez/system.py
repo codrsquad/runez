@@ -1,3 +1,5 @@
+#  -*- encoding: utf-8 -*-
+
 """
 Base functionality used by other parts of `runez`.
 
@@ -1166,6 +1168,11 @@ class SystemInfo:
 
         return find_caller_frame(validator=is_test_frame)
 
+    @cached_property
+    def current_process(self):
+        """Info on currently running process"""
+        return _R._runez_module().PsInfo()
+
     @staticmethod
     def dev_folder(*relative_path):
         """
@@ -1185,10 +1192,26 @@ class SystemInfo:
 
         return folder
 
-    @cached_property
-    def current_process(self):
-        """Info on currently running process"""
-        return _R._runez_module().PsInfo()
+    def diagnostics(self, verbose=False):
+        """Usable by runez.render.PrettyTable.two_column_diagnostics()"""
+        yield "platform", _R._runez_module().shell("uname -msrp")
+        if self.terminal.term_program:
+            yield "terminal", self.terminal.term_program
+            yield "TERM", os.environ.get("TERM")
+
+        yield "userid", self.userid
+        process_list = self.current_process.parent_list()
+        if process_list:
+            delim = "/" if PY2 else "⚡"
+            yield "via", joined([p.cmd_basename for p in process_list], keep_empty=False, delimiter=" %s " % delim)
+
+        if verbose:
+            if "diagnostics" not in sys.argv:
+                yield "sys.argv", quoted(sys.argv)
+
+            yield "sys.executable", sys.executable
+            if not sys.executable.startswith(sys.prefix):
+                yield "sys.prefix", sys.prefix
 
     @cached_property
     def is_running_in_docker(self):
@@ -1218,6 +1241,11 @@ class SystemInfo:
         """Info on terminal (if any) we're currently running under"""
         return TerminalInfo()
 
+    @cached_property
+    def userid(self):
+        """str: User id of user we're currently running as"""
+        return os.environ.get("USER") or self.current_process.userid
+
 
 SYS_INFO = SystemInfo()
 
@@ -1246,7 +1274,9 @@ class TerminalInfo(object):
     @cached_property
     def term_program(self):
         """Info on terminal program being currently used, if any"""
-        return TerminalProgram()
+        p = TerminalProgram()
+        if p.name:
+            return p
 
     @cached_property
     def columns(self):
@@ -1349,7 +1379,10 @@ class TerminalProgram(object):
                 return
 
     def __repr__(self):
-        return self.representation(colored=False)
+        if self.extra_info:
+            return "%s (%s)" % (self.name, short(self.extra_info))
+
+        return self.name
 
     @staticmethod
     def known_terminal(text):
@@ -1358,24 +1391,6 @@ class TerminalProgram(object):
         m = regex.match(text)
         if m:
             return m.group(1)
-
-    def representation(self, colored=True, unknown="-unknown-"):
-        """
-        Args:
-            colored (bool): If True, return a colored representation
-            unknown (str): Text to use when terminal program could not be determined
-
-        Returns:
-            (str): Textual representation of what terminal program we're currently running under
-        """
-        dim = _R._runez_module().dim if colored else str
-        if not self.name:
-            return dim(unknown)
-
-        if self.extra_info:
-            return "%s %s" % (self.name, dim("(%s)" % short(self.extra_info)))
-
-        return self.name
 
 
 class ThreadGlobalContext(object):

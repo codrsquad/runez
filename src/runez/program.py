@@ -328,6 +328,18 @@ def run(program, *args, **kwargs):
         return result
 
 
+def shell(*args, **kwargs):
+    """Output of a quick shell command, same as run(), but doesn't log and returns output only (when available)"""
+    kwargs.setdefault("fatal", False)
+    kwargs.setdefault("logger", None)
+    if len(args) == 1:
+        args = flattened(args, split=" ")
+
+    r = run(*args, **kwargs)
+    if r.succeeded:
+        return r.output
+
+
 class PassthroughCapture(object):
     """Capture process stdout/stderr while still letting pass through to sys.stdout/stderr"""
 

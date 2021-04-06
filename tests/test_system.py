@@ -529,7 +529,6 @@ def check_terminal_program_name(*names):
 
 
 def test_terminal():
-    assert TerminalInfo().term_program
     assert TerminalProgram.known_terminal("termin") is None
     check_terminal_program_name(
         "alacritty",
@@ -561,12 +560,11 @@ def test_terminal():
             assert t.get_lines() == 12
 
     with patch.dict(os.environ, {"LC_TERMINAL": "foo", "LC_TERMINAL_VERSION": "2"}):
-        p = TerminalProgram()
+        s = TerminalInfo()
+        p = s.term_program
         assert str(p) == "foo (v2)"
         p.extra_info = None
         assert str(p) == "foo"
-        p.name = None
-        assert str(p) == "-unknown-"
 
     with patch.dict(os.environ, {"LC_TERMINAL": "", "TERM_PROGRAM": ""}):
         # Simulate a known terminal
@@ -591,3 +589,9 @@ def test_terminal():
         with patch("runez.SYS_INFO.current_test", return_value=None):  # simulate not running in test
             t = TerminalInfo()
             assert t.is_stdout_tty  # Now True
+
+
+def test_user_id(monkeypatch):
+    monkeypatch.setenv("USER", "foo")
+    s = SystemInfo()
+    assert s.userid == "foo"

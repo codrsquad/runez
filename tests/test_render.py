@@ -1,6 +1,9 @@
+import os
+import sys
 from argparse import Namespace
 
 import pytest
+from mock import patch
 
 from runez.render import Align, Header, PrettyBorder, PrettyHeader, PrettyTable
 
@@ -41,6 +44,26 @@ def test_border():
     # Exercise setting from object fields, for coverage
     tc2 = PrettyBorder("c:   ", h=Namespace(first=" ", mid=" ", last=" ", h="-"))
     assert tc2 == tc
+
+
+def test_diagnostics(monkeypatch):
+    from runez.pyenv import PythonDepot
+
+    x = PrettyTable.two_column_diagnostics(verbose=False)
+    x = str(x)
+    assert "invoker python" not in x
+    assert "sys.prefix" not in x
+    assert "sys.executable" not in x
+    assert "TERM" not in x
+
+    with patch.dict(os.environ, {"LC_TERMINAL": "foo", "LC_TERMINAL_VERSION": "2"}):
+        monkeypatch.setattr(sys, "executable", "foo")
+        x = PrettyTable.two_column_diagnostics(depot=PythonDepot())
+        x = str(x)
+        assert "invoker python" in x
+        assert "sys.prefix" in x
+        assert "sys.executable : foo" in x
+        assert "TERM" in x
 
 
 def test_header():

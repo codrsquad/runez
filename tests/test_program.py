@@ -18,6 +18,7 @@ def test_capture(monkeypatch):
     with runez.CurrentFolder(os.path.dirname(CHATTER)):
         # Check which finds programs in current folder
         assert runez.which("chatter") == CHATTER
+        assert runez.shell("chatter hello") == "hello"
 
     with runez.CaptureOutput(dryrun=True) as logged:
         # Dryrun mode doesn't fail (since it doesn't actually run the program)

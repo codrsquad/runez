@@ -5,6 +5,8 @@ History
 2.5.7 (2021-04-02)
 ------------------
 
+* Added a reusable way of showing diagnostics
+
 * Moved
 
   * ``runez.TERMINAL_INFO`` -> ``runez.SYS_INFO.terminal``
@@ -14,6 +16,8 @@ History
   * ``runez.log.dev_folder()`` -> ``runez.SYS_INFO.dev_folder()``
 
   * ``runez.log.program_path()`` -> ``runez.SYS_INFO.program_path``
+
+* Added ``runez.shell()`` for quick shell command output grab
 
 * Removed ``runez.log.program_path()``
 

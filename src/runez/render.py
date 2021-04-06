@@ -2,7 +2,7 @@
 
 from runez.colors import cast_style, uncolored
 from runez.convert import to_int
-from runez.system import AdaptedProperty, flattened, Slotted, string_type, stringified, UNSET
+from runez.system import _R, AdaptedProperty, flattened, short, Slotted, string_type, stringified, SYS_INFO, UNSET
 
 
 NAMED_BORDERS = dict(
@@ -341,6 +341,53 @@ class PrettyTable(PrettyCustomizable):
         t = _PTTable(self)
         result = t.get_string()
         return result
+
+    @staticmethod
+    def two_column_diagnostics(*sources, **kwargs):
+        """
+        Args:
+            sources (callable): Callables yielding 2 columns of information to show (must accept verbose= arg)
+            border (str): Border to use
+            depot (runez.pyenv.PythonDepot | None): Optional python depot to show invoker python
+            missing (str): String to use to represent missing values
+
+        Returns:
+            (PrettyTable): Rendered PrettyTable showing diagnostics info
+        """
+        border = kwargs.pop("border", "colon")
+        depot = kwargs.pop("depot", None)
+        missing = kwargs.pop("missing", _R._runez_module().dim("-unknown-"))
+        verbose = kwargs.pop("verbose", True)
+        table = PrettyTable(2, border=border)
+        table.header[0].align = "right"
+        table.header[1].style = "bold"
+        col1 = 0
+        rows = []
+        sources = flattened(sources)
+        if not sources:
+            sources = [SYS_INFO.diagnostics]
+
+        for source in sources:
+            if callable(source):
+                source = source(verbose=verbose)
+
+            for row in source:
+                if row:
+                    row = [stringified(s, none=missing) for s in row]
+                    rows.append(row)
+                    col1 = max(col1, len(row[0]))
+
+        if depot:
+            rows.append(["invoker python", depot.invoker.representation(colored=True)])
+
+        size_col2 = SYS_INFO.terminal.columns - col1 - 5
+        for row in rows:
+            if len(row) == 2 and row[1]:
+                row[1] = short(row[1], size=size_col2)
+
+            table.add_row(row)
+
+        return table
 
 
 def render_line(container, columns, padding, pad, chars, cells=None):
