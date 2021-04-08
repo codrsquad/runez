@@ -2,6 +2,12 @@
 History
 =======
 
+2.5.8 (2021-04-08)
+------------------
+
+* Removed ``origin`` and ``family`` from ``PythonDepot``, allow to provide custom scanners
+
+
 2.5.7 (2021-04-06)
 ------------------
 

@@ -367,7 +367,7 @@ class PrettyTable(PrettyCustomizable):
         col1 = 0
         rows = []
         extra = []
-        sources = flattened(sources)
+        sources = list(sources)
         if sys_info:
             sources.append(sys_info.diagnostics())
 
@@ -382,7 +382,7 @@ class PrettyTable(PrettyCustomizable):
                     col1 = max(col1, len(row[0]))
 
                 else:
-                    extra.append(short(row, size=columns, uncolor=True))
+                    extra.append(row)
 
         columns = max(columns - col1 - 5, 10)
         for row in rows:
