@@ -9,7 +9,6 @@ from runez.system import _R, abort, flattened, joined, resolved_path, short, UNS
 
 
 CPYTHON = "cpython"
-CPYTHON_NAMES = {CPYTHON, "python", "py", "p", ""}
 PYTHON_FAMILIES = (CPYTHON, "pypy", "conda")
 R_SPEC = re.compile(r"^\s*((|py?|c?python|(ana|mini)?conda[23]?|pypy)\s*[:-]?)\s*([0-9]*)\.?([0-9]*)\.?([0-9]*)\s*$", re.IGNORECASE)
 R_VERSION = re.compile(r"^((\d+)((\.(\d+))*)((a|b|c|rc)(\d+))?(\.(dev|post|final)\.?(\d+))?).*$")
@@ -69,33 +68,34 @@ class PythonSpec(object):
     def __init__(self, text, family=None):
         """
         Args:
-            text (str): Text describing desired python
+            text (str | None): Text describing desired python
             family (str | None): Additional text to examine to determine python family
         """
         text = text.strip() if text else ""
         self.family = guess_family(family or text)
         self.text = text
         self.version = None
-        if text in CPYTHON_NAMES:
-            self.canonical = "%s" % self.family
-            return
-
         if _is_path(text):
             self.canonical = resolved_path(text)
             return
 
-        self.canonical = "?%s" % text  # Don't let arbitrary given text accidentally count as valid canonical
         m = R_SPEC.match(text)
         if not m:
+            self.canonical = "?%s" % text  # Don't let arbitrary given text accidentally count as valid canonical
             return
 
         components = [s for s in (m.group(4), m.group(5), m.group(6)) if s]
         if len(components) == 1:
-            components = [c for c in components[0]]  # Support notation of the form: py37
+            components = [c for c in components[0]]  # Support notations of the form: "py37"
 
-        if components and len(components) <= 3:
+        if len(components) > 3:
+            self.canonical = "?%s" % text  # Too many version components
+            return
+
+        if components:
             self.version = Version(".".join(components))
-            self.canonical = "%s:%s" % (self.family, self.version)
+
+        self.canonical = "%s:%s" % (self.family, self.version or "")
 
     def __repr__(self):
         return short(self.canonical)
@@ -128,20 +128,24 @@ class PythonDepot(object):
     scanned = None  # type: list[PythonInstallation]  # Installations found by scanner
 
     fatal = False  # abort() by default when a python could not be found?
+    use_path = True  # Scan $PATH env var for python installations as well?
     _cache = None  # type: dict[str, PythonInstallation]
 
-    def __init__(self, scanner=None, use_path=True):
+    def __init__(self, scanner=None, use_path=UNSET):
         """
         Args:
             scanner (typing.Iterator[PythonInstallation]): Scanner to use
-            use_path (bool): If True, scan $PATH env var for python installations as well (this is done "as late as possible")
+            use_path (bool): Scan $PATH env var? (default: class attribute default)
         """
-        self.from_path = None if use_path else []
+        if use_path is not UNSET:
+            self.use_path = use_path
+
+        self.from_path = None if self.use_path else []
         self._cache = {}
         self.scan(scanner)
         base_prefix = getattr(sys, "real_prefix", None) or getattr(sys, "base_prefix", sys.prefix)
         self.invoker = self._cache.get(base_prefix)
-        if use_path and self.invoker is None:
+        if self.use_path and self.invoker is None:
             self.scan_path_env_var()
             self.invoker = self._cache.get(base_prefix)
 
@@ -315,18 +319,16 @@ class PythonDepot(object):
         self._register(python, None)
         return python
 
-    def _listed(self, title, source):
-        if source:
-            return "%s:\n%s\n" % (title, "\n".join(p.representation() for p in source))
-
-    def representation(self):
+    def representation(self, colored=True):
         """(str): Textual representation of available pythons"""
+        scanned = [p.representation(colored=colored) for p in self.scanned]
+        from_path = self.from_path and [p.representation(colored=colored) for p in self.from_path]
         return joined(
-            self._listed("Scanned installations", self.scanned),
-            self._listed("From PATH", self.from_path),
+            scanned and ("\nAvailable pythons:", scanned),
+            from_path and ("\nAvailable pythons from PATH:", "\n".join(from_path)),
             delimiter="\n",
             keep_empty=False
-        )
+        ).strip()
 
     def _python_from_path(self, path, equivalents=None):
         """

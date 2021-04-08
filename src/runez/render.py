@@ -378,8 +378,8 @@ class PrettyTable(PrettyCustomizable):
             for row in source:
                 if isinstance(row, (tuple, list)):
                     row = [stringified(s, none=missing) for s in row]
-                    rows.append(row)
                     col1 = max(col1, len(row[0]))
+                    rows.append(row)
 
                 else:
                     extra.append(row)

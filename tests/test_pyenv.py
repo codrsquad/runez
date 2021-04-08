@@ -92,11 +92,11 @@ def test_depot(temp_folder, monkeypatch):
 
     monkeypatch.setenv("PATH", "foo/bin:bar:additional/bin")
     scanner = pyenv_scanner(".pyenv:non-existent-folder")
-    depot = PythonDepot(scanner=scanner)
+    depot = PythonDepot(scanner=scanner, use_path=True)
     assert str(depot) == "4 scanned, 2 from PATH"
     r = depot.representation()
-    assert "Scanned installations:" in r
-    assert "From PATH:" in r
+    assert "Available pythons:" in r
+    assert "Available pythons from PATH:" in r
 
     assert len(depot.from_path) == 2
     assert len(depot.scanned) == 4
@@ -124,7 +124,9 @@ def test_depot(temp_folder, monkeypatch):
     p87 = depot.find_python("8.7")
     p88 = depot.find_python("8.8")
     p89 = depot.find_python("8.9")
+    c = depot.find_python("conda")
     c47 = depot.find_python("conda:4.7")
+    assert c47 is c
     assert depot.find_python(PythonSpec("conda47")) is c47
     assert depot.scanned == [p89, p87, p86, c47]
 
@@ -268,9 +270,14 @@ def check_spec(text, canonical):
 
 
 def test_spec():
+    pnone = PythonSpec(None)
+    assert str(pnone) == "cpython:"
     p37a = PythonSpec("py37")
     p37b = PythonSpec("python3.7")
     assert p37a == p37b
+    assert pnone != p37a
+    assert pnone < p37a
+    assert not (pnone > p37a)
 
     p38 = PythonSpec("3.8")
     c38a = PythonSpec("conda:38")
@@ -279,13 +286,18 @@ def test_spec():
     assert c38a.version == p38.version
     assert c38a == c38b
 
-    check_spec("", "cpython")
-    check_spec(" ", "cpython")
+    check_spec("", "cpython:")
+    check_spec(" ", "cpython:")
+    check_spec(" : ", "cpython:")
+    check_spec(" - ", "cpython:")
     check_spec("2", "cpython:2")
     check_spec("3", "cpython:3")
     check_spec("P3", "cpython:3")
     check_spec("py3", "cpython:3")
     check_spec(" pY 3 ", "cpython:3")
+    check_spec("cpython:", "cpython:")
+    check_spec("cpython-", "cpython:")
+    check_spec("cpython3", "cpython:3")
     check_spec("python3", "cpython:3")
     check_spec(" python  3 ", "cpython:3")
     check_spec(" p3.7 ", "cpython:3.7")
@@ -314,11 +326,17 @@ def test_spec():
     check_spec("py--3.7", "?py--3.7")
 
     # Non-cpython families
+    check_spec("pypy", "pypy:")
     check_spec("pypy36", "pypy:3.6")
     check_spec("pypy:37", "pypy:3.7")
     check_spec("pypy:3.8", "pypy:3.8")
+    check_spec("conda", "conda:")
     check_spec("conda:38", "conda:3.8")
     check_spec("conda:3.9.1", "conda:3.9.1")
+    check_spec("anaconda", "conda:")
+    check_spec("anaconda3", "conda:")
+    check_spec("miniconda", "conda:")
+    check_spec("miniconda3", "conda:")
     check_spec("miniconda-3.18.3", "conda:3.18.3")
     check_spec("miniconda3-4.7.12", "conda:4.7.12")
 
@@ -330,14 +348,14 @@ def test_spec():
     # Invalid marked with starting '?' for canonical form
     check_spec("cpython:3.7a", "?cpython:3.7a")
     check_spec("miniconda3--4.7.1", "?miniconda3--4.7.1")
-    check_spec(" : ", "?:")
-    check_spec(" - ", "?-")
     check_spec("foo3.7", "?foo3.7")
     check_spec("3777", "?3777")  # Too many components
     check_spec("3.7.7.7", "?3.7.7.7")
+    check_spec("python3:", "?python3:")  # Separator is in the wrong place
+    check_spec("python3-", "?python3-")
 
-    # Full path remains as-is
-    check_spec("/foo/python2.7", "/foo/python2.7")
+    # Paths remain as-is
+    check_spec("foo/python2.7", runez.short(runez.resolved_path("foo/python2.7")))
     check_spec("/foo/python2.7", "/foo/python2.7")
     check_spec("~/.pyenv/3.8.1", "~/.pyenv/3.8.1")
 
