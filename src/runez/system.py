@@ -438,8 +438,8 @@ def quoted(*items, **kwargs):
 def resolved_path(path, base=None):
     """
     Args:
-        path (str | None): Path to resolve
-        base (str | None): Base path to use to resolve relative paths (default: current working dir)
+        path (str | pathlib.Path | None): Path to resolve
+        base (str | pathlib.Path | None): Base path to use to resolve relative paths (default: current working dir)
 
     Returns:
         (str): Absolute path
@@ -630,7 +630,7 @@ class Anchored(object):
     def set(cls, *anchors):
         """
         Args:
-            *anchors (str | list | tuple): Optional paths to use as anchors for short()
+            *anchors (str | pathlib.Path | list | tuple): Optional paths to use as anchors for short()
         """
         cls._paths = sorted((resolved_path(p) for p in flattened(anchors, keep_empty=False, unique=True)), reverse=True)
 
@@ -638,7 +638,7 @@ class Anchored(object):
     def add(cls, anchors):
         """
         Args:
-            anchors (str | list | tuple): Optional paths to use as anchors for short()
+            anchors (str | pathlib.Path | list | tuple): Optional paths to use as anchors for short()
         """
         cls.set(cls._paths, anchors)
 
@@ -646,7 +646,7 @@ class Anchored(object):
     def pop(cls, anchors):
         """
         Args:
-            anchors (str | list | tuple): Optional paths to use as anchors for short()
+            anchors (str | pathlib.Path | list | tuple): Optional paths to use as anchors for short()
         """
         for anchor in flattened(anchors, keep_empty=False, unique=True):
             anchor = resolved_path(anchor)
@@ -657,7 +657,7 @@ class Anchored(object):
     def short(cls, text):
         """
         Args:
-            text (str): Text where to shorten paths
+            text: Text where to shorten paths
 
         Returns:
             (str): Short form, using '~' if applicable
@@ -665,6 +665,7 @@ class Anchored(object):
         if cls._home is None:
             cls._home = os.path.expanduser("~")
 
+        text = stringified(text)
         if cls._paths:
             for p in cls._paths:
                 if p:
@@ -755,7 +756,7 @@ class CaptureOutput(object):
         Args:
             stdout (bool): Capture stdout?
             stderr (bool): Capture stderr?
-            anchors (str | list | None): Optional paths to use as anchors for `runez.short()`
+            anchors (str | pathlib.Path | list | None): Optional paths to use as anchors for `runez.short()`
             dryrun (bool): Optionally override current dryrun setting
             seed_logging (bool): If True, ensure there is at least one logging handler configured
         """
