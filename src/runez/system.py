@@ -1775,7 +1775,14 @@ def _flatten(result, value, keep_empty, split, shellify, unique):
         return
 
     if split and isinstance(value, string_type) and split in value:
-        _flatten(result, value.split(split), keep_empty, split, shellify, unique)
+        if "\n" in value:
+            value = [line.strip() for line in value.splitlines()]
+            value = [s for s in value if s]
+
+        else:
+            value = value.split(split)
+
+        _flatten(result, value, keep_empty, split, shellify, unique)
         return
 
     if shellify:

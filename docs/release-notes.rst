@@ -2,6 +2,12 @@
 History
 =======
 
+2.5.9 (2021-04-09)
+------------------
+
+* Properly handle multiple lines in ``flattened(split=...)``
+
+
 2.5.8 (2021-04-08)
 ------------------
 

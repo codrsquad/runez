@@ -328,10 +328,12 @@ def test_flattened():
     assert runez.flattened(["a", "-f", "", "c"], keep_empty="", shellify=True) == ["a", "-f", "", "c"]
     assert runez.flattened(["a", "-f", "", "c"], keep_empty="null", shellify=True) == ["a", "-f", "", "c"]
 
+
+def test_flattened_split():
     # Splitting on a given char
     assert runez.flattened("a b b") == ["a b b"]
-    assert runez.flattened("a b b", split=" ") == ["a", "b", "b"]
-    assert runez.flattened("a b b", split=" ", unique=True) == ["a", "b"]
+    assert runez.flattened("a b\n b", split=" ") == ["a", "b", "b"]
+    assert runez.flattened("a b\n \n \n b", split=" ", unique=True) == ["a", "b"]
     assert runez.flattened("a b b", unique=True) == ["a b b"]
     assert runez.flattened("a b b", split="", unique=True) == ["a b b"]
     assert runez.flattened("a b b", split="+", unique=True) == ["a b b"]
