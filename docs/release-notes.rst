@@ -2,6 +2,12 @@
 History
 =======
 
+2.6.0 (2021-04-21)
+------------------
+
+* Removed ``@chill_property``, not general/useful enough
+
+
 2.5.9 (2021-04-09)
 ------------------
 

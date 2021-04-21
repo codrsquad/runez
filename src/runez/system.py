@@ -137,41 +137,14 @@ class cached_property(object):
         value = instance.__dict__[self.__name__] = self.func(instance)
         return value
 
-
-class chill_property(cached_property):
-    """
-    Same as @cached_property, except the first 'not None' value yielded by the decorated function is used.
-
-    This is useful to avoid repetitive code patterns such as this:
-
-    @property
-    def foo(self):
-        value = f(...)
-        if value is not None:
-            return value
-
-        value = g(...)
-        if value is not None:
-            return value
-        ...
-
-    The above becomes:
-
-    @chill_property
-    def foo(self):
-        yield f(...) or None
-        yield g(...)  # Tried only if preceding f() call returned a False-ish value
-        ...
-    """
-
-    def __get__(self, instance, owner):
-        if instance is None:
-            return self
-
-        for value in self.func(instance):
-            if value is not None:
-                instance.__dict__[self.func.__name__] = value
-                return value
+    @staticmethod
+    def reset(target):
+        """Reset all cached properties on 'target' object"""
+        if target is not None and not isinstance(target, type):
+            parent_class = target.__class__
+            for k, v in vars(parent_class).items():
+                if isinstance(v, cached_property) and hasattr(target, k):
+                    delattr(target, k)
 
 
 def decode(value, strip=None):
@@ -1430,6 +1403,7 @@ class ThreadGlobalContext(object):
             if on:
                 if self.filter is None:
                     self.filter = self._filter_type(self)
+
             else:
                 self.filter = None
 
@@ -1462,6 +1436,7 @@ class ThreadGlobalContext(object):
             if self._tpayload is not None:
                 if name in self._tpayload.context:
                     del self._tpayload.context[name]
+
                 if not self._tpayload.context:
                     self._tpayload = None
 
@@ -1490,6 +1465,7 @@ class ThreadGlobalContext(object):
             if self._gpayload is not None:
                 if name in self._gpayload:
                     del self._gpayload[name]
+
                 if not self._gpayload:
                     self._gpayload = None
 
@@ -1505,8 +1481,10 @@ class ThreadGlobalContext(object):
             result = {}
             if self._gpayload:
                 result.update(self._gpayload)
+
             if self._tpayload:
                 result.update(getattr(self._tpayload, "context", {}))
+
             return result
 
     def _ensure_threadlocal(self):
