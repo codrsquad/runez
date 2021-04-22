@@ -321,14 +321,6 @@ def is_iterable(value):
     return isinstance(value, (list, tuple, set)) or inspect.isgenerator(value)
 
 
-def python_version(components=2):
-    """
-    Returns:
-        (str): Major.minor version of currently running python
-    """
-    return ".".join(str(v) for v in sys.version_info[:components])
-
-
 def joined(*args, **kwargs):
     """
     >>> joined(1, None, 2)

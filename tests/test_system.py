@@ -488,8 +488,6 @@ def test_system():
     # Ensure we stop once callstack is exhausted
     assert runez.system.find_caller_frame(lambda f: None, maximum=None) is None
 
-    assert runez.python_version()
-
     # Verify that UNSET behaves as expected: evaluates to falsy, has correct representation
     assert not runez.UNSET
     assert bool(runez.UNSET) is False

@@ -162,13 +162,13 @@ def test_multithreaded():
 - `tests/test_async.py`:
 
 ```python
+import runez
 import pytest
 
 from runez.system import cached_property
 
 
 class MyObject:
-
     _foo = 1  # Used as a global counter
 
     @cached_property
@@ -181,15 +181,14 @@ class MyObject:
 async def test_async():
     assert True
     obj1 = MyObject()
-    del obj1.foo
     assert await obj1.foo == 2
 
     obj2 = MyObject()
     assert await obj1.foo == 2  # Check that it didn't change
     assert await obj2.foo == 3  # Freshly computed in new object
 
-    del obj1.foo
-    assert await obj1.foo == 4  # Recomputed after delete
+    runez.cached_property.reset(obj1)
+    assert await obj1.foo == 4  # Recomputed after reset
     assert await obj2.foo == 3  # Other object was unaffected
 
     obj1.foo = 42

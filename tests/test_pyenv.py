@@ -54,6 +54,9 @@ def test_empty_depot():
     assert depot.scanned == []
 
     assert depot.find_python(PythonSpec(depot.invoker.executable)) is depot.invoker
+    assert depot.find_python(PythonSpec("invoker")) is depot.invoker
+    assert depot.find_python("invoker") is depot.invoker
+    assert depot.find_python(depot.invoker.spec.family) is depot.invoker
     assert depot.representation() == ""
 
     p = depot.find_python("foo")
@@ -278,6 +281,10 @@ def test_spec():
     assert pnone != p37a
     assert pnone < p37a
     assert not (pnone > p37a)
+
+    invoker = PythonSpec("invoker")
+    assert str(invoker) == "invoker"
+    assert invoker.version.major == sys.version_info[0]
 
     p38 = PythonSpec("3.8")
     c38a = PythonSpec("conda:38")

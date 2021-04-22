@@ -72,9 +72,15 @@ class PythonSpec(object):
             family (str | None): Additional text to examine to determine python family
         """
         text = text.strip() if text else ""
-        self.family = guess_family(family or text)
         self.text = text
         self.version = None
+        if text == "invoker":
+            self.canonical = text
+            self.family = guess_family(sys.version)
+            self.version = Version(".".join(str(s) for s in sys.version_info[:3]))
+            return
+
+        self.family = guess_family(family or text)
         if _is_path(text):
             self.canonical = resolved_path(text)
             return

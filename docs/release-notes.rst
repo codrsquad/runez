@@ -2,6 +2,14 @@
 History
 =======
 
+2.6.1 (2021-04-22)
+------------------
+
+* Removed ``python_version()`` (``runez.pyenv`` is better suited for this)
+
+* Accept ``invoker`` as python spec
+
+
 2.6.0 (2021-04-21)
 ------------------
 

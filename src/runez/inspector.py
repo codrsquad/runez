@@ -15,7 +15,7 @@ from runez.convert import to_int
 from runez.logsetup import LogManager
 from runez.program import run
 from runez.render import PrettyTable
-from runez.system import find_caller_frame, first_line, python_version, TempArgv
+from runez.system import find_caller_frame, first_line, TempArgv
 
 
 def auto_import_siblings(package=None, auto_clean="TOX_WORK_DIR", skip=None):
@@ -168,8 +168,10 @@ class ImportTime(object):
         self.elapsed = None
         self.cumulative = None
         self.problem = None
-        if sys.version_info[:2] < (3, 7):
-            self.problem = "-Ximporttime is not available in python %s, can't measure import-time speed" % python_version()
+        v = sys.version_info[:2]
+        if v < (3, 7):
+            v = "%s.%s" % (v[0], v[1])
+            self.problem = "-Ximporttime is not available in python %s, can't measure import-time speed" % v
             return
 
         cumulative = 0
