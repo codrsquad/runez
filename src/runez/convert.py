@@ -232,7 +232,7 @@ def identifiers(text):
 
 
 class Pluralizer:
-    """Best-effort english plurals"""
+    """Quick heuristic to pluralize most common english words"""
 
     letter_based = {"s": "ses", "x": "ces", "y": "ies"}
     suffix_based = {"ch": "ches", "man": "men", "sh": "shes"}

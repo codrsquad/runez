@@ -147,6 +147,8 @@ def test_depot(temp_folder, monkeypatch):
     assert p8.satisfies(PythonSpec("py8.9.0"))
     assert not p8.satisfies(PythonSpec("py8.9.1"))
     assert c47.satisfies(PythonSpec("conda47"))
+    assert len({p8, p89}) == 1
+    assert len({p8, p89, p88}) == 2
 
 
 def test_depot_adhoc(temp_folder, monkeypatch):
@@ -281,6 +283,8 @@ def test_spec():
     assert pnone != p37a
     assert pnone < p37a
     assert not (pnone > p37a)
+    assert len({p37a, p37b}) == 1
+    assert len({p37a, p37b, pnone}) == 2
 
     invoker = PythonSpec("invoker")
     assert str(invoker) == "invoker"

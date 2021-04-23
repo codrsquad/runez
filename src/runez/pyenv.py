@@ -106,6 +106,9 @@ class PythonSpec(object):
     def __repr__(self):
         return short(self.canonical)
 
+    def __hash__(self):
+        return hash(self.canonical)
+
     def __eq__(self, other):
         return isinstance(other, PythonSpec) and self.canonical == other.canonical
 
@@ -540,6 +543,9 @@ class PythonInstallation(object):
 
     def __repr__(self):
         return self.representation(colored=False)
+
+    def __hash__(self):
+        return hash(self.executable)
 
     def __eq__(self, other):
         return isinstance(other, PythonInstallation) and self.executable == other.executable

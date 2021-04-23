@@ -2,7 +2,13 @@
 History
 =======
 
-2.6.1 (2021-04-22)
+2.6.3 (2021-04-23)
+------------------
+
+* ``PythonSpec`` is now hashable
+
+
+2.6.2 (2021-04-22)
 ------------------
 
 * Removed ``python_version()`` (``runez.pyenv`` is better suited for this)
