@@ -143,7 +143,7 @@ class cached_property(object):
         if target is not None and not isinstance(target, type):
             parent_class = target.__class__
             for k, v in vars(parent_class).items():
-                if isinstance(v, cached_property) and hasattr(target, k):
+                if isinstance(v, cached_property) and k in target.__dict__:
                     delattr(target, k)
 
 
