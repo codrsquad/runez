@@ -1,9 +1,11 @@
+import pytest
+
 from runez.system import cached_property
 
 
 class MyObject:
 
-    _global_counter = 1
+    _global_counter = 0
 
     @cached_property
     def foo(self):
@@ -13,25 +15,38 @@ class MyObject:
 
 
 def test_simple_case():
-    MyObject._global_counter = 1  # This reset is needed only if we add more test cases some day (using same `_global_counter`)
+    MyObject._global_counter = None  # Allows to trigger TypeError exception if property is accessed before expected
     assert isinstance(MyObject.foo, cached_property)
     assert MyObject.foo.__doc__ == "Some example property"
 
     obj1 = MyObject()
-    assert obj1.foo == 2  # First call
+    assert "foo" not in obj1.__dict__
+    cached_property.reset(obj1)  # no-op, does not trigger computation of property
+
+    with pytest.raises(TypeError):
+        _ = obj1.foo
+
+    assert "foo" not in obj1.__dict__
+    cached_property.reset(obj1)  # no-op
+    MyObject._global_counter = 0  # Ensure counter is at known value initially
+    assert "foo" not in obj1.__dict__
+    assert obj1.foo == 1  # First call
+    assert "foo" in obj1.__dict__
 
     obj2 = MyObject()
-    assert obj2.foo == 3  # Freshly computed in new object
-    assert obj1.foo == 2  # Check that obj1 didn't change
+    assert obj2.foo == 2  # Freshly computed in new object
+    assert obj1.foo == 1  # Check that obj1 didn't change
 
-    cached_property.reset(obj1)
-    assert obj1.foo == 4  # Recomputed after reset
-    assert obj2.foo == 3  # Other object remained unaffected
+    cached_property.reset(obj1)  # Resets .foo
+    assert obj1.foo == 3  # Recomputed after reset
+    assert obj2.foo == 2  # Other object remained unaffected
 
     obj1.foo = 42
     assert obj1.foo == 42  # Setting value works
-    assert obj2.foo == 3  # And does not affect other object
+    assert obj2.foo == 2  # And does not affect other object
 
     del obj1.foo
-    assert obj1.foo == 5  # Recomputed again after delete
-    assert obj2.foo == 3  # Other object remained unaffected
+    assert "foo" not in obj1.__dict__
+    assert obj1.foo == 4  # Recomputed again after delete
+    assert "foo" in obj1.__dict__
+    assert obj2.foo == 2  # Other object remained unaffected
