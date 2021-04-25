@@ -17,7 +17,10 @@ class MyObject:
 def test_simple_case():
     MyObject._global_counter = None  # Allows to trigger TypeError exception if property is accessed before expected
     assert isinstance(MyObject.foo, cached_property)
+    assert not MyObject.foo.__annotations__  # Can't test annotations yet, until full drop for PY2 support
     assert MyObject.foo.__doc__ == "Some example property"
+    assert MyObject.foo.__module__ == "tests.test_cached_property"
+    assert MyObject.foo.__name__ == "foo"
 
     obj1 = MyObject()
     assert "foo" not in obj1.__dict__
