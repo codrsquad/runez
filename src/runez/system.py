@@ -349,8 +349,8 @@ def joined(*args, **kwargs):
     if kwargs:
         raise TypeError("joined() got unexpected keyword arguments %s" % kwargs)
 
-    args = flattened(args, keep_empty=keep_empty)
-    return delimiter.join((stringify(x) for x in args))
+    args = [stringify(x) for x in flattened(args, keep_empty=keep_empty)]
+    return delimiter.join(flattened(args, keep_empty=keep_empty))
 
 
 def quoted(*items, **kwargs):

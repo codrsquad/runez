@@ -275,6 +275,13 @@ def check_spec(text, canonical):
 
 
 def test_spec():
+    assert PythonSpec.speccified(None) is None
+    assert PythonSpec.speccified([]) is None
+    assert PythonSpec.speccified([""]) == []
+    assert PythonSpec.speccified(["", "foo"]) == [PythonSpec("foo")]
+    assert PythonSpec.speccified(["", "foo"], strict=True) == []
+    assert PythonSpec.speccified(["", "foo", "3.7"], strict=True) == [PythonSpec("3.7")]
+
     pnone = PythonSpec(None)
     assert str(pnone) == "cpython:"
     p37a = PythonSpec("py37")

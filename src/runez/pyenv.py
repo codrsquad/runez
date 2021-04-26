@@ -119,6 +119,22 @@ class PythonSpec(object):
 
             return self.version < other.version
 
+    @classmethod
+    def speccified(cls, values, strict=False):
+        """
+        Args:
+            values (Iterable | None): Values to transform into a list of PythonSpec-s
+
+        Returns:
+            (list[PythonSpec] | None): Corresponding list of PythonSpec-s
+        """
+        if values:
+            values = [x if isinstance(x, PythonSpec) else cls(x) for x in values if x]
+            if strict:
+                values = [x for x in values if x.version]
+
+            return values
+
 
 class PythonDepot(object):
     """
