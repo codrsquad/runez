@@ -1162,7 +1162,7 @@ class SystemInfo:
 
     def diagnostics(self):
         """Usable by runez.render.PrettyTable.two_column_diagnostics()"""
-        yield "platform", _R._runez_module().shell("uname -msrp")
+        yield "platform", self.platform_description
         if self.terminal.term_program:
             yield "terminal", "%s (TERM=%s)" % (self.terminal.term_program, os.environ.get("TERM"))
 
@@ -1202,6 +1202,11 @@ class SystemInfo:
             pass
 
         return False
+
+    @cached_property
+    def platform_description(self):
+        """(str): Text identifying this platform"""
+        return "Windows" if WINDOWS else _R._runez_module().shell("uname -msrp", dryrun=False)
 
     @cached_property
     def program_path(self):
