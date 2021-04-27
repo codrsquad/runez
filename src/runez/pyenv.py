@@ -45,8 +45,11 @@ def pyenv_scanner(*locations):
                 spec = PythonSpec(fname, folder)
                 if spec.version:
                     exes = list(PythonDepot.python_exes_in_folder(folder))
-                    problem = None
-                    if not exes:
+                    if exes:
+                        count += 1
+                        problem = None
+
+                    else:
                         problem = "invalid pyenv installation"
 
                     exes.append(folder)
