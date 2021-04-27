@@ -239,6 +239,7 @@ def flattened(*value, **kwargs):
                                - True (default): No filtering, keep all values as-is
         split (str | None): If provided, split strings by given character
         shellify (bool): If True, filter out sequences of the form ["-f", None] (handy for simplified cmd line specification)
+        transform (callable | None): If given, transform all values via the given callable
         unique (bool): If True, ensure every value appears only once
 
     Returns:
@@ -247,12 +248,13 @@ def flattened(*value, **kwargs):
     keep_empty = kwargs.pop("keep_empty", True)
     split = kwargs.pop("split", None)
     shellify = kwargs.pop("shellify", False)
+    transform = kwargs.pop("transform", None)
     unique = kwargs.pop("unique", False)
     if kwargs:
         raise TypeError("flattened() got unexpected keyword arguments %s" % kwargs)
 
     result = []
-    _flatten(result, value, keep_empty, split, shellify, unique)
+    _flatten(result, value, keep_empty, split, shellify, transform, unique)
     return result
 
 
@@ -1720,7 +1722,7 @@ def _actual_message(message):
     return message
 
 
-def _flatten(result, value, keep_empty, split, shellify, unique):
+def _flatten(result, value, keep_empty, split, shellify, transform, unique):
     """
     keep_empty: string: replace None, None: filter out all False-ish, False: filter out `None` only, True (default): no filtering
     """
@@ -1745,7 +1747,7 @@ def _flatten(result, value, keep_empty, split, shellify, unique):
 
     if is_iterable(value):
         for item in value:
-            _flatten(result, item, keep_empty, split, shellify, unique)
+            _flatten(result, item, keep_empty, split, shellify, transform, unique)
 
         return
 
@@ -1757,11 +1759,14 @@ def _flatten(result, value, keep_empty, split, shellify, unique):
         else:
             value = value.split(split)
 
-        _flatten(result, value, keep_empty, split, shellify, unique)
+        _flatten(result, value, keep_empty, split, shellify, transform, unique)
         return
 
     if shellify:
         value = "%s" % value  # coerce to str() for py2
+
+    if transform is not None:
+        value = transform(value)
 
     if not unique or value not in result:
         result.append(value)

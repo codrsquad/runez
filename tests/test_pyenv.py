@@ -75,6 +75,7 @@ def test_depot(temp_folder, monkeypatch):
     p8 = depot.find_python("8")
     p86 = depot.find_python("8.6")
     assert str(p8) == ".pyenv/versions/8.7.2 [cpython:8.7.2]"  # Latest version 8 (invoker doesn't take precedence)
+    assert p8.folder == runez.resolved_path(".pyenv/versions/8.7.2/bin")
     assert p86 is depot.invoker
     assert str(depot) == "2 scanned"
     assert depot.scanned == [p8, p86]
@@ -223,6 +224,7 @@ def test_invoker():
     # Linux case with py3
     depot = mocked_invoker()
     assert depot.invoker.executable == "/usr/bin/python3"
+    assert depot.invoker.folder == "/usr/bin"
     assert depot.invoker.major == 3
 
     # Linux case without py3
@@ -418,6 +420,7 @@ def test_unknown():
     p = depot.find_python("foo")
     assert str(p) == "foo [not available]"
     assert p.executable == "foo"
+    assert p.folder is None
     assert p.major is None
     assert p.problem == "not available"
     assert p.spec.canonical == "?foo"

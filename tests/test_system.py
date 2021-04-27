@@ -269,6 +269,8 @@ def test_flattened():
     assert runez.flattened(None) == [None]
     assert runez.flattened([None]) == [None]
 
+    assert runez.flattened(["1"], "2", transform=int) == [1, 2]
+
     assert runez.flattened(None, [runez.UNSET, 0]) == [None, runez.UNSET, 0]
     assert runez.flattened(None, [runez.UNSET, 0], shellify=True) == ["0"]
     assert runez.flattened(None, [runez.UNSET, 0], keep_empty=None) == []

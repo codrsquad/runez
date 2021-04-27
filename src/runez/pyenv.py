@@ -577,6 +577,12 @@ class PythonInstallation(object):
             return self.spec < other.spec
 
     @property
+    def folder(self):
+        """Folder where this python is installed, if installation is valid"""
+        if self.executable and not self.problem:
+            return os.path.dirname(self.executable)
+
+    @property
     def major(self):
         """(int | None): Major python version, if any"""
         return self.spec and self.spec.version and self.spec.version.major

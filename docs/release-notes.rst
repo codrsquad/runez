@@ -5,7 +5,7 @@ History
 2.6.6 (2021-04-26)
 ------------------
 
-* Corrected diagnostics
+* Corrected diagnostics, added ``transform=`` argument to ``flattened()``
 
 
 2.6.5 (2021-04-26)
