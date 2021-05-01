@@ -12,6 +12,7 @@ from runez.system import flattened, joined, string_type, stringified
 DEFAULT_BASE = 1000
 DEFAULT_UNITS = "KMGTP"
 RE_WORDS = re.compile(r"[^\w]+")
+RE_CAMEL_CASE_WORDS = re.compile(r"(^[a-z]+|[A-Z](?:[a-z]+|[A-Z]*(?=[A-Z]|$)))")
 RE_UNDERSCORED_NUMBERS = re.compile(r"([0-9])_([0-9])")  # py2 does not parse numbers with underscores like "1_000"
 TRUE_TOKENS = {"on", "true", "y", "yes"}
 
@@ -310,13 +311,14 @@ def wordified(text, delimiter="_", normalize=None):
     return delimiter.join(words(text, normalize=normalize))
 
 
-def words(text, normalize=None, split="_"):
+def words(text, normalize=None, split="_", decamel=False):
     """Words extracted from `text` (split on underscore character as well by default)
 
     Args:
         text: Text to extract words from
         normalize (callable | None): Optional function to apply on each word
         split (str | None): Optional extra character to split words on
+        decamel (bool): If True, extract CamelCase words as well
 
     Returns:
         (list): Extracted words
@@ -327,12 +329,15 @@ def words(text, normalize=None, split="_"):
     if isinstance(text, list):
         result = []
         for line in text:
-            result.extend(words(line, normalize=normalize, split=split))
+            result.extend(words(line, normalize=normalize, split=split, decamel=decamel))
 
         return result
 
     strings = [s.strip() for s in RE_WORDS.split(stringified(text))]
     strings = [s for s in flattened(strings, split=split) if s]
+    if decamel:
+        strings = flattened(RE_CAMEL_CASE_WORDS.findall(s) for s in strings)
+
     if normalize:
         strings = [normalize(s) for s in strings]
 

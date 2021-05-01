@@ -2,6 +2,12 @@
 History
 =======
 
+2.6.7 (2021-05-01)
+------------------
+
+* Allow to split CamelCase words as well via ``runez.words(decamel=True)``
+
+
 2.6.6 (2021-04-26)
 ------------------
 

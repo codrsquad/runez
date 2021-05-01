@@ -221,6 +221,13 @@ def test_wordification():
     assert runez.words("hi_There-you", normalize=str.lower) == ["hi", "there", "you"]
     assert runez.words({"a": "b_c(d)"}) == ["a", "b", "c", "d"]
 
+    # Test de-camelization
+    assert runez.words("foo", decamel=True) == ["foo"]
+    assert runez.words("fooBar", decamel=True) == ["foo", "Bar"]
+    assert runez.words("FooBar", decamel=True) == ["Foo", "Bar"]
+    assert runez.words("_FooBar_", decamel=True, normalize=str.lower) == ["foo", "bar"]
+    assert runez.words("someCamel_likeWords-FooBar_baz", decamel=True) == ['some', 'Camel', 'like', 'Words', 'Foo', 'Bar', 'baz']
+
     assert runez.words(["a", "b_c", "a"]) == ["a", "b", "c", "a"]
     assert runez.words(["a", None, "b", 1]) == ["a", "b", "1"]
     assert runez.words(["a", [None, "b,c"], 1]) == ["a", "b", "c", "1"]
