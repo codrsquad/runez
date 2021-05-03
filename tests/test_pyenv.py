@@ -52,6 +52,7 @@ def test_empty_depot():
     assert str(depot) == "0 scanned"
     assert depot.from_path == []
     assert depot.scanned == []
+    assert not depot.scanned_prefixes
 
     assert depot.find_python(PythonSpec(depot.invoker.executable)) is depot.invoker
     assert depot.find_python(PythonSpec("invoker")) is depot.invoker
@@ -80,6 +81,7 @@ def test_depot(temp_folder, monkeypatch):
     assert str(depot) == "2 scanned"
     assert depot.scanned == [p8, p86]
     assert depot.from_path == []
+    assert depot.scanned_prefixes == {runez.resolved_path(".pyenv/versions")}
 
     mk_python("8.8.3", executable=False)
     mk_python("8.9.0")
@@ -104,6 +106,7 @@ def test_depot(temp_folder, monkeypatch):
 
     assert len(depot.from_path) == 2
     assert len(depot.scanned) == 4
+    assert depot.scanned_prefixes == {runez.resolved_path(".pyenv/versions")}
     assert depot.scan_path_env_var() is None  # Already scanned to try and find invoker
     p95 = depot.find_python("9.5.1")
     assert str(p95) == "foo/bin/python [cpython:9.5.1]"
@@ -133,6 +136,7 @@ def test_depot(temp_folder, monkeypatch):
     assert c47 is c
     assert depot.find_python(PythonSpec("conda47")) is c47
     assert depot.scanned == [p89, p87, p86, c47]
+    assert depot.scanned_prefixes == {runez.resolved_path(".pyenv/versions")}
 
     assert p8.major == 8
     assert p88.major == 8
@@ -267,6 +271,7 @@ def test_sorting(temp_folder):
     depot = PythonDepot(scanner=pyenv_scanner(".pyenv"), use_path=False)
     assert str(depot) == "5 scanned"
     versions = [p.spec.canonical for p in depot.scanned]
+    assert depot.scanned_prefixes == {runez.resolved_path(".pyenv/versions")}
     assert versions == ["conda:4.6.1", "conda:4.3.2", "cpython:3.8.3", "cpython:3.7.2", "cpython:3.6.1"]
 
 
@@ -408,6 +413,7 @@ def test_venv(temp_folder, logged):
     pvenv = depot.find_python(".venv/bin/python")
     assert str(pvenv) == ".pyenv/versions/8.6.1 [cpython:8.6.1]"
     assert depot.scanned == [pvenv]
+    assert depot.scanned_prefixes == {runez.resolved_path(".pyenv/versions/8.6.1")}
 
     # Trigger code coverage for private _pv module
     with runez.TempArgv(["dump"]):

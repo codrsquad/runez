@@ -154,6 +154,7 @@ class PythonDepot(object):
     from_path = None  # type: list[PythonInstallation]  # Installations from PATH env var
     invoker = None  # type: PythonInstallation  # The python installation (parent python, non-venv) that we're currently running under
     scanned = None  # type: list[PythonInstallation]  # Installations found by scanner
+    scanned_prefixes = None  # type: set[str]  # Common path prefixes of installations yielded by scanners
 
     fatal = False  # abort() by default when a python could not be found?
     use_path = True  # Scan $PATH env var for python installations as well?
@@ -248,10 +249,20 @@ class PythonDepot(object):
 
     def scan(self, *scanners):
         self.scanned = []
+        self.scanned_prefixes = set()
         for scanner in scanners:
+            folders = []
             if scanner:
                 for python in scanner:
                     self._register(python, self.scanned)
+                    folder = python.folder
+                    if folder:
+                        folders.append(folder)
+
+                prefix = os.path.commonprefix(folders)
+                prefix = prefix and os.path.dirname(prefix)
+                if prefix and len(prefix) > 2:
+                    self.scanned_prefixes.add(prefix)
 
                 self.scanned = sorted(self.scanned, reverse=True)
 
