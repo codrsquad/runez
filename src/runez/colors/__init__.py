@@ -11,7 +11,7 @@ import re
 from runez.system import short, Slotted, stringified, SYS_INFO
 
 
-RE_ANSI_ESCAPE = re.compile("\x1b\\[[;\\d]*[A-Za-z]")
+RE_ANSI_ESCAPE = re.compile(r"\x1b(\[[;\d]*[A-Za-z]?)?")
 
 
 class ActivateColors(object):

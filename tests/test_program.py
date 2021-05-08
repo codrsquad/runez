@@ -1,3 +1,4 @@
+import errno
 import logging
 import os
 import subprocess
@@ -11,6 +12,16 @@ from runez.program import RunResult
 
 
 CHATTER = runez.log.tests_path("chatter")
+
+
+def simulate_os_error(code):
+    e = OSError(code)
+    e.errno = code
+
+    def do_raise(*_):
+        raise e
+
+    return do_raise
 
 
 @pytest.mark.skipif(runez.WINDOWS, reason="Not supported on windows")
@@ -83,7 +94,42 @@ def test_capture(monkeypatch):
         assert r.output == ""
         assert r.full_output == r.error
 
-        r = runez.run(CHATTER, "fail", fatal=False)
+        if hasattr(subprocess.Popen, "__enter__"):
+            # Simulate an EIO
+            with patch("runez.program._read_data", side_effect=simulate_os_error(errno.EIO)):
+                r = runez.run(CHATTER, "fail", fatal=False, passthrough=True)
+                assert r.failed
+                assert r.exc_info is None
+                assert r.output == ""
+                assert r.error == ""
+
+            # Simulate an OSError
+            with patch("runez.program._read_data", side_effect=simulate_os_error(errno.EINTR)):
+                r = runez.run(CHATTER, "fail", fatal=False, passthrough=True)
+                assert r.failed
+                assert r.output is None
+                assert "failed: OSError(" in r.error
+
+        # Verify no extra "exited with code ..." message is added when pass-through had some output
+        logged.clear()
+        with pytest.raises(SystemExit):
+            runez.run(CHATTER, "fail", fatal=SystemExit, passthrough=True)
+        assert "exited with code" not in logged.pop()
+
+        with pytest.raises(runez.system.AbortException):
+            runez.run(CHATTER, "fail", fatal=True, passthrough=True)
+        assert "exited with code" not in logged.pop()
+
+        # Verify that silent pass-through gets at least mention of exit code
+        with pytest.raises(SystemExit):
+            runez.run(CHATTER, "silent-fail", fatal=SystemExit, passthrough=True)
+        assert "exited with code" in logged.pop()
+
+        with pytest.raises(runez.system.AbortException):
+            runez.run(CHATTER, "silent-fail", fatal=True, passthrough=True)
+        assert "exited with code" in logged.pop()
+
+        r = runez.run(CHATTER, "fail", fatal=False, passthrough=True)
         assert r.failed
         assert r.error == "failed"
         assert r.output == "hello there"
@@ -101,9 +147,8 @@ def test_capture(monkeypatch):
                 assert not r
 
             assert r.failed
-            assert r.error == "python failed: testing"
+            assert "python failed: OSError(" in r.error
             assert r.output is None
-            assert r.full_output == "python failed: testing"
 
             with pytest.raises(OSError):
                 runez.run("python", "--version")

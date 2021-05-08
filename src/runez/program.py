@@ -2,16 +2,21 @@
 Convenience methods for executing programs
 """
 
+import errno
 import fcntl
 import os
+import pty
 import shutil
-import subprocess  # nosec
+import struct
+import subprocess
 import sys
 import tempfile
+import termios
 import time
+from select import select
 
 from runez.convert import parsed_tabular, to_int
-from runez.system import _R, abort, cached_property, decode, flattened, quoted, short, StringIO, UNSET, WINDOWS
+from runez.system import _R, abort, cached_property, decode, flattened, quoted, short, StringIO, SYS_INFO, UNSET, WINDOWS
 
 
 DEFAULT_INSTRUCTIONS = {
@@ -259,7 +264,7 @@ def run(program, *args, **kwargs):
     dryrun = kwargs.pop("dryrun", UNSET)
     stdout = kwargs.pop("stdout", subprocess.PIPE)
     stderr = kwargs.pop("stderr", subprocess.PIPE)
-    strip = kwargs.pop("strip", "\n")
+    strip = kwargs.pop("strip", "\r\n")
     passthrough = kwargs.pop("passthrough", False)
     path_env = kwargs.pop("path_env", None)
     if path_env:
@@ -287,16 +292,7 @@ def run(program, *args, **kwargs):
     _R.hlog(logger, "Running: %s" % description)
     with _WrappedArgs([full_path] + args) as wrapped_args:
         try:
-            p = subprocess.Popen(wrapped_args, stdout=stdout, stderr=stderr, **kwargs)  # nosec
-            if fatal is None and stdout is None and stderr is None:
-                out, err = None, None  # Don't wait on spawned process
-
-            else:
-                if passthrough:
-                    p = PassthroughCapture(p)
-
-                out, err = p.communicate()
-
+            p, out, err = _run_popen(wrapped_args, kwargs, passthrough, fatal, stdout, stderr)
             result.output = decode(out, strip=strip)
             result.error = decode(err, strip=strip)
             result.pid = p.pid
@@ -309,11 +305,20 @@ def run(program, *args, **kwargs):
 
             result.exc_info = e
             if not result.error:
-                result.error = "%s failed: %s" % (short(program), e)
+                result.error = "%s failed: %s" % (short(program), repr(e) if isinstance(e, OSError) else e)
 
         if fatal and result.exit_code:
+            base_message = "%s exited with code %s" % (short(program), result.exit_code)
+            if passthrough and (result.output or result.error):
+                exception = _R.abort_exception(override=fatal)
+                if exception is SystemExit:
+                    raise SystemExit(result.exit_code)
+
+                if isinstance(exception, type) and issubclass(exception, BaseException):
+                    raise exception(base_message)
+
             message = []
-            if logger is not None:
+            if logger is not None and not passthrough:
                 # Log full output, unless user explicitly turned it off
                 message.append("Run failed: %s" % description)
                 if result.error:
@@ -322,7 +327,7 @@ def run(program, *args, **kwargs):
                 if result.output:
                     message.append("\nstdout:\n%s" % result.output)
 
-            message.append("%s exited with code %s" % (short(program), result.exit_code))
+            message.append(base_message)
             abort("\n".join(message), code=result.exit_code, exc_info=result.exc_info, fatal=fatal, logger=logger)
 
         return result
@@ -338,62 +343,6 @@ def shell(*args, **kwargs):
     r = run(*args, **kwargs)
     if r.succeeded:
         return r.output
-
-
-class PassthroughCapture(object):
-    """Capture process stdout/stderr while still letting pass through to sys.stdout/stderr"""
-
-    def __init__(self, process):
-        """
-        Args:
-            process (subprocess.Popen): Process to capture and let output pass-through
-        """
-        self.process = process
-
-    @property
-    def pid(self):
-        return self.process.pid
-
-    @property
-    def returncode(self):
-        return self.process.returncode
-
-    @staticmethod
-    def _mark_non_blocking(channel):
-        """Make `channel` non-blocking when using read/readline"""
-        fl = fcntl.fcntl(channel, fcntl.F_GETFL)
-        fcntl.fcntl(channel, fcntl.F_SETFL, fl | os.O_NONBLOCK)
-
-    @staticmethod
-    def handle_output(incoming, outgoing, buffer):
-        """Pass-through output from `incoming` -> `outgoing`, and capture it in `buffer` as well"""
-        try:
-            s = incoming.readline()
-            while s:
-                s = decode(s)
-                outgoing.write(s)
-                buffer.write(s)
-                s = incoming.readline()
-
-        except IOError:
-            pass  # Non-blocking readline() raises IOError when empty (py2 only)
-
-    def communicate(self):
-        stdout = self.process.stdout
-        stderr = self.process.stderr
-        self._mark_non_blocking(stdout)
-        self._mark_non_blocking(stderr)
-        buffer_stdout = StringIO()
-        buffer_stderr = StringIO()
-        while self.process.poll() is None:
-            self.handle_output(stdout, sys.stdout, buffer_stdout)
-            self.handle_output(stderr, sys.stderr, buffer_stderr)
-            time.sleep(0.1)
-
-        # Ensure no bits left behind
-        self.handle_output(stdout, sys.stdout, buffer_stdout)
-        self.handle_output(stderr, sys.stderr, buffer_stderr)
-        return buffer_stdout.getvalue(), buffer_stderr.getvalue()
 
 
 class RunAudit(object):
@@ -560,6 +509,124 @@ def _install_instructions(instructions_dict, platform):
         text = "\n- ".join("on %s: %s" % (k, v) for k, v in instructions_dict.items())
 
     return text
+
+
+def _read_data(fd, length=1024):
+    """Isolated as a function for test mocking"""
+    return os.read(fd, length)
+
+
+def _run_popen(args, kwargs, passthrough, fatal, stdout, stderr):
+    """Run subprocess.Popen(), capturing output accordingly"""
+    if not passthrough or not hasattr(subprocess.Popen, "__enter__"):
+        p = subprocess.Popen(args, stdout=stdout, stderr=stderr, **kwargs)
+        if fatal is None and stdout is None and stderr is None:
+            return p, None, None  # Don't wait on spawned process
+
+        if passthrough:
+            p = _SimplePassthrough(p)  # PY2: use a simple pass-through capture (Popen is not a context manager)
+
+        out, err = p.communicate()
+        return p, decode(out), decode(err)
+
+    # Capture output, but also let it pass-through as-is to the terminal
+    stdout_r, stdout_w = pty.openpty()
+    stderr_r, stderr_w = pty.openpty()
+    stdout_buffer = StringIO()
+    stderr_buffer = StringIO()
+    uncolored = _R._runez_module().colors.uncolored
+    term_size = struct.pack("HHHH", SYS_INFO.terminal.lines, SYS_INFO.terminal.columns, 0, 0)
+    for fd in (stdout_r, stdout_w, stderr_r, stderr_w):
+        fcntl.ioctl(fd, termios.TIOCSWINSZ, term_size)
+
+    with subprocess.Popen(args, stdout=stdout_w, stderr=stderr_w, **kwargs) as p:
+        os.close(stdout_w)
+        os.close(stderr_w)
+        readable = [stdout_r, stderr_r]
+        while readable:
+            for fd in select(readable, [], [])[0]:
+                try:
+                    data = _read_data(fd)
+                    if not data:
+                        readable.remove(fd)
+                        continue
+
+                    text = decode(data).replace("\r\n", "\n").rstrip("\r")  # For some reason, pty adds \r...
+                    if fd == stdout_r:
+                        sys.stdout.write(text)
+                        stdout_buffer.write(uncolored(text))
+                        sys.stdout.buffer.flush()
+                        continue
+
+                    sys.stderr.write(text)
+                    stderr_buffer.write(uncolored(text))
+                    sys.stderr.buffer.flush()
+
+                except OSError as e:
+                    if e.errno != errno.EIO:  # On some OS-es, EIO means EOF
+                        raise
+
+                    readable.remove(fd)
+
+    os.close(stdout_r)
+    os.close(stderr_r)
+    return p, stdout_buffer.getvalue(), stderr_buffer.getvalue()
+
+
+class _SimplePassthrough(object):
+    """Capture process stdout/stderr while still letting pass through to sys.stdout/stderr"""
+
+    def __init__(self, process):
+        """
+        Args:
+            process (subprocess.Popen): Process to capture and let output pass-through
+        """
+        self.process = process
+
+    @property
+    def pid(self):
+        return self.process.pid
+
+    @property
+    def returncode(self):
+        return self.process.returncode
+
+    @staticmethod
+    def _mark_non_blocking(channel):
+        """Make `channel` non-blocking when using read/readline"""
+        fl = fcntl.fcntl(channel, fcntl.F_GETFL)
+        fcntl.fcntl(channel, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+
+    @staticmethod
+    def handle_output(incoming, outgoing, buffer):
+        """Pass-through output from `incoming` -> `outgoing`, and capture it in `buffer` as well"""
+        try:
+            s = incoming.readline()
+            while s:
+                s = decode(s)
+                outgoing.write(s)
+                buffer.write(s)
+                s = incoming.readline()
+
+        except IOError:
+            pass  # Non-blocking readline() raises IOError when empty (py2 only)
+
+    def communicate(self):
+        stdout = self.process.stdout
+        stderr = self.process.stderr
+        self._mark_non_blocking(stdout)
+        self._mark_non_blocking(stderr)
+        buffer_stdout = StringIO()
+        buffer_stderr = StringIO()
+        while self.process.poll() is None:
+            self.handle_output(stdout, sys.stdout, buffer_stdout)
+            self.handle_output(stderr, sys.stderr, buffer_stderr)
+            time.sleep(0.1)
+
+        # Ensure no bits left behind
+        self.handle_output(stdout, sys.stdout, buffer_stdout)
+        self.handle_output(stderr, sys.stderr, buffer_stderr)
+        return buffer_stdout.getvalue(), buffer_stderr.getvalue()
 
 
 def _windows_exe(path):  # pragma: no cover

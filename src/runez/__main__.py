@@ -104,6 +104,23 @@ def cmd_import_speed():
     print(table)
 
 
+def cmd_passthrough():
+    """Run a program, capture its output as well as pass it through as-is (preserving terminal colors etc)"""
+    parser = argparse.ArgumentParser(description="Capture pass-through test")
+    # parser.add_argument("args", nargs="*", help="Command to run")
+    args, unknown = parser.parse_known_args()
+
+    unknown = runez.flattened(unknown, split=" ")
+    if not unknown:
+        sys.exit("Provide command to run")
+
+    print("-- Running: %s\n" % unknown)
+    r = runez.run(*unknown, fatal=False, passthrough=True)
+    print("\n---- Captured: ----")
+    print("\nstdout:\n%s" % (r.output or runez.dim("-empty-")))
+    print("\nstderr:\n%s" % (r.error or runez.dim("-empty-")))
+
+
 def cmd_progress_bar():
     """Show a progress bar sample"""
     names = AsciiAnimation.available_names()

@@ -2,6 +2,14 @@
 History
 =======
 
+2.6.9 (2021-05-08)
+------------------
+
+* ``runez.run(passthrough=True)`` now properly lets terminal colors through
+
+* Added ``runez.inspector.auto_install()``
+
+
 2.6.8 (2021-05-02)
 ------------------
 

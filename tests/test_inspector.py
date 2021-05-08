@@ -2,9 +2,10 @@ import os
 import sys
 
 import pytest
+from mock import patch
 
 import runez
-from runez.inspector import auto_import_siblings, ImportTime
+from runez.inspector import auto_import_siblings, auto_install, ImportTime
 from runez.system import _R
 
 
@@ -94,6 +95,27 @@ def test_auto_import_siblings(monkeypatch):
     assert "tests.test_serialize" not in imported
 
 
+def test_auto_install(logged):
+    assert auto_install("runez")
+    assert not logged
+
+    with patch("runez.inspector.run", return_value=runez.program.RunResult("failed")):
+        with pytest.raises(runez.system.AbortException):
+            auto_install("foo")
+        assert "Can't auto-install 'foo': failed" in logged.pop()
+
+    with patch("runez.inspector.run", return_value=runez.program.RunResult("OK", code=0)):
+        with pytest.raises(ImportError):  # 2nd import attemp raises ImportError (in this case, because we're trying a mocked 'foo')
+            auto_install("foo")
+        assert not logged
+
+    with patch("runez.inspector.sys") as mocked:
+        mocked.real_prefix = mocked.prefix = "foo"
+        with pytest.raises(runez.system.AbortException):
+            auto_install("foo")
+        assert "Can't auto-install 'foo' outside of a virtual environments" in logged.pop()
+
+
 @pytest.mark.skipif(sys.version_info[:2] < (3, 7), reason="Available in 3.7+")
 def test_importtime():
     """Verify that importing runez remains fast"""
@@ -119,3 +141,13 @@ def test_importtime_command(cli):
     lines = cli.logged.stdout.contents().splitlines()
     assert len([s for s in lines if "runez" in s]) == 1
     assert len([s for s in lines if "foo_no_such_module" in s]) == 1
+
+
+def test_passthrough(cli):
+    cli.run("passthrough")
+    assert cli.failed
+    assert "Provide command to run" in cli.logged
+
+    cli.run("passthrough", "echo", "hello")
+    assert cli.succeeded
+    assert "stdout:\nhello" in cli.logged

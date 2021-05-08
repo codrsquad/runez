@@ -145,6 +145,11 @@ def test_show_colors(cli):
 
 
 def test_uncolored():
+    # Verify incomplete codes are removed too
+    assert runez.uncolored("foo-\x1b[0m z") == "foo- z"
+    assert runez.uncolored("foo-\x1b") == "foo-"
+    assert runez.uncolored("foo-\x1b[") == "foo-"
+
     with runez.ActivateColors(terminal.TrueColorBackend(flavor="neutral")):
         assert runez.uncolored(runez.red("foo")) == "foo"
         assert runez.color.adjusted_size("foo", 5) == 5

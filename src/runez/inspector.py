@@ -15,7 +15,7 @@ from runez.convert import to_int
 from runez.logsetup import LogManager
 from runez.program import run
 from runez.render import PrettyTable
-from runez.system import find_caller_frame, first_line, TempArgv
+from runez.system import abort, find_caller_frame, first_line, TempArgv
 
 
 def auto_import_siblings(package=None, auto_clean="TOX_WORK_DIR", skip=None):
@@ -91,6 +91,28 @@ def auto_import_siblings(package=None, auto_clean="TOX_WORK_DIR", skip=None):
             imported.append(module_name)
 
     return imported
+
+
+def auto_install(top_level, package_name=None):
+    """
+    Args:
+        top_level (str): Name of top-level import that should be importable
+        package_name (str | None): Name of pypi package to install (defaults to `top_level`)
+    """
+    package_name = package_name or top_level
+    base_prefix = getattr(sys, "real_prefix", None) or getattr(sys, "base_prefix", sys.prefix)
+    if sys.prefix == base_prefix:
+        return abort("Can't auto-install '%s' outside of a virtual environments" % package_name)
+
+    try:
+        return __import__(top_level)
+
+    except ImportError:
+        r = run(sys.executable, "-mpip", "install", package_name, dryrun=False)
+        if r.failed:
+            return abort("Can't auto-install '%s': %s" % (package_name, r.full_output))
+
+        return __import__(top_level)
 
 
 def run_cmds(prog=None):
