@@ -840,7 +840,7 @@ class LogManager(object):
         Returns:
             (str | None): Computed path, if we're currently running a dev build
         """
-        path = _validated_project_path(LogManager.tests_path, SYS_INFO.dev_folder())
+        path = _validated_project_path(LogManager.tests_path, SYS_INFO.dev_folder)
         if path and relative_path:
             path = os.path.join(path, *relative_path)
 

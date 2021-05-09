@@ -3,6 +3,7 @@ import re
 import sys
 
 import pytest
+from mock import patch
 
 import runez
 import runez.conftest
@@ -101,7 +102,7 @@ def test_crash(cli):
         cli.expect_failure(["Exception", "hello"], "this message shouldn't appear")
 
 
-def test_edge_cases(monkeypatch):
+def test_edge_cases(temp_folder, monkeypatch):
     # verify_abort should complain about called function not having raised anything
     with pytest.raises(AssertionError):
         assert runez.conftest.verify_abort(sample_main)
@@ -110,6 +111,12 @@ def test_edge_cases(monkeypatch):
     runez.conftest.patch_raise(monkeypatch, runez.log, "tests_path", wrapper=staticmethod)
     with pytest.raises(Exception):
         runez.log.project_path()
+
+    runez.touch("setup.py")
+    with patch("runez.log.tests_path", return_value=None):
+        with patch("runez.logsetup.SYS_INFO.dev_folder", return_value="./foo"):
+            p = runez.log.project_path()
+            assert p == "."
 
 
 def test_success(cli, monkeypatch):
