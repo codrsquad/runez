@@ -13,6 +13,7 @@ import sys
 import tempfile
 import termios
 import time
+from io import BytesIO
 from select import select
 
 from runez.convert import parsed_tabular, to_int
@@ -532,9 +533,8 @@ def _run_popen(args, kwargs, passthrough, fatal, stdout, stderr):
     # Capture output, but also let it pass-through as-is to the terminal
     stdout_r, stdout_w = pty.openpty()
     stderr_r, stderr_w = pty.openpty()
-    stdout_buffer = StringIO()
-    stderr_buffer = StringIO()
-    uncolored = _R._runez_module().colors.uncolored
+    stdout_buffer = BytesIO()
+    stderr_buffer = BytesIO()
     term_size = struct.pack("HHHH", SYS_INFO.terminal.lines, SYS_INFO.terminal.columns, 0, 0)
     for fd in (stdout_r, stdout_w, stderr_r, stderr_w):
         fcntl.ioctl(fd, termios.TIOCSWINSZ, term_size)
@@ -551,16 +551,15 @@ def _run_popen(args, kwargs, passthrough, fatal, stdout, stderr):
                         readable.remove(fd)
                         continue
 
-                    text = decode(data).replace("\r\n", "\n").rstrip("\r")  # For some reason, pty adds \r...
                     if fd == stdout_r:
-                        sys.stdout.write(text)
-                        stdout_buffer.write(uncolored(text))
+                        sys.stdout.write(decode(data))
                         sys.stdout.buffer.flush()
+                        stdout_buffer.write(data)
                         continue
 
-                    sys.stderr.write(text)
-                    stderr_buffer.write(uncolored(text))
+                    sys.stderr.write(decode(data))
                     sys.stderr.buffer.flush()
+                    stderr_buffer.write(data)
 
                 except OSError as e:
                     if e.errno != errno.EIO:  # On some OS-es, EIO means EOF
@@ -570,7 +569,8 @@ def _run_popen(args, kwargs, passthrough, fatal, stdout, stderr):
 
     os.close(stdout_r)
     os.close(stderr_r)
-    return p, stdout_buffer.getvalue(), stderr_buffer.getvalue()
+    uncolored = _R._runez_module().colors.uncolored
+    return p, uncolored(decode(stdout_buffer.getvalue())), uncolored(decode(stderr_buffer.getvalue()))
 
 
 class _SimplePassthrough(object):
