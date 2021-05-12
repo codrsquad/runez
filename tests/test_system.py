@@ -364,8 +364,11 @@ def test_get_version():
         assert runez.get_version(__name__) == VERSION
         assert not logged
 
-        assert runez.get_version(["foo"]) == "0.0.0"
+        assert runez.get_version("foo") == "0.0.0"
         assert "Can't determine version" in logged.pop()
+
+        assert runez.get_version(["foo"]) == "0.0.0"
+        assert "TypeError: unhashable type" in logged.pop()
 
         assert runez.get_version(["foo"], logger=None) == "0.0.0"
         assert not logged

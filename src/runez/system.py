@@ -275,17 +275,27 @@ def get_version(mod, default="0.0.0", logger=LOG.warning):
     if not name:
         return default
 
-    top_module_name = name
+    top_level = name.partition(".")[0] if isinstance(name, string_type) else name
     last_exception = None
+
+    try:
+        from importlib import metadata
+
+        version = metadata.version(top_level)
+        if version:
+            return version
+
+    except (ImportError, Exception) as e:  # Python < 3.8
+        last_exception = e
+
     try:
         import pkg_resources
 
-        top_module_name = name.partition(".")[0]
-        d = pkg_resources.get_distribution(top_module_name)
+        d = pkg_resources.get_distribution(top_level)
         if d and d.version:
             return d.version
 
-    except Exception as e:
+    except (ImportError, Exception) as e:
         last_exception = e
 
     try:
@@ -301,7 +311,7 @@ def get_version(mod, default="0.0.0", logger=LOG.warning):
     except Exception as e:
         last_exception = e
 
-    if logger and top_module_name != "tests":
+    if logger and top_level != "tests":
         logger("Can't determine version for %s: %s", name, last_exception, exc_info=last_exception)
 
     return default

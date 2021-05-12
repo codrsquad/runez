@@ -2,6 +2,12 @@
 History
 =======
 
+2.6.11 (2021-05-12)
+------------------
+
+* Try harder with ``get_version()``: use importlib.metadata when available
+
+
 2.6.9 (2021-05-08)
 ------------------
 
