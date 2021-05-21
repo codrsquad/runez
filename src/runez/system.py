@@ -1166,7 +1166,7 @@ class SystemInfo:
         Returns:
             (str | None): Path to development build folder (such as .venv, .tox etc), if we're currently running a dev build
         """
-        folder = os.environ.get("VIRTUAL_ENV") or _R.find_parent_folder(sys.prefix, {"venv", ".venv", ".tox", "build"})
+        folder = _R.find_parent_folder(sys.prefix, {"venv", ".venv", ".tox", "build"})
         if folder and relative_path:
             folder = os.path.join(folder, *relative_path)
 

@@ -2,6 +2,12 @@
 History
 =======
 
+2.6.12 (2021-05-21)
+------------------
+
+* Don't rely on ``VIRTUAL_ENV`` env var to determine ``dev_folder()``
+
+
 2.6.11 (2021-05-12)
 ------------------
 
