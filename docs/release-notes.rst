@@ -2,6 +2,12 @@
 History
 =======
 
+2.6.14 (2021-05-22)
+------------------
+
+* Better error report in ``runez.run()`` when program is not installed
+
+
 2.6.13 (2021-05-22)
 ------------------
 

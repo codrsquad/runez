@@ -135,10 +135,14 @@ def test_capture(monkeypatch):
         assert r.output == "hello there"
         assert r.full_output == "failed\nhello there"
 
-        r = runez.run("/dev/null", fatal=False)
+        r = runez.run("foo/bar", fatal=False)
         assert r.exit_code == 1
-        assert "/dev/null is not installed" in r.error
-        assert "/dev/null is not installed" in verify_abort(runez.run, "/dev/null")
+        assert "foo/bar is not an executable" in r.error
+        assert "foo/bar is not an executable" in verify_abort(runez.run, "foo/bar")
+
+        r = runez.run("foo-bar-no-such-program", fatal=False)
+        assert r.exit_code == 1
+        assert "is not installed (PATH=" in r.error
 
         with monkeypatch.context() as m:
             runez.conftest.patch_raise(m, subprocess, "Popen", OSError("testing"))

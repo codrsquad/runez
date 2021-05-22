@@ -17,7 +17,7 @@ from io import BytesIO
 from select import select
 
 from runez.convert import parsed_tabular, to_int
-from runez.system import _R, abort, cached_property, decode, flattened, quoted, short, StringIO, SYS_INFO, UNSET, WINDOWS
+from runez.system import _R, abort, cached_property, decode, flattened, quoted, resolved_path, short, StringIO, SYS_INFO, UNSET, WINDOWS
 
 
 DEFAULT_INSTRUCTIONS = {
@@ -287,7 +287,12 @@ def run(program, *args, **kwargs):
         return result
 
     if not full_path:
-        result.error = "%s is not installed (PATH=%s)" % (short(program), short(os.environ.get("PATH")))
+        if program and os.path.basename(program) == program:
+            result.error = "%s is not installed (PATH=%s)" % (short(program), short(os.environ.get("PATH")))
+
+        else:
+            result.error = "%s is not an executable" % short(program)
+
         return abort(result.error, return_value=result, fatal=fatal, logger=logger)
 
     _R.hlog(logger, "Running: %s" % description)
@@ -418,7 +423,8 @@ def which(program, ignore_own_venv=False):
     if not program:
         return None
 
-    if os.path.isabs(program):
+    if os.path.basename(program) != program:
+        program = resolved_path(program)
         if WINDOWS:  # pragma: no cover
             return _windows_exe(program)
 
