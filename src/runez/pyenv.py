@@ -11,7 +11,7 @@ from runez.system import _R, abort, flattened, joined, resolved_path, short, UNS
 CPYTHON = "cpython"
 PYTHON_FAMILIES = (CPYTHON, "pypy", "conda")
 R_SPEC = re.compile(r"^\s*((|py?|c?python|(ana|mini)?conda[23]?|pypy)\s*[:-]?)\s*([0-9]*)\.?([0-9]*)\.?([0-9]*)\s*$", re.IGNORECASE)
-R_VERSION = re.compile(r"^((\d+)((\.(\d+))*)((a|b|c|rc)(\d+))?(\.(dev|post|final)\.?(\d+))?).*$")
+R_VERSION = re.compile(r"((\d+)((\.(\d+))*)((a|b|c|rc)(\d+))?(\.(dev|post|final)\.?(\d+))?).*")
 
 
 def guess_family(text):
@@ -472,17 +472,24 @@ class Version(object):
             self.prerelease = (pre, int(pre_num or 0))
 
     @classmethod
-    def from_text(cls, text):
+    def from_text(cls, text, strict=False):
         """
         Args:
             text (str | None): Text to be parsed
+            strict (bool): If False, use first substring from 'text' that looks like a version number
 
         Returns:
             (Version | None): Parsed version, if valid
         """
-        v = cls(text)
-        if v.is_valid:
-            return v
+        if text:
+            if not strict and (not text[0].isdigit() or not text[-1].isdigit()):
+                m = R_VERSION.search(text)
+                if m:
+                    text = m.group(1)
+
+            v = cls(text)
+            if v.is_valid:
+                return v
 
     def __repr__(self):
         return self.text

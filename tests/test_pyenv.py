@@ -478,8 +478,11 @@ def test_version():
     assert vrc.minor == 0
     assert vrc.patch == 0
     assert vrc.main == "1.0.0"
+    assert Version.from_text("foo, version 1.0a4.dev5\nbar baz") == vdev
 
     # .from_text() can be used to filter out invalid versions as None
+    assert Version.from_text("Python 3.8.6", strict=True) is None
+    assert Version.from_text("Python 3.8.6") == Version("3.8.6")
     assert Version.from_text("foo") is None
     assert Version.from_text("1.0rc4") == vrc
 

@@ -2,6 +2,12 @@
 History
 =======
 
+2.6.13 (2021-05-22)
+------------------
+
+* ``Version.from_text()`` can extract version from chatty text
+
+
 2.6.12 (2021-05-21)
 ------------------
 
