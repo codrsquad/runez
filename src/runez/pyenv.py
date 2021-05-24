@@ -649,7 +649,7 @@ class PyInstallInfo:
         self.version = Version(version) if version else None
         self.sys_prefix = sys_prefix
         self.base_prefix = base_prefix
-        if not problem and not self.version.is_valid:
+        if not problem and (not self.version or not self.version.is_valid):
             problem = "unknown version '%s'" % self.version
 
         self.problem = problem

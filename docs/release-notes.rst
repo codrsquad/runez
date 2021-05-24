@@ -2,6 +2,12 @@
 History
 =======
 
+2.6.15 (2021-05-24)
+------------------
+
+* Don't crash if python version could not be determined
+
+
 2.6.14 (2021-05-22)
 ------------------
 
