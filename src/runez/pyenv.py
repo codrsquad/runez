@@ -122,6 +122,61 @@ class PythonSpec(object):
 
             return self.version < other.version
 
+    def satisfies(self, other, either_direction=False):
+        """Does this spec satisfy 'other'?"""
+        if isinstance(other, PythonSpec) and self.family == other.family:
+            if self.canonical.startswith(other.canonical):
+                return True
+
+            if either_direction:
+                return other.canonical.startswith(self.canonical)
+
+    @staticmethod
+    def represented_specs(specs, compact=None, delimiter=", ", depot=None, highlight=None):
+        """
+        Args:
+            specs (PythonSpec | PythonInstallation | list | tuple | None): Specs to represent textually
+            delimiter (str): Delimiter to use (if several specs provided)
+            depot (PythonDepot | None): Optional depot to validate specs against
+            highlight (PythonSpec | PythonInstallation | None): If provided, highlight corresponding in spec
+
+        Returns:
+            (str): Textual representation
+        """
+        if not specs:
+            return ""
+
+        result = []
+        for spec in flattened(specs, keep_empty=None):
+            python = depot and depot.find_python(spec)
+            spec = getattr(spec, "spec", spec)  # Support passed-in `PythonInstallation` objects
+            result.append(spec.represented(compact=compact, highlight=highlight, problem=python))
+
+        return joined(result, delimiter=delimiter)
+
+    def represented(self, compact=None, highlight=None, problem=None):
+        """
+        Args:
+            compact (str | list | set | tuple | None): Show version only, if self.family is mentioned in `compact`
+            highlight (PythonInstallation | PythonSpec | None): If provided, color in green if `self` matches `highlight` spec
+            problem (PythonInstallation | str | bool | None): If true-ish, color in red
+
+        Returns:
+            (str): Textual representation of this spec
+        """
+        text = self
+        if compact and self.family in compact:
+            text = self.version
+
+        problem = getattr(problem, "problem", problem)  # Support passed-in `PythonInstallation` objects
+        if problem:
+            text = _R._runez_module().red(text)
+
+        elif self.satisfies(getattr(highlight, "spec", highlight), either_direction=True):
+            text = _R._runez_module().green(text)
+
+        return short(text)
+
     @classmethod
     def speccified(cls, values, strict=False):
         """
@@ -639,7 +694,7 @@ class PythonInstallation(object):
             (bool): True if this python installation satisfies it
         """
         if not self.problem and self.spec:
-            return self.spec.canonical.startswith(spec.canonical)
+            return self.spec.satisfies(spec)
 
 
 class PyInstallInfo:

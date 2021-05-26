@@ -2,6 +2,12 @@
 History
 =======
 
+2.6.16 (2021-05-25)
+------------------
+
+* Allow to represent ``PythonSpec`` in custom/colored ways
+
+
 2.6.15 (2021-05-24)
 ------------------
 

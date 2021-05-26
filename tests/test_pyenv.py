@@ -300,6 +300,10 @@ def test_spec():
     assert len({p37a, p37b}) == 1
     assert len({p37a, p37b, pnone}) == 2
 
+    assert p37a.satisfies(pnone)
+    assert not pnone.satisfies(p37a)
+    assert pnone.satisfies(p37a, either_direction=True)
+
     invoker = PythonSpec("invoker")
     assert str(invoker) == "invoker"
     assert invoker.version.major == sys.version_info[0]
@@ -310,6 +314,18 @@ def test_spec():
     assert c38a != p38
     assert c38a.version == p38.version
     assert c38a == c38b
+
+    assert p38.represented() == "cpython:3.8"
+    assert p38.represented(compact="cpython") == "3.8"
+
+    with runez.ActivateColors(enable=True):
+        assert p38.represented(highlight=p38) == "\x1b[32mcpython:3.8\x1b[39m"
+        assert p38.represented(problem=True) == "\x1b[31mcpython:3.8\x1b[39m"
+
+    assert PythonSpec.represented_specs(None) == ""
+    assert PythonSpec.represented_specs([]) == ""
+    assert PythonSpec.represented_specs([p38, invoker]) == "cpython:3.8, invoker"
+    assert PythonSpec.represented_specs([p38, c38a], compact="cpython", delimiter=" ") == "3.8 conda:3.8"
 
     check_spec("", "cpython:")
     check_spec(" ", "cpython:")
@@ -494,9 +510,11 @@ def test_version():
     v11 = Version("1.1.2.3")
     v12 = Version("1.2.3")
     v12p = Version("1.2.3.post4")
+    v2 = Version("2")
     v20 = Version("2.0")
     v20d = Version("2.0.dev1")
     v3 = Version("3.0.1.2")
+    assert v2 == v20
     assert v12 > v11
     assert v12p > v11
     assert v20 > v11
