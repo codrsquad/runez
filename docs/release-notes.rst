@@ -2,6 +2,12 @@
 History
 =======
 
+2.6.17 (2021-05-26)
+------------------
+
+* ``find_python()`` accepts ``PythonInstallation`` objects
+
+
 2.6.16 (2021-05-25)
 ------------------
 

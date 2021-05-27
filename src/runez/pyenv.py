@@ -256,12 +256,15 @@ class PythonDepot(object):
     def find_python(self, spec, fatal=UNSET):
         """
         Args:
-            spec (str | PythonSpec | None): Example: 3.7, py37, pypy3.7, conda3.7, /usr/bin/python
+            spec (str | PythonSpec | PythonInstallation | None): Example: 3.7, py37, pypy3.7, conda3.7, /usr/bin/python
             fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
 
         Returns:
             (PythonInstallation): Object representing python installation (may not be usable, see reported .problem)
         """
+        if isinstance(spec, PythonInstallation):
+            return spec
+
         if not isinstance(spec, PythonSpec):
             python = self._cache.get(spec)
             if python:

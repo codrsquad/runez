@@ -54,6 +54,7 @@ def test_empty_depot():
     assert depot.scanned == []
     assert not depot.scanned_prefixes
 
+    assert depot.find_python(depot.invoker) is depot.invoker
     assert depot.find_python(PythonSpec(depot.invoker.executable)) is depot.invoker
     assert depot.find_python(PythonSpec("invoker")) is depot.invoker
     assert depot.find_python("invoker") is depot.invoker
