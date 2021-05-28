@@ -12,7 +12,7 @@ def basename(path, extension_marker=os.extsep):
     """Base name of given `path`, ignoring extension if `extension_marker` is provided
 
     Args:
-        path (str | None): Path to consider
+        path (str | pathlib.Path | None): Path to consider
         extension_marker (str | None): Also trim file extension, if marker provided
 
     Returns:
@@ -36,8 +36,8 @@ def copy(source, destination, ignore=None, fatal=True, logger=UNSET, dryrun=UNSE
     """Copy source -> destination
 
     Args:
-        source (str | None): Source file or folder
-        destination (str | None): Destination file or folder
+        source (str | pathlib.Path | None): Source file or folder
+        destination (str | pathlib.Path | None): Destination file or folder
         ignore (callable | list | str | None): Names to be ignored
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
@@ -86,7 +86,7 @@ def ensure_folder(path, clean=False, fatal=True, logger=UNSET, dryrun=UNSET):
     """Ensure folder with 'path' exists
 
     Args:
-        path (str | None): Path to file or folder
+        path (str | pathlib.Path | None): Path to file or folder
         clean (bool): True: If True, ensure folder is clean (delete any file/folder it may have)
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
@@ -182,7 +182,7 @@ def is_younger(path, age, default=False):
     """
     Args:
         path (str): Path to file
-        age (int | float): How many seconds to consider the file too old
+        age (int | float | None): How many seconds to consider the file too old
         default (bool): Returned when file is not present
 
     Returns:
@@ -200,7 +200,7 @@ def parent_folder(path, base=None):
     """Parent folder of `path`, relative to `base`
 
     Args:
-        path (str | None): Path to file or folder
+        path (str | pathlib.Path | None): Path to file or folder
         base (str | None): Base folder to use for relative paths (default: current working dir)
 
     Returns:
@@ -212,7 +212,7 @@ def parent_folder(path, base=None):
 def readlines(path, default=UNSET, logger=None, first=None, errors=None):
     """
     Args:
-        path (str | None): Path to file to read lines from
+        path (str | pathlib.Path | None): Path to file to read lines from
         default (list | callable | None): Default if file is not present, or it could not be read
         logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
         first (int | None): Return only the 'first' lines when specified
@@ -264,8 +264,8 @@ def symlink(source, destination, must_exist=True, fatal=True, logger=UNSET, dryr
     """Symlink `source` <- `destination`
 
     Args:
-        source (str | None): Source file or folder
-        destination (str | None): Destination file or folder
+        source (str | pathlib.Path | None): Source file or folder
+        destination (str | pathlib.Path | None): Destination file or folder
         must_exist (bool): If True, verify that source does indeed exist
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
@@ -324,7 +324,7 @@ def touch(path, fatal=True, logger=UNSET, dryrun=UNSET):
     """Touch file with `path`
 
     Args:
-        path (str | None): Path to file to touch
+        path (str | pathlib.Path | None): Path to file to touch
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
@@ -339,7 +339,7 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
     """Write `contents` to file with `path`
 
     Args:
-        path (str | None): Path to file
+        path (str | pathlib.Path | None): Path to file
         contents (str | None): Contents to write (only touch file if None)
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | None): Logger to use, False to log errors only, None to disable log chatter

@@ -1183,7 +1183,7 @@ class SystemInfo:
         if caller:
             version = get_version(caller, logger=None)
             if version:
-                yield "version", "%s v%s" % (os.path.basename(self.program_path), version)
+                yield "version", "%s v%s" % (self.program_name, version)
 
         yield "sys.executable", sys.executable
         process_list = self.current_process.parent_list()
@@ -1221,9 +1221,21 @@ class SystemInfo:
         return "Windows" if WINDOWS else _R._runez_module().shell("uname -msrp", dryrun=False)
 
     @cached_property
+    def program_name(self):
+        """(str): Best effort determination of currently running program name"""
+        name = os.path.basename(self.program_path)
+        if name and name.endswith(".py"):
+            f = find_caller_frame()
+            package = f.f_globals.get("__package__")
+            if package:
+                name = package.partition(".")[0]
+
+        return name or os.path.basename(self.program_path)
+
+    @cached_property
     def program_path(self):
         """(str): Path of currently running program"""
-        return sys.argv[0]
+        return sys.argv[0] or "?"
 
     @cached_property
     def terminal(self):

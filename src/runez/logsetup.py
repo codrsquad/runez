@@ -24,7 +24,7 @@ except ImportError:
 from runez.ascii import AsciiAnimation
 from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone
-from runez.file import basename as get_basename, parent_folder
+from runez.file import parent_folder
 from runez.system import _getframe, _R, abort, cached_property, decode, flattened, quoted, short, stringified
 from runez.system import LOG, Slotted, string_type, SYS_INFO, ThreadGlobalContext, UNSET, WINDOWS
 
@@ -1073,7 +1073,7 @@ class LogManager(object):
     def _auto_fill_defaults(cls):
         """Late auto-filled missing defaults (caller's value kept if provided)"""
         if not cls.spec.appname:
-            cls.spec.appname = get_basename(SYS_INFO.program_path)
+            cls.spec.appname = SYS_INFO.program_name
 
         if not cls.spec.dev:
             cls.spec.dev = SYS_INFO.dev_folder()

@@ -196,6 +196,27 @@ def check_pid(pid):
         return False
 
 
+def daemonize():
+    """Daemonize this process, detach from parent
+
+    Returns:
+        (int | None): Child pid if returning in current process, None if in child (forked) process
+    """
+    child_pid = os.fork()
+    if child_pid:  # 1st fork
+        return child_pid
+
+    os.setsid()  # Create new session
+    if os.fork():  # pragma: no cover, 2nd fork
+        os._exit(0)
+
+    devnull_fd = os.open(os.devnull, os.O_RDWR)
+    os.dup2(devnull_fd, sys.__stdin__.fileno())
+    os.dup2(devnull_fd, sys.__stdout__.fileno())
+    os.dup2(devnull_fd, sys.__stderr__.fileno())
+    os.close(devnull_fd)
+
+
 def is_executable(path):
     """
     Args:
@@ -244,6 +265,7 @@ def run(program, *args, **kwargs):
     Run 'program' with 'args'
 
     Keyword Args:
+        background (bool): When True, background the spawned process (detach from console and current process)
         dryrun (bool): When True, do not really run but call logger("Would run: ...") instead [default: runez.DRYRUN]
         fatal (bool): If True: abort() on error [default: True]
         logger (callable | None): When provided, call logger("Running: ...") [default: LOG.debug]
@@ -260,6 +282,7 @@ def run(program, *args, **kwargs):
     Returns:
         (RunResult): Run outcome, use .failed, .succeeded, .output, .error etc to inspect the outcome
     """
+    background = kwargs.pop("background", False)
     fatal = kwargs.pop("fatal", True)
     logger = kwargs.pop("logger", UNSET)
     dryrun = kwargs.pop("dryrun", UNSET)
@@ -275,6 +298,9 @@ def run(program, *args, **kwargs):
     full_path = which(program)
     result = RunResult(audit=RunAudit(full_path or program, args, kwargs))
     description = "%s %s" % (short(full_path or program), quoted(args))
+    if background:
+        description += " &"
+
     if _R.hdry(dryrun, logger, "run: %s" % description):
         result.audit.dryrun = True
         result.exit_code = 0
@@ -296,6 +322,15 @@ def run(program, *args, **kwargs):
         return abort(result.error, return_value=result, fatal=fatal, logger=logger)
 
     _R.hlog(logger, "Running: %s" % description)
+    if background:
+        child_pid = daemonize()
+        if child_pid:
+            result.pid = child_pid  # In parent process, we just report a successful run (we don't wait/check on background process)
+            result.exit_code = 0
+            return result
+
+        fatal = False  # pragma: no cover, non-fatal mode in background process (there is no more console etc to report anything)
+
     with _WrappedArgs([full_path] + args) as wrapped_args:
         try:
             p, out, err = _run_popen(wrapped_args, kwargs, passthrough, fatal, stdout, stderr)
@@ -335,6 +370,9 @@ def run(program, *args, **kwargs):
 
             message.append(base_message)
             abort("\n".join(message), code=result.exit_code, exc_info=result.exc_info, fatal=fatal, logger=logger)
+
+        if background:
+            os._exit(result.exit_code)  # pragma: no cover, simply exit forked process (don't go back to caller)
 
         return result
 

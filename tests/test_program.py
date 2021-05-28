@@ -24,6 +24,20 @@ def simulate_os_error(code):
     return do_raise
 
 
+def test_background_run(logged):
+    with runez.CurrentFolder(os.path.dirname(CHATTER)):
+        r = runez.run(CHATTER, "hello", background=True, dryrun=True)
+        assert r.succeeded
+        assert "chatter hello &" in logged.pop()
+
+        r = runez.run(CHATTER, "hello", background=True, dryrun=False)
+        assert r.succeeded
+        assert r.pid
+        assert r.output is None
+        assert r.error is None
+        assert "chatter hello &" in logged.pop()
+
+
 @pytest.mark.skipif(runez.WINDOWS, reason="Not supported on windows")
 def test_capture(monkeypatch):
     with runez.CurrentFolder(os.path.dirname(CHATTER)):
@@ -161,6 +175,16 @@ def test_capture(monkeypatch):
         logged.clear()
         assert runez.run(CHATTER, "hello", "-a", 0, "-b", None, 1, 2, None, "foo bar") == RunResult("hello -a 0 1 2 foo bar", "", 0)
         assert 'chatter hello -a 0 1 2 "foo bar"' in logged.pop()
+
+
+@patch("runez.program.os.fork", return_value=None)
+@patch("runez.program.os.setsid")
+@patch("runez.program.os.open")
+@patch("runez.program.os.dup2")
+@patch("runez.program.os.close")
+def test_daemonize(*_):
+    # This simply exercises code daemonize() that would otherwise run in a forked process
+    assert runez.program.daemonize() is None
 
 
 @pytest.mark.skipif(runez.WINDOWS, reason="Not supported on windows")

@@ -2,6 +2,14 @@
 History
 =======
 
+2.7.0 (2021-05-28)
+-----------------
+
+* Added ability to ``run()`` a command in background
+
+* Added ``SYS_INFO.program_name``
+
+
 2.6.17 (2021-05-26)
 ------------------
 

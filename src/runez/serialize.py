@@ -630,7 +630,7 @@ class Serializable(object):
 def read_json(path, default=UNSET, logger=None):
     """
     Args:
-        path (str | None): Path to file to deserialize
+        path (str | pathlib.Path | None): Path to file to deserialize
         default (dict | list | str | callable | None): Default if file is not present, or if it's not json
         logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
 
