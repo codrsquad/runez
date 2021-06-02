@@ -799,15 +799,20 @@ class CurrentFolder(object):
     def __init__(self, destination, anchor=False):
         self.anchor = anchor
         self.destination = resolved_path(destination)
+        self.current_folder = None
 
     def __enter__(self):
-        self.current_folder = os.getcwd()
-        os.chdir(self.destination)
+        if not _R.is_dryrun() or os.path.exists(self.destination):
+            self.current_folder = os.getcwd()
+            os.chdir(self.destination)
+
         if self.anchor:
             Anchored.add(self.destination)
 
     def __exit__(self, *_):
-        os.chdir(self.current_folder)
+        if self.current_folder:
+            os.chdir(self.current_folder)
+
         if self.anchor:
             Anchored.pop(self.destination)
 
