@@ -138,13 +138,60 @@ class cached_property(object):
         return value
 
     @staticmethod
-    def reset(target):
-        """Reset all cached properties on 'target' object"""
-        if target is not None and not isinstance(target, type):
-            parent_class = target.__class__
+    def _walk_properties(target, cached_only=True):
+        if target is not None:
+            parent_class = target if isinstance(target, type) else target.__class__
             for k, v in vars(parent_class).items():
-                if isinstance(v, cached_property) and k in target.__dict__:
-                    delattr(target, k)
+                is_cached = isinstance(v, cached_property)
+                if is_cached or (not cached_only and isinstance(v, property)):
+                    yield is_cached, k
+
+    @staticmethod
+    def properties(target, cached_only=True):
+        """
+        Args:
+            target: Target object or class to examine
+            cached_only (bool): If True, yield only names of `cached_property` objects (otherwise: also include regular `property`)
+
+        Returns:
+            Yield all (cached) properties of given `target`, if any
+        """
+        for _, property_name in cached_property._walk_properties(target, cached_only=cached_only):
+            yield property_name
+
+    @staticmethod
+    def reset(target):
+        """Reset all cached properties on `target` object, if any"""
+        if target is not None and not isinstance(target, type):
+            for property_name in cached_property.properties(target, cached_only=True):
+                if property_name in target.__dict__:
+                    delattr(target, property_name)
+
+    @staticmethod
+    def to_dict(target, cached_only=True, existing_only=True, none=False, transform=None):
+        """
+        Args:
+            target: Target object to examine
+            cached_only (bool): If True, restrict to `cached_property` fields only (otherwise: also include regular `property`)
+            existing_only (bool): True: yield only computed cached properties (yield all otherwise)
+            none (bool): False: filter out `None` keys/values, True: no filtering, keep `None` keys/values as-is
+            transform (callable | None): If provided, transform all values via the given callable
+
+        Returns:
+            (dict): Key/value pairs of properties in `target`
+        """
+        if target is not None and not isinstance(target, type):
+            result = {}
+            for is_cached, property_name in cached_property._walk_properties(target, cached_only=cached_only):
+                if not existing_only or not is_cached or property_name in target.__dict__:
+                    value = getattr(target, property_name)
+                    if transform is not None:
+                        value = transform(value)
+
+                    if none or value is not None:
+                        result[property_name] = value
+
+            return result
 
 
 def decode(value, strip=None):
