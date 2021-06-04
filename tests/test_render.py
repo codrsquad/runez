@@ -57,9 +57,12 @@ def test_diagnostics(monkeypatch):
 
     s = SystemInfo()
     s.terminal.term_program = None
-    x = PrettyTable.two_column_diagnostics(_custom_diag, sys_info=s, foo="bar")
+    data = {"key1": "value1", "key2": None}
+    x = PrettyTable.two_column_diagnostics(_custom_diag, data, sys_info=s, foo="bar")
     assert "foo : bar" in x
     assert "opt : -missing-" in x
+    assert "key1 : value1" in x
+    assert "key2 : -missing-" in x
     assert "sys.executable" in x
     assert "additional info" in x
     assert "terminal" not in x  # Not present when no terminal info available

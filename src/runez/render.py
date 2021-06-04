@@ -375,6 +375,9 @@ class PrettyTable(PrettyCustomizable):
             if callable(source):
                 source = source(**kwargs)
 
+            if isinstance(source, dict):
+                source = list(source.items())
+
             for row in source:
                 if isinstance(row, (tuple, list)):
                     row = [stringified(s, none=missing) for s in row]

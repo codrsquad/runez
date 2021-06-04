@@ -2,6 +2,12 @@
 History
 =======
 
+2.7.3 (2021-06-03)
+-----------------
+
+* Allow ``dict`` source for ``two_column_diagnostics()`` render
+
+
 2.7.2 (2021-06-03)
 -----------------
 
