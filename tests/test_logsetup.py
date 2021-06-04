@@ -109,7 +109,11 @@ def test_context(temp_log):
     runez.log.spec.console_stream = sys.stdout
     runez.log.spec.console_format = "%(timezone)s %(context)s%(levelname)s - %(message)s"
     runez.log.spec.console_level = logging.DEBUG
+    assert runez.log.spec.dev is None
+    assert runez.log.spec.project is None
     runez.log.setup(greetings=None)
+    assert runez.log.spec.dev
+    assert runez.log.spec.project
 
     assert temp_log.logfile is None
 
@@ -203,6 +207,15 @@ def test_default(temp_log):
     assert temp_log.pop() == "test_default test_logsetup WARNING hello"
 
 
+def test_deprecated():
+    # Test coverage for deprecated functions
+    assert runez.log.current_test() == runez.SYS_INFO.current_test()  # deprecated
+    assert runez.log.dev_folder() == runez.SYS_INFO.dev_venv_path()  # deprecated
+    assert runez.log.project_path() == runez.SYS_INFO.project_path()  # deprecated
+    assert runez.log.tests_path() == runez.SYS_INFO.tests_path()  # deprecated
+    assert runez.SYS_INFO.dev_folder() == runez.SYS_INFO.dev_venv_path()  # deprecated
+
+
 def test_formatted_text():
     # Unsupported formats
     assert _formatted_text("{filename}", {}) == "{filename}"
@@ -273,6 +286,17 @@ def test_level(temp_log):
     logging.info("info msg")
     assert "debug msg" not in temp_log.stderr
     assert "info msg" in temp_log.stderr
+
+
+def test_locations(temp_log):
+    runez.log.setup(locations=None)
+    assert runez.log.file_handler is None
+
+    runez.log.setup(locations=["{dev}/test-location.log"])
+    assert runez.log.file_handler
+
+    runez.log.setup(locations=["{project}/.venv/test-location.log"])
+    assert runez.log.file_handler
 
 
 def test_log_rotate(temp_folder):

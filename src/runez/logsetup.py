@@ -497,6 +497,7 @@ class LogSpec(Slotted):
         "context_format",
         "default_logger",
         "dev",
+        "project",
         "file_format",
         "file_level",
         "file_location",
@@ -644,7 +645,8 @@ class LogManager(object):
         console_stream=sys.stderr,
         context_format="[[%s]] ",
         default_logger=LOG.debug,
-        dev=None,
+        dev=None,  # Location of development venv where we're currently running from, if any
+        project=None,  # Location of source checkout we're currently running from, if any
         file_format="%(asctime)s %(timezone)s [%(threadName)s] %(context)s%(levelname)s - %(message)s",
         file_level=logging.DEBUG,
         file_location=None,
@@ -833,33 +835,13 @@ class LogManager(object):
 
     @staticmethod
     def project_path(*relative_path):
-        """
-        Args:
-            *relative_path: Optional additional relative path to add
-
-        Returns:
-            (str | None): Computed path, if we're currently running a dev build
-        """
-        path = _validated_project_path(LogManager.tests_path, SYS_INFO.dev_folder)
-        if path and relative_path:
-            path = os.path.join(path, *relative_path)
-
-        return path
+        """Deprecated, use runez.SYS_INFO.project_path()"""
+        return SYS_INFO.project_path(*relative_path)
 
     @staticmethod
     def tests_path(*relative_path):
-        """
-        Args:
-            *relative_path: Optional additional relative path to add
-
-        Returns:
-            (str | None): Computed path, if we're currently running a test
-        """
-        path = _R.find_parent_folder(SYS_INFO.current_test(), {"tests", "test"})
-        if relative_path:
-            path = os.path.join(path, *relative_path)
-
-        return path
+        """Deprecated, use runez.SYS_INFO.tests_path()"""
+        return SYS_INFO.tests_path(*relative_path)
 
     @classmethod
     def greet(cls, greetings, logger=LOG.debug):
@@ -1004,12 +986,14 @@ class LogManager(object):
                 cls.tracer.trace(message)
 
     @staticmethod
-    def current_test():  # pragma: no cover (deprecated)
+    def current_test():
+        """Deprecated, use runez.SYS_INFO.current_test()"""
         return SYS_INFO.current_test()
 
     @staticmethod
-    def dev_folder(*relative_path):  # pragma: no cover (deprecated)
-        return SYS_INFO.dev_folder(*relative_path)
+    def dev_folder(*relative_path):
+        """Deprecated, use runez.SYS_INFO.dev_venv_path()"""
+        return SYS_INFO.dev_venv_path(*relative_path)
 
     @classmethod
     def _auto_enable_progress_handler(cls):
@@ -1076,7 +1060,10 @@ class LogManager(object):
             cls.spec.appname = SYS_INFO.program_name
 
         if not cls.spec.dev:
-            cls.spec.dev = SYS_INFO.dev_folder()
+            cls.spec.dev = SYS_INFO.dev_venv_location
+
+        if not cls.spec.project:
+            cls.spec.project = SYS_INFO.dev_project_location
 
     @classmethod
     def _disable_faulthandler(cls):
@@ -1301,12 +1288,3 @@ def _get_file_handler(location, rotate, rotate_count):
         return RotatingFileHandler(location, maxBytes=size, backupCount=rotate_count)
 
     raise ValueError("Invalid 'rotate' (unknown type): %s" % rotate)
-
-
-def _validated_project_path(*funcs):
-    for func in funcs:
-        path = func()
-        if path:
-            path = os.path.dirname(path)
-            if os.path.exists(os.path.join(path, "setup.py")) or os.path.exists(os.path.join(path, "project.toml")):
-                return path

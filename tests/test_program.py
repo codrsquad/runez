@@ -11,7 +11,7 @@ from runez.conftest import verify_abort
 from runez.program import RunResult
 
 
-CHATTER = runez.log.tests_path("chatter")
+CHATTER = runez.SYS_INFO.tests_path("chatter")
 
 
 def simulate_os_error(code):

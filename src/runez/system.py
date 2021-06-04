@@ -1185,7 +1185,7 @@ class Slotted(object):
 
 
 class SystemInfo:
-    """GInformation on current run"""
+    """Information on current run"""
 
     @staticmethod
     def current_test():
@@ -1209,20 +1209,36 @@ class SystemInfo:
         """Info on currently running process"""
         return _R._runez_module().PsInfo()
 
-    @staticmethod
-    def dev_folder(*relative_path):
-        """
-        Args:
-            *relative_path: Optional additional relative path to add
+    def dev_folder(self, *relative_path):  # deprecated
+        """Deprecated: use dev_venv_path() instead"""
+        return self.dev_venv_path(*relative_path)
 
-        Returns:
-            (str | None): Path to development build folder (such as .venv, .tox etc), if we're currently running a dev build
-        """
-        folder = _R.find_parent_folder(sys.prefix, {"venv", ".venv", ".tox", "build"})
-        if folder and relative_path:
-            folder = os.path.join(folder, *relative_path)
+    @cached_property
+    def dev_project_location(self):
+        """Path to current development project, if we're running from a source compilation"""
+        return _validated_project_path(self.dev_tests_location, self.dev_venv_location)
 
-        return folder
+    @cached_property
+    def dev_tests_location(self):
+        """Path to current development project's tests/ folder, if we're running from a source compilation"""
+        return _R.find_parent_folder(self.current_test(), {"tests", "test"})
+
+    @cached_property
+    def dev_venv_location(self):
+        """Path to current development venv, if we're running from one"""
+        return _R.find_parent_folder(sys.prefix, {"venv", ".venv", ".tox", "build"})
+
+    def project_path(self, *relative_path):
+        """(str | None): Full path relative to development project we're currently running from (if any)"""
+        return _full_path(self.dev_project_location, relative_path)
+
+    def tests_path(self, *relative_path):
+        """(str | None): Full path relative to development project's tests/ folder (if any)"""
+        return _full_path(self.dev_tests_location, relative_path)
+
+    def dev_venv_path(self, *relative_path):
+        """(str | None): Full path relative to development venv (such as .venv, .tox etc) we're currently running from (if any)"""
+        return _full_path(self.dev_venv_location, relative_path)
 
     def diagnostics(self):
         """Usable by runez.render.PrettyTable.two_column_diagnostics()"""
@@ -1884,3 +1900,18 @@ def _has_stream_handler():
     for h in logging.root.handlers:
         if isinstance(h, logging.StreamHandler) or getattr(h, "isolation", None) == 0:
             return True
+
+
+def _full_path(path, relative_path):
+    if path and relative_path:
+        path = os.path.join(path, *relative_path)
+
+    return path
+
+
+def _validated_project_path(*paths):
+    for path in paths:
+        if path:
+            path = os.path.dirname(path)
+            if os.path.exists(os.path.join(path, "setup.py")) or os.path.exists(os.path.join(path, "project.toml")):
+                return path

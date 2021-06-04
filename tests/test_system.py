@@ -229,17 +229,17 @@ def test_find_parent_folder(monkeypatch):
     assert _R.find_parent_folder(os.path.join("/foo", "b"), {"c"}) is None
     assert _R.find_parent_folder("/dev/null", {"foo"}) is None
 
-    project_path = runez.log.project_path()
-    sample_dev_path = runez.SYS_INFO.dev_folder("some-path")
+    project_path = runez.SYS_INFO.dev_project_location
+    sample_dev_path = runez.SYS_INFO.dev_venv_path("some-path")
     assert os.path.basename(sample_dev_path) == "some-path"
     assert sample_dev_path.startswith(project_path)
 
-    # Verify that VIRTUAL_ENV does not impact finding dev_folder()
+    # Verify that VIRTUAL_ENV does not impact finding dev_venv_path()
     monkeypatch.setenv("VIRTUAL_ENV", "")
-    assert runez.SYS_INFO.dev_folder("some-path") == sample_dev_path
+    assert runez.SYS_INFO.dev_venv_path("some-path") == sample_dev_path
 
     monkeypatch.setenv("VIRTUAL_ENV", "bar")
-    assert runez.SYS_INFO.dev_folder("some-path") == sample_dev_path
+    assert runez.SYS_INFO.dev_venv_path("some-path") == sample_dev_path
 
 
 def test_first_line():

@@ -3,7 +3,6 @@ import re
 import sys
 
 import pytest
-from mock import patch
 
 import runez
 import runez.conftest
@@ -108,15 +107,20 @@ def test_edge_cases(temp_folder, monkeypatch):
         assert runez.conftest.verify_abort(sample_main)
 
     # Edge case for wrapper= arg in patch_raise()
-    runez.conftest.patch_raise(monkeypatch, runez.log, "tests_path", wrapper=staticmethod)
+    runez.conftest.patch_raise(monkeypatch, runez.cached_property, "reset", wrapper=staticmethod)
     with pytest.raises(Exception):
-        runez.log.project_path()
+        runez.cached_property.reset(None)
 
-    runez.touch("setup.py")
-    with patch("runez.log.tests_path", return_value=None):
-        with patch("runez.logsetup.SYS_INFO.dev_folder", return_value="./foo"):
-            p = runez.log.project_path()
-            assert p == "."
+    # Exercise dev folder determination code
+    info = runez.system.SystemInfo()
+    info.dev_tests_location = "./bar/baz"
+    info.dev_venv_location = "./foo"
+    assert info.project_path() is None
+
+    runez.touch("setup.py", logger=None)
+    del info.dev_project_location
+    p = info.project_path()
+    assert p == "."
 
 
 def test_success(cli, monkeypatch):
@@ -127,7 +131,7 @@ def test_success(cli, monkeypatch):
     project_folder = os.path.abspath(os.path.join(tests, ".."))
 
     assert cli.project_folder == project_folder
-    assert runez.log.project_path() == project_folder
+    assert runez.SYS_INFO.dev_project_location == project_folder
     assert cli.tests_folder == tests
     assert cli.tests_path("foo.txt") == os.path.join(tests, "foo.txt")
     assert cli.project_path() == project_folder

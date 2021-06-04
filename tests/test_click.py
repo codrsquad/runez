@@ -109,7 +109,7 @@ def test_config(isolated_log_setup, logged, monkeypatch):
     assert "Adding config provider PYTEST_*" in logged.pop()
 
     monkeypatch.setenv("MY_PROG_A", "via env")
-    propsfs = runez.log.tests_path("sample")
+    propsfs = runez.SYS_INFO.tests_path("sample")
     config = sample_config(env="MY_PROG", default="x=y", propsfs=propsfs, split=",")
     c1 = config(None, None, "")
     assert str(c1) == "--config, MY_PROG_* env vars, propsfs, --config default"

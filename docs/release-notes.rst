@@ -2,6 +2,14 @@
 History
 =======
 
+2.7.4 (2021-06-04)
+-----------------
+
+* Added ``{project}`` placeholder for ``runez.log.setup()``
+
+* Updated code to use ``SYS_INFO`` instead of deprecated ``runez.log`` calss
+
+
 2.7.3 (2021-06-03)
 -----------------
 
