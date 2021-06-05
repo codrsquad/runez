@@ -112,13 +112,13 @@ def test_edge_cases(temp_folder, monkeypatch):
         runez.cached_property.reset(None)
 
     # Exercise dev folder determination code
-    info = runez.system.SystemInfo()
-    info.dev_tests_location = "./bar/baz"
-    info.dev_venv_location = "./foo"
+    info = runez.system.DevInfo()
+    info.tests_folder = "./bar/baz"
+    info.venv_folder = "./foo"
     assert info.project_path() is None
 
     runez.touch("setup.py", logger=None)
-    del info.dev_project_location
+    del info.project_folder
     p = info.project_path()
     assert p == "."
 
@@ -131,7 +131,7 @@ def test_success(cli, monkeypatch):
     project_folder = os.path.abspath(os.path.join(tests, ".."))
 
     assert cli.project_folder == project_folder
-    assert runez.SYS_INFO.dev_project_location == project_folder
+    assert runez.DEV.project_folder == project_folder
     assert cli.tests_folder == tests
     assert cli.tests_path("foo.txt") == os.path.join(tests, "foo.txt")
     assert cli.project_path() == project_folder

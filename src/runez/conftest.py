@@ -22,7 +22,7 @@ from runez.colors import ActivateColors
 from runez.file import TempFolder
 from runez.logsetup import LogManager
 from runez.render import Header
-from runez.system import _R, CaptureOutput, Slotted, SYS_INFO, TempArgv, TrackedOutput
+from runez.system import _R, CaptureOutput, DEV, Slotted, TempArgv, TrackedOutput
 from runez.system import flattened, LOG, quoted, short, string_type, stringified, UNSET
 
 try:
@@ -348,23 +348,23 @@ class ClickRunner(object):
 
     @classmethod
     def project_path(cls, *relative_path):
-        """Convenience shortcut to SYS_INFO.project_path()"""
-        return SYS_INFO.project_path(*relative_path)
+        """Convenience shortcut to DEV.project_path()"""
+        return DEV.project_path(*relative_path)
 
     @classmethod
     def tests_path(cls, *relative_path):
-        """Convenience shortcut to SYS_INFO.tests_path()"""
-        return SYS_INFO.tests_path(*relative_path)
+        """Convenience shortcut to DEV.tests_path()"""
+        return DEV.tests_path(*relative_path)
 
     @property
     def project_folder(self):
-        """Convenience shortcut to SYS_INFO.dev_project_location"""
-        return SYS_INFO.dev_project_location
+        """Convenience shortcut to DEV.project_folder"""
+        return DEV.project_folder
 
     @property
     def tests_folder(self):
-        """Convenience shortcut to SYS_INFO.dev_tests_location"""
-        return SYS_INFO.dev_tests_location
+        """Convenience shortcut to DEV.tests_folder"""
+        return DEV.tests_folder
 
     def assert_printed(self, expected):
         self.logged.assert_printed(expected)

@@ -210,10 +210,9 @@ def test_default(temp_log):
 def test_deprecated():
     # Test coverage for deprecated functions
     assert runez.log.current_test() == runez.SYS_INFO.current_test()  # deprecated
-    assert runez.log.dev_folder() == runez.SYS_INFO.dev_venv_path()  # deprecated
-    assert runez.log.project_path() == runez.SYS_INFO.project_path()  # deprecated
-    assert runez.log.tests_path() == runez.SYS_INFO.tests_path()  # deprecated
-    assert runez.SYS_INFO.dev_folder() == runez.SYS_INFO.dev_venv_path()  # deprecated
+    assert runez.log.dev_folder() == runez.DEV.venv_path()  # deprecated
+    assert runez.log.project_path() == runez.DEV.project_path()  # deprecated
+    assert runez.log.tests_path() == runez.DEV.tests_path()  # deprecated
 
 
 def test_formatted_text():

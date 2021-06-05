@@ -25,7 +25,7 @@ from runez.ascii import AsciiAnimation
 from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone
 from runez.file import parent_folder
-from runez.system import _getframe, _R, abort, cached_property, decode, flattened, quoted, short, stringified
+from runez.system import _getframe, _R, abort, cached_property, decode, DEV, flattened, quoted, short, stringified
 from runez.system import LOG, Slotted, string_type, SYS_INFO, ThreadGlobalContext, UNSET, WINDOWS
 
 
@@ -835,13 +835,13 @@ class LogManager(object):
 
     @staticmethod
     def project_path(*relative_path):
-        """Deprecated, use runez.SYS_INFO.project_path()"""
-        return SYS_INFO.project_path(*relative_path)
+        """Deprecated, use runez.DEV.project_path()"""
+        return DEV.project_path(*relative_path)
 
     @staticmethod
     def tests_path(*relative_path):
-        """Deprecated, use runez.SYS_INFO.tests_path()"""
-        return SYS_INFO.tests_path(*relative_path)
+        """Deprecated, use runez.DEV.tests_path()"""
+        return DEV.tests_path(*relative_path)
 
     @classmethod
     def greet(cls, greetings, logger=LOG.debug):
@@ -987,13 +987,13 @@ class LogManager(object):
 
     @staticmethod
     def current_test():
-        """Deprecated, use runez.SYS_INFO.current_test()"""
-        return SYS_INFO.current_test()
+        """Deprecated, use runez.DEV.current_test()"""
+        return DEV.current_test()
 
     @staticmethod
     def dev_folder(*relative_path):
-        """Deprecated, use runez.SYS_INFO.dev_venv_path()"""
-        return SYS_INFO.dev_venv_path(*relative_path)
+        """Deprecated, use runez.DEV.venv_path()"""
+        return DEV.venv_path(*relative_path)
 
     @classmethod
     def _auto_enable_progress_handler(cls):
@@ -1060,10 +1060,10 @@ class LogManager(object):
             cls.spec.appname = SYS_INFO.program_name
 
         if not cls.spec.dev:
-            cls.spec.dev = SYS_INFO.dev_venv_location
+            cls.spec.dev = DEV.venv_folder
 
         if not cls.spec.project:
-            cls.spec.project = SYS_INFO.dev_project_location
+            cls.spec.project = DEV.project_folder
 
     @classmethod
     def _disable_faulthandler(cls):

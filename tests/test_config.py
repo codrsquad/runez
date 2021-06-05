@@ -7,7 +7,7 @@ import pytest
 import runez
 
 
-SAMPLES = runez.SYS_INFO.tests_path("sample")
+SAMPLES = runez.DEV.tests_path("sample")
 
 
 def test_capped():

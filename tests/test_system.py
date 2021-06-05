@@ -229,17 +229,12 @@ def test_find_parent_folder(monkeypatch):
     assert _R.find_parent_folder(os.path.join("/foo", "b"), {"c"}) is None
     assert _R.find_parent_folder("/dev/null", {"foo"}) is None
 
-    project_path = runez.SYS_INFO.dev_project_location
-    sample_dev_path = runez.SYS_INFO.dev_venv_path("some-path")
-    assert os.path.basename(sample_dev_path) == "some-path"
-    assert sample_dev_path.startswith(project_path)
-
-    # Verify that VIRTUAL_ENV does not impact finding dev_venv_path()
+    # Verify that VIRTUAL_ENV does not impact finding DEV.venv_path()
     monkeypatch.setenv("VIRTUAL_ENV", "")
-    assert runez.SYS_INFO.dev_venv_path("some-path") == sample_dev_path
+    assert runez.system.DevInfo().venv_path() == runez.DEV.venv_folder
 
     monkeypatch.setenv("VIRTUAL_ENV", "bar")
-    assert runez.SYS_INFO.dev_venv_path("some-path") == sample_dev_path
+    assert runez.system.DevInfo().venv_path() == runez.DEV.venv_folder
 
 
 def test_first_line():
@@ -491,7 +486,7 @@ def test_stringified():
 
 
 def test_system():
-    assert "test_system.py" in runez.SYS_INFO.current_test()
+    assert "test_system.py" in runez.DEV.current_test()
 
     # Ensure we stop once callstack is exhausted
     assert runez.system.find_caller_frame(lambda f: None, maximum=None) is None
@@ -597,7 +592,7 @@ def test_terminal():
         assert t.lines == 15
 
     with patch.dict(os.environ, {"PYCHARM_HOSTED": "true"}, clear=True):
-        with patch("runez.SYS_INFO.current_test", return_value=None):  # simulate not running in test
+        with patch("runez.DEV.current_test", return_value=None):  # simulate not running in test
             t = TerminalInfo()
             assert t.is_stdout_tty  # Now True
 

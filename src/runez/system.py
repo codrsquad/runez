@@ -1184,16 +1184,24 @@ class Slotted(object):
             return dict((k, getattr(obj, k, UNSET)) for k in self.__slots__)
 
 
-class SystemInfo:
-    """Information on current run"""
+class DevInfo:
+    """
+    Info on development environment, if we're currently running in one
+    All properties/functions here return `None` when we're currently NOT running from a dev environment
+    This is useful when running tests, and when one wants to detect a test run
+
+    Example usage:
+        path = runez.DEV.project_path("foo")
+        if path:
+            # We're currently running from a dev environment
+    """
 
     @staticmethod
     def current_test():
         """
         Returns:
-            (str | None): Not empty if we're currently running a test (such as via pytest)
-                          Actual value will be path to test_<name>.py file if user followed usual conventions,
-                          otherwise path to first found test-framework module
+            (str | None): None if we're currently NOT running from a test invocation (such as: pytest ...)
+                          Path to test_<name>.py file if user followed usual conventions, otherwise path to first found test module
         """
         regex = re.compile(r"^(.+\.|)(conftest|(test_|_pytest|unittest).+|.+_test)$")
 
@@ -1205,40 +1213,48 @@ class SystemInfo:
         return find_caller_frame(validator=is_test_frame)
 
     @cached_property
-    def current_process(self):
-        """Info on currently running process"""
-        return _R._runez_module().PsInfo()
-
-    def dev_folder(self, *relative_path):  # deprecated
-        """Deprecated: use dev_venv_path() instead"""
-        return self.dev_venv_path(*relative_path)
+    def project_folder(self):
+        """(str | None): Path to current development project, if we're running from a source compilation"""
+        return _validated_project_path(self.tests_folder, self.venv_folder)
 
     @cached_property
-    def dev_project_location(self):
-        """Path to current development project, if we're running from a source compilation"""
-        return _validated_project_path(self.dev_tests_location, self.dev_venv_location)
-
-    @cached_property
-    def dev_tests_location(self):
-        """Path to current development project's tests/ folder, if we're running from a source compilation"""
+    def tests_folder(self):
+        """(str | None): Path to current development project's tests/ folder, if we're running from a source compilation"""
         return _R.find_parent_folder(self.current_test(), {"tests", "test"})
 
     @cached_property
-    def dev_venv_location(self):
-        """Path to current development venv, if we're running from one"""
+    def venv_folder(self):
+        """(str | None): Path to current development venv, if we're running from one"""
         return _R.find_parent_folder(sys.prefix, {"venv", ".venv", ".tox", "build"})
 
     def project_path(self, *relative_path):
         """(str | None): Full path relative to development project we're currently running from (if any)"""
-        return _full_path(self.dev_project_location, relative_path)
+        return _full_path(self.project_folder, relative_path)
 
     def tests_path(self, *relative_path):
         """(str | None): Full path relative to development project's tests/ folder (if any)"""
-        return _full_path(self.dev_tests_location, relative_path)
+        return _full_path(self.tests_folder, relative_path)
 
-    def dev_venv_path(self, *relative_path):
+    def venv_path(self, *relative_path):
         """(str | None): Full path relative to development venv (such as .venv, .tox etc) we're currently running from (if any)"""
-        return _full_path(self.dev_venv_location, relative_path)
+        return _full_path(self.venv_folder, relative_path)
+
+
+DEV = DevInfo()
+
+
+class SystemInfo:
+    """Information on current run"""
+
+    @staticmethod
+    def current_test():
+        """Deprecated: use DEV.current_test() instead"""
+        return DevInfo.current_test()
+
+    @cached_property
+    def current_process(self):
+        """Info on currently running process"""
+        return _R._runez_module().PsInfo()
 
     def diagnostics(self):
         """Usable by runez.render.PrettyTable.two_column_diagnostics()"""
@@ -1374,7 +1390,7 @@ class TerminalInfo(object):
     def isatty(channel):
         """True if we have a tty (or known equivalent), and are not running a test"""
         if channel.isatty() or "PYCHARM_HOSTED" in os.environ:
-            return not SYS_INFO.current_test()
+            return not DEV.current_test()
 
     def padded_columns(self, padding=0, minimum=0):
         """

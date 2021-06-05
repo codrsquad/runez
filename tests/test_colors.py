@@ -87,7 +87,7 @@ def test_default(monkeypatch):
     assert runez.color.backend.name == "plain"
     assert runez.blue("hello") == "hello"
 
-    with patch("runez.SYS_INFO.current_test", return_value=None):  # simulate not running in test
+    with patch("runez.DEV.current_test", return_value=None):  # simulate not running in test
         check_flavor(monkeypatch, "ansi16 neutral")
         check_flavor(monkeypatch, "ansi16 light", colorfgbg="15;0")
         check_flavor(monkeypatch, "ansi16 dark", colorfgbg="15;9")

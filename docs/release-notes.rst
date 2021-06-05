@@ -2,6 +2,12 @@
 History
 =======
 
+2.7.5 (2021-06-04)
+-----------------
+
+* Moved development related functions to ``runez.DEV``
+
+
 2.7.4 (2021-06-04)
 -----------------
 

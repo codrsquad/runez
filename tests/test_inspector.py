@@ -72,8 +72,7 @@ def test_auto_import_siblings(monkeypatch):
             m.setattr(runez.inspector, "find_caller_frame", lambda *_, **__: mock_package("foo", file="/dev/null/foo"))
             auto_import_siblings()
 
-    tests_location = runez.SYS_INFO.dev_tests_location
-    py_file_count = len(list(importable_test_py_files(tests_location))) - 1  # Remove one to not count tests/__init__.py itself
+    py_file_count = len(list(importable_test_py_files(runez.DEV.tests_folder))) - 1  # Remove one to not count tests/__init__.py itself
     imported = auto_import_siblings(package="tests")
     assert len(imported) == py_file_count
 
