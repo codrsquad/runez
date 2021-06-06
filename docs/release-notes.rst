@@ -7,7 +7,7 @@ History
 
 * Generalized ``diagnostics()``, simplified internals for ``cli`` fixture
 
-* Added ``wcswidth()``
+* Added ``wcswidth()``, corrected ``PrettyTable`` rendering with unicode characters
 
 
 2.7.5 (2021-06-04)

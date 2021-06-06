@@ -22,9 +22,13 @@ try:
 
     from StringIO import StringIO
 
+    def auto_unicode(text):
+        return u"%s" % text
+
 except NameError:
     from io import StringIO
 
+    auto_unicode = None
     string_type = str
     PY2 = False
 

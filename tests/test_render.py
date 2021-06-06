@@ -179,3 +179,20 @@ def test_pretty_table():
 
     with pytest.raises(KeyError):
         _ = t.header["foo"]
+
+
+EXPECTED_TABLE_RENDER = u"""
++==========+====================+
+| Location | French café        |
++----------+--------------------+
+| Name     | コンニチハ, セカイ |
++----------+--------------------+
+"""
+
+
+def test_pretty_table_render():
+    t = PrettyTable(border="ascii")
+    t.add_row("Location", u"French café")
+    t.add_row("Name", u"コンニチハ, セカイ")
+    x = t.get_string()
+    assert x == EXPECTED_TABLE_RENDER.strip()

@@ -3,8 +3,8 @@ import os
 
 from runez.colors import cast_style
 from runez.convert import to_int
-from runez.system import _R, AdaptedProperty, flattened, is_iterable, joined, short, Slotted, string_type, stringified, SYS_INFO
-from runez.system import uncolored, UNSET
+from runez.system import _R, AdaptedProperty, auto_unicode, flattened, is_iterable, joined, short, Slotted, string_type, stringified
+from runez.system import SYS_INFO, UNSET, wcswidth
 
 
 NAMED_BORDERS = dict(
@@ -578,15 +578,18 @@ class _PTCell(object):
         self.column = column
         self.value = value
         text = column.ptable.parent.formatted(value)
+        if auto_unicode is not None:
+            text = auto_unicode(text)  # Needed for PY2 only
+
         text = self.custom.formatted(text)
         self.text = text
-        self.text_width = len(uncolored(text))
+        self.text_width = wcswidth(text)
         column.update_width(self.text_width)
 
     def rendered_text(self, size, padding):
         text = self.text
         if text:
-            size += len(text) - len(uncolored(text))
+            size += len(text) - wcswidth(text)
 
         text = self.custom.align(text, size)
         return "%s%s%s" % (padding, text, padding)
