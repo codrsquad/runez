@@ -207,7 +207,6 @@ def cli():
 cli = cli  # type: ClickRunner
 
 # Comes in handy for click apps with only one main entry point
-cli.default_exe = None
 cli.default_main = None
 
 # Can be customized by users, wraps cli (fixture) runs in given context
@@ -331,17 +330,13 @@ class ClickWrapper(object):
 class ClickRunner(object):
     """Allows to provide a test-friendly fixture around testing click entry-points"""
 
-    default_exe = None  # type: str # Allows to conveniently override 'sys.executable' for test runs
-    default_main = None  # type: str # Allows to conveniently provide 'main' once in conftest.py
-
     def __init__(self, context=None):
         """
         Args:
             context (callable | None): Context (example: temp folder) this click run was invoked under
         """
         self.context = context
-        self.exe = cli.default_exe
-        self.main = cli.default_main
+        self.main = None
         self.args = None  # type: list # Arguments used in last run() invocation
         self.logged = None  # type: TrackedOutput
         self.exit_code = None  # type: int
@@ -369,28 +364,16 @@ class ClickRunner(object):
     def assert_printed(self, expected):
         self.logged.assert_printed(expected)
 
-    def _grab_attr(self, name, kwargs):
-        value = kwargs.pop(name, None)
-        if value is not None:
-            setattr(self, name, value)
-            return
-
-        if name != "main" or getattr(self, name, None) is None:
-            value = getattr(self, "default_%s" % name, None)
-            setattr(self, name, value)
-
     def run(self, *args, **kwargs):
         """
         Args:
             *args: Command line args
             **kwargs: If provided, format each arg with given `kwargs`
         """
-        self._grab_attr("exe", kwargs)
-        self._grab_attr("main", kwargs)
-        assert bool(self.main), "No main provided"
-        if kwargs:
-            args = [a.format(**kwargs) for a in args]
-
+        exe = kwargs.pop("exe", None)  # Default: sys.argv[0]
+        main = kwargs.pop("main", self.main or cli.default_main)
+        assert bool(main), "No main provided"
+        assert not kwargs, "Unexpected cli.run() kwargs: %s" % short(kwargs)
         if len(args) == 1 and hasattr(args[0], "split"):
             # Convenience: allow to provide full command as one string argument
             args = args[0].split()
@@ -399,11 +382,9 @@ class ClickRunner(object):
         with IsolatedLogSetup(adjust_tmp=False):
             with CaptureOutput(dryrun=_R.is_dryrun(), seed_logging=True) as logged:
                 self.logged = logged
-                origina_handlers = list(logging.root.handlers)  # Invocations may add their own logging
-                runner = ClickWrapper.new_runner(self.main)
-                with TempArgv(self.args, exe=self.exe):
-                    result = runner.invoke(self.main, args=self.args)
-                    logging.root.handlers = origina_handlers  # Restore logging as we manage it, to avoid duplicate output
+                runner = ClickWrapper.new_runner(main)
+                with TempArgv(self.args, exe=exe):
+                    result = runner.invoke(main, args=self.args)
                     if result.output:
                         logged.stdout.buffer.write(result.output)
 
@@ -419,7 +400,7 @@ class ClickRunner(object):
         if self.logged:
             WrappedHandler.clean_accumulated_logs()
             title = Header.aerated("Captured output for: %s" % quoted(self.args), border="==")
-            LOG.info("\n%s\nmain: %s\nexit_code: %s\n%s\n", title, self.main, self.exit_code, self.logged)
+            LOG.info("\n%s\nmain: %s\nexit_code: %s\n%s\n", title, main, self.exit_code, self.logged)
 
     @property
     def succeeded(self):

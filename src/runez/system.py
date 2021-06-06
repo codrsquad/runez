@@ -1256,7 +1256,7 @@ class SystemInfo:
         """Info on currently running process"""
         return _R._runez_module().PsInfo()
 
-    def diagnostics(self):
+    def diagnostics(self, via=u" ⚡ "):
         """Usable by runez.render.PrettyTable.two_column_diagnostics()"""
         yield "platform", self.platform_description
         if self.terminal.term_program:
@@ -1270,10 +1270,10 @@ class SystemInfo:
                 yield "version", "%s v%s" % (self.program_name, version)
 
         yield "sys.executable", sys.executable
-        process_list = self.current_process.parent_list()
-        if process_list:
-            delim = "/" if PY2 else "⚡"
-            yield "via", joined([p.cmd_basename for p in process_list], keep_empty=False, delimiter=" %s " % delim)
+        if via:
+            process_list = self.current_process.parent_list()
+            if process_list:
+                yield "via", joined([p.cmd_basename for p in process_list], keep_empty=False, delimiter=via)
 
         if "diagnostics" not in sys.argv:
             yield "sys.argv", quoted(sys.argv)

@@ -116,6 +116,13 @@ def test_auto_install(logged):
         assert "Can't auto-install 'foo' outside of a virtual environments" in logged.pop()
 
 
+def test_diagnostics_command(cli):
+    cli.run("diagnostics")
+    assert cli.succeeded
+    assert "platform : " in cli.logged
+    assert "sys.executable : %s" % runez.short(sys.executable) in cli.logged
+
+
 @pytest.mark.skipif(sys.version_info[:2] < (3, 7), reason="Available in 3.7+")
 def test_importtime():
     """Verify that importing runez remains fast"""

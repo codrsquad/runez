@@ -1,8 +1,9 @@
 #  -*- encoding: utf-8 -*-
+import os
 
 from runez.colors import cast_style, uncolored
 from runez.convert import to_int
-from runez.system import AdaptedProperty, flattened, joined, short, Slotted, string_type, stringified, SYS_INFO, UNSET
+from runez.system import _R, AdaptedProperty, flattened, is_iterable, joined, short, Slotted, string_type, stringified, SYS_INFO, UNSET
 
 
 NAMED_BORDERS = dict(
@@ -34,7 +35,7 @@ class Align:
         Returns:
             (str): Left-aligned text
         """
-        fmt = "{:%s<%s}" % (fill, width)
+        fmt = u"{:%s<%s}" % (fill, width)
         return fmt.format(text)
 
     @staticmethod
@@ -48,7 +49,7 @@ class Align:
         Returns:
             (str): Centered text
         """
-        fmt = "{:%s^%s}" % (fill, width)
+        fmt = u"{:%s^%s}" % (fill, width)
         return fmt.format(text)
 
     @staticmethod
@@ -62,7 +63,7 @@ class Align:
         Returns:
             (str): Right-aligned text
         """
-        fmt = "{:%s>%s}" % (fill, width)
+        fmt = u"{:%s>%s}" % (fill, width)
         return fmt.format(text)
 
     @staticmethod
@@ -117,11 +118,11 @@ class Header:
 
         if border.endswith(" "):
             decorated = "%s%s" % (border, text)
-            fmt = "{decorated}\n{hr}"
+            fmt = u"{decorated}\n{hr}"
 
         else:
             decorated = "%s %s %s" % (border, text, border)
-            fmt = "{hr}\n{decorated}\n{hr}"
+            fmt = u"{hr}\n{decorated}\n{hr}"
 
         return fmt.format(decorated=decorated, hr=border[0] * len(decorated))
 
@@ -343,49 +344,29 @@ class PrettyTable(PrettyCustomizable):
         return result
 
     @staticmethod
-    def two_column_diagnostics(*sources, **kwargs):
-        """
-        Args:
-            sources (tuple(callable | iterable)): Must yield pairs of values (name of diagnostic, and its value)
-
-        Keyword Args:
-            border (str): Border to use
-            missing (str): String to use to represent missing values
-            sys_info (runez.system.SystemInfo | None): Optional custom SystemInfo object to use (for testing)
-            columns (int): Optional max number of columns in output (default: terminal width)
-
-        Returns:
-            (PrettyTable): Rendered PrettyTable showing diagnostics info
-        """
-        border = kwargs.pop("border", "colon")
-        missing = kwargs.pop("missing", "-missing-")
-        sys_info = kwargs.pop("sys_info", SYS_INFO)
-        columns = kwargs.pop("columns", sys_info.terminal.columns if (sys_info and sys_info.terminal) else 200)
+    def _single_diag(sources, border, align, style, missing, columns):
         table = PrettyTable(2, border=border)
-        table.header[0].align = "right"
-        table.header[1].style = "bold"
+        table.header[0].align = align
+        table.header[1].style = style
         col1 = 0
         rows = []
-        extra = []
-        sources = list(sources)
-        if sys_info:
-            sources.append(sys_info.diagnostics())
-
         for source in sources:
             if callable(source):
-                source = source(**kwargs)
+                source = source()
 
             if isinstance(source, dict):
-                source = list(source.items())
+                source = sorted(source.items())
+
+            elif not is_iterable(source):
+                source = [source]
 
             for row in source:
-                if isinstance(row, (tuple, list)):
-                    row = [stringified(s, none=missing) for s in row]
-                    col1 = max(col1, len(row[0]))
-                    rows.append(row)
+                if not isinstance(row, (tuple, list)):
+                    row = (row, "")
 
-                else:
-                    extra.append(row)
+                row = [stringified(s, none=missing) for s in row]
+                col1 = max(col1, len(row[0]))
+                rows.append(row)
 
         columns = max(columns - col1 - 5, 10)
         for row in rows:
@@ -394,7 +375,63 @@ class PrettyTable(PrettyCustomizable):
 
             table.add_row(row)
 
-        return joined(table, extra, delimiter="\n", keep_empty=False)
+        return table.get_string()
+
+    @staticmethod
+    def two_column_diagnostics(*sources, **kwargs):
+        """
+        Args:
+            *sources (callable | iterable | dict): Must yield pairs of values (name of diagnostic, and its value)
+
+        Keyword Args:
+            align (str): Alignment for 1st column (default: right)
+            border (str): Border for the PrettyTable used to render the two-column diagnostics
+            columns (int | None): Optional max number of columns in output (default: terminal width)
+            delimiter (str): Delimiter to use between sub-diagnostics sections
+            missing (str): String to use to represent missing values
+            style (str | runez.colors.Renderable | None): Style for 2nd column (default: bold)
+            title_color (str): Color to use for titles of sub-diagnostics sections (default: blue)
+
+        Returns:
+            (PrettyTable): Rendered PrettyTable showing diagnostics info
+        """
+        align = kwargs.pop("align", "right")
+        border = kwargs.pop("border", os.environ.get("DIAGNOSTICS_BORDER", "colon"))
+        columns = kwargs.pop("columns", SYS_INFO.terminal.columns)
+        delimiter = kwargs.pop("delimiter", "\n\n")
+        missing = kwargs.pop("missing", _R._runez_module().orange("-missing-"))
+        style = kwargs.pop("style", "bold")
+        title_color = kwargs.pop("title_color", _R._runez_module().blue)
+        assert not kwargs, "Unexpected kwargs: %s" % short(kwargs)
+        additional = []
+        named_sources = {}
+        regular_sources = []
+        for source in sources:
+            if isinstance(source, dict):
+                named_sources.update(source)
+
+            elif isinstance(source, string_type):
+                additional.append(source)
+
+            else:
+                regular_sources.append(source)
+
+        report = []
+        if regular_sources:
+            report.append(PrettyTable._single_diag(regular_sources, border, align, style, missing, columns))
+
+        for title, source in named_sources.items():
+            if title_color:
+                title = title_color(title)
+
+            content = PrettyTable._single_diag(source, border, align, style, missing, columns)
+            content = "%s:\n%s" % (title, content)
+            report.append(content)
+
+        if additional:
+            report.extend(additional)
+
+        return joined(report, delimiter=delimiter)
 
 
 def render_line(container, columns, padding, pad, chars, cells=None):

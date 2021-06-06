@@ -2,6 +2,12 @@
 History
 =======
 
+2.7.6 (2021-06-06)
+-----------------
+
+* Generalized ``diagnostics()``, simplified internals for ``cli`` fixture
+
+
 2.7.5 (2021-06-04)
 -----------------
 

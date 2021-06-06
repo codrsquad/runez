@@ -1,3 +1,5 @@
+# -*- encoding: utf-8 -*-
+
 import os
 import sys
 from argparse import Namespace
@@ -6,7 +8,7 @@ import pytest
 from mock import patch
 
 from runez.render import Align, Header, PrettyBorder, PrettyHeader, PrettyTable
-from runez.system import SystemInfo
+from runez.system import SYS_INFO, SystemInfo
 
 
 def test_align():
@@ -47,34 +49,54 @@ def test_border():
     assert tc2 == tc
 
 
+EXPECTED_DIAGNOSTICS = """
+  foo : bar
+  opt : -missing-
+  --- :
+
+2nd section:
+   key1 : value1
+   key2 : -missing-
+    --- :
+  diag2 : foo
+
+some additional text
+"""
+
+
 def test_diagnostics(monkeypatch):
-    def _custom_diag(foo, opt=None):
-        yield "foo", foo
+    def _diag1(opt=None):
+        yield "foo", "bar"
         yield "opt", opt
-
         yield "---"
-        yield "additional info"
 
-    s = SystemInfo()
-    s.terminal.term_program = None
+    def _diag2():
+        yield "---"
+        yield "diag2", "foo"
+
     data = {"key1": "value1", "key2": None}
-    x = PrettyTable.two_column_diagnostics(_custom_diag, data, sys_info=s, foo="bar")
-    assert "foo : bar" in x
-    assert "opt : -missing-" in x
-    assert "key1 : value1" in x
-    assert "key2 : -missing-" in x
-    assert "sys.executable" in x
-    assert "additional info" in x
-    assert "terminal" not in x  # Not present when no terminal info available
+    diag1 = PrettyTable.two_column_diagnostics(_diag1, {"2nd section": [data, _diag2]}, "some additional text")
+    assert diag1 == EXPECTED_DIAGNOSTICS.strip("\n")
+
+    diag2 = PrettyTable.two_column_diagnostics(_diag2, SYS_INFO.diagnostics)
+    assert "diag2 : foo" in diag2
+    assert "sys.executable" in diag2
+
+    silly_edge_case = PrettyTable.two_column_diagnostics(0, 1, [2])
+    assert silly_edge_case == "  0 :\n  1 :\n  2 :"
 
     with patch.dict(os.environ, {"LC_TERMINAL": "foo", "LC_TERMINAL_VERSION": "2"}):
         monkeypatch.setattr(sys, "executable", "foo")
         s = SystemInfo()
-        x = PrettyTable.two_column_diagnostics(sys_info=s)
-        x = str(x)
-        assert "sys.prefix" in x
-        assert "sys.executable : foo" in x  # Present when sys.executable doesn't match sys.prefix
+        x = PrettyTable.two_column_diagnostics(s.diagnostics())
         assert "terminal : foo (v2)" in x
+        assert "sys.executable : foo" in x  # Present when sys.executable doesn't match sys.prefix
+        assert "sys.prefix" in x
+        assert "via : " in x
+
+        x = PrettyTable.two_column_diagnostics(s.diagnostics(via=None))
+        assert "sys.prefix" in x
+        assert "via : " not in x
 
 
 def test_header():

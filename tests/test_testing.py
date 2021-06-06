@@ -39,17 +39,18 @@ def sample_main():
     return "%s %s" % (os.path.basename(sys.argv[0]), " ".join(args))
 
 
-def test_crash(cli):
-    with pytest.raises(AssertionError):
-        # Nothing ran yet, no output
-        cli.match("foo")
+def test_cli_uninitialized(cli, monkeypatch):
+    from runez.conftest import cli as cli_fixture
 
+    monkeypatch.setattr(cli_fixture, "default_main", None)
     with pytest.raises(AssertionError):
         # No main provided
-        cli.main = cli.default_main = None
         cli.run("hello no main")
 
-    cli.run(["Exception", "hello with main"], main=sample_main)
+
+def test_crash(cli):
+    cli.main = sample_main
+    cli.run(["Exception", "hello with main"])
     assert cli.failed
     assert cli.match("crashed...hello")
     assert cli.match("Exited with stacktrace:")
@@ -154,23 +155,19 @@ def test_success(cli, monkeypatch):
     assert not cli.match("EL+", regex=True)
     assert cli.match("EL+", regex=re.IGNORECASE)
 
-    cli.expect_success("hello", "hello", "el+", regex=True)
-
-    cli.run("{marker} world", marker="hello")
-    m = cli.match("hello world")
-    assert m
-    assert str(m) == "hello world"
-    m = cli.match("el+", regex=True)
-    assert m
-    assert m.match == "ell"
-
+    cli.expect_success("hello world", "hello", "el+", regex=True)
+    m = cli.match("hello ...l")
+    assert str(m) == "hello worl"
+    assert cli.match("el+", regex=True).match == "ell"
+    assert cli.match(re.compile("hel+o")).match == "hello"
     assert cli.match("h...")
     assert cli.match("h...", regex=True)
     assert not cli.match("h...", regex=False)
-    assert cli.match(re.compile("hel+o"))
-
     assert not cli.match("Hello")
     assert cli.match("Hello", regex=re.IGNORECASE)
 
     cli.run([""])
+    assert cli.succeeded
+    assert cli.logged.stdout.contents().strip() == os.path.basename(sys.argv[0])
+    assert not cli.logged.stderr
     assert not cli.match("hello")

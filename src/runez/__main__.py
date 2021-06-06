@@ -44,6 +44,15 @@ def cmd_colors():
                     _show_fgcolors(bg=color, border=args.border)
 
 
+def cmd_diagnostics():
+    """Show system diagnostics sample"""
+    parser = argparse.ArgumentParser(description="Show system diagnostics sample")
+    parser.add_argument("--border", default="colon", choices=NAMED_BORDERS, help="Use custom border.")
+    args = parser.parse_args()
+
+    print(PrettyTable.two_column_diagnostics(runez.SYS_INFO.diagnostics(), border=args.border))
+
+
 def cmd_import_speed():
     """Show average import time of top-level python packages installed in this venv"""
     parser = argparse.ArgumentParser(description="Show average import time of top-level python packages installed in this venv")
