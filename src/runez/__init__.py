@@ -3,7 +3,7 @@ Friendly misc/utils/convenience library
 """
 
 from runez import ascii, click, config, date, file, program, serialize, system
-from runez.colors import ActivateColors, ColorManager as color, uncolored
+from runez.colors import ActivateColors, ColorManager as color
 from runez.colors.named import black, blue, brown, gray, green, orange, plain, purple, red, teal, white, yellow
 from runez.colors.named import blink, bold, dim, invert, italic, strikethrough, underline
 from runez.config import from_json
@@ -16,7 +16,7 @@ from runez.file import basename, copy, delete, ensure_folder, move, parent_folde
 from runez.logsetup import LogManager as log, ProgressBar
 from runez.program import check_pid, is_executable, make_executable, PsInfo, run, shell, which
 from runez.serialize import read_json, represented_json, save_json, Serializable
-from runez.system import abort, AdaptedProperty, cached_property, PY2, Undefined, UNSET, WINDOWS
+from runez.system import abort, AdaptedProperty, cached_property, PY2, uncolored, Undefined, UNSET, wcswidth, WINDOWS
 from runez.system import Anchored, CaptureOutput, CurrentFolder, Slotted, TempArgv, TrackedOutput
 from runez.system import decode, DEV, flattened, joined, quoted, resolved_path, short, stringified, SYS_INFO
 from runez.system import FallbackChain, first_line, get_version, is_basetype, is_iterable
@@ -24,7 +24,7 @@ from runez.system import FallbackChain, first_line, get_version, is_basetype, is
 __all__ = [
     "DRYRUN",
     "ascii", "click", "config", "date", "file", "program", "serialize", "system",
-    "ActivateColors", "color", "uncolored",
+    "ActivateColors", "color",
     "black", "blue", "brown", "gray", "green", "orange", "plain", "purple", "red", "teal", "white", "yellow",
     "blink", "bold", "dim", "invert", "italic", "strikethrough", "underline",
     "from_json",
@@ -37,7 +37,7 @@ __all__ = [
     "log", "ProgressBar",
     "check_pid", "is_executable", "make_executable", "PsInfo", "run", "shell", "which",
     "read_json", "represented_json", "save_json", "Serializable",
-    "abort", "AdaptedProperty", "cached_property", "PY2", "Undefined", "UNSET", "WINDOWS",
+    "abort", "AdaptedProperty", "cached_property", "PY2", "uncolored", "Undefined", "UNSET", "wcswidth", "WINDOWS",
     "Anchored", "CaptureOutput", "CurrentFolder", "Slotted", "TempArgv", "TrackedOutput",
     "decode", "DEV", "flattened", "joined", "quoted", "resolved_path", "short", "stringified", "SYS_INFO",
     "FallbackChain", "first_line", "get_version", "is_basetype", "is_iterable",

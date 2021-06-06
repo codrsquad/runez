@@ -1,9 +1,10 @@
 #  -*- encoding: utf-8 -*-
 import os
 
-from runez.colors import cast_style, uncolored
+from runez.colors import cast_style
 from runez.convert import to_int
-from runez.system import _R, AdaptedProperty, flattened, is_iterable, joined, short, Slotted, string_type, stringified, SYS_INFO, UNSET
+from runez.system import _R, AdaptedProperty, flattened, is_iterable, joined, short, Slotted, string_type, stringified, SYS_INFO
+from runez.system import uncolored, UNSET
 
 
 NAMED_BORDERS = dict(

@@ -17,7 +17,8 @@ from io import BytesIO
 from select import select
 
 from runez.convert import parsed_tabular, to_int
-from runez.system import _R, abort, cached_property, decode, flattened, quoted, resolved_path, short, StringIO, SYS_INFO, UNSET, WINDOWS
+from runez.system import _R, abort, cached_property, decode, flattened, quoted, resolved_path, short, StringIO, SYS_INFO, uncolored
+from runez.system import UNSET, WINDOWS
 
 
 DEFAULT_INSTRUCTIONS = {
@@ -613,7 +614,6 @@ def _run_popen(args, kwargs, passthrough, fatal, stdout, stderr):
 
     os.close(stdout_r)
     os.close(stderr_r)
-    uncolored = _R._runez_module().colors.uncolored
     return p, uncolored(decode(stdout_buffer.getvalue())), uncolored(decode(stderr_buffer.getvalue()))
 
 

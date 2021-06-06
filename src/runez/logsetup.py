@@ -25,7 +25,7 @@ from runez.ascii import AsciiAnimation
 from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone
 from runez.file import parent_folder
-from runez.system import _getframe, _R, abort, cached_property, decode, DEV, flattened, quoted, short, stringified
+from runez.system import _getframe, _R, abort, cached_property, decode, DEV, flattened, quoted, short, stringified, uncolored
 from runez.system import LOG, Slotted, string_type, SYS_INFO, ThreadGlobalContext, UNSET, WINDOWS
 
 
@@ -221,7 +221,7 @@ class _SpinnerState(object):
 
         self.frames = _SpinnerComponent(frames.fps, frames.next_frame, spinner_color)
         self.progress_bar = _SpinnerComponent(2, parent._get_progress, progress_color)
-        self.message = _SpinnerComponent(2, parent._get_message, message_color, adapter=_R._runez_module().uncolored)
+        self.message = _SpinnerComponent(2, parent._get_message, message_color, adapter=uncolored)
         self.max_fps = max(2, frames.fps)
 
     def get_line(self, ts):

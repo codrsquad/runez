@@ -6,12 +6,7 @@ Example usage:
     >>> print(blue("hello"))
 """
 
-import re
-
-from runez.system import DEV, short, Slotted, stringified, SYS_INFO
-
-
-RE_ANSI_ESCAPE = re.compile(r"\x1b(\[[;\d]*[A-Za-z]?)?")
+from runez.system import DEV, short, Slotted, stringified, SYS_INFO, uncolored
 
 
 class ActivateColors(object):
@@ -108,17 +103,6 @@ class ColorManager(object):
         cls.backend = _detect_backend(enable, flavor=flavor)
         cls.bg, cls.fg, cls.style = cls.backend.named_triplet()
         return prev
-
-
-def uncolored(text):
-    """
-    Args:
-        text (str | None): Text to remove ANSI colors from
-
-    Returns:
-        (str): Text without any color rendering
-    """
-    return RE_ANSI_ESCAPE.sub("", stringified(text))
 
 
 class Renderable(object):

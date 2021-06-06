@@ -601,3 +601,26 @@ def test_user_id(monkeypatch):
     monkeypatch.setenv("USER", "foo")
     s = SystemInfo()
     assert s.userid == "foo"
+
+
+def test_wcswidth():
+    assert runez.wcswidth(None) == 0
+    assert runez.wcswidth(u"") == 0
+    assert runez.wcswidth(u"") == 0
+    assert runez.wcswidth(u"foo") == 3
+    assert runez.wcswidth(u"コンニチハ, セカイ!") == 19
+    assert runez.wcswidth(u"abc\x00def") == 6
+    assert runez.wcswidth(u"--\u05bf--") == 4
+    assert runez.wcswidth(u"café") == 4
+    assert runez.wcswidth(u"\u0410\u0488") == 1
+    # assert runez.wcswidth(u"ᬓᬨᬮ᭄") == 4
+
+    if not runez.PY2:
+        assert runez.wcswidth(u"😊") == 2
+        assert runez.wcswidth(u"⚡") == 2
+        assert runez.wcswidth(u"hello ⚡ world") == 14
+        assert runez.wcswidth(u"\x1b[33mhello ⚡ world\x1b[39m") == 14  # ANSI coloring
+
+    assert runez.wcswidth(u"hello world") == 11
+    assert runez.wcswidth(u"\x1b[0m") == 0
+    assert runez.wcswidth(u"\x1b[0mhello") == 5

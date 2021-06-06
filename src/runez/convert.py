@@ -11,8 +11,8 @@ from runez.system import flattened, joined, string_type, stringified
 
 DEFAULT_BASE = 1000
 DEFAULT_UNITS = "KMGTP"
-RE_WORDS = re.compile(r"[^\w]+")
 RE_CAMEL_CASE_WORDS = re.compile(r"(^[a-z]+|[A-Z](?:[a-z]+|[A-Z]*(?=[A-Z]|$)))")
+RE_WORDS = re.compile(r"[^\w]+")
 RE_UNDERSCORED_NUMBERS = re.compile(r"([0-9])_([0-9])")  # py2 does not parse numbers with underscores like "1_000"
 TRUE_TOKENS = {"on", "true", "y", "yes"}
 

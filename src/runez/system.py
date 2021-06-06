@@ -13,6 +13,7 @@ import re
 import shutil
 import sys
 import threading
+import unicodedata
 
 
 try:
@@ -31,6 +32,7 @@ except NameError:
 LOG = logging.getLogger("runez")
 SYMBOLIC_TMP = "<tmp>"
 WINDOWS = sys.platform.startswith("win")
+RE_ANSI_ESCAPE = re.compile(r"\x1b(\[[;\d]*[A-Za-z]?)?")
 RE_SPACES = re.compile(r"[\s\n]+", re.MULTILINE)
 _getframe = getattr(sys, "_getframe", None)
 
@@ -496,9 +498,9 @@ def short(value, size=UNSET, none="None", uncolor=False):
 
     if isinstance(size, int) and len(text) > size > 0:
         if uncolor and "\033" in text:
-            uncolored = _R._runez_module().colors.uncolored(text)
-            if len(uncolored) > size:
-                text = "%s..." % uncolored[:size - 3]
+            clear_text = uncolored(text)
+            if len(clear_text) > size:
+                text = "%s..." % clear_text[:size - 3]
 
         else:
             text = "%s..." % text[:size - 3]
@@ -538,6 +540,50 @@ def stringified(value, converter=None, none="None"):
             return ""  # Represent `None` as empty string if `none` is False-ish
 
     return "{}".format(value)
+
+
+def uncolored(text):
+    """
+    Args:
+        text (str | unicode | None): Text to remove ANSI colors from
+
+    Returns:
+        (str): Text without any ANSI color rendering
+    """
+    return RE_ANSI_ESCAPE.sub("", stringified(text))
+
+
+def wcswidth(text):
+    """
+    Args:
+        text (str | unicode | None): Text to examine
+
+    Returns:
+        (int): Best effort unicode character width that would be occupied on a terminal
+    """
+    if not text:
+        return 0
+
+    text = uncolored(text)
+    width = carry = 0
+    for char in text:
+        aw = unicodedata.east_asian_width(char)
+        if aw == "Na":
+            width += 1 + carry
+            carry = 0
+
+        elif aw == "W":
+            width += 2 + carry
+            carry = 0
+
+        elif aw == "N":
+            width += carry
+            carry = 0
+
+        elif aw == "A":
+            carry = 1
+
+    return width
 
 
 class AbortException(Exception):
