@@ -54,7 +54,11 @@ EXPECTED_DIAGNOSTICS = """
   opt : -missing-
   --- :
 
-2nd section:
+Other section:
+    --- :
+  diag2 : foo
+
+Some section:
    key1 : value1
    key2 : -missing-
     --- :
@@ -75,10 +79,16 @@ def test_diagnostics(monkeypatch):
         yield "diag2", "foo"
 
     data = {"key1": "value1", "key2": None}
-    diag1 = PrettyTable.two_column_diagnostics(_diag1, {"2nd section": [data, _diag2]}, "some additional text")
+    sections = {"Some section": [data, _diag2], "Other section": _diag2}
+    diag1 = PrettyTable.two_column_diagnostics(_diag1, sections, "some additional text")
     assert diag1 == EXPECTED_DIAGNOSTICS.strip("\n")
 
-    diag2 = PrettyTable.two_column_diagnostics(_diag2, SYS_INFO.diagnostics)
+    # Same, but with calling the generators first
+    sections = {"Some section": [data, _diag2()], "Other section": _diag2()}
+    diag1 = PrettyTable.two_column_diagnostics(_diag1(), sections, "some additional text")
+    assert diag1 == EXPECTED_DIAGNOSTICS.strip("\n")
+
+    diag2 = PrettyTable.two_column_diagnostics(_diag2(), SYS_INFO.diagnostics())
     assert "diag2 : foo" in diag2
     assert "sys.executable" in diag2
 

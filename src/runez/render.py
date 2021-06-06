@@ -421,9 +421,12 @@ class PrettyTable(PrettyCustomizable):
         if regular_sources:
             report.append(PrettyTable._single_diag(regular_sources, border, align, style, missing, columns))
 
-        for title, source in named_sources.items():
+        for title, source in sorted(named_sources.items()):
             if title_color:
                 title = title_color(title)
+
+            if not isinstance(source, list):
+                source = [source]
 
             content = PrettyTable._single_diag(source, border, align, style, missing, columns)
             content = "%s:\n%s" % (title, content)
