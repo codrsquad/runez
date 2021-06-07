@@ -281,50 +281,11 @@ _pytest.logging.LogCaptureHandler = WrappedHandler
 class ClickWrapper(object):
     """Wrap click invoke, when click is available, otherwise just call provided function"""
 
-    __runner = None
-
-    def __init__(self, output=None, exit_code=None, exception=None):
-        self.output = output
+    def __init__(self, stdout=None, stderr=None, exit_code=None, exception=None):
+        self.stdout = stdout
+        self.stderr = stderr
         self.exit_code = exit_code
         self.exception = exception
-
-    def invoke(self, main, args):
-        """Mocked click-like behavior"""
-        output = None
-        exit_code = 0
-        exception = None
-        try:
-            output = main()
-
-        except SystemExit as e:
-            exit_code = 1
-            if isinstance(e.code, int):
-                exit_code = e.code
-
-            else:
-                output = stringified(e)
-
-        except BaseException as e:
-            exit_code = 1
-            exception = e
-            output = stringified(e)
-
-        return ClickWrapper(output=output, exit_code=exit_code, exception=exception)
-
-    @classmethod
-    def new_runner(cls, main):
-        """
-        Returns:
-            (ClickWrapper| click.testing.CliRunner): CliRunner if available
-        """
-        if _ClickCommand is not None and isinstance(main, _ClickCommand):
-            if "LANG" not in os.environ:
-                # Avoid click complaining about unicode for tests that mock env vars
-                os.environ["LANG"] = "en_US.UTF-8"
-
-            return _CliRunner()
-
-        return cls()
 
 
 class ClickRunner(object):
@@ -382,11 +343,15 @@ class ClickRunner(object):
         with IsolatedLogSetup(adjust_tmp=False):
             with CaptureOutput(dryrun=_R.is_dryrun(), seed_logging=True) as logged:
                 self.logged = logged
-                runner = ClickWrapper.new_runner(main)
                 with TempArgv(self.args, exe=exe):
-                    result = runner.invoke(main, args=self.args)
-                    if result.output:
-                        logged.stdout.buffer.write(result.output)
+                    result = self._run_main(main, self.args)
+                    text = result.stdout
+                    if text:
+                        logged.stdout.buffer.write(text)
+
+                    text = result.stderr
+                    if text:
+                        logged.stderr.buffer.write(text)
 
                     if result.exception and not isinstance(result.exception, SystemExit):
                         try:
@@ -495,6 +460,58 @@ class ClickRunner(object):
         self.run(args, **kwargs)
         assert self.failed, "%s succeeded, was expecting failure" % quoted(self.args)
         self.expect_messages(*expected, **spec.to_dict())
+
+    def _resolved_script(self, script):
+        if script.startswith("-") or os.path.exists(script):
+            return script
+
+        path = self.project_path(script)
+        if os.path.exists(path):
+            return path
+
+        path = self.tests_path(script)
+        if os.path.exists(path):
+            return path
+
+    def _run_main(self, main, args):
+        if _ClickCommand is not None and isinstance(main, _ClickCommand):
+            if "LANG" not in os.environ:
+                # Avoid click complaining about unicode for tests that mock env vars
+                os.environ["LANG"] = "en_US.UTF-8"
+
+            runner = _CliRunner(mix_stderr=False)
+            return runner.invoke(main, args=args)
+
+        if callable(main):
+            result = ClickWrapper()
+            try:
+                result.stdout = main()
+                result.exit_code = 0
+
+            except SystemExit as e:
+                if isinstance(e.code, int):
+                    result.exit_code = e.code
+
+                else:
+                    result.exit_code = 1
+                    result.stderr = stringified(e)
+
+            except BaseException as e:
+                result.exit_code = 1
+                result.exception = e
+                result.stderr = stringified(e)
+
+            return result
+
+        if isinstance(main, string_type):
+            script = self._resolved_script(main)
+            if not script:
+                assert False, "Can't find script '%s', invalid main" % script
+
+            r = runez.run(sys.executable, script, *args, fatal=False)
+            return ClickWrapper(stdout=r.output, stderr=r.error, exit_code=r.exit_code)
+
+        assert False, "Can't invoke invalid main: %s" % main
 
 
 class RunSpec(Slotted):

@@ -61,7 +61,7 @@ def test_crash(cli):
 
     cli.run("exit", "some message")
     assert cli.failed
-    assert cli.match("some message", "!stacktrace")
+    cli.expect_messages("some message", "!stacktrace")
 
     cli.expect_failure("Exception hello", "crashed...hello", "Exited with stacktrace:", "!this message shouldn't appear")
 
@@ -122,6 +122,29 @@ def test_edge_cases(temp_folder, monkeypatch):
     del info.project_folder
     p = info.project_path()
     assert p == "."
+
+
+def test_invalid_main(cli):
+    cli.run("hello", main="-mno_such_module")
+    assert cli.failed
+    assert "No module named no_such_module" in cli.logged.stderr
+
+    with pytest.raises(AssertionError):
+        cli.run("hello", main="no_such_script.foo")
+
+    with pytest.raises(AssertionError):
+        cli.run("foo", main=["invalid"])
+
+
+def test_script_invocations(cli):
+    cli.run("--help", main="src/runez/__main__.py")
+    assert cli.succeeded
+    assert "See some example behaviors of runez" in cli.logged.stdout
+
+    if not runez.PY2:  # no type annotations in py2
+        cli.run("testing", main="extra-validations")
+        assert cli.succeeded
+        assert "invoked extra-validations" in cli.logged.stdout
 
 
 def test_success(cli, monkeypatch):

@@ -163,7 +163,7 @@ def prettify_epilogs(command, formatter=None):
     - .epilog shows the rest, with a \b separator if there is an empty line right after the 1st line
 
     Args:
-        command (click.Command): Command to prettify (along with its sub-commands)
+        command (click.BaseCommand): Command to prettify (along with its sub-commands)
         formatter (callable | None): Optional formatter to invoke on each help/epilog string
     """
     if click is not None:

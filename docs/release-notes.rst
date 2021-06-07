@@ -2,10 +2,12 @@
 History
 =======
 
-2.7.6 (2021-06-06)
+2.7.6 (2021-06-07)
 -----------------
 
 * Generalized ``diagnostics()``, simplified internals for ``cli`` fixture
+
+* Allow for script invocations as well via ``cli.run(..., main="src/my-script.py")``
 
 * Added ``wcswidth()``, corrected ``PrettyTable`` rendering with unicode characters
 

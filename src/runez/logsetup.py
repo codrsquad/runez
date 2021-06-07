@@ -905,7 +905,7 @@ class LogManager(object):
         """
         Args:
             *modules: Modules, or names of modules to silence (by setting their log level to WARNING or above)
-            **kwargs: Pass as kwargs due to python 2.7, would be level=logging.WARNING otherwise
+            **kwargs: Pass as kwargs due to PY2, would be level=logging.WARNING otherwise
         """
         level = kwargs.pop("level", logging.WARNING)
         for mod in modules:

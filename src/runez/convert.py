@@ -386,7 +386,7 @@ def _int_from_text(text, base=None, default=None):
 
     except ValueError:
         if base is None:
-            if sys.version_info[:2] <= (3, 5):  # 3.5 has the same quirk as 2.7
+            if sys.version_info[:2] <= (3, 5):  # 3.5 has the same quirk as PY2
                 text = RE_UNDERSCORED_NUMBERS.sub(r"\1\2", text)
                 try:
                     return int(text)
