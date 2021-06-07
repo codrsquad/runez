@@ -259,8 +259,8 @@ def adhoc_linter():
 
 
 def main():
-    if len(sys.argv) == 2 and sys.argv[1] == "testing":
-        print("invoked extra-validations")
+    if len(sys.argv) == 2 and sys.argv[1] == "--help":
+        print("This script exercises some custom linting rules")
         sys.exit(0)
 
     errors = check_import_order()

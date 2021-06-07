@@ -1,0 +1,6 @@
+# This python script intentionally fails a simple --help invocation
+
+import sys
+
+
+sys.exit("Oops, failed")

@@ -325,6 +325,26 @@ class ClickRunner(object):
     def assert_printed(self, expected):
         self.logged.assert_printed(expected)
 
+    def exercise_main(self, *entry_points):
+        """Run --help on given entry point scripts, for code coverage.
+
+        This allows to avoid copy-pasting code around just to exercise `if __name__ == "__main__"` sections of code
+        Example usage:
+            def test_my_cli(cli):
+                cli.exercise_main("-mmy_cli", "src/my_cli/cli.py")
+
+        Args:
+            *entry_points (str): Relative path to scripts to exercise (or "-mNAME" for a `python --module NAME` form of invocation)
+        """
+        with runez.CurrentFolder(self.project_folder):  # Change cwd to project otherwise code coverage does NOT correctly detect
+            for entry_point in entry_points:
+                script = self._resolved_script(entry_point)
+                r = runez.run(sys.executable, script, "--help", fatal=False)
+                if r.failed:
+                    msg = "%s --help failed" % runez.short(script)
+                    logging.error("%s\n%s", msg, r.full_output)
+                    assert False, msg
+
     def run(self, *args, **kwargs):
         """
         Args:

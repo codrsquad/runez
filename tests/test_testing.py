@@ -137,14 +137,22 @@ def test_invalid_main(cli):
 
 
 def test_script_invocations(cli):
+    # This unfortunately does is not enough to detect code coverage (due to cwd being a temp folder I think)
+    cli.run("--help", main="-mrunez")
+    assert cli.succeeded
+    assert "See some example behaviors of runez" in cli.logged
+
     cli.run("--help", main="src/runez/__main__.py")
     assert cli.succeeded
-    assert "See some example behaviors of runez" in cli.logged.stdout
+    assert "See some example behaviors of runez" in cli.logged
 
+    # Below will properly make test coverage detect properly that we did execute code in __main__.py
+    cli.exercise_main("-mrunez", "src/runez/__main__.py")
     if not runez.PY2:  # no type annotations in py2
-        cli.run("testing", main="extra-validations")
-        assert cli.succeeded
-        assert "invoked extra-validations" in cli.logged.stdout
+        cli.exercise_main("extra-validations")  # Checks also that script is found even in tests/ subfolder
+
+    with pytest.raises(AssertionError):
+        cli.exercise_main("failed-help")
 
 
 def test_success(cli, monkeypatch):

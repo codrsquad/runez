@@ -11,6 +11,8 @@ Convenience commonly used click options:
 
 from __future__ import absolute_import
 
+import errno
+import logging
 import os
 import sys
 
@@ -25,7 +27,7 @@ from runez.colors import ColorManager
 from runez.convert import affixed
 from runez.file import basename
 from runez.logsetup import LogManager
-from runez.system import _R, find_caller_frame, flattened, get_version, string_type
+from runez.system import _R, find_caller_frame, flattened, get_version, string_type, stringified
 
 
 def command(help=None, width=140, **attrs):
@@ -195,6 +197,34 @@ def prettify_epilogs(command, formatter=None):
         if isinstance(command, click.Group) and command.commands:
             for cmd in command.commands.values():
                 prettify_epilogs(cmd, formatter=formatter)
+
+
+def protected_main(main, show_stacktrace=True):
+    """Convenience wrapper for a click main() function
+
+    Args:
+        main (callable): 'main' function to invoke
+        show_stacktrace (bool): If True, always show stack trace (otherwise: only with --debug)
+    """
+    try:
+        return main()
+
+    except KeyboardInterrupt:
+        sys.stderr.write(ColorManager.fg.red("\n\nAborted\n\n"))  # No need to show stack trace on a KeyboardInterrupt
+        sys.exit(1)
+
+    except NotImplementedError as e:
+        msg = stringified(e) or "Not implemented yet"  # Convenience pretty-print of a `raise NotImplementedError(...)`
+        sys.stderr.write(ColorManager.fg.red("\n%s\n\n" % msg))
+        sys.exit(1)
+
+    except Exception as e:
+        if getattr(e, "errno", None) == errno.EPIPE:
+            sys.exit(0)  # Broken pipe is OK, happens when output is piped to another command that closes input early, like `head`
+
+        logger = logging.exception if show_stacktrace or LogManager.debug else logging.error
+        logger(e)  # Ensure any uncaught exception gets properly logged
+        sys.exit(1)
 
 
 def _auto_complete_callback(attrs, func):

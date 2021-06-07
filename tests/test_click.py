@@ -4,9 +4,13 @@ Test click related methods
 
 from __future__ import print_function
 
+import errno
+
 import click
+import pytest
 
 import runez
+from runez.conftest import exception_raiser
 
 
 def my_formatter(text):
@@ -183,6 +187,29 @@ def test_group(cli):
     cli.run("--no-color --dryrun -ca=b --config c=d --log foo echo hello")
     assert cli.succeeded
     cli.assert_printed("hello, color: False, 2 values, g.a=b, debug: False, dryrun: True, log: foo")
+
+
+def check_protected_main(exit_code, exception, *messages):
+    with runez.CaptureOutput() as logged:
+        with pytest.raises(SystemExit) as x:
+            runez.click.protected_main(exception_raiser(exception))
+        assert x.value.code == exit_code
+        if not messages:
+            assert not logged
+            return
+
+        for message in messages:
+            assert message in logged
+
+
+def test_protected_main():
+    # Exercise protected_main()
+    check_protected_main(1, KeyboardInterrupt, "Aborted")
+    check_protected_main(1, NotImplementedError, "Not implemented yet")
+    check_protected_main(1, Exception("oops"), "Exception: oops", "Traceback")
+    exc = IOError()
+    exc.errno = errno.EPIPE
+    check_protected_main(0, exc)
 
 
 def test_settings():

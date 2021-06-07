@@ -2,6 +2,12 @@
 History
 =======
 
+2.7.7 (2021-06-07)
+-----------------
+
+* Added ``cli.exercise_main()`` and a typical ``runez.click.protected_main()``
+
+
 2.7.6 (2021-06-07)
 -----------------
 
