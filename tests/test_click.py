@@ -189,17 +189,15 @@ def test_group(cli):
     cli.assert_printed("hello, color: False, 2 values, g.a=b, debug: False, dryrun: True, log: foo")
 
 
-def check_protected_main(exit_code, exception, *messages):
+def check_protected_main(exit_code, exception, *messages, **kwargs):
     with runez.CaptureOutput() as logged:
         with pytest.raises(SystemExit) as x:
-            runez.click.protected_main(exception_raiser(exception))
+            runez.click.protected_main(exception_raiser(exception), **kwargs)
         assert x.value.code == exit_code
-        if not messages:
-            assert not logged
-            return
-
         for message in messages:
             assert message in logged
+
+        return logged
 
 
 def test_protected_main():
@@ -207,9 +205,20 @@ def test_protected_main():
     check_protected_main(1, KeyboardInterrupt, "Aborted")
     check_protected_main(1, NotImplementedError, "Not implemented yet")
     check_protected_main(1, Exception("oops"), "Exception: oops", "Traceback")
+
+    # No stack trace with debug_stacktrace=True
+    logged = check_protected_main(1, Exception("oops"), "oops", debug_stacktrace=True)
+    assert "Traceback" not in logged
+
+    check_protected_main(1, TypeError("oops"), "TypeError",  "Traceback", no_stacktrace=[ValueError])
+    logged = check_protected_main(1, ValueError("oops"), "oops", no_stacktrace=[ValueError])
+    assert "ValueError" not in logged  # Exception is stringified and shown as ERROR
+    assert "Traceback" not in logged
+
     exc = IOError()
     exc.errno = errno.EPIPE
-    check_protected_main(0, exc)
+    logged = check_protected_main(0, exc)
+    assert not logged
 
 
 def test_settings():

@@ -199,12 +199,13 @@ def prettify_epilogs(command, formatter=None):
                 prettify_epilogs(cmd, formatter=formatter)
 
 
-def protected_main(main, show_stacktrace=True):
+def protected_main(main, debug_stacktrace=False, no_stacktrace=None):
     """Convenience wrapper for a click main() function
 
     Args:
         main (callable): 'main' function to invoke
-        show_stacktrace (bool): If True, always show stack trace (otherwise: only with --debug)
+        debug_stacktrace (bool): If True, show stack traces only with --debug runs
+        no_stacktrace (list | None): Do not show stack trace for give Exception types
     """
     try:
         return main()
@@ -222,7 +223,11 @@ def protected_main(main, show_stacktrace=True):
         if getattr(e, "errno", None) == errno.EPIPE:
             sys.exit(0)  # Broken pipe is OK, happens when output is piped to another command that closes input early, like `head`
 
-        logger = logging.exception if show_stacktrace or LogManager.debug else logging.error
+        logger = logging.exception
+        if (debug_stacktrace and not LogManager.debug) or (no_stacktrace and type(e) in no_stacktrace):
+            logger = logging.error
+            e = ColorManager.fg.red(e)
+
         logger(e)  # Ensure any uncaught exception gets properly logged
         sys.exit(1)
 
