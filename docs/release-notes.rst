@@ -2,6 +2,12 @@
 History
 =======
 
+2.7.8 (2021-06-07)
+-----------------
+
+* Unfortunately, click's ``mix_stderr`` seems to mean "ignore stderr please"
+
+
 2.7.7 (2021-06-07)
 -----------------
 

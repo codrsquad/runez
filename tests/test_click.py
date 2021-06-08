@@ -5,6 +5,7 @@ Test click related methods
 from __future__ import print_function
 
 import errno
+import sys
 
 import click
 import pytest
@@ -54,7 +55,8 @@ def echo(text):
 @runez.click.debug()
 @runez.click.dryrun()
 @runez.click.log()
-def say_hello(border, color, config, debug, log):
+@click.option("--use-stderr", is_flag=True, help="Print on stderr")
+def say_hello(border, color, config, debug, log, use_stderr):
     """Say hello"""
     # When --config is exposed, global config is NOT modified
     assert not runez.config.CONFIG.providers
@@ -66,7 +68,11 @@ def say_hello(border, color, config, debug, log):
     msg = "border: %s, color: %s, a=%s c=%s, debug: %s, dryrun: %s, log: %s" % (
         border, color, config.get("a"), config.get("c"), debug, runez.DRYRUN, log
     )
-    print(msg)
+    if use_stderr:
+        sys.stderr.write("%s\n" % msg)
+
+    else:
+        print(msg)
 
 
 def test_command(cli, monkeypatch):
@@ -97,6 +103,18 @@ def test_command(cli, monkeypatch):
     cli.run("")
     assert cli.succeeded
     cli.assert_printed("border: reddit, color: None, a=some-value c=d, debug: None, dryrun: False, log: None")
+
+
+def test_command_with_stderr(cli):
+    cli.main = say_hello
+    cli.run("")
+    assert cli.succeeded
+    assert "border:" in cli.logged
+
+    cli.main = say_hello
+    cli.run("--use-stderr")
+    assert cli.succeeded
+    assert "border:" in cli.logged
 
 
 def sample_config(**attrs):

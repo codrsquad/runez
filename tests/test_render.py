@@ -8,7 +8,7 @@ import pytest
 from mock import patch
 
 from runez.render import Align, Header, PrettyBorder, PrettyHeader, PrettyTable
-from runez.system import SYS_INFO, SystemInfo
+from runez.system import SYS_INFO, SystemInfo, UNSET
 
 
 def test_align():
@@ -56,13 +56,13 @@ EXPECTED_DIAGNOSTICS = """
 
 Other section:
     --- :
-  diag2 : foo
+  diag2 : UNSET
 
 Some section:
    key1 : value1
    key2 : -missing-
     --- :
-  diag2 : foo
+  diag2 : UNSET
 
 some additional text
 """
@@ -76,7 +76,7 @@ def test_diagnostics(monkeypatch):
 
     def _diag2():
         yield "---"
-        yield "diag2", "foo"
+        yield "diag2", UNSET
 
     data = {"key1": "value1", "key2": None}
     sections = {"Some section": [data, _diag2], "Other section": _diag2}
@@ -89,7 +89,7 @@ def test_diagnostics(monkeypatch):
     assert diag1 == EXPECTED_DIAGNOSTICS.strip("\n")
 
     diag2 = PrettyTable.two_column_diagnostics(_diag2(), SYS_INFO.diagnostics())
-    assert "diag2 : foo" in diag2
+    assert "diag2 : UNSET" in diag2
     assert "sys.executable" in diag2
 
     silly_edge_case = PrettyTable.two_column_diagnostics(0, 1, [2])

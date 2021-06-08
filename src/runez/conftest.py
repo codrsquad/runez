@@ -281,7 +281,7 @@ _pytest.logging.LogCaptureHandler = WrappedHandler
 class ClickWrapper(object):
     """Wrap click invoke, when click is available, otherwise just call provided function"""
 
-    def __init__(self, stdout=None, stderr=None, exit_code=None, exception=None):
+    def __init__(self, stdout, stderr, exit_code, exception):
         self.stdout = stdout
         self.stderr = stderr
         self.exit_code = exit_code
@@ -365,13 +365,11 @@ class ClickRunner(object):
                 self.logged = logged
                 with TempArgv(self.args, exe=exe):
                     result = self._run_main(main, self.args)
-                    text = result.stdout
-                    if text:
-                        logged.stdout.buffer.write(text)
+                    if result.stdout:
+                        logged.stdout.buffer.write(result.stdout)
 
-                    text = result.stderr
-                    if text:
-                        logged.stderr.buffer.write(text)
+                    if result.stderr:
+                        logged.stderr.buffer.write(result.stderr)
 
                     if result.exception and not isinstance(result.exception, SystemExit):
                         try:
@@ -499,11 +497,12 @@ class ClickRunner(object):
                 # Avoid click complaining about unicode for tests that mock env vars
                 os.environ["LANG"] = "en_US.UTF-8"
 
-            runner = _CliRunner(mix_stderr=False)
-            return runner.invoke(main, args=args)
+            runner = _CliRunner()
+            r = runner.invoke(main, args=args)
+            return ClickWrapper(r.output, None, r.exit_code, r.exception)
 
         if callable(main):
-            result = ClickWrapper()
+            result = ClickWrapper(None, None, None, None)
             try:
                 result.stdout = main()
                 result.exit_code = 0
@@ -529,7 +528,7 @@ class ClickRunner(object):
                 assert False, "Can't find script '%s', invalid main" % script
 
             r = runez.run(sys.executable, script, *args, fatal=False)
-            return ClickWrapper(stdout=r.output, stderr=r.error, exit_code=r.exit_code)
+            return ClickWrapper(r.output, r.error, r.exit_code, r.exc_info)
 
         assert False, "Can't invoke invalid main: %s" % main
 

@@ -365,7 +365,7 @@ class PrettyTable(PrettyCustomizable):
                 if not isinstance(row, (tuple, list)):
                     row = (row, "")
 
-                row = [stringified(s, none=missing) for s in row]
+                row = [_represented_cell(s, missing) for s in row]
                 col1 = max(col1, len(row[0]))
                 rows.append(row)
 
@@ -389,9 +389,9 @@ class PrettyTable(PrettyCustomizable):
             border (str): Border for the PrettyTable used to render the two-column diagnostics
             columns (int | None): Optional max number of columns in output (default: terminal width)
             delimiter (str): Delimiter to use between sub-diagnostics sections
-            missing (str): String to use to represent missing values
-            style (str | runez.colors.Renderable | None): Style for 2nd column (default: bold)
-            title_color (str): Color to use for titles of sub-diagnostics sections (default: blue)
+            missing (callable | None): Color to use to represent missing values (default: orange)
+            style (callable | None): Style for 2nd column (default: bold)
+            title_color (callable | None): Color to use for titles of sub-diagnostics sections (default: blue)
 
         Returns:
             (PrettyTable): Rendered PrettyTable showing diagnostics info
@@ -400,8 +400,8 @@ class PrettyTable(PrettyCustomizable):
         border = kwargs.pop("border", os.environ.get("DIAGNOSTICS_BORDER", "colon"))
         columns = kwargs.pop("columns", SYS_INFO.terminal.columns)
         delimiter = kwargs.pop("delimiter", "\n\n")
-        missing = kwargs.pop("missing", _R._runez_module().orange("-missing-"))
-        style = kwargs.pop("style", "bold")
+        missing = kwargs.pop("missing", _R._runez_module().orange)
+        style = kwargs.pop("style", _R._runez_module().bold)
         title_color = kwargs.pop("title_color", _R._runez_module().blue)
         assert not kwargs, "Unexpected kwargs: %s" % short(kwargs)
         additional = []
@@ -596,3 +596,13 @@ class _PTCell(object):
 
         text = self.custom.align(text, size)
         return "%s%s%s" % (padding, text, padding)
+
+
+def _represented_cell(text, missing):
+    if text is None:
+        return missing("-missing-")
+
+    if text is UNSET:
+        return missing("UNSET")
+
+    return stringified(text)
