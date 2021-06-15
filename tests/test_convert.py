@@ -40,6 +40,14 @@ def test_bytesize():
 
 
 def test_plural():
+    assert runez.plural(None) == "no values"
+    assert runez.plural("chair") == "chairs"
+    assert runez.plural(None, "walker") == "no walkers"
+
+    assert runez.plural(None) == "no values"
+    assert runez.plural(1) == "1 value"
+    assert runez.plural("foo", "character") == "3 characters"
+
     assert runez.plural(2, "match") == "2 matches"
     assert runez.plural(0, "dish") == "0 dishes"
     assert runez.plural(5, "goth") == "5 goths"

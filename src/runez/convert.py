@@ -263,7 +263,7 @@ class Pluralizer:
         return "%ss" % singular
 
 
-def plural(countable, singular, base=1000, prefixes=DEFAULT_UNITS):
+def plural(countable, singular=None, base=1000, prefixes=DEFAULT_UNITS):
     """
     Args:
         countable: How many things there are (can be int, or something countable)
@@ -274,11 +274,20 @@ def plural(countable, singular, base=1000, prefixes=DEFAULT_UNITS):
     Returns:
         (str): Rudimentary, best-effort plural of "<count> <name>(s)"
     """
+    if isinstance(countable, string_type) and singular is None:
+        return Pluralizer.plural(countable)
+
+    if singular is None:
+        singular = "value"
+
     count = len(countable) if hasattr(countable, "__len__") else countable
     if count == 1:
         return "1 %s" % singular
 
     plural = Pluralizer.plural(singular)
+    if count is None:
+        return "no %s" % plural
+
     count = _represented_with_units(count, "", base, "", prefixes)
     return "%s %s" % (count, plural)
 
