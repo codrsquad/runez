@@ -5,7 +5,7 @@ from collections import defaultdict
 
 from runez.file import parent_folder
 from runez.program import is_executable, run
-from runez.system import _R, abort, flattened, joined, resolved_path, short, UNSET
+from runez.system import _R, abort, flattened, joined, resolved_path, short, stringified, UNSET
 
 
 CPYTHON = "cpython"
@@ -71,10 +71,10 @@ class PythonSpec(object):
     def __init__(self, text, family=None):
         """
         Args:
-            text (str | None): Text describing desired python
+            text: Text describing desired python (note: an empty or None `text` will yield a generic "cpython:" spec)
             family (str | None): Additional text to examine to determine python family
         """
-        text = text.strip() if text else ""
+        text = stringified(text, none="").strip()
         self.text = text
         self.version = None
         if text == "invoker":
@@ -184,14 +184,27 @@ class PythonSpec(object):
             values (Iterable | None): Values to transform into a list of PythonSpec-s
 
         Returns:
-            (list[PythonSpec] | None): Corresponding list of PythonSpec-s
+            (list[PythonSpec]): Corresponding list of PythonSpec-s
         """
-        if values:
-            values = [x if isinstance(x, PythonSpec) else cls(x) for x in values if x]
-            if strict:
-                values = [x for x in values if x.version]
+        values = flattened(values, keep_empty=None, split=",", transform=PythonSpec.to_spec)
+        if strict:
+            values = [x for x in values if x.version]
 
-            return values
+        return values
+
+    @staticmethod
+    def to_spec(value):
+        """
+        Args:
+            value: Value to be converted into a PythonSpec() object
+
+        Returns:
+            (PythonSpec): Parsed spec from given object
+        """
+        if isinstance(value, PythonSpec):
+            return value
+
+        return PythonSpec(value)
 
 
 class PythonDepot(object):
@@ -251,7 +264,7 @@ class PythonDepot(object):
         Returns:
             (PythonSpec): Associated spec
         """
-        return PythonSpec(text)
+        return PythonSpec.to_spec(text)
 
     def find_python(self, spec, fatal=UNSET):
         """

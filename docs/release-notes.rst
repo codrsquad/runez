@@ -2,7 +2,13 @@
 History
 =======
 
-2.7.9 (2021-06-07)
+2.7.10 (2021-06-18)
+------------------
+
+* Fixed bug in ``PythonSpec.speccified()``
+
+
+2.7.9 (2021-06-15)
 -----------------
 
 * Don't crash on ``plural(None)``

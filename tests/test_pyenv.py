@@ -278,19 +278,25 @@ def test_sorting(temp_folder):
 
 def check_spec(text, canonical):
     d = PythonSpec(text)
-    assert d.text == text.strip()
+    assert d.text == runez.stringified(text).strip()
     assert str(d) == canonical
 
 
 def test_spec():
-    assert PythonSpec.speccified(None) is None
-    assert PythonSpec.speccified([]) is None
+    assert PythonSpec.speccified(None) == []
+    assert PythonSpec.speccified([]) == []
+    assert PythonSpec.speccified([None, "", None]) == []
     assert PythonSpec.speccified([""]) == []
     assert PythonSpec.speccified(["", "foo"]) == [PythonSpec("foo")]
     assert PythonSpec.speccified(["", "foo"], strict=True) == []
     assert PythonSpec.speccified(["", "foo", "3.7"], strict=True) == [PythonSpec("3.7")]
+    assert PythonSpec.speccified([2.7, 3.9]) == [PythonSpec("2.7"), PythonSpec("3.9")]
+    assert PythonSpec.speccified("27") == [PythonSpec("2.7")]
+    assert PythonSpec.speccified("39,2.7") == [PythonSpec("3.9"), PythonSpec("2.7")]
 
     pnone = PythonSpec(None)
+    assert PythonSpec.to_spec(None) == pnone
+    assert PythonSpec.to_spec(pnone) is pnone
     assert str(pnone) == "cpython:"
     p37a = PythonSpec("py37")
     p37b = PythonSpec("python3.7")
@@ -332,6 +338,7 @@ def test_spec():
     check_spec(" ", "cpython:")
     check_spec(" : ", "cpython:")
     check_spec(" - ", "cpython:")
+    check_spec(2, "cpython:2")
     check_spec("2", "cpython:2")
     check_spec("3", "cpython:3")
     check_spec("P3", "cpython:3")
@@ -342,6 +349,7 @@ def test_spec():
     check_spec("cpython3", "cpython:3")
     check_spec("python3", "cpython:3")
     check_spec(" python  3 ", "cpython:3")
+    check_spec(3.7, "cpython:3.7")
     check_spec(" p3.7 ", "cpython:3.7")
     check_spec(" cpython:3.7 ", "cpython:3.7")
 
