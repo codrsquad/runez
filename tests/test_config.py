@@ -10,13 +10,6 @@ import runez
 SAMPLES = runez.DEV.tests_path("sample")
 
 
-def test_capped():
-    assert runez.config.capped(123, minimum=200) == 200
-    assert runez.config.capped(123, maximum=100) == 100
-    assert runez.config.capped(123, minimum=100, maximum=200) == 123
-    assert runez.config.capped(123, minimum=100, maximum=110) == 110
-
-
 def test_json():
     assert runez.config.from_json(None) is None
     assert runez.config.from_json("") is None

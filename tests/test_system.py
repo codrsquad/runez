@@ -55,6 +55,13 @@ def test_abort(logged, monkeypatch):
     assert not logged
 
 
+def test_capped():
+    assert runez.capped(123, minimum=200) == 200
+    assert runez.capped(123, maximum=100) == 100
+    assert runez.capped(123, minimum=100, maximum=200) == 123
+    assert runez.capped(123, minimum=100, maximum=110) == 110
+
+
 def test_capture_nested():
     with runez.CaptureOutput(stdout=True, stderr=True) as logged1:
         # Capture both stdout and stderr
@@ -426,6 +433,34 @@ def test_quoted():
     assert runez.quoted([]) == ""
     assert runez.quoted([0, 1, 2]) == "0 1 2"
     assert runez.quoted(["foo", {}, 0, [1, 2], {3: 4}, 5]) == 'foo {} 0 1 2 "{3: 4}" 5'
+
+
+OOPSIE_COUNTER = 0
+
+
+@runez.retry
+def oopsie1():
+    global OOPSIE_COUNTER
+
+    OOPSIE_COUNTER -= 1
+    if OOPSIE_COUNTER:
+        raise Exception("oops1")
+
+
+@runez.retry(tries=2, max_delay=0.1)
+def oopsie2():
+    raise Exception("oops2")
+
+
+def test_retry(logged):
+    global OOPSIE_COUNTER
+    OOPSIE_COUNTER = 2
+    assert oopsie1() is None
+    assert "oops1, retrying" in logged.pop()
+
+    with pytest.raises(Exception):
+        oopsie2()
+    assert "oops2, retrying" in logged.pop()
 
 
 def test_shortening():

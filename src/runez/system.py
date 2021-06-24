@@ -9,10 +9,12 @@ This class should not import any other `runez` class, to avoid circular deps.
 import inspect
 import logging
 import os
+import random
 import re
 import shutil
 import sys
 import threading
+import time
 import unicodedata
 
 
@@ -198,6 +200,26 @@ class cached_property(object):
                         result[property_name] = value
 
             return result
+
+
+def capped(value, minimum=None, maximum=None):
+    """
+    Args:
+        value: Value to cap
+        minimum: If specified, value should not be lower than this minimum
+        maximum: If specified, value should not be higher than this maximum
+
+    Returns:
+        `value` capped to `minimum` and `maximum` (if it is outside of those bounds)
+    """
+    if value is not None:
+        if minimum is not None and value < minimum:
+            return minimum
+
+        if maximum is not None and value > maximum:
+            return maximum
+
+    return value
 
 
 def decode(value, strip=None):
@@ -482,6 +504,83 @@ def resolved_path(path, base=None):
         return os.path.join(resolved_path(base), path)
 
     return os.path.abspath(path)
+
+
+class RetryHandler:
+    """Retry a function N times before giving up"""
+
+    def __init__(self, func=None, exceptions=Exception, tries=5, delay=0, max_delay=None, backoff=1.05, jitter=0.5, logger=UNSET):
+        """
+        Args:
+            func (callable): Function being wrapped
+            exceptions (Exception | tuple[Exception]): Exception(s) to catch, default: Exception
+            tries (int): Maximum number of attempts, default: 5 (use 0 or None for infinite retries)
+            delay (int | float): Initial delay in seconds between attempts
+            max_delay (int | float | None): Maximum delay in seconds, default: None (no limit)
+            backoff (float): Multiplier applied to delay between attempts (1: no backoff), default: 1.05
+            jitter (int | float): Random extra seconds between 0 and 'jitter' added to delay between attempts. default: 0.5
+            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+        """
+        self.func = func
+        self.exceptions = exceptions
+        self.tries = tries
+        self.delay = delay
+        self.max_delay = max_delay
+        self.backoff = capped(backoff, minimum=0, maximum=100)
+        self.jitter = jitter
+        self.logger = logger
+
+    def _decorator(self, func):
+        self.func = func
+        return self
+
+    def __call__(self, *args, **kwargs):
+        """Decorated function is being called"""
+        remaining = self.tries or -1
+        delay = self.delay
+        while remaining:
+            try:
+                return self.func(*args, **kwargs)
+
+            except self.exceptions as e:
+                remaining -= 1
+                if not remaining:
+                    raise
+
+                _R.hlog(self.logger, "%s, retrying in %s seconds..." % (e, delay))
+                time.sleep(delay)
+                delay *= self.backoff
+                if self.jitter:
+                    delay += random.uniform(0, self.jitter)
+
+                delay = capped(delay, minimum=0, maximum=self.max_delay)
+
+
+def retry(func=None, exceptions=Exception, tries=5, delay=0, max_delay=None, backoff=1.05, jitter=0.5, logger=UNSET):
+    """
+    Args:
+        func (callable): Function being wrapped
+        exceptions (Exception | tuple[Exception]): Exception(s) to catch, default: Exception
+        tries (int): Maximum number of attempts, default: 5 (use 0 or None for infinite retries)
+        delay (int | float): Initial delay in seconds between attempts
+        max_delay (int | float | None): Maximum delay in seconds, default: None (no limit)
+        backoff (float): Multiplier applied to delay between attempts (1: no backoff), default: 1.05
+        jitter (int | float): Random extra seconds between 0 and 'jitter' added to delay between attempts. default: 0.5
+        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+
+    Returns:
+        Decorated function
+    """
+    if func is None:
+        # We're called with the form `@my_decorator(...)`
+        handler = RetryHandler(
+            exceptions=exceptions, tries=tries, delay=delay, max_delay=max_delay, backoff=backoff, jitter=jitter, logger=logger
+        )
+        return handler._decorator
+
+    # We're called with the form `@my_decorator` (no args)
+    handler = RetryHandler(func=func)
+    return handler
 
 
 def short(value, size=UNSET, none="None", uncolor=False):
