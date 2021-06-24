@@ -232,7 +232,7 @@ def identifiers(text):
     return words(text, split=None)
 
 
-class Pluralizer:
+class Pluralizer(object):
     """Quick heuristic to pluralize most common english words"""
 
     letter_based = {"s": "ses", "x": "ces", "y": "ies"}

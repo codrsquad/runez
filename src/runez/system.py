@@ -6,6 +6,7 @@ Base functionality used by other parts of `runez`.
 This class should not import any other `runez` class, to avoid circular deps.
 """
 
+import functools
 import inspect
 import logging
 import os
@@ -506,49 +507,58 @@ def resolved_path(path, base=None):
     return os.path.abspath(path)
 
 
-class RetryHandler:
+class RetryHandler(object):
     """Retry a function N times before giving up"""
 
-    def __init__(self, func=None, exceptions=Exception, tries=5, delay=0, max_delay=None, backoff=1.05, jitter=0.5, logger=UNSET):
-        """
-        Args:
-            func (callable): Function being wrapped
-            exceptions (Exception | tuple[Exception]): Exception(s) to catch, default: Exception
-            tries (int): Maximum number of attempts, default: 5 (use 0 or None for infinite retries)
-            delay (int | float): Initial delay in seconds between attempts
-            max_delay (int | float | None): Maximum delay in seconds, default: None (no limit)
-            backoff (float): Multiplier applied to delay between attempts (1: no backoff), default: 1.05
-            jitter (int | float): Random extra seconds between 0 and 'jitter' added to delay between attempts. default: 0.5
-            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
-        """
-        self.func = func
-        self.exceptions = exceptions
-        self.tries = tries
-        self.delay = delay
-        self.max_delay = max_delay
-        self.backoff = capped(backoff, minimum=0, maximum=100)
-        self.jitter = jitter
-        self.logger = logger
+    # Defaults for retry decorator, these can be modified from your application, if convenient / applicable
+    exceptions = Exception  # Exception(s) to catch, default: Exception
+    tries = 10  # Maximum number of attempts (0 or None: infinite retries), default: 10
+    delay = 1.0  # Initial delay in seconds between attempts, default: 1
+    max_delay = None  # Maximum delay in seconds (None: no limit), default: None
+    backoff = 1.5  # Multiplier applied to delay between attempts (1: no backoff), default: 1.5
+    jitter = 1.0  # Random extra seconds between 0 and 'jitter' added to delay between attempts, default: 1
+    logger = LOG.debug  # Logger to use, default: debug
 
-    def _decorator(self, func):
-        self.func = func
-        return self
+    def __init__(self, **settings):
+        Slotted.fill_attributes(self, settings)
 
-    def __call__(self, *args, **kwargs):
-        """Decorated function is being called"""
+    def __repr__(self):
+        if isinstance(self.exceptions, tuple):
+            exceptions = "(%s)" % joined(flattened(self.exceptions, transform=lambda x: x.__name__), delimiter=", ")
+
+        else:
+            exceptions = self.exceptions.__name__
+
+        r = (
+            "exceptions=%s" % exceptions,
+            "tries=%s" % stringified(self.tries),
+            "delay=%s" % stringified(self.delay),
+            "max_delay=%s" % stringified(self.max_delay),
+            "jitter=%s" % stringified(self.jitter),
+        )
+        return "retry(%s)" % joined(r, delimiter=", ")
+
+    def decorator(self, func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            return self.call(func, *args, **kwargs)
+
+        return wrapper
+
+    def call(self, func, *args, **kwargs):
         remaining = self.tries or -1
         delay = self.delay
         while remaining:
             try:
-                return self.func(*args, **kwargs)
+                return func(*args, **kwargs)
 
             except self.exceptions as e:
                 remaining -= 1
                 if not remaining:
                     raise
 
-                _R.hlog(self.logger, "%s, retrying in %s seconds..." % (e, delay))
-                time.sleep(delay)
+                _R.hlog(self.logger, "%s, retrying in %s..." % (e, _R._runez_module().represented_duration(delay, span=1)))
+                sleep(delay)
                 delay *= self.backoff
                 if self.jitter:
                     delay += random.uniform(0, self.jitter)
@@ -556,31 +566,56 @@ class RetryHandler:
                 delay = capped(delay, minimum=0, maximum=self.max_delay)
 
 
-def retry(func=None, exceptions=Exception, tries=5, delay=0, max_delay=None, backoff=1.05, jitter=0.5, logger=UNSET):
-    """
+def retry(func=None, exceptions=UNSET, tries=UNSET, delay=UNSET, max_delay=UNSET, backoff=UNSET, jitter=UNSET, logger=UNSET):
+    """See class `RetryHandler` for defaults
+
     Args:
         func (callable): Function being wrapped
-        exceptions (Exception | tuple[Exception]): Exception(s) to catch, default: Exception
-        tries (int): Maximum number of attempts, default: 5 (use 0 or None for infinite retries)
+        exceptions (Exception | tuple[Exception]): Exception(s) to catch
+        tries (int): Maximum number of attempts (0 or None: infinite retries)
         delay (int | float): Initial delay in seconds between attempts
-        max_delay (int | float | None): Maximum delay in seconds, default: None (no limit)
-        backoff (float): Multiplier applied to delay between attempts (1: no backoff), default: 1.05
-        jitter (int | float): Random extra seconds between 0 and 'jitter' added to delay between attempts. default: 0.5
-        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+        max_delay (int | float | None): Maximum delay in seconds (None: no limit)
+        backoff (float): Multiplier applied to delay between attempts (1: no backoff)
+        jitter (int | float): Random extra seconds between 0 and 'jitter' added to delay between attempts
+        logger (callable | None): Logger to use
 
     Returns:
         Decorated function
     """
+    handler = RetryHandler(
+        exceptions=exceptions, tries=tries, delay=delay, max_delay=max_delay, backoff=backoff, jitter=jitter, logger=logger
+    )
     if func is None:
-        # We're called with the form `@my_decorator(...)`
-        handler = RetryHandler(
-            exceptions=exceptions, tries=tries, delay=delay, max_delay=max_delay, backoff=backoff, jitter=jitter, logger=logger
-        )
-        return handler._decorator
+        # We're called with args, form: `@my_decorator(...)`
+        return handler.decorator
 
-    # We're called with the form `@my_decorator` (no args)
-    handler = RetryHandler(func=func)
-    return handler
+    # We're called without args, form: `@my_decorator`
+    return handler.decorator(func)
+
+
+def retry_run(func, *args, **kwargs):
+    """Handy variant of retry that can be used directly, without decorating a function
+    Example:
+        session = requests.Session()
+        r = runez.retry_run(session.get, url, timeout=5, _tries=2)
+
+    Args:
+        func (callable): Function being wrapped
+        *args: Passed-through to 'func'
+        **kwargs: Passed-through to 'func' (with below optional keyword arguments removed)
+
+    Keyword Args:
+        _exceptions (Exception | tuple[Exception]): Exception(s) to catch
+        _tries (int): Maximum number of attempts (0 or None: infinite retries)
+        _delay (int | float): Initial delay in seconds between attempts
+        _max_delay (int | float | None): Maximum delay in seconds (None: no limit)
+        _backoff (float): Multiplier applied to delay between attempts (1: no backoff)
+        _jitter (int | float): Random extra seconds between 0 and 'jitter' added to delay between attempts
+        _logger (callable | None): Logger to use
+    """
+    settings = Slotted.pop_private(RetryHandler, kwargs)
+    handler = RetryHandler(**settings)
+    return handler.call(func, *args, **kwargs)
 
 
 def short(value, size=UNSET, none="None", uncolor=False):
@@ -609,6 +644,11 @@ def short(value, size=UNSET, none="None", uncolor=False):
             text = "%s..." % text[:size - 3]
 
     return text
+
+
+def sleep(seconds):
+    """Same as time.sleep(), can be mocked/overridden"""
+    time.sleep(seconds)
 
 
 def stringified(value, converter=None, none="None"):
@@ -1243,6 +1283,44 @@ class Slotted(object):
 
         return result
 
+    @staticmethod
+    def fill_attributes(obj, kwargs):
+        """Allows to turn kwargs into named attributes, UNSET values allow to fall back to stated default at class level"""
+        if isinstance(obj, type):
+            raise ValueError("extract_settings() called on class %s (should be instance)" % obj)
+
+        for k, v in kwargs.items():
+            if k and not k.startswith("_"):
+                if k not in obj.__class__.__dict__:
+                    raise AttributeError("Unknown %s key '%s'" % (obj.__class__.__name__, k))
+
+                if v is UNSET:
+                    v = getattr(obj.__class__, k)
+
+                setattr(obj, k, v)
+
+    @staticmethod
+    def pop_private(cls, kwargs):
+        """
+        Args:
+            cls (type): Class (or object) holding default values to use
+            kwargs (dict): Pop all keys that start with an '_' and refer to a setting in 'cls', UNSET means "take default from class"
+
+        Returns:
+            (dict): Popped key/value pairs
+        """
+        result = {}
+        if not isinstance(cls, type):
+            cls = cls.__class__
+
+        pkeys = [k for k in kwargs.keys() if k.startswith("_")]
+        for pk in pkeys:
+            k = pk[1:]
+            if k in cls.__dict__:
+                result[k] = kwargs.pop(pk)
+
+        return result
+
     def __iter__(self):
         """Iterate over all defined values in this object"""
         for name in self.__slots__:
@@ -1333,7 +1411,7 @@ class Slotted(object):
             return dict((k, getattr(obj, k, UNSET)) for k in self.__slots__)
 
 
-class DevInfo:
+class DevInfo(object):
     """
     Info on development environment, if we're currently running in one
     All properties/functions here return `None` when we're currently NOT running from a dev environment
@@ -1392,7 +1470,7 @@ class DevInfo:
 DEV = DevInfo()
 
 
-class SystemInfo:
+class SystemInfo(object):
     """Information on current run"""
 
     @staticmethod
@@ -1755,7 +1833,7 @@ class ThreadGlobalContext(object):
             self._gpayload = values or {}
 
 
-class _R:
+class _R(object):
     """
     Internal class to provide a late import of runez (after __init__ imported everything), and also holds some common stuff.
     The name is intentionally short to avoid verbose/long lines calling it.
@@ -1778,6 +1856,13 @@ class _R:
             cls._runez = runez
 
         return cls._runez
+
+    @staticmethod
+    def actual_message(message):
+        if callable(message):
+            message = message()  # Allow message to be late-called function
+
+        return message
 
     @classmethod
     def program_output(cls, program, *args, **kwargs):
@@ -1819,7 +1904,7 @@ class _R:
             'default', if it is not UNSET
         """
         if default is UNSET:
-            abort(_actual_message(message), exc_info=e, logger=logger)
+            abort(_R.actual_message(message), exc_info=e, logger=logger)
 
         if callable(default):
             default = default()
@@ -1829,32 +1914,7 @@ class _R:
 
     @classmethod
     def hdry(cls, dryrun, logger, message):
-        """Handle dryrun
-
-        Args:
-            logger (callable | None): Logger to use, or None to disable log chatter
-            dryrun (bool): Optionally override current dryrun setting
-            message (str | callable): Message to log
-
-        Returns:
-            (bool): True if we were indeed in dryrun mode, and we logged the message
-        """
-        if dryrun is UNSET:
-            dryrun = cls.is_dryrun()
-
-        if dryrun:
-            if logger is not None:
-                message = "Would %s" % _actual_message(message)
-                if logger is False:
-                    cls.trace(message)
-
-                elif callable(logger):
-                    logger(message)
-
-                else:
-                    print(message)
-
-            return True
+        return cls._runez_module().log.hdry(dryrun, logger, message)
 
     @classmethod
     def hlog(cls, logger, message):
@@ -1870,13 +1930,13 @@ class _R:
             return
 
         if logger is False:
-            return cls.trace(_actual_message(message))
+            return cls.trace(_R.actual_message(message))
 
         if logger is UNSET:
             logger = cls._runez_module().log.spec.default_logger
 
         if callable(logger):
-            logger(_actual_message(message))
+            logger(_R.actual_message(message))
 
     @classmethod
     def is_dryrun(cls):
@@ -1968,13 +2028,6 @@ class _R:
             package = caller.f_globals.get("__package__")
             if package:
                 return package
-
-
-def _actual_message(message):
-    if callable(message):
-        message = message()  # Allow message to be late-called function
-
-    return message
 
 
 def _flatten(result, value, keep_empty, split, shellify, transform, unique):

@@ -49,6 +49,9 @@ def test_missing():
 
 
 def test_no_implementation():
+    base = runez.config.ConfigProvider()
+    assert base.values is None
+
     config = runez.config.Configuration(providers=[runez.config.ConfigProvider()])
     assert str(config) == "config"
     assert config.overview() == "config: 0 values"
@@ -66,7 +69,7 @@ def test_no_implementation():
     assert config.get("anything") is None
 
     with pytest.raises(ValueError):
-        config.add(object())
+        config.add(object())  # noqa
 
     assert str(config) == "empty"
 

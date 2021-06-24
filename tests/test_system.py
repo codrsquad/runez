@@ -435,34 +435,6 @@ def test_quoted():
     assert runez.quoted(["foo", {}, 0, [1, 2], {3: 4}, 5]) == 'foo {} 0 1 2 "{3: 4}" 5'
 
 
-OOPSIE_COUNTER = 0
-
-
-@runez.retry
-def oopsie1():
-    global OOPSIE_COUNTER
-
-    OOPSIE_COUNTER -= 1
-    if OOPSIE_COUNTER:
-        raise Exception("oops1")
-
-
-@runez.retry(tries=2, max_delay=0.1)
-def oopsie2():
-    raise Exception("oops2")
-
-
-def test_retry(logged):
-    global OOPSIE_COUNTER
-    OOPSIE_COUNTER = 2
-    assert oopsie1() is None
-    assert "oops1, retrying" in logged.pop()
-
-    with pytest.raises(Exception):
-        oopsie2()
-    assert "oops2, retrying" in logged.pop()
-
-
 def test_shortening():
     assert runez.short(None) == "None"
     assert runez.short("") == ""

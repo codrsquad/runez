@@ -5,7 +5,9 @@ History
 2.7.11 (2021-06-24)
 ------------------
 
-* Added ``@retry`` decorator
+* Added ``@retry`` decorator, as well a ``python -mrunez retry`` command
+
+* ``hdry()`` available via ``runez.log`` (allows to conveniently resolve ``dryrun=UNSET``)
 
 
 2.7.10 (2021-06-18)

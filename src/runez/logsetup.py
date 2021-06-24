@@ -16,7 +16,7 @@ from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 try:
     # faulthandler is only available in python 3.3+
     import faulthandler
-    from typing import List, Optional
+    from typing import List, Optional  # noqa
 
 except ImportError:
     faulthandler = None
@@ -954,7 +954,7 @@ class LogManager(object):
 
     @classmethod
     def override_spec(cls, **kwargs):
-        """OVerride 'spec' and '_default_spec' with given values"""
+        """Override 'spec' and '_default_spec' with given values"""
         cls._default_spec.set(**kwargs)
         cls.spec.set(**kwargs)
 
@@ -985,6 +985,38 @@ class LogManager(object):
             if cls.tracer:
                 cls.tracer.trace(message)
 
+    @classmethod
+    def hdry(cls, dryrun, logger, message):
+        """Handle dryrun, allows to handle dryrun=UNSET with a code pattern of the form:
+
+            if runez.log.hdry(dryrun, logger, "it was a dryrun"):
+                return
+
+        Args:
+            logger (callable | None): Logger to use, None to disable log chatter, False to trace(), any other value to print()
+            dryrun (bool | runez.system.Undefined | None): Optionally override current dryrun setting
+            message (str | callable): Message to log
+
+        Returns:
+            (bool): True if we were indeed in dryrun mode, and we logged the message
+        """
+        if dryrun is UNSET:
+            dryrun = _R.is_dryrun()
+
+        if dryrun:
+            if logger is not None:
+                message = "Would %s" % _R.actual_message(message)
+                if logger is False:
+                    cls.trace(message)
+
+                elif callable(logger):
+                    logger(message)
+
+                else:
+                    print(message)
+
+            return True
+
     @staticmethod
     def current_test():
         """Deprecated, use runez.DEV.current_test()"""
@@ -999,10 +1031,10 @@ class LogManager(object):
     def _auto_enable_progress_handler(cls):
         if cls.progress.is_running:
             if ProgressHandler not in logging.root.handlers:
-                logging.root.handlers.append(ProgressHandler)
+                logging.root.handlers.append(ProgressHandler)  # noqa
 
         elif ProgressHandler in logging.root.handlers:
-            logging.root.handlers.remove(ProgressHandler)
+            logging.root.handlers.remove(ProgressHandler)  # noqa
 
     @classmethod
     def _update_used_formats(cls):

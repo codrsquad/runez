@@ -22,7 +22,7 @@ NAMED_BORDERS = dict(
 )
 
 
-class Align:
+class Align(object):
     """Text alignment functions, in a class for clean import and contextualized short names"""
 
     @staticmethod
@@ -101,7 +101,7 @@ class Align:
         raise ValueError("Invalid default horizontal alignment '%s'" % default)
 
 
-class Header:
+class Header(object):
     """Simple textual header functions, in a class for clean import and contextualized short names"""
 
     @classmethod

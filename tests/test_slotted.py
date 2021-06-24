@@ -113,6 +113,31 @@ def test_adapted_properties():
     assert s1b.prop1a == "foo"
 
 
+def test_insights():
+    class Foo(object):
+        name = "testing"
+        age = 10
+
+    with pytest.raises(ValueError) as exc:
+        runez.Slotted.fill_attributes(Foo, {})
+    assert "should be instance" in str(exc)
+
+    foo = Foo()
+    assert foo.name == "testing"
+    assert foo.age == 10
+    runez.Slotted.fill_attributes(foo, {"name": "my-name"})
+    assert foo.name == "my-name"
+
+    kwargs = {"_name": "pika", "foo": 123}
+    extracted = runez.Slotted.pop_private(foo, kwargs)
+    assert kwargs == {"foo": 123}
+    assert extracted == {"name": "pika"}
+
+    with pytest.raises(AttributeError) as exc:
+        runez.Slotted.fill_attributes(foo, {"bar": 5})
+    assert "Unknown Foo key 'bar'" in str(exc)
+
+
 def test_slotted():
     s1a = Slotted1()
     assert s1a.a1 is runez.UNSET

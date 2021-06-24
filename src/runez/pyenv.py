@@ -713,7 +713,7 @@ class PythonInstallation(object):
             return self.spec.satisfies(spec)
 
 
-class PyInstallInfo:
+class PyInstallInfo(object):
     """Information on a python installation, determined dynamically when needed"""
 
     def __init__(self, version=None, sys_prefix=None, base_prefix=None, problem=None):
