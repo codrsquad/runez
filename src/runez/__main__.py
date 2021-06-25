@@ -219,15 +219,21 @@ def cmd_retry():
         args.retry_count += 1
         args.remaining_fails -= 1
         if args.remaining_fails:
-            msg = runez.red("oops - failed")
-            if args.cumulative_sleep:
-                elapsed = runez.represented_duration(args.cumulative_sleep, span=-2)
-                msg = "+%s %s" % (runez.orange(elapsed), msg)
+            msg = runez.red(u"oops - failed")
+            if args.retry_count > 1:
+                if args.cumulative_sleep:
+                    elapsed = args.cumulative_sleep
+
+                else:
+                    elapsed = time.time() - args.started
+
+                elapsed = runez.represented_duration(elapsed, span=-2)
+                msg = u"+%s %s" % (runez.orange(elapsed), msg)
 
             args.cumulative_sleep += args.timeout
             raise Exception(msg)
 
-        return runez.green("returned successfully")
+        return runez.green(u"returned successfully")
 
     if args.iterations:
         def cumnulate_sleep(n):
@@ -237,13 +243,13 @@ def cmd_retry():
 
     fail_note = " %s," % runez.orange(runez.plural(args.fail, "max failure")) if args.fail >= 0 else ""
     if args.timeout:
-        fail_note += " timeout %s," % runez.blue(runez.represented_duration(args.timeout, span=2))
+        fail_note += u" timeout %s," % runez.blue(runez.represented_duration(args.timeout, span=2))
 
-    print("Running with%s %s\n" % (fail_note, runez.bold(rh)))
+    print(u"Running with%s %s\n" % (fail_note, runez.bold(rh)))
     result = None
     args.cumulative_sleep = 0.0
     total_time = 0.0
-    started = time.time()
+    args.started = time.time()
     for i in range(max(1, args.iterations)):
         try:
             total_time += args.cumulative_sleep
@@ -259,13 +265,13 @@ def cmd_retry():
 
     retry_count = runez.plural(args.retry_count, "retry")
     if args.iterations:
-        elapsed = "%s on average" % runez.represented_duration(total_time / args.iterations, span=2)
-        retry_count = "%s of %s" % (runez.plural(args.iterations, "iteration"), retry_count)
+        elapsed = u"%s on average" % runez.represented_duration(total_time / args.iterations, span=2)
+        retry_count = u"%s of %s" % (runez.plural(args.iterations, "iteration"), retry_count)
 
     else:
-        elapsed = runez.represented_duration(time.time() - started, span=-2)
+        elapsed = runez.represented_duration(time.time() - args.started, span=-2)
 
-    print("%s\n\nDone in %s, %s" % (result, runez.bold(elapsed), runez.bold(retry_count)))
+    print(u"%s\n\nDone in %s, %s" % (result, runez.bold(elapsed), runez.bold(retry_count)))
 
 
 def _get_mid(times):

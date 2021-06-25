@@ -98,14 +98,14 @@ def test_retry_handler():
 
 
 def test_retry_main(cli):
-    cli.run("retry", "-d0", "-j0", "-f1", "--timeout", 10)
+    cli.run("retry", "-d0", "-j0", "-f2")
     assert cli.succeeded
-    assert "Running with 1 max failure, timeout 10 seconds, retry(" in cli.logged
+    assert "Running with 2 max failures, retry(" in cli.logged
     assert "returned successfully" in cli.logged
 
-    cli.run("retry", "-i2")
+    cli.run("retry", "-i2", "--timeout", 10)
     assert cli.succeeded
-    assert "Running with retry(" in cli.logged
+    assert "Running with timeout 10 seconds, retry(" in cli.logged
     assert "2 iterations" in cli.logged
 
 

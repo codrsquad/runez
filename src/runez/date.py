@@ -152,7 +152,7 @@ def local_timezone():
         return ""
 
 
-def represented_duration(seconds, span=UNSET, delimiter=" "):
+def represented_duration(seconds, span=UNSET, delimiter=u" "):
     """
     Args:
         seconds (int | float | None): Duration in seconds

@@ -564,7 +564,7 @@ class RetryHandler(object):
                 if not remaining:
                     raise
 
-                _R.hlog(self.logger, "%s, retrying in %s..." % (e, _R._runez_module().represented_duration(delay, span=2)))
+                _R.hlog(self.logger, u"%s, retrying in %s..." % (e, _R._runez_module().represented_duration(delay, span=2)))
                 sleep(delay)
                 delay *= self.backoff
                 if self.jitter:
