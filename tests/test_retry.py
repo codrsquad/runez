@@ -3,9 +3,17 @@ import pytest
 import runez
 
 
+def speedup(monkeypatch):
+    # adjust default retry settings so test don't take too long to run
+    monkeypatch.setattr(runez.system.RetryHandler, "tries", 5)
+    monkeypatch.setattr(runez.system.RetryHandler, "delay", 0)
+    monkeypatch.setattr(runez.system.RetryHandler, "backoff", 1)
+    monkeypatch.setattr(runez.system.RetryHandler, "jitter", 0)
+
+
 def test_retry_basic(logged, monkeypatch):
     # Most common use case: decorating a function
-    monkeypatch.setattr(runez.system.RetryHandler, "tries", 2)  # just to speed up test run
+    speedup(monkeypatch)
 
     @runez.retry
     def fail_simple():
@@ -26,6 +34,7 @@ def test_retry_basic(logged, monkeypatch):
 
 def test_retry_class(logged, monkeypatch):
     # Decorating a class function, including with a custom decorator
+    speedup(monkeypatch)
     custom_retry = runez.retry(tries=1)
 
     class SomeSample:
@@ -62,8 +71,9 @@ def test_retry_class(logged, monkeypatch):
     assert not logged  # Only one retry... no "retrying" message gets logged
 
 
-def test_retry_custom(logged):
+def test_retry_custom(logged, monkeypatch):
     # Custom decorator, obtained by calling/storing runez.retry()
+    speedup(monkeypatch)
     custom_retry = runez.retry(tries=2)
 
     @custom_retry
@@ -77,25 +87,31 @@ def test_retry_custom(logged):
 
 def test_retry_handler():
     rh = runez.system.RetryHandler(exceptions=KeyError, tries=1, delay=0, backoff=1, jitter=0)
-    assert str(rh) == "retry(exceptions=KeyError, tries=1, delay=0, max_delay=None, jitter=0)"
+    assert str(rh) == "retry(exceptions=KeyError, tries=1, delay=0, max_delay=None, backoff=1, jitter=0)"
 
-    rh = runez.system.RetryHandler(exceptions=(KeyError, ValueError), tries=1, delay=0, backoff=1, jitter=0)
-    assert str(rh) == "retry(exceptions=(KeyError, ValueError), tries=1, delay=0, max_delay=None, jitter=0)"
+    rh = runez.system.RetryHandler(exceptions=(KeyError, ValueError), tries=1, delay=0, max_delay=5, backoff=1, jitter=0)
+    assert str(rh) == "retry(exceptions=(KeyError, ValueError), tries=1, delay=0, max_delay=5, backoff=1, jitter=0)"
+
+    # Verify auto-capping
+    rh = runez.system.RetryHandler(exceptions=OSError, tries=0, delay=-5, max_delay=-1, backoff=-1, jitter=-1)
+    assert str(rh) == "retry(exceptions=OSError, tries=-1, delay=0, max_delay=None, backoff=0.5, jitter=0)"
 
 
 def test_retry_main(cli):
-    cli.run("retry", "-d0", "-j0", "-f1")
+    cli.run("retry", "-d0", "-j0", "-f1", "--timeout", 10)
     assert cli.succeeded
-    assert "Running with 1 max failure, retry(" in cli.logged
+    assert "Running with 1 max failure, timeout 10 seconds, retry(" in cli.logged
     assert "returned successfully" in cli.logged
 
     cli.run("retry", "-i2")
     assert cli.succeeded
     assert "Running with retry(" in cli.logged
-    assert "2 iterations of 10 retries" in cli.logged
+    assert "2 iterations" in cli.logged
 
 
-def test_retry_run(logged):
+def test_retry_run(logged, monkeypatch):
+    speedup(monkeypatch)
+
     def failing_call(*args, **kwargs):
         # Verify that args correctly passed through (and that _tries=2 was not passed through)
         assert not args

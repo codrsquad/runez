@@ -511,16 +511,22 @@ class RetryHandler(object):
     """Retry a function N times before giving up"""
 
     # Defaults for retry decorator, these can be modified from your application, if convenient / applicable
-    exceptions = Exception  # Exception(s) to catch, default: Exception
-    tries = 10  # Maximum number of attempts (0 or None: infinite retries), default: 10
-    delay = 1.0  # Initial delay in seconds between attempts, default: 1
-    max_delay = None  # Maximum delay in seconds (None: no limit), default: None
-    backoff = 1.5  # Multiplier applied to delay between attempts (1: no backoff), default: 1.5
-    jitter = 1.0  # Random extra seconds between 0 and 'jitter' added to delay between attempts, default: 1
-    logger = LOG.debug  # Logger to use, default: debug
+    # The below values lead to an average of ~12 minutes retrying (outcome can be seen with: python -mrunez retry -i2000)
+    exceptions = Exception  # Exception(s) to catch
+    tries = 10  # Maximum number of attempts (0 or None: infinite retries)
+    delay = 1.0  # Initial delay in seconds between attempts
+    max_delay = None  # Maximum delay in seconds (None: no limit)
+    backoff = 2.0  # Multiplier applied to delay between attempts (1: no backoff)
+    jitter = 1.0  # Random extra seconds between 0 and 'jitter' added to delay between attempts
+    logger = LOG.debug  # Logger to use
 
     def __init__(self, **settings):
         Slotted.fill_attributes(self, settings)
+        self.tries = self.tries or -1
+        self.delay = capped(self.delay, minimum=0)
+        self.max_delay = capped(self.max_delay, minimum=0) or None
+        self.backoff = capped(self.backoff, minimum=0.5)
+        self.jitter = capped(self.jitter, minimum=0) or 0
 
     def __repr__(self):
         if isinstance(self.exceptions, tuple):
@@ -534,6 +540,7 @@ class RetryHandler(object):
             "tries=%s" % stringified(self.tries),
             "delay=%s" % stringified(self.delay),
             "max_delay=%s" % stringified(self.max_delay),
+            "backoff=%s" % stringified(self.backoff),
             "jitter=%s" % stringified(self.jitter),
         )
         return "retry(%s)" % joined(r, delimiter=", ")
@@ -557,7 +564,7 @@ class RetryHandler(object):
                 if not remaining:
                     raise
 
-                _R.hlog(self.logger, "%s, retrying in %s..." % (e, _R._runez_module().represented_duration(delay, span=1)))
+                _R.hlog(self.logger, "%s, retrying in %s..." % (e, _R._runez_module().represented_duration(delay, span=2)))
                 sleep(delay)
                 delay *= self.backoff
                 if self.jitter:

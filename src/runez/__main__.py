@@ -199,10 +199,12 @@ def cmd_retry():
     parser.add_argument("--jitter", "-j", type=float, default=runez.UNSET, help="Random extra seconds to delay, between 0 and 'jitter'.")
     parser.add_argument("--fail", "-f", type=int, default=-1, help="How many times to fail (-1: infinite).")
     parser.add_argument("--iterations", "-i", type=int, default=0, help="Skip sleep(), show average retry times.")
+    parser.add_argument("--timeout", type=int, default=0, help="Simulate function timeout (example: requests.get() timeout).")
     args = parser.parse_args()
 
     runez.log.setup(console_format="%(message)s", console_level=logging.INFO)
     args.iterations = runez.capped(args.iterations, minimum=0)
+    args.timeout = runez.capped(args.timeout, minimum=0)
     args.logger = logging.info
 
     def logger(message):
@@ -219,9 +221,10 @@ def cmd_retry():
         if args.remaining_fails:
             msg = runez.red("oops - failed")
             if args.cumulative_sleep:
-                elapsed = runez.represented_duration(args.cumulative_sleep, span=-1)
+                elapsed = runez.represented_duration(args.cumulative_sleep, span=-2)
                 msg = "+%s %s" % (runez.orange(elapsed), msg)
 
+            args.cumulative_sleep += args.timeout
             raise Exception(msg)
 
         return runez.green("returned successfully")
@@ -233,6 +236,9 @@ def cmd_retry():
         runez.system.sleep = cumnulate_sleep
 
     fail_note = " %s," % runez.orange(runez.plural(args.fail, "max failure")) if args.fail >= 0 else ""
+    if args.timeout:
+        fail_note += " timeout %s," % runez.blue(runez.represented_duration(args.timeout, span=2))
+
     print("Running with%s %s\n" % (fail_note, runez.bold(rh)))
     result = None
     args.cumulative_sleep = 0.0
