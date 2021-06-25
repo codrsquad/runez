@@ -86,15 +86,28 @@ def test_retry_custom(logged, monkeypatch):
 
 
 def test_retry_handler():
-    rh = runez.system.RetryHandler(exceptions=KeyError, tries=1, delay=0, backoff=1, jitter=0)
+    rh = runez.system.RetryHandler(exceptions=KeyError, tries=1, delay=0, max_delay=None, backoff=1, jitter=0)
     assert str(rh) == "retry(exceptions=KeyError, tries=1, delay=0, max_delay=None, backoff=1, jitter=0)"
 
-    rh = runez.system.RetryHandler(exceptions=(KeyError, ValueError), tries=1, delay=0, max_delay=5, backoff=1, jitter=0)
-    assert str(rh) == "retry(exceptions=(KeyError, ValueError), tries=1, delay=0, max_delay=5, backoff=1, jitter=0)"
+    rh = runez.system.RetryHandler(exceptions=(KeyError, ValueError), tries=1, delay=0, max_delay=5, backoff=None, jitter=None)
+    assert str(rh) == "retry(exceptions=(KeyError, ValueError), tries=1, delay=0, max_delay=5, backoff=None, jitter=None)"
 
-    # Verify auto-capping
-    rh = runez.system.RetryHandler(exceptions=OSError, tries=0, delay=-5, max_delay=-1, backoff=-1, jitter=-1)
-    assert str(rh) == "retry(exceptions=OSError, tries=-1, delay=0, max_delay=None, backoff=0.5, jitter=0)"
+    # Verify bounds enforced
+    with pytest.raises(ValueError) as exc:
+        runez.system.RetryHandler(tries=0)
+    assert "'tries' value 0 is lower than minimum 1" in str(exc)
+
+    with pytest.raises(ValueError) as exc:
+        runez.system.RetryHandler(delay=-1)
+    assert "'delay' value -1 is lower than minimum 0" in str(exc)
+
+    with pytest.raises(ValueError) as exc:
+        runez.system.RetryHandler(backoff=0)
+    assert "'backoff' value 0 is lower than minimum 0.5" in str(exc)
+
+    with pytest.raises(ValueError) as exc:
+        runez.system.RetryHandler(jitter=-2)
+    assert "'jitter' value -2 is lower than minimum 0" in str(exc)
 
 
 def test_retry_main(cli):

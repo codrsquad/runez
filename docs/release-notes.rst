@@ -2,6 +2,12 @@
 History
 =======
 
+2.7.12 (2021-06-24)
+------------------
+
+* Enforce bounds for ``@retry`` parameters
+
+
 2.7.11 (2021-06-24)
 ------------------
 
@@ -432,7 +438,6 @@ History
 
     * ``auto_import_siblings``, use ``from runez.inspector import auto_import_siblings``
 
-    * ``capped``, use ``runez.config.capped``
     * ``ActivateColors``, use ``runez.colors.ActivateColors``
     * ``is_coloring``, use ``runez.color.is_coloring``
     * ``SECONDS_IN_ONE_*``, use ``runez.date.SECONDS_IN_ONE_*``

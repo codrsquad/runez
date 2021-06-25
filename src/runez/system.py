@@ -203,22 +203,38 @@ class cached_property(object):
             return result
 
 
-def capped(value, minimum=None, maximum=None):
+def capped(value, minimum=None, maximum=None, key=None, none_ok=False):
     """
     Args:
         value: Value to cap
         minimum: If specified, value should not be lower than this minimum
         maximum: If specified, value should not be higher than this maximum
+        key (str | None): Text identifying 'value' (ValueError is raised if provided and `value` is not within bounds)
+        none_ok (bool): True if `None` value is considered OK
 
     Returns:
         `value` capped to `minimum` and `maximum` (if it is outside of those bounds)
     """
-    if value is not None:
-        if minimum is not None and value < minimum:
-            return minimum
+    if value is None:
+        if none_ok:
+            return None
 
-        if maximum is not None and value > maximum:
-            return maximum
+        if key and not none_ok:
+            raise ValueError("'None' is not acceptable for '%s'" % key)
+
+        return minimum if minimum is not None else maximum
+
+    if minimum is not None and value < minimum:
+        if key:
+            raise ValueError("'%s' value %s is lower than minimum %s" % (key, value, minimum))
+
+        return minimum
+
+    if maximum is not None and value > maximum:
+        if key:
+            raise ValueError("'%s' value %s is greater than maximum %s" % (key, value, maximum))
+
+        return maximum
 
     return value
 
@@ -513,20 +529,20 @@ class RetryHandler(object):
     # Defaults for retry decorator, these can be modified from your application, if convenient / applicable
     # The below values lead to an average of ~12 minutes retrying (outcome can be seen with: python -mrunez retry -i2000)
     exceptions = Exception  # Exception(s) to catch
-    tries = 10  # Maximum number of attempts (0 or None: infinite retries)
-    delay = 1.0  # Initial delay in seconds between attempts
-    max_delay = None  # Maximum delay in seconds (None: no limit)
-    backoff = 2.0  # Multiplier applied to delay between attempts (1: no backoff)
-    jitter = 1.0  # Random extra seconds between 0 and 'jitter' added to delay between attempts
+    tries = 5  # Number of attempts to perform (minimum: 1)
+    delay = 1.0  # Initial delay in seconds between attempts (minimum: 0)
+    max_delay = 60  # Maximum delay in seconds (None or 0: no limit)
+    backoff = 1.25  # Multiplier applied to delay between attempts (None or 1: no backoff, minimum: 0.5)
+    jitter = 2.0  # Random extra seconds between 0 and 'jitter' added to delay between attempts (None or 0: no jitter)
     logger = LOG.debug  # Logger to use
 
     def __init__(self, **settings):
         Slotted.fill_attributes(self, settings)
-        self.tries = self.tries or -1
-        self.delay = capped(self.delay, minimum=0)
-        self.max_delay = capped(self.max_delay, minimum=0) or None
-        self.backoff = capped(self.backoff, minimum=0.5)
-        self.jitter = capped(self.jitter, minimum=0) or 0
+        self.tries = capped(self.tries, minimum=1, key="tries")
+        self.delay = capped(self.delay, minimum=0, key="delay")
+        self.max_delay = capped(self.max_delay, minimum=0, key="max_delay", none_ok=True) or None
+        self.backoff = capped(self.backoff, minimum=0.5, key="backoff", none_ok=True)
+        self.jitter = capped(self.jitter, minimum=0, key="jitter", none_ok=True)
 
     def __repr__(self):
         if isinstance(self.exceptions, tuple):
@@ -553,7 +569,7 @@ class RetryHandler(object):
         return wrapper
 
     def call(self, func, *args, **kwargs):
-        remaining = self.tries or -1
+        remaining = self.tries
         delay = self.delay
         while remaining:
             try:
@@ -566,7 +582,9 @@ class RetryHandler(object):
 
                 _R.hlog(self.logger, u"%s, retrying in %s..." % (e, _R._runez_module().represented_duration(delay, span=2)))
                 sleep(delay)
-                delay *= self.backoff
+                if self.backoff:
+                    delay *= self.backoff
+
                 if self.jitter:
                     delay += random.uniform(0, self.jitter)
 
@@ -579,11 +597,11 @@ def retry(func=None, exceptions=UNSET, tries=UNSET, delay=UNSET, max_delay=UNSET
     Args:
         func (callable): Function being wrapped
         exceptions (Exception | tuple[Exception]): Exception(s) to catch
-        tries (int): Maximum number of attempts (0 or None: infinite retries)
-        delay (int | float): Initial delay in seconds between attempts
-        max_delay (int | float | None): Maximum delay in seconds (None: no limit)
-        backoff (float): Multiplier applied to delay between attempts (1: no backoff)
-        jitter (int | float): Random extra seconds between 0 and 'jitter' added to delay between attempts
+        tries (int): Number of attempts to perform (minimum: 1)
+        delay (int | float): Initial delay in seconds between attempts (minimum: 0)
+        max_delay (int | float | None): Maximum delay in seconds (None or 0: no limit)
+        backoff (float): Multiplier applied to delay between attempts (None or 1: no backoff, minimum: 0.5)
+        jitter (int | float): Random extra seconds between 0 and 'jitter' added to delay between attempts (None or 0: no jitter)
         logger (callable | None): Logger to use
 
     Returns:
@@ -613,11 +631,11 @@ def retry_run(func, *args, **kwargs):
 
     Keyword Args:
         _exceptions (Exception | tuple[Exception]): Exception(s) to catch
-        _tries (int): Maximum number of attempts (0 or None: infinite retries)
-        _delay (int | float): Initial delay in seconds between attempts
-        _max_delay (int | float | None): Maximum delay in seconds (None: no limit)
-        _backoff (float): Multiplier applied to delay between attempts (1: no backoff)
-        _jitter (int | float): Random extra seconds between 0 and 'jitter' added to delay between attempts
+        _tries (int): Number of attempts to perform (minimum: 1)
+        _delay (int | float): Initial delay in seconds between attempts (minimum: 0)
+        _max_delay (int | float | None): Maximum delay in seconds (None or 0: no limit)
+        _backoff (float): Multiplier applied to delay between attempts (None or 1: no backoff, minimum: 0.5)
+        _jitter (int | float): Random extra seconds between 0 and 'jitter' added to delay between attempts (None or 0: no jitter)
         _logger (callable | None): Logger to use
     """
     settings = Slotted.pop_private(RetryHandler, kwargs)

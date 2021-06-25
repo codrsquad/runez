@@ -56,10 +56,23 @@ def test_abort(logged, monkeypatch):
 
 
 def test_capped():
+    assert runez.capped(None, minimum=1, maximum=10) == 1
+    assert runez.capped(None, maximum=10) == 10
+    assert runez.capped(None, minimum=1, none_ok=True) is None
+
+    with pytest.raises(ValueError):
+        runez.capped(None, minimum=1, key="testing")
+
     assert runez.capped(123, minimum=200) == 200
     assert runez.capped(123, maximum=100) == 100
     assert runez.capped(123, minimum=100, maximum=200) == 123
     assert runez.capped(123, minimum=100, maximum=110) == 110
+
+    with pytest.raises(ValueError):
+        runez.capped(132, minimum=200, key="testing")
+
+    with pytest.raises(ValueError):
+        runez.capped(132, maximum=100, key="testing")
 
 
 def test_capture_nested():
