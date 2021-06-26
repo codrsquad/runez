@@ -995,7 +995,7 @@ class LogManager(object):
         Args:
             logger (callable | None): Logger to use, None to disable log chatter, False to trace(), any other value to print()
             dryrun (bool | runez.system.Undefined | None): Optionally override current dryrun setting
-            message (str | callable): Message to log
+            message (str | callable | None): Message to log
 
         Returns:
             (bool): True if we were indeed in dryrun mode, and we logged the message
@@ -1004,7 +1004,7 @@ class LogManager(object):
             dryrun = _R.is_dryrun()
 
         if dryrun:
-            if logger is not None:
+            if logger is not None and message is not None:
                 message = "Would %s" % _R.actual_message(message)
                 if logger is False:
                     cls.trace(message)
