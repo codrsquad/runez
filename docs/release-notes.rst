@@ -2,6 +2,12 @@
 History
 =======
 
+2.7.14 (2021-06-28)
+------------------
+
+* Added ``SYS_INFO.program_version`` and ``SYS_INFO.user_agent``
+
+
 2.7.13 (2021-06-26)
 ------------------
 

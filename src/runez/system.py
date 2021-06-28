@@ -681,7 +681,7 @@ def stringified(value, converter=None, none="None"):
     Args:
         value: Any object to turn into a string
         converter (callable | None): Optional converter to use for non-string objects
-        none (str | bool | None): String to use to represent `None`
+        none: Value to use to represent `None` ("" or False represents None as empty string)
 
     Returns:
         (str): Ensure `text` is a string if necessary (this is to avoid transforming string types in py2 as much as possible)
@@ -704,8 +704,13 @@ def stringified(value, converter=None, none="None"):
         if isinstance(none, string_type):
             return none
 
-        if not none:
-            return ""  # Represent `None` as empty string if `none` is False-ish
+        if none is True:
+            return "None"
+
+        if none is False:
+            return ""
+
+        value = none
 
     return "{}".format(value)
 
@@ -1495,6 +1500,32 @@ class DevInfo(object):
 DEV = DevInfo()
 
 
+class PlatformInfo(object):
+    """Info on the platform we're currently running on"""
+
+    def __init__(self, text=None):
+        if text is None:
+            text = "Windows" if WINDOWS else _R._runez_module().shell("uname -msrp", dryrun=False)
+
+        self.os_name = text or "unknown-os"
+        self.os_version = None
+        self.os_hardware = None
+        self.os_platform = None
+        if text:
+            parts = text.split()
+            if len(parts) == 4:
+                self.os_name, self.os_version, self.os_hardware, self.os_platform = parts
+
+    def __repr__(self):
+        s = self.os_name
+        if self.os_version:
+            s += "/%s; %s" % (self.os_version, self.os_hardware or "")
+            if self.os_hardware != self.os_platform:
+                s += " %s" % self.os_platform
+
+        return s.strip()
+
+
 class SystemInfo(object):
     """Information on current run"""
 
@@ -1510,16 +1541,13 @@ class SystemInfo(object):
 
     def diagnostics(self, via=u" ⚡ "):
         """Usable by runez.render.PrettyTable.two_column_diagnostics()"""
-        yield "platform", self.platform_description
+        yield "platform", self.platform_info
         if self.terminal.term_program:
             yield "terminal", "%s (TERM=%s)" % (self.terminal.term_program, os.environ.get("TERM"))
 
         yield "userid", self.userid
-        caller = find_caller_frame(validator=_R.frame_has_package)
-        if caller:
-            version = get_version(caller, logger=None)
-            if version:
-                yield "version", "%s v%s" % (self.program_name, version)
+        if self.program_version:
+            yield "version", "%s v%s" % (self.program_name, self.program_version)
 
         yield "sys.executable", sys.executable
         if via:
@@ -1552,9 +1580,9 @@ class SystemInfo(object):
         return False
 
     @cached_property
-    def platform_description(self):
-        """(str): Text identifying this platform"""
-        return "Windows" if WINDOWS else _R._runez_module().shell("uname -msrp", dryrun=False)
+    def platform_info(self):
+        """Info on the platform we're currently running on"""
+        return PlatformInfo()
 
     @cached_property
     def program_name(self):
@@ -1574,9 +1602,21 @@ class SystemInfo(object):
         return sys.argv[0] or "?"
 
     @cached_property
+    def program_version(self):
+        """(str): Version of currently running program"""
+        caller = find_caller_frame(validator=_R.frame_has_package)
+        if caller:
+            return get_version(caller, logger=None)
+
+    @cached_property
     def terminal(self):
         """Info on terminal (if any) we're currently running under"""
         return TerminalInfo()
+
+    @cached_property
+    def user_agent(self):
+        """(str): Mimic browser user-agent, can be used to conveniently identify client in http(s) requests"""
+        return "%s/%s (%s)" % (self.program_name, self.program_version, self.platform_info)
 
     @cached_property
     def userid(self):
