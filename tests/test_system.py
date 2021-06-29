@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
+
 import datetime
 import logging
 import os
@@ -36,6 +38,21 @@ def test_abort(logged, monkeypatch):
     assert "ERROR" not in logged
     assert "DEBUG" in logged
     assert "aborted" in logged.pop()
+
+    assert runez.abort("aborted", return_value="some-return", fatal=False, logger=print) == "some-return"
+    assert not logged.stderr
+    assert logged.pop().strip() == "aborted"
+
+    def on_log(message):
+        print(message)
+
+    assert runez.abort("aborted", return_value="some-return", fatal=False, logger=on_log, exc_info=Exception("oops")) == "some-return"
+    assert not logged.stderr
+    assert logged.pop().strip() == "aborted: oops"
+
+    assert runez.abort("aborted", return_value="some-return", fatal=False, logger=on_log) == "some-return"
+    assert not logged.stderr
+    assert logged.pop().strip() == "aborted"
 
     assert runez.abort("aborted", return_value="some-return", fatal=None) == "some-return"
     assert not logged

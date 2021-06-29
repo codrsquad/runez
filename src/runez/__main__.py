@@ -207,11 +207,11 @@ def cmd_retry():
     args.timeout = runez.capped(args.timeout, minimum=0)
     args.logger = logging.info
 
-    def logger(message):
+    def on_log(message):
         args.logger(message)
 
     rh = runez.system.RetryHandler(
-        tries=args.tries, delay=args.delay, max_delay=args.max_delay, backoff=args.backoff, jitter=args.jitter, logger=logger
+        tries=args.tries, delay=args.delay, max_delay=args.max_delay, backoff=args.backoff, jitter=args.jitter, logger=on_log
     )
 
     @rh.decorator

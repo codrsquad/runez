@@ -2,6 +2,8 @@
 Convenience methods for executing programs
 """
 
+from __future__ import print_function
+
 import errno
 import fcntl
 import os
@@ -302,6 +304,11 @@ def run(program, *args, **kwargs):
     if background:
         description += " &"
 
+    abort_logger = None if logger is None else UNSET
+    if logger is True or logger is print:
+        # When logger is True, we just print() the message, so we may as well color it nicely
+        description = _R._runez_module().bold(description)
+
     if _R.hdry(dryrun, logger, "run: %s" % description):
         result.audit.dryrun = True
         result.exit_code = 0
@@ -320,7 +327,7 @@ def run(program, *args, **kwargs):
         else:
             result.error = "%s is not an executable" % short(program)
 
-        return abort(result.error, return_value=result, fatal=fatal, logger=logger)
+        return abort(result.error, return_value=result, fatal=fatal, logger=abort_logger)
 
     _R.hlog(logger, "Running: %s" % description)
     if background:
@@ -360,7 +367,7 @@ def run(program, *args, **kwargs):
                     raise exception(base_message)
 
             message = []
-            if logger is not None and not passthrough:
+            if abort_logger is not None and not passthrough:
                 # Log full output, unless user explicitly turned it off
                 message.append("Run failed: %s" % description)
                 if result.error:
@@ -370,7 +377,7 @@ def run(program, *args, **kwargs):
                     message.append("\nstdout:\n%s" % result.output)
 
             message.append(base_message)
-            abort("\n".join(message), code=result.exit_code, exc_info=result.exc_info, fatal=fatal, logger=logger)
+            abort("\n".join(message), code=result.exit_code, exc_info=result.exc_info, fatal=fatal, logger=abort_logger)
 
         if background:
             os._exit(result.exit_code)  # pragma: no cover, simply exit forked process (don't go back to caller)

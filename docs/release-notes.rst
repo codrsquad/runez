@@ -2,6 +2,12 @@
 History
 =======
 
+2.7.15 (2021-06-29)
+------------------
+
+* Allow to customize globally what logger to use for ``abort()``
+
+
 2.7.14 (2021-06-28)
 ------------------
 

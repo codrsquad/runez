@@ -26,7 +26,7 @@ def simulate_os_error(code):
 
 def test_background_run(logged):
     with runez.CurrentFolder(os.path.dirname(CHATTER)):
-        r = runez.run(CHATTER, "hello", background=True, dryrun=True)
+        r = runez.run(CHATTER, "hello", background=True, dryrun=True, logger=True)
         assert r.succeeded
         assert "chatter hello &" in logged.pop()
 

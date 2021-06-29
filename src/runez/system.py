@@ -6,6 +6,8 @@ Base functionality used by other parts of `runez`.
 This class should not import any other `runez` class, to avoid circular deps.
 """
 
+from __future__ import print_function
+
 import functools
 import inspect
 import logging
@@ -63,6 +65,7 @@ class Undefined(object):
 
 # Internal marker for values that are NOT set
 UNSET = Undefined()  # type: Undefined
+abort_logger = LOG.error
 
 
 def abort(message, code=1, exc_info=None, return_value=None, fatal=True, logger=UNSET):
@@ -104,12 +107,13 @@ def abort(message, code=1, exc_info=None, return_value=None, fatal=True, logger=
         message = "%s: %s" % (message, exc_info)
 
     if logger is UNSET or logger is False:
-        logger = LOG.error
+        logger = abort_logger
 
     if fatal:
         exception = _R.abort_exception(override=fatal)
-        if exception is SystemExit:  # Ensure message shown if we raise SystemExit
-            _show_abort_message(message, exc_info, LOG.error)
+        if exception is SystemExit:
+            # Ensure message shown if we raise SystemExit
+            _show_abort_message(message, exc_info, logger or abort_logger)
             raise SystemExit(code)
 
         if isinstance(exception, type) and issubclass(exception, BaseException):
@@ -404,7 +408,7 @@ def get_version(mod, default="0.0.0", logger=LOG.warning):
         last_exception = e
 
     if logger and top_level != "tests":
-        logger("Can't determine version for %s: %s", name, last_exception, exc_info=last_exception)
+        _R.hlog(logger, "Can't determine version for %s: %s" % (name, last_exception), exc_info=last_exception)
 
     return default
 
@@ -1982,7 +1986,7 @@ class _R(object):
         return cls._runez_module().log.hdry(dryrun, logger, message)
 
     @classmethod
-    def hlog(cls, logger, message):
+    def hlog(cls, logger, message, exc_info=None):
         """Handle optional logging calls via 'logger=' for IO-related non-returning-content functions, making them consistent.
         This allows to have less repeated code out there, find all places where we do this,
         and ensure they all respect the same convention.
@@ -1990,18 +1994,33 @@ class _R(object):
         Args:
             logger (callable | None): Logger to use, or None to disable log chatter
             message (str | callable): Message to log
+            exc_info: Optional exception info to pass-through to logger
         """
         if logger is None:
             return
 
         if logger is False:
-            return cls.trace(_R.actual_message(message))
+            cls.trace(_R.actual_message(message))
+            return
+
+        if logger is True or logger is print:
+            print(_R.actual_message(message))
+            return
 
         if logger is UNSET:
             logger = cls._runez_module().log.spec.default_logger
 
         if callable(logger):
-            logger(_R.actual_message(message))
+            msg = _R.actual_message(message)
+            if exc_info is None:
+                logger(msg)
+                return
+
+            try:
+                logger(msg, exc_info=exc_info)
+
+            except TypeError:
+                logger(msg)  # In case provided caller does not accept exc_info=
 
     @classmethod
     def is_dryrun(cls):
@@ -2169,11 +2188,7 @@ def _prettified(value):
 
 def _show_abort_message(message, exc_info, logger):
     if logging.root.handlers:
-        if callable(logger):
-            logger(message, exc_info=exc_info)
-
-        else:
-            _R.hlog(logger, message)
+        _R.hlog(logger, message, exc_info=exc_info)
 
     else:
         sys.stderr.write("%s\n" % message)
