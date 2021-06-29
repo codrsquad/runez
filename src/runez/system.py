@@ -44,6 +44,7 @@ WINDOWS = sys.platform.startswith("win")
 RE_ANSI_ESCAPE = re.compile(r"\x1b(\[[;\d]*[A-Za-z]?)?")
 RE_SPACES = re.compile(r"[\s\n]+", re.MULTILINE)
 _getframe = getattr(sys, "_getframe", None)
+abort_logger = logging.error
 
 
 class Undefined(object):
@@ -65,7 +66,6 @@ class Undefined(object):
 
 # Internal marker for values that are NOT set
 UNSET = Undefined()  # type: Undefined
-abort_logger = LOG.error
 
 
 def abort(message, code=1, exc_info=None, return_value=None, fatal=True, logger=UNSET):

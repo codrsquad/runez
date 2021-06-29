@@ -974,6 +974,17 @@ class LogManager(object):
                 cls.tracer = None
 
     @classmethod
+    def resolved_dryrun(cls, dryrun):
+        """
+        Args:
+            dryrun (bool | Undefined | None): Optionally overridden current dryrun setting
+
+        Returns:
+            (bool): Resolved value for dryrun
+        """
+        return _R.is_dryrun() if dryrun is UNSET else dryrun
+
+    @classmethod
     def trace(cls, message, *args, **kwargs):
         """
         Args:
@@ -1000,10 +1011,7 @@ class LogManager(object):
         Returns:
             (bool): True if we were indeed in dryrun mode, and we logged the message
         """
-        if dryrun is UNSET:
-            dryrun = _R.is_dryrun()
-
-        if dryrun:
+        if cls.resolved_dryrun(dryrun):
             if logger is not None and message is not None:
                 message = "Would %s" % _R.actual_message(message)
                 if logger is False:

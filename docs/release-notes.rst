@@ -7,6 +7,8 @@ History
 
 * Allow to customize globally what logger to use for ``abort()``
 
+* Added ``runez.log.resolved_dryrun()``
+
 
 2.7.14 (2021-06-28)
 ------------------

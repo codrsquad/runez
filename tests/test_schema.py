@@ -212,7 +212,7 @@ def test_serializable(logged):
     pp = Person()
     assert pp.age is None
     assert pp.fingerprint is None
-    assert pp.name is None  # overriden by Person.__init__()
+    assert pp.name is None  # overridden by Person.__init__()
     assert pp.car is None
 
     pp = Person.from_dict({"car": "foo", "fingerprint": "foo"})
