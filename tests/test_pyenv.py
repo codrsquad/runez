@@ -464,12 +464,19 @@ def test_version():
     none = Version(None)
     assert str(none) == ""
     assert not none.is_valid
+    assert not none.is_final
 
     empty = Version("")
     assert str(empty) == ""
     assert not empty.is_valid
     assert empty == none
     assert empty.major is None
+
+    ep = Version("123!2.1+foo.dirty-bar")
+    assert ep.is_valid
+    assert ep.epoch == 123
+    assert ep.main == "2.1.0"
+    assert ep.local_part == "foo.dirty-bar"
 
     foo = Version("foo")
     assert str(foo) == "foo"
@@ -496,6 +503,11 @@ def test_version():
 
     vrc = Version("1.0rc4-foo")
     vdev = Version("1.0a4.dev5-foo")
+    assert not vrc.is_final
+    assert not vdev.is_final
+    assert vrc.suffix == "rc"
+    assert vdev.suffix == "dev_a"  # Combine in a way where `dev` will be "more important" than "a"
+
     assert vrc < vdev
     assert str(vrc) == "1.0rc4"
     assert str(vdev) == "1.0a4.dev5"
@@ -523,6 +535,12 @@ def test_version():
     v20 = Version("2.0")
     v20d = Version("2.0.dev1")
     v3 = Version("3.0.1.2")
+    assert v11.is_final
+    assert not v12p.is_final
+    assert v11.suffix is None
+    assert v12p.suffix == "post"
+    assert v20d.suffix == "dev"
+
     assert v2 == v20
     assert v12 > v11
     assert v12p > v11

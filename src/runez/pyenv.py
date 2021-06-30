@@ -11,7 +11,7 @@ from runez.system import _R, abort, flattened, joined, resolved_path, short, str
 CPYTHON = "cpython"
 PYTHON_FAMILIES = (CPYTHON, "pypy", "conda")
 R_SPEC = re.compile(r"^\s*((|py?|c?python|(ana|mini)?conda[23]?|pypy)\s*[:-]?)\s*([0-9]*)\.?([0-9]*)\.?([0-9]*)\s*$", re.IGNORECASE)
-R_VERSION = re.compile(r"((\d+)((\.(\d+))*)((a|b|c|rc)(\d+))?(\.(dev|post|final)\.?(\d+))?).*")
+R_VERSION = re.compile(r"v?((\d+!)?(\d+)((\.(\d+))*)((a|b|c|rc)(\d+))?(\.(dev|post|final)\.?(\d+))?(\+[\w.-]*)?).*")
 
 
 def guess_family(text):
@@ -515,14 +515,23 @@ class Version(object):
         """
         self.text = text or ""
         self.components = None
+        self.epoch = 0
+        self.local_part = None
         self.prerelease = None
+        self.suffix = None
         m = R_VERSION.match(self.text)
         if not m:
             return
 
-        self.text, major, main_part, pre, pre_num, rel, rel_num = m.group(1, 2, 3, 7, 8, 10, 11)
+        self.text, epoch, major, main_part, pre, pre_num, rel, rel_num, local_part = m.group(1, 2, 3, 4, 8, 9, 11, 12, 13)
+        if epoch:
+            self.epoch = int(epoch[:-1])
+
         if rel:
             rel = rel.lower()
+
+        if local_part:
+            self.local_part = local_part[1:]
 
         components = (major + main_part).split(".")
         if len(components) > max_parts:
@@ -538,6 +547,7 @@ class Version(object):
             components.append(0)
 
         self.components = tuple(map(int, components))
+        self.suffix = joined(rel, pre, delimiter="_", keep_empty=None) or None
         pre = "dev" if rel == "dev" else "_" + pre if pre else None  # Ensure 'dev' is sorted higher than other pre-release markers
         if pre:
             self.prerelease = (pre, int(pre_num or 0))
@@ -583,6 +593,11 @@ class Version(object):
                 return self.prerelease < other.prerelease
 
             return self.components < other.components
+
+    @property
+    def is_final(self):
+        """Is this a final version as per PEP-440?"""
+        return self.is_valid and not self.local_part and not self.suffix
 
     @property
     def is_valid(self):

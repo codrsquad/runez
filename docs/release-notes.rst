@@ -2,6 +2,12 @@
 History
 =======
 
+2.7.16 (2021-06-30)
+------------------
+
+* Extract optional epoch, local part and suffix from PEP-440 ``Version()``
+
+
 2.7.15 (2021-06-29)
 ------------------
 

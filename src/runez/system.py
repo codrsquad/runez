@@ -25,7 +25,7 @@ try:
     string_type = basestring  # noqa
     PY2 = True
 
-    from StringIO import StringIO
+    from StringIO import StringIO  # noqa
 
     def auto_unicode(text):
         return u"%s" % text
@@ -375,7 +375,7 @@ def get_version(mod, default="0.0.0", logger=LOG.warning):
     last_exception = None
 
     try:
-        from importlib import metadata
+        from importlib import metadata  # noqa
 
         version = metadata.version(top_level)
         if version:
@@ -685,7 +685,7 @@ def stringified(value, converter=None, none="None"):
     Args:
         value: Any object to turn into a string
         converter (callable | None): Optional converter to use for non-string objects
-        none: Value to use to represent `None` ("" or False represents None as empty string)
+        none (str | bool): Value to use to represent `None` ("" or False represents None as empty string)
 
     Returns:
         (str): Ensure `text` is a string if necessary (this is to avoid transforming string types in py2 as much as possible)
