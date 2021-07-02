@@ -52,7 +52,7 @@ def copy(source, destination, ignore=None, fatal=True, logger=UNSET, dryrun=UNSE
 def delete(path, fatal=True, logger=UNSET, dryrun=UNSET):
     """
     Args:
-        path (str | None): Path to file or folder to delete
+        path (str | pathlib.Path | None): Path to file or folder to delete
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
@@ -131,7 +131,7 @@ def ini_to_dict(path, default=UNSET, logger=None, keep_empty=False):
     """Contents of an INI-style config file as a dict of dicts: section -> key -> value
 
     Args:
-        path (str | None): Path to file to parse
+        path (str | pathlib.Path | None): Path to file to parse
         default (dict | callable | None): Object to return if conf couldn't be read
         logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
         keep_empty (bool): If True, keep definitions with empty values
@@ -181,7 +181,7 @@ def ini_to_dict(path, default=UNSET, logger=None, keep_empty=False):
 def is_younger(path, age, default=False):
     """
     Args:
-        path (str): Path to file
+        path (str | pathlib.Path): Path to file
         age (int | float | None): How many seconds to consider the file too old
         default (bool): Returned when file is not present
 

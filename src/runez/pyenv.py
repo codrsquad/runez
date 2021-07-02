@@ -514,7 +514,8 @@ class Version(object):
             max_parts (int): Maximum number of parts (components) to consider version valid
         """
         self.text = text or ""
-        self.components = None
+        self.components = None  # tuple of components with exactly 'max_parts', auto-filled with zeros
+        self.given_components = None  # Components as given by 'text'
         self.epoch = 0
         self.local_part = None
         self.prerelease = None
@@ -537,6 +538,7 @@ class Version(object):
         if len(components) > max_parts:
             return  # Invalid version
 
+        self.given_components = tuple(map(int, components))
         while len(components) < max_parts:
             components.append(0)
 
