@@ -1,11 +1,10 @@
-# -*- encoding: utf-8 -*-
 import os
 from itertools import cycle
 
-from runez.system import flattened, string_type
+from runez.system import flattened
 
 
-class AsciiAnimation(object):
+class AsciiAnimation:
     """Contains a few progress spinner animation examples"""
 
     env_var = "SPINNER"  # Env var overriding which predefined spinner to use
@@ -45,7 +44,7 @@ class AsciiAnimation(object):
         if callable(spec):
             spec = spec()
 
-        if isinstance(spec, string_type):
+        if isinstance(spec, str):
             return cls.predefined(spec)
 
         if isinstance(spec, AsciiFrames):
@@ -89,23 +88,23 @@ class AsciiAnimation(object):
     @classmethod
     def af_dotrot2(cls):
         """2 rotating dots (one bigger, one smaller)"""
-        chars = cycle(u"⣯⣷⣾⣽⣻⢿⡿⣟")
+        chars = cycle("⣯⣷⣾⣽⣻⢿⡿⣟")
         return AsciiFrames(("%s%s" % (f, next(chars)) for f in cls.circling_dots()), fps=5)
 
     @classmethod
     def af_dotrot3(cls):
         """2 small rotating dots in opposite direction"""
-        return AsciiFrames(cls.alternating_cycle(u"⡿⣟⣯⣷⣾⣽⣻⢿", size=2), fps=5)
+        return AsciiFrames(cls.alternating_cycle("⡿⣟⣯⣷⣾⣽⣻⢿", size=2), fps=5)
 
     @classmethod
     def af_fill(cls):
         """Bar growing/shrinking vertically, then horizontally"""
-        return AsciiFrames([" "] + cls.symmetrical(list(u"▁▂▃▄▅▆▇█")) + [" "] + cls.symmetrical(list(u"▏▎▍▌▋▊▉")))
+        return AsciiFrames([" "] + cls.symmetrical(list("▁▂▃▄▅▆▇█")) + [" "] + cls.symmetrical(list("▏▎▍▌▋▊▉")))
 
     @classmethod
     def af_fill2(cls):
         """2 bars filling up and down"""
-        return AsciiFrames(cls.travelling(cls.symmetrical(list(u"▁▂▃▄▅▆▇█")), 2))
+        return AsciiFrames(cls.travelling(cls.symmetrical(list("▁▂▃▄▅▆▇█")), 2))
 
     @classmethod
     def af_oh(cls):
@@ -121,7 +120,7 @@ class AsciiAnimation(object):
 
     @classmethod
     def circling_dots(cls):
-        return [u"▖ ", u"▗ ", u" ▖", u" ▗", u" ▝", u" ▘", u"▝ ", u"▘ "]
+        return ["▖ ", "▗ ", " ▖", " ▗", " ▝", " ▘", "▝ ", "▘ "]
 
     @staticmethod
     def symmetrical(frames):
@@ -136,7 +135,7 @@ class AsciiAnimation(object):
             yield (["".join((" " * (i + 1), c, " " * (size - i - 2))) for c in chars] for i in reversed(range(size - 2)))
 
 
-class AsciiFrames(object):
+class AsciiFrames:
     """Holds ascii animation frames, one-line animations of arbitrary size (should be playable in a loop for good visual effect)"""
 
     def __init__(self, frames, fps=10):

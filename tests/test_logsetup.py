@@ -1,4 +1,3 @@
-# -*- encoding: utf-8 -*-
 import logging
 import os
 import sys
@@ -177,6 +176,11 @@ def test_convenience(temp_log):
 
 
 def test_default(temp_log):
+    assert runez.log.resolved_dryrun(True) is True
+    assert runez.log.resolved_dryrun(False) is False
+    assert runez.log.resolved_dryrun(runez.UNSET) is False
+    assert runez.log.hdry(True, None, "") is True
+
     assert runez.log.spec.console_level == logging.WARNING
     runez.log.context.set_global(version="1.0")
     runez.log.context.add_global(worker="mark")
@@ -497,14 +501,14 @@ def test_progress_bar():
 
     with runez.ProgressBar(total=3, columns=4) as pb:
         assert pb.n == 0
-        assert pb.rendered() == u"    0%"
+        assert pb.rendered() == "    0%"
         pb.update()
         assert pb.n == 1
-        assert pb.rendered() == u"▉▏  33%"
+        assert pb.rendered() == "▉▏  33%"
         pb.update()
-        assert pb.rendered() == u"▉▉▌ 67%"
+        assert pb.rendered() == "▉▉▌ 67%"
         pb.update()
-        assert pb.rendered() == u"▉▉▉▉100%"
+        assert pb.rendered() == "▉▉▉▉100%"
 
     assert pb.n is None
     assert pb.rendered() is None

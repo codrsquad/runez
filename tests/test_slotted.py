@@ -114,7 +114,7 @@ def test_adapted_properties():
 
 
 def test_insights():
-    class Foo(object):
+    class Foo:
         name = "testing"
         age = 10
 

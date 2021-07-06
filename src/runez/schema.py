@@ -15,7 +15,7 @@ import inspect
 
 from runez.convert import to_boolean, to_float, to_int
 from runez.date import to_date, to_datetime, UTC
-from runez.system import _R, string_type, stringified
+from runez.system import _R, stringified
 
 
 class ValidationException(Exception):
@@ -57,7 +57,7 @@ def _determined_schema_type(value):
     if inspect.ismemberdescriptor(value):
         return Any()  # Member descriptor (such as slot)
 
-    if isinstance(value, string_type):
+    if isinstance(value, str):
         return String(default=value)  # User gave a string as value, assume they mean string type, and use value as default
 
     mapped = TYPE_MAP.get(value.__class__)
@@ -67,7 +67,7 @@ def _determined_schema_type(value):
     if not isinstance(value, type):
         value = value.__class__
 
-    if issubclass(value, string_type):
+    if issubclass(value, str):
         return String()
 
     if issubclass(value, _R.serializable()):
@@ -81,7 +81,7 @@ def _determined_schema_type(value):
         return mapped()
 
 
-class Any(object):
+class Any:
     """Indicates that any value is accepted"""
 
     def __init__(self, default=None):
@@ -309,7 +309,7 @@ class String(Any):
     """Represents string type"""
 
     def _problem(self, value):
-        if not isinstance(value, string_type):
+        if not isinstance(value, str):
             return "expecting string, got '%s'" % value
 
     def _converted(self, value):

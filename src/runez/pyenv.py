@@ -58,7 +58,7 @@ def pyenv_scanner(*locations):
             _R.trace("Found %s pythons in %s" % (count, short(location)))
 
 
-class PythonSpec(object):
+class PythonSpec:
     """
     Holds a canonical reference to a desired python installation
     Examples: 3, 3.9, py39, conda3.7.1, /usr/bin/python
@@ -207,7 +207,7 @@ class PythonSpec(object):
         return PythonSpec(value)
 
 
-class PythonDepot(object):
+class PythonDepot:
     """
     Scan usual locations to discover python installations.
     2 types of location are scanned:
@@ -228,15 +228,17 @@ class PythonDepot(object):
     use_path = True  # Scan $PATH env var for python installations as well?
     _cache = None  # type: dict[str, PythonInstallation]
 
-    def __init__(self, scanner=None, use_path=UNSET):
+    def __init__(self, scanner=None, use_path=UNSET, logger=False):
         """
         Args:
-            scanner (typing.Iterator[PythonInstallation]): Scanner to use
+            scanner (typing.Iterator[PythonInstallation]): Optional additional scanner to use
             use_path (bool): Scan $PATH env var? (default: class attribute default)
+            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         """
         if use_path is not UNSET:
             self.use_path = use_path
 
+        self.logger = logger
         self.from_path = None if self.use_path else []
         self._cache = {}
         self.scan(scanner)
@@ -359,13 +361,13 @@ class PythonDepot(object):
         for real_path, paths in real_paths.items():
             python = self._python_from_path(paths[0], equivalents=paths)
             if python.problem:
-                _R.trace("Ignoring invalid python in PATH: %s" % paths[0])
+                _R.hlog(self.logger, "Ignoring invalid python in PATH: %s" % paths[0])
 
             else:
                 self._register(python, self.from_path)
                 found.append(python)
 
-        _R.trace("Found %s pythons in $PATH" % (len(found)))
+        _R.hlog(self.logger, "Found %s pythons in $PATH" % (len(found)))
         return found
 
     @staticmethod
@@ -385,8 +387,7 @@ class PythonDepot(object):
                 if os.path.isdir(bin_folder):
                     path = bin_folder
 
-                names = ("python%s" % major, "python") if major else ("python", "python3", "python2")
-                for name in names:
+                for name in ("python%s" % (major or 3), "python"):
                     candidate = os.path.join(path, name)
                     if is_executable(candidate):
                         yield candidate
@@ -501,7 +502,7 @@ class PythonDepot(object):
         return python
 
 
-class Version(object):
+class Version:
     """
     Parse versions according to PEP-440, ordering for non pre-releases is well supported
     Pre-releases are partially supported, no complex combinations (such as ".post.dev") are paid attention to
@@ -628,7 +629,7 @@ class Version(object):
         return self.components and self.components[2]
 
 
-class PythonInstallation(object):
+class PythonInstallation:
     """Models a specific python installation"""
 
     executable = None  # type: str # Full path to python executable
@@ -730,7 +731,7 @@ class PythonInstallation(object):
             return self.spec.satisfies(spec)
 
 
-class PyInstallInfo(object):
+class PyInstallInfo:
     """Information on a python installation, determined dynamically when needed"""
 
     def __init__(self, version=None, sys_prefix=None, base_prefix=None, problem=None):
@@ -743,7 +744,7 @@ class PyInstallInfo(object):
         self.problem = problem
 
 
-class _Introspect(object):
+class _Introspect:
     """Introspect a python installation via the built-in `_pv.py` script"""
 
     _pv = None
@@ -795,10 +796,8 @@ def _simplified_python_path(path):
             if not location.endswith("bin"):
                 location = os.path.join(location, "bin")
 
-        if "Versions/3" in path:
-            return os.path.join(location, "python3")
-
-        if "Versions/2" in path:
-            return os.path.join(location, "python2")
+        m = re.search(r"Versions/([\d])", path)
+        if m:
+            return os.path.join(location, "python%s" % m.group(1))
 
     return path

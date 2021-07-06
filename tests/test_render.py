@@ -1,5 +1,3 @@
-# -*- encoding: utf-8 -*-
-
 import os
 import sys
 from argparse import Namespace
@@ -191,7 +189,7 @@ def test_pretty_table():
         _ = t.header["foo"]
 
 
-EXPECTED_TABLE_RENDER = u"""
+EXPECTED_TABLE_RENDER = """
 +==========+====================+
 | Location | French café        |
 +----------+--------------------+
@@ -202,7 +200,7 @@ EXPECTED_TABLE_RENDER = u"""
 
 def test_pretty_table_render():
     t = PrettyTable(border="ascii")
-    t.add_row("Location", u"French café")
-    t.add_row("Name", u"コンニチハ, セカイ")
+    t.add_row("Location", "French café")
+    t.add_row("Name", "コンニチハ, セカイ")
     x = t.get_string()
     assert x == EXPECTED_TABLE_RENDER.strip()

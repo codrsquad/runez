@@ -16,6 +16,10 @@ SRC = os.path.join(PROJECT, "src", "runez")
 API_EXCEPTIONS = {
     "file.ini_to_dict": collections.OrderedDict(logger=None),
     "file.readlines": collections.OrderedDict(logger=None),
+    "http.get_response": collections.OrderedDict(fatal=True, logger="UNSET"),
+    "http.get": collections.OrderedDict(fatal=True, logger="UNSET"),
+    "http.head": collections.OrderedDict(fatal=True, logger="UNSET"),
+    "http.url_exists": collections.OrderedDict(logger=False),
     "logsetup.greet": {},
     "logsetup.setup": {},
     "prompt.ask_once": collections.OrderedDict(logger=None),

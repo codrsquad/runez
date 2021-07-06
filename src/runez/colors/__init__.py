@@ -9,7 +9,7 @@ Example usage:
 from runez.system import DEV, short, Slotted, stringified, SYS_INFO, uncolored
 
 
-class ActivateColors(object):
+class ActivateColors:
     """Context manager for temporarily overriding coloring"""
 
     def __init__(self, enable=True, flavor=None):
@@ -28,7 +28,7 @@ class ActivateColors(object):
         ColorManager.backend, ColorManager.bg, ColorManager.fg, ColorManager.style = self.prev
 
 
-class PlainBackend(object):
+class PlainBackend:
     """Default plain backend, ignoring colors"""
 
     color_count = 1
@@ -56,7 +56,7 @@ class PlainBackend(object):
         return size
 
 
-class ColorManager(object):
+class ColorManager:
     """Holds current global coloring backend and bg, fg color and style implementations"""
 
     backend = None  # type: PlainBackend
@@ -105,7 +105,7 @@ class ColorManager(object):
         return prev
 
 
-class Renderable(object):
+class Renderable:
     """A render-able (color or style) named object"""
 
     def __init__(self, name):

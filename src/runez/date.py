@@ -1,11 +1,9 @@
-#  -*- encoding: utf-8 -*-
-
 import datetime
 import re
 import time
 
 from runez.convert import _float_from_text
-from runez.system import string_type, stringified, UNSET
+from runez.system import stringified, UNSET
 
 
 DEFAULT_TIMEZONE = None
@@ -152,7 +150,7 @@ def local_timezone():
         return ""
 
 
-def represented_duration(seconds, span=UNSET, delimiter=u" "):
+def represented_duration(seconds, span=UNSET, delimiter=" "):
     """
     Args:
         seconds (int | float | None): Duration in seconds
@@ -218,7 +216,7 @@ def represented_duration(seconds, span=UNSET, delimiter=u" "):
         if milliseconds:
             result.append(_duration_span(milliseconds, "ms", short_form, immutable=True))
         if microseconds:
-            result.append(_duration_span(microseconds, u"μs", short_form, immutable=True))
+            result.append(_duration_span(microseconds, "μs", short_form, immutable=True))
 
     if not result:
         result.append(_duration_span(seconds, "second", short_form))
@@ -235,7 +233,7 @@ def timezone_from_text(value, default=UNSET):
         value (str | None): Name of timezone, or offset of the form +01:00
 
     Returns:
-        (datetime.tzinfo | None):
+        (datetime.tzinfo | None): Timezone, if one could be parsed
     """
     if isinstance(value, timezone):
         return value
@@ -272,7 +270,7 @@ def to_date(value):
     if isinstance(value, (int, float)):
         return date_from_epoch(value)
 
-    if isinstance(value, string_type):
+    if isinstance(value, str):
         value = _date_from_text(value, date_from_epoch)
 
     if isinstance(value, datetime.datetime):
@@ -294,7 +292,7 @@ def to_datetime(value, tz=UNSET):
     if isinstance(value, (int, float)):
         return datetime_from_epoch(value, tz=tz)
 
-    if isinstance(value, string_type):
+    if isinstance(value, str):
         value = _date_from_text(value, datetime_from_epoch, tz=tz)
 
     if isinstance(value, datetime.datetime):
@@ -353,7 +351,7 @@ def to_seconds(duration):
     if isinstance(duration, datetime.timedelta):
         return duration.total_seconds()
 
-    if not isinstance(duration, string_type):
+    if not isinstance(duration, str):
         return None
 
     duration = duration.strip()

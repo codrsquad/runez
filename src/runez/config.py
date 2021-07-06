@@ -28,7 +28,7 @@ from runez.logsetup import LogManager
 from runez.system import capped, decode, stringified
 
 
-class Configuration(object):
+class Configuration:
     """
     Holds configuration from N providers.
     First provider with a value for a given key wins.
@@ -349,7 +349,7 @@ def get_json(key, default=None):
     return CONFIG.get_json(key, default=default)
 
 
-class ConfigProvider(object):
+class ConfigProvider:
     """
     Interface for config providers, that associate a value to a given key
     """

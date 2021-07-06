@@ -2,20 +2,26 @@
 History
 =======
 
-2.7.17 (2021-07-02)
+3.0.0 (2021-07-02)
 ------------------
+
+* Dropped support for python2
+
+
+2.7.17 (2021-07-02)
+-------------------
 
 * Added ``Version.given_components``
 
 
 2.7.16 (2021-06-30)
-------------------
+-------------------
 
 * Extract optional epoch, local part and suffix from PEP-440 ``Version()``
 
 
 2.7.15 (2021-06-29)
-------------------
+-------------------
 
 * Allow to customize globally what logger to use for ``abort()``
 
@@ -23,25 +29,25 @@ History
 
 
 2.7.14 (2021-06-28)
-------------------
+-------------------
 
 * Added ``SYS_INFO.program_version`` and ``SYS_INFO.user_agent``
 
 
 2.7.13 (2021-06-26)
-------------------
+-------------------
 
 * Edge case for ``hdry(message=None)``
 
 
 2.7.12 (2021-06-24)
-------------------
+-------------------
 
 * Enforce bounds for ``@retry`` parameters
 
 
 2.7.11 (2021-06-24)
-------------------
+-------------------
 
 * Added ``@retry`` decorator, as well a ``python -mrunez retry`` command
 
@@ -49,31 +55,31 @@ History
 
 
 2.7.10 (2021-06-18)
-------------------
+-------------------
 
 * Fixed bug in ``PythonSpec.speccified()``
 
 
 2.7.9 (2021-06-15)
------------------
+------------------
 
 * Don't crash on ``plural(None)``
 
 
 2.7.8 (2021-06-07)
------------------
+------------------
 
 * Unfortunately, click's ``mix_stderr`` seems to mean "ignore stderr please"
 
 
 2.7.7 (2021-06-07)
------------------
+------------------
 
 * Added ``cli.exercise_main()`` and a typical ``runez.click.protected_main()``
 
 
 2.7.6 (2021-06-07)
------------------
+------------------
 
 * Generalized ``diagnostics()``, simplified internals for ``cli`` fixture
 
@@ -83,13 +89,13 @@ History
 
 
 2.7.5 (2021-06-04)
------------------
+------------------
 
 * Moved development related functions to ``runez.DEV``
 
 
 2.7.4 (2021-06-04)
------------------
+------------------
 
 * Added ``{project}`` placeholder for ``runez.log.setup()``
 
@@ -97,19 +103,19 @@ History
 
 
 2.7.3 (2021-06-03)
------------------
+------------------
 
 * Allow ``dict`` source for ``two_column_diagnostics()`` render
 
 
 2.7.2 (2021-06-03)
------------------
+------------------
 
 * Added ``cached_property.to_dict()``
 
 
 2.7.1 (2021-06-02)
------------------
+------------------
 
 * Resilient ``CurrentFolder()`` in dryrun mode
 

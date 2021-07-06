@@ -1,12 +1,8 @@
-#  -*- encoding: utf-8 -*-
-
 """
 Base functionality used by other parts of `runez`.
 
 This class should not import any other `runez` class, to avoid circular deps.
 """
-
-from __future__ import print_function
 
 import functools
 import inspect
@@ -19,35 +15,18 @@ import sys
 import threading
 import time
 import unicodedata
+from io import StringIO
 
 
-try:
-    string_type = basestring  # noqa
-    PY2 = True
-
-    from StringIO import StringIO  # noqa
-
-    def auto_unicode(text):
-        return u"%s" % text
-
-except NameError:
-    from io import StringIO
-
-    auto_unicode = None
-    string_type = str
-    PY2 = False
-
-
+ABORT_LOGGER = logging.error
 LOG = logging.getLogger("runez")
-SYMBOLIC_TMP = "<tmp>"
-WINDOWS = sys.platform.startswith("win")
 RE_ANSI_ESCAPE = re.compile(r"\x1b(\[[;\d]*[A-Za-z]?)?")
 RE_SPACES = re.compile(r"[\s\n]+", re.MULTILINE)
-_getframe = getattr(sys, "_getframe", None)
-abort_logger = logging.error
+SYMBOLIC_TMP = "<tmp>"
+WINDOWS = sys.platform.startswith("win")
 
 
-class Undefined(object):
+class Undefined:
     """Provides base type for `UNSET` below (representing an undefined value)
 
     Allows to distinguish between a caller not providing a value, vs providing `None`.
@@ -107,13 +86,13 @@ def abort(message, code=1, exc_info=None, return_value=None, fatal=True, logger=
         message = "%s: %s" % (message, exc_info)
 
     if logger is UNSET or logger is False:
-        logger = abort_logger
+        logger = ABORT_LOGGER
 
     if fatal:
         exception = _R.abort_exception(override=fatal)
         if exception is SystemExit:
             # Ensure message shown if we raise SystemExit
-            _show_abort_message(message, exc_info, logger or abort_logger)
+            _show_abort_message(message, exc_info, logger or ABORT_LOGGER)
             raise SystemExit(code)
 
         if isinstance(exception, type) and issubclass(exception, BaseException):
@@ -126,7 +105,7 @@ def abort(message, code=1, exc_info=None, return_value=None, fatal=True, logger=
     return return_value
 
 
-class cached_property(object):
+class cached_property:
     """
     A property that is only computed once per instance and then replaces itself with an ordinary attribute.
     Same as https://pypi.org/project/cached-property/ (without having to add another dependency).
@@ -279,13 +258,13 @@ def find_caller_frame(validator=None, depth=2, maximum=1000):
     Returns:
         (frame): First frame found
     """
-    if _getframe is not None:
+    if _R.getframe is not None:
         if validator is None:
             validator = _R.is_actual_caller_frame
 
         while not maximum or depth <= maximum:
             try:
-                f = _getframe(depth)
+                f = _R.getframe(depth)
                 value = validator(f)
                 if value is not None:
                     return value
@@ -324,15 +303,15 @@ def first_line(text, keep_empty=False, default=None):
     return default
 
 
-def flattened(*value, **kwargs):
+def flattened(*value, keep_empty=True, split=None, shellify=False, transform=None, unique=False):
     """
     Args:
         value: Possibly nested arguments (sequence of lists, nested lists, ...)
-        keep_empty (str | bool): States how to filter 'None' and/or False-ish values
-                               - string: Replace `None` with given string, keep False-ish values as-is
-                               - None: Filter out all False-ish values (including `None`)
-                               - False: Filter out `None` values only (keep False-ish values as-is)
-                               - True (default): No filtering, keep all values as-is
+        keep_empty (str | bool | None): States how to filter 'None' and/or False-ish values
+                                        - string: Replace `None` with given string, keep False-ish values as-is
+                                        - None: Filter out all False-ish values (including `None`)
+                                        - False: Filter out `None` values only (keep False-ish values as-is)
+                                        - True (default): No filtering, keep all values as-is
         split (str | None): If provided, split strings by given character
         shellify (bool): If True, filter out sequences of the form ["-f", None] (handy for simplified cmd line specification)
         transform (callable | None): If given, transform all values via the given callable
@@ -341,14 +320,6 @@ def flattened(*value, **kwargs):
     Returns:
         (list): Flattened list from 'value'
     """
-    keep_empty = kwargs.pop("keep_empty", True)
-    split = kwargs.pop("split", None)
-    shellify = kwargs.pop("shellify", False)
-    transform = kwargs.pop("transform", None)
-    unique = kwargs.pop("unique", False)
-    if kwargs:
-        raise TypeError("flattened() got unexpected keyword arguments %s" % kwargs)
-
     result = []
     _flatten(result, value, keep_empty, split, shellify, transform, unique)
     return result
@@ -371,7 +342,7 @@ def get_version(mod, default="0.0.0", logger=LOG.warning):
     if not name:
         return default
 
-    top_level = name.partition(".")[0] if isinstance(name, string_type) else name
+    top_level = name.partition(".")[0] if isinstance(name, str) else name
     last_exception = None
 
     try:
@@ -418,7 +389,7 @@ def is_basetype(value):
     Returns:
         (bool): True if value is a base type
     """
-    return isinstance(value, (int, float, string_type))
+    return isinstance(value, (int, float, str))
 
 
 def is_iterable(value):
@@ -429,7 +400,46 @@ def is_iterable(value):
     return isinstance(value, (list, tuple, set)) or inspect.isgenerator(value)
 
 
-def joined(*args, **kwargs):
+def stringified(value, converter=None, none="None"):
+    """
+    Args:
+        value: Any object to turn into a string
+        converter (callable | None): Optional converter to use for non-string objects
+        none (str | bool): Value to use to represent `None` ("" or False represents None as empty string)
+
+    Returns:
+        (str): Ensure `text` is a string if necessary (this is to avoid transforming string types in py2 as much as possible)
+    """
+    if isinstance(value, str):
+        return value
+
+    if isinstance(value, bytes):
+        return value.decode("utf-8")
+
+    if converter is not None:
+        converted = converter(value)
+        if isinstance(converted, str):
+            return converted
+
+        if converted is not None:
+            value = converted
+
+    if value is None:
+        if isinstance(none, str):
+            return none
+
+        if none is True:
+            return "None"
+
+        if none is False:
+            return ""
+
+        value = none
+
+    return "{}".format(value)
+
+
+def joined(*args, delimiter=" ", keep_empty=True, stringify=stringified):
     """
     >>> joined(1, None, 2)
     '1 None 2'
@@ -438,30 +448,22 @@ def joined(*args, **kwargs):
 
     Args:
         *args: Things to join
-
-    Keyword Args:
         delimiter (str): Delimiter to use (default: space character)
-        keep_empty (str | bool): States how to filter 'None' and/or False-ish values
-                               - string: Replace `None` with given string, keep False-ish values as-is
-                               - None: Filter out all False-ish values (including `None`)
-                               - False: Filter out `None` values only (keep False-ish values as-is)
-                               - True (default): No filtering, keep all values as-is
-        stringify (str): Function to use to stringify args (default: `stringified`)
+        keep_empty (str | bool | None): States how to filter 'None' and/or False-ish values
+                                        - string: Replace `None` with given string, keep False-ish values as-is
+                                        - None: Filter out all False-ish values (including `None`)
+                                        - False: Filter out `None` values only (keep False-ish values as-is)
+                                        - True (default): No filtering, keep all values as-is
+        stringify (callable): Function to use to stringify args (default: `stringified`)
 
     Returns:
         (str): Joined string
     """
-    delimiter = kwargs.pop("delimiter", " ")
-    keep_empty = kwargs.pop("keep_empty", True)
-    stringify = kwargs.pop("stringify", stringified)
-    if kwargs:
-        raise TypeError("joined() got unexpected keyword arguments %s" % kwargs)
-
     args = [stringify(x) for x in flattened(args, keep_empty=keep_empty)]
     return delimiter.join(flattened(args, keep_empty=keep_empty))
 
 
-def quoted(*items, **kwargs):
+def quoted(*items, delimiter=" ", adapter=UNSET, keep_empty=True):
     """Quoted `items`, for those that contain whitespaces
 
     >>> quoted("foo")
@@ -484,12 +486,6 @@ def quoted(*items, **kwargs):
     Returns:
         (str): Quoted if 'text' contains spaces
     """
-    delimiter = kwargs.pop("delimiter", " ")
-    adapter = kwargs.pop("adapter", UNSET)
-    keep_empty = kwargs.pop("delimiter", True)
-    if kwargs:
-        raise TypeError("quoted() got unexpected keyword arguments %s" % kwargs)
-
     items = flattened(items, keep_empty=keep_empty)
     result = []
     for text in items:
@@ -527,7 +523,7 @@ def resolved_path(path, base=None):
     return os.path.abspath(path)
 
 
-class RetryHandler(object):
+class RetryHandler:
     """Retry a function N times before giving up"""
 
     # Defaults for retry decorator, these can be modified from your application, if convenient / applicable
@@ -584,7 +580,7 @@ class RetryHandler(object):
                 if not remaining:
                     raise
 
-                _R.hlog(self.logger, u"%s, retrying in %s..." % (e, _R._runez_module().represented_duration(delay, span=2)))
+                _R.hlog(self.logger, "%s, retrying in %s..." % (e, _R._runez_module().represented_duration(delay, span=2)))
                 sleep(delay)
                 if self.backoff:
                     delay *= self.backoff
@@ -680,45 +676,6 @@ def sleep(seconds):
     time.sleep(seconds)
 
 
-def stringified(value, converter=None, none="None"):
-    """
-    Args:
-        value: Any object to turn into a string
-        converter (callable | None): Optional converter to use for non-string objects
-        none (str | bool): Value to use to represent `None` ("" or False represents None as empty string)
-
-    Returns:
-        (str): Ensure `text` is a string if necessary (this is to avoid transforming string types in py2 as much as possible)
-    """
-    if isinstance(value, string_type):
-        return value
-
-    if isinstance(value, bytes):
-        return value.decode("utf-8")
-
-    if converter is not None:
-        converted = converter(value)
-        if isinstance(converted, string_type):
-            return converted
-
-        if converted is not None:
-            value = converted
-
-    if value is None:
-        if isinstance(none, string_type):
-            return none
-
-        if none is True:
-            return "None"
-
-        if none is False:
-            return ""
-
-        value = none
-
-    return "{}".format(value)
-
-
 def uncolored(text):
     """
     Args:
@@ -773,7 +730,7 @@ class AbortException(Exception):
     """
 
 
-class AdaptedProperty(object):
+class AdaptedProperty:
     """
     This decorator allows to define properties with regular get/set behavior,
     but the body of the decorated function can act as a validator, and can auto-convert given values
@@ -855,7 +812,7 @@ class AdaptedProperty(object):
         setattr(obj, self.key, value)
 
 
-class Anchored(object):
+class Anchored:
     """
     An "anchor" is a known path that we don't wish to show in full when printing/logging
     This allows to conveniently shorten paths, and show more readable relative paths
@@ -921,7 +878,7 @@ class Anchored(object):
         return text.replace(cls._home, "~")
 
 
-class CapturedStream(object):
+class CapturedStream:
     """Capture output to a stream by hijacking temporarily its write() function"""
 
     def __init__(self, name, target):
@@ -983,7 +940,7 @@ class CapturedStream(object):
         self.buffer.truncate(0)
 
 
-class CaptureOutput(object):
+class CaptureOutput:
     """Output is captured and made available only for the duration of the context.
 
     Sample usage:
@@ -1063,7 +1020,7 @@ class CaptureOutput(object):
             Anchored.pop(self.anchors)
 
 
-class CurrentFolder(object):
+class CurrentFolder:
     """Context manager for changing the current working directory"""
 
     def __init__(self, destination, anchor=False):
@@ -1087,7 +1044,7 @@ class CurrentFolder(object):
             Anchored.pop(self.destination)
 
 
-class FallbackOp(object):
+class FallbackOp:
     def __init__(self, func, name=None, prepare=None):
         self.func = func
         self.name = name or "FallbackOp(%s)" % self.func
@@ -1104,7 +1061,7 @@ class FallbackOp(object):
         return self.func(*args, **kwargs)
 
 
-class FallbackChain(object):
+class FallbackChain:
     """Allows to have multiple ways of performing a given operation"""
 
     def __init__(self, *args, **kwargs):
@@ -1174,7 +1131,7 @@ class FallbackChain(object):
             self.available.append(run)
 
 
-class TrackedOutput(object):
+class TrackedOutput:
     """Track captured output"""
 
     def __init__(self, stdout, stderr):
@@ -1217,7 +1174,7 @@ class TrackedOutput(object):
             s.clear()
 
 
-class Slotted(object):
+class Slotted:
     """This class allows to easily initialize/set a descendant using named arguments"""
 
     def __init__(self, *positionals, **kwargs):
@@ -1370,17 +1327,6 @@ class Slotted(object):
 
             return True
 
-    if PY2:
-
-        def __cmp__(self, other):  # Applicable only for py2
-            if isinstance(other, self.__class__):
-                for name in self.__slots__:
-                    i = cmp(getattr(self, name, None), getattr(other, name, None))  # noqa
-                    if i != 0:
-                        return i
-
-                return 0
-
     def _seed(self):
         """Seed initial fields"""
         defaults = self._get_defaults()
@@ -1425,7 +1371,7 @@ class Slotted(object):
 
     def _values_from_positional(self, positional):
         """dict: Key/value pairs from a given position to set()"""
-        if isinstance(positional, string_type):
+        if isinstance(positional, str):
             return self._values_from_string(positional)
 
         if isinstance(positional, dict):
@@ -1445,7 +1391,7 @@ class Slotted(object):
             return dict((k, getattr(obj, k, UNSET)) for k in self.__slots__)
 
 
-class DevInfo(object):
+class DevInfo:
     """
     Info on development environment, if we're currently running in one
     All properties/functions here return `None` when we're currently NOT running from a dev environment
@@ -1504,7 +1450,7 @@ class DevInfo(object):
 DEV = DevInfo()
 
 
-class PlatformInfo(object):
+class PlatformInfo:
     """Info on the platform we're currently running on"""
 
     def __init__(self, text=None):
@@ -1530,7 +1476,7 @@ class PlatformInfo(object):
         return s.strip()
 
 
-class SystemInfo(object):
+class SystemInfo:
     """Information on current run"""
 
     @staticmethod
@@ -1543,7 +1489,7 @@ class SystemInfo(object):
         """Info on currently running process"""
         return _R._runez_module().PsInfo()
 
-    def diagnostics(self, via=u" ⚡ "):
+    def diagnostics(self, via=" ⚡ "):
         """Usable by runez.render.PrettyTable.two_column_diagnostics()"""
         yield "platform", self.platform_info
         if self.terminal.term_program:
@@ -1631,7 +1577,7 @@ class SystemInfo(object):
 SYS_INFO = SystemInfo()
 
 
-class TempArgv(object):
+class TempArgv:
     """Context manager for changing the current sys.argv"""
 
     def __init__(self, args, exe=None):
@@ -1649,7 +1595,7 @@ class TempArgv(object):
         sys.argv = self.old_argv
 
 
-class TerminalInfo(object):
+class TerminalInfo:
     """Info about current terminal"""
 
     @cached_property
@@ -1724,18 +1670,14 @@ class TerminalInfo(object):
         cols = _R.to_int(os.environ.get("COLUMNS"))
         lines = _R.to_int(os.environ.get("LINES"))
         if not cols or not lines:
-            try:
-                size = shutil.get_terminal_size(fallback=(0, 0))
-                cols = size.columns
-                lines = size.lines
-
-            except AttributeError:
-                pass
+            size = shutil.get_terminal_size(fallback=(0, 0))
+            cols = size.columns
+            lines = size.lines
 
         return cols or default_columns, lines or default_lines
 
 
-class TerminalProgram(object):
+class TerminalProgram:
     """Info on terminal program being currently used, if any"""
 
     name = None  # type: str # Terminal program name
@@ -1774,7 +1716,7 @@ class TerminalProgram(object):
             return m.group(1)
 
 
-class ThreadGlobalContext(object):
+class ThreadGlobalContext:
     """Thread-local + global context, composed of key/value pairs.
 
     Thread-local context is a dict per thread (stored in a threading.local()).
@@ -1902,7 +1844,7 @@ class ThreadGlobalContext(object):
             self._gpayload = values or {}
 
 
-class _R(object):
+class _R:
     """
     Internal class to provide a late import of runez (after __init__ imported everything), and also holds some common stuff.
     The name is intentionally short to avoid verbose/long lines calling it.
@@ -1912,6 +1854,8 @@ class _R(object):
     - without having to `import runez` internally (can't do that due to circular import)
     - respecting any external modifications clients may have done (like: runez.DRYRUN = foo)
     """
+
+    getframe = getattr(sys, "_getframe", None)
 
     _runez = None
     _schema = None
@@ -1983,7 +1927,19 @@ class _R(object):
 
     @classmethod
     def hdry(cls, dryrun, logger, message):
-        return cls._runez_module().log.hdry(dryrun, logger, message)
+        if cls.resolved_dryrun(dryrun):
+            if logger is not None and message is not None:
+                message = "Would %s" % cls.actual_message(message)
+                if logger is False:
+                    cls.trace(message)
+
+                elif callable(logger):
+                    logger(message)
+
+                else:
+                    print(message)
+
+            return True
 
     @classmethod
     def hlog(cls, logger, message, exc_info=None):
@@ -2029,6 +1985,20 @@ class _R(object):
             (bool): Same as runez.DRYRUN, but as a function (and with late import)
         """
         return cls._runez_module().DRYRUN
+
+    @classmethod
+    def resolved_dryrun(cls, dryrun):
+        """
+        Args:
+            dryrun (bool | Undefined | None): Optionally overridden current dryrun setting
+
+        Returns:
+            (bool): Resolved value for dryrun
+        """
+        if dryrun is UNSET:
+            return cls._runez_module().DRYRUN
+
+        return dryrun
 
     @classmethod
     def schema(cls):
@@ -2129,7 +2099,7 @@ def _flatten(result, value, keep_empty, split, shellify, transform, unique):
         if keep_empty is None or (keep_empty is False and (value is None or value is UNSET)):
             return
 
-        if isinstance(keep_empty, string_type):
+        if isinstance(keep_empty, str):
             value = keep_empty
 
         if not unique or value not in result:
@@ -2143,7 +2113,7 @@ def _flatten(result, value, keep_empty, split, shellify, transform, unique):
 
         return
 
-    if split and isinstance(value, string_type) and split in value:
+    if split and isinstance(value, str) and split in value:
         if "\n" in value:
             value = [line.strip() for line in value.splitlines()]
             value = [s for s in value if s]

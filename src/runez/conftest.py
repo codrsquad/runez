@@ -6,8 +6,6 @@ Example:
     from runez.conftest import cli, isolated_log_setup, temp_folder
 """
 
-from __future__ import absolute_import
-
 import logging
 import os
 import re
@@ -23,7 +21,7 @@ from runez.file import TempFolder
 from runez.logsetup import LogManager
 from runez.render import Header
 from runez.system import _R, CaptureOutput, DEV, Slotted, TempArgv, TrackedOutput
-from runez.system import flattened, LOG, quoted, short, string_type, stringified, UNSET
+from runez.system import flattened, LOG, quoted, short, stringified, UNSET
 
 try:
     from click import BaseCommand as _ClickCommand
@@ -65,7 +63,7 @@ def exception_raiser(exc=Exception):
         (callable): Function that will raise given exception
     """
     def _raise(*_, **__):
-        if isinstance(exc, string_type):
+        if isinstance(exc, str):
             raise Exception(exc)
 
         if isinstance(exc, type) and issubclass(exc, BaseException):
@@ -139,7 +137,7 @@ def verify_abort(func, *args, **kwargs):
             return "%s %s" % (e, stringified(logged))
 
 
-class IsolatedLogSetup(object):
+class IsolatedLogSetup:
     """Allows to isolate changes to logging setup.
 
     This should only be useful for testing (as in general, logging setup is a global thing).
@@ -278,7 +276,7 @@ class WrappedHandler(_pytest.logging.LogCaptureHandler):
 _pytest.logging.LogCaptureHandler = WrappedHandler
 
 
-class ClickWrapper(object):
+class ClickWrapper:
     """Wrap click invoke, when click is available, otherwise just call provided function"""
 
     def __init__(self, stdout, stderr, exit_code, exception):
@@ -288,7 +286,7 @@ class ClickWrapper(object):
         self.exception = exception
 
 
-class ClickRunner(object):
+class ClickRunner:
     """Allows to provide a test-friendly fixture around testing click entry-points"""
 
     def __init__(self, context=None):
@@ -426,11 +424,11 @@ class ClickRunner(object):
         else:
             flags = 0
 
-        if isinstance(expected, string_type) and "..." in expected and not isinstance(regex, bool):
+        if isinstance(expected, str) and "..." in expected and not isinstance(regex, bool):
             regex = True
             expected = expected.replace("...", ".+")
 
-        if not isinstance(expected, string_type):
+        if not isinstance(expected, str):
             # Assume regex, no easy way to verify isinstance(expected, re.Pattern) for python < 3.7
             regex = expected
 
@@ -522,7 +520,7 @@ class ClickRunner(object):
 
             return result
 
-        if isinstance(main, string_type):
+        if isinstance(main, str):
             script = self._resolved_script(main)
             if not script:
                 assert False, "Can't find script '%s', invalid main" % script
@@ -541,7 +539,7 @@ class RunSpec(Slotted):
         return UNSET
 
 
-class Match(object):
+class Match:
     def __init__(self, capture, match, pre=None, post=None):
         self.capture = capture
         self.match = match

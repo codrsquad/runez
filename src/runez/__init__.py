@@ -16,7 +16,7 @@ from runez.file import basename, copy, delete, ensure_folder, move, parent_folde
 from runez.logsetup import LogManager as log, ProgressBar
 from runez.program import check_pid, is_executable, make_executable, PsInfo, run, shell, which
 from runez.serialize import read_json, represented_json, save_json, Serializable
-from runez.system import abort, AdaptedProperty, cached_property, PY2, uncolored, Undefined, UNSET, wcswidth, WINDOWS
+from runez.system import abort, AdaptedProperty, cached_property, uncolored, Undefined, UNSET, wcswidth, WINDOWS
 from runez.system import Anchored, CaptureOutput, CurrentFolder, Slotted, TempArgv, TrackedOutput
 from runez.system import capped, decode, DEV, flattened, joined, quoted, resolved_path, retry, retry_run, short, stringified, SYS_INFO
 from runez.system import FallbackChain, first_line, get_version, is_basetype, is_iterable
@@ -37,7 +37,7 @@ __all__ = [
     "log", "ProgressBar",
     "check_pid", "is_executable", "make_executable", "PsInfo", "run", "shell", "which",
     "read_json", "represented_json", "save_json", "Serializable",
-    "abort", "AdaptedProperty", "cached_property", "PY2", "uncolored", "Undefined", "UNSET", "wcswidth", "WINDOWS",
+    "abort", "AdaptedProperty", "cached_property", "uncolored", "Undefined", "UNSET", "wcswidth", "WINDOWS",
     "Anchored", "CaptureOutput", "CurrentFolder", "Slotted", "TempArgv", "TrackedOutput",
     "capped", "decode", "DEV", "flattened", "joined", "quoted", "resolved_path", "retry", "retry_run", "short", "stringified", "SYS_INFO",
     "FallbackChain", "first_line", "get_version", "is_basetype", "is_iterable",

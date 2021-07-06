@@ -75,9 +75,7 @@ def test_capture(monkeypatch):
         assert r.pid
 
         r = runez.run(CHATTER, stdout=None, stderr=None)
-        if not runez.PY2:  # __bool__ not respected in PY2... no point trying to fix it
-            assert r
-
+        assert r
         assert str(r) == "RunResult(exit_code=0)"
         assert r.succeeded
         assert r.output is None
@@ -161,9 +159,7 @@ def test_capture(monkeypatch):
         with monkeypatch.context() as m:
             runez.conftest.patch_raise(m, subprocess, "Popen", OSError("testing"))
             r = runez.run("python", "--version", fatal=False)
-            if not runez.PY2:  # __bool__ not respected in PY2... no point trying to fix it
-                assert not r
-
+            assert not r
             assert r.failed
             assert "python failed: OSError(" in r.error
             assert r.output is None

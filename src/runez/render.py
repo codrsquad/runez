@@ -1,9 +1,8 @@
-#  -*- encoding: utf-8 -*-
 import os
 
 from runez.colors import cast_style
 from runez.convert import to_int
-from runez.system import _R, AdaptedProperty, auto_unicode, flattened, is_iterable, joined, short, Slotted, string_type, stringified
+from runez.system import _R, AdaptedProperty, flattened, is_iterable, joined, short, Slotted, stringified
 from runez.system import SYS_INFO, UNSET, wcswidth
 
 
@@ -13,7 +12,7 @@ NAMED_BORDERS = dict(
     colon="c: : ,h: : -",
     dots="t:....,b::::.,c::::,h:.:..",
     empty="",
-    framed=u"t:┍┯┑━,m:┝┿┥━,b:┕┷┙━,c:│││,h:╞╪╡═",
+    framed="t:┍┯┑━,m:┝┿┥━,b:┕┷┙━,c:│││,h:╞╪╡═",
     github="h:-|--,c:|||",
     mysql="t:+++-,b:+++-,c:|||",
     reddit="h:-|--,c: | ",
@@ -22,7 +21,7 @@ NAMED_BORDERS = dict(
 )
 
 
-class Align(object):
+class Align:
     """Text alignment functions, in a class for clean import and contextualized short names"""
 
     @staticmethod
@@ -36,7 +35,7 @@ class Align(object):
         Returns:
             (str): Left-aligned text
         """
-        fmt = u"{:%s<%s}" % (fill, width)
+        fmt = "{:%s<%s}" % (fill, width)
         return fmt.format(text)
 
     @staticmethod
@@ -50,7 +49,7 @@ class Align(object):
         Returns:
             (str): Centered text
         """
-        fmt = u"{:%s^%s}" % (fill, width)
+        fmt = "{:%s^%s}" % (fill, width)
         return fmt.format(text)
 
     @staticmethod
@@ -64,7 +63,7 @@ class Align(object):
         Returns:
             (str): Right-aligned text
         """
-        fmt = u"{:%s>%s}" % (fill, width)
+        fmt = "{:%s>%s}" % (fill, width)
         return fmt.format(text)
 
     @staticmethod
@@ -101,7 +100,7 @@ class Align(object):
         raise ValueError("Invalid default horizontal alignment '%s'" % default)
 
 
-class Header(object):
+class Header:
     """Simple textual header functions, in a class for clean import and contextualized short names"""
 
     @classmethod
@@ -119,11 +118,11 @@ class Header(object):
 
         if border.endswith(" "):
             decorated = "%s%s" % (border, text)
-            fmt = u"{decorated}\n{hr}"
+            fmt = "{decorated}\n{hr}"
 
         else:
             decorated = "%s %s %s" % (border, text, border)
-            fmt = u"{hr}\n{decorated}\n{hr}"
+            fmt = "{hr}\n{decorated}\n{hr}"
 
         return fmt.format(decorated=decorated, hr=border[0] * len(decorated))
 
@@ -163,7 +162,7 @@ class PrettyBorder(Slotted):
         super(PrettyBorder, self)._set_field(name, value)
 
 
-class PrettyCustomizable(object):
+class PrettyCustomizable:
     """
     Ancestor to customizable points, in reverse order of priority
     - table: overall settings, acts as default for all cells
@@ -226,7 +225,7 @@ class PrettyHeader(PrettyCustomizable):
         if value is None:
             return
 
-        if isinstance(value, string_type):
+        if isinstance(value, str):
             for t in flattened(value, split=","):
                 self.add_column(t)
 
@@ -411,7 +410,7 @@ class PrettyTable(PrettyCustomizable):
             if isinstance(source, dict):
                 named_sources.update(source)
 
-            elif isinstance(source, string_type):
+            elif isinstance(source, str):
                 additional.append(source)
 
             else:
@@ -490,7 +489,7 @@ class _PTBorderChars(Slotted):
         return self.represented_values(delimiter="", operator="", name_formatter=lambda x: "")
 
 
-class _PTTable(object):
+class _PTTable:
     def __init__(self, parent):
         """
         Args:
@@ -538,7 +537,7 @@ class _PTTable(object):
         return "\n".join(container)
 
 
-class _PTColumn(object):
+class _PTColumn:
     def __init__(self, ptable, pcolumn):
         """
         Args:
@@ -563,7 +562,7 @@ class _PTColumn(object):
         self.allocated_width = self.text_width
 
 
-class _PTCell(object):
+class _PTCell:
     """Holds text and settings for a cell in the table"""
 
     def __init__(self, column, value, header):
@@ -581,9 +580,6 @@ class _PTCell(object):
         self.column = column
         self.value = value
         text = column.ptable.parent.formatted(value)
-        if auto_unicode is not None:
-            text = auto_unicode(text)  # Needed for PY2 only
-
         text = self.custom.formatted(text)
         self.text = text
         self.text_width = wcswidth(text)

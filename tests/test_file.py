@@ -254,7 +254,6 @@ def test_file_operations(temp_folder):
         assert "source contained in destination" in logged.pop()
 
 
-@pytest.mark.skipif(runez.PY2, reason="no pathlib on py2")
 def test_pathlib(temp_folder):
     from pathlib import Path
 

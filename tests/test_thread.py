@@ -28,7 +28,7 @@ def test_singleton():
     assert s3 is not s4
 
 
-class SomeClass(object):
+class SomeClass:
 
     times_called = 0
 
@@ -42,7 +42,7 @@ class SomeClass(object):
         return self.thread_id
 
 
-class WrappedRun(object):
+class WrappedRun:
     def __init__(self, target, args, kwargs):
         self.target = target
         self.args = args

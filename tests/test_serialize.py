@@ -12,12 +12,12 @@ from runez.serialize import add_meta, ClassMetaDescription, same_type, Serializa
 
 
 @add_meta(ClassMetaDescription)
-class MetaSlotted(object):
+class MetaSlotted:
     __slots__ = "name"
 
 
 @add_meta(ClassMetaDescription)
-class MetaSlotted2(object):
+class MetaSlotted2:
     __slots__ = ["name", "surname"]
 
     @property
@@ -57,7 +57,7 @@ class SomeSerializable(runez.Serializable, with_behavior(strict=True)):
         self.some_int = value
 
 
-class SomeRecord(object):
+class SomeRecord:
     name = "my record"
     some_int = 5
 
@@ -74,7 +74,6 @@ def test_bogus_class():
 
 def test_determined_schema_type():
     assert str(determined_schema_type("a")) == "String (default: a)"
-    assert str(determined_schema_type(u"a")) == "String (default: a)"
     assert str(determined_schema_type(5)) == "Integer (default: 5)"
 
     assert str(determined_schema_type(str)) == "String"
@@ -106,14 +105,9 @@ def test_json(temp_folder, monkeypatch):
     assert runez.represented_json({None: None}, none=True) == '{\n  "null": null\n}\n'
     assert runez.represented_json({None: 1, "foo": None}, none="_null") == '{\n  "_null": 1,\n  "foo": null\n}\n'
 
-    if runez.PY2:
-        assert runez.represented_json({None: 2, "foo": "bar"}, none=True) == '{\n  "null": 2,\n  "foo": "bar"\n}\n'
-        assert runez.represented_json({None: 1, "foo": None}, none=True) == '{\n  "null": 1,\n  "foo": null\n}\n'
-
-    else:
-        with pytest.raises(TypeError):
-            # py3 stdlib can't sort with None key...
-            runez.represented_json({None: 2, "foo": "bar"}, none=True)
+    with pytest.raises(TypeError):
+        # py3 stdlib can't sort with None key...
+        runez.represented_json({None: 2, "foo": "bar"}, none=True)
 
     data = {"a": "x", "b": "y"}
     assert runez.represented_json(data) == '{\n  "a": "x",\n  "b": "y"\n}\n'
@@ -355,7 +349,6 @@ def test_to_dict(temp_folder):
 def test_types():
     assert type_name(None) == "None"
     assert type_name("some-string") == "str"
-    assert type_name(u"some-string") == "str"
     assert type_name({}) == "dict"
     assert type_name(dict) == "dict"
     assert type_name([]) == "list"
@@ -365,6 +358,4 @@ def test_types():
     assert not same_type(None, "")
     assert not same_type("", None)
     assert same_type("some-string", "some-other-string")
-    assert same_type("some-string", u"some-unicode")
-    assert same_type(["some-string"], [u"some-unicode"])
     assert same_type(1, 2)

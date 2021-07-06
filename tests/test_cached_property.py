@@ -3,7 +3,7 @@ import pytest
 from runez.system import cached_property
 
 
-class MyObject(object):
+class MyObject:
 
     _global_counter = 0
 

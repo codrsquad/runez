@@ -26,7 +26,7 @@ from runez.system import LOG
 DEFAULT_FREQUENCY = 60
 
 
-class HeartbeatTask(object):
+class HeartbeatTask:
     """Task to be executed periodically"""
 
     def __init__(self, name=None, frequency=None):
@@ -62,7 +62,7 @@ class HeartbeatTask(object):
         return (self.next_execution, self.frequency) < (other.next_execution, other.frequency)
 
 
-class Heartbeat(object):
+class Heartbeat:
     """Daemon thread used to run periodical background tasks tasks like:
 
     - collecting CPU/RAM usage

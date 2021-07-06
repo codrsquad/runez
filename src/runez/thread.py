@@ -3,7 +3,7 @@ import threading
 _THREAD_LOCAL = threading.local()
 
 
-class thread_local_property(object):
+class thread_local_property:
     """
     A property that is computed once per thread
     Use this in rare cases where you need just a property (or 2) to be thread local in a given object
@@ -27,7 +27,7 @@ class thread_local_property(object):
         return getattr(self.thread_local, self.name)
 
 
-class ThreadLocalSingleton(object):
+class ThreadLocalSingleton:
     """
     Class ancestor intended to easily allow you to get per-thread singletons
 

@@ -9,7 +9,7 @@ import json
 import os
 
 from runez.file import ensure_folder, parent_folder
-from runez.system import _R, abort, is_basetype, is_iterable, LOG, resolved_path, short, string_type, stringified, UNSET
+from runez.system import _R, abort, is_basetype, is_iterable, LOG, resolved_path, short, stringified, UNSET
 
 
 K_INDENTED_SEPARATORS = (",", ": ")
@@ -79,7 +79,7 @@ def set_default_behavior(strict=UNSET, extras=UNSET):
         DefaultBehavior.extras = extras
 
 
-class DefaultBehavior(object):
+class DefaultBehavior:
     """
     Defines how to handle type mismatches and extra data in `Serializable`.
     Default behavior will be used only if no specific with_behavior() is used in Serializable descendant definition.
@@ -110,7 +110,7 @@ class DefaultBehavior(object):
 
         if isinstance(extras, tuple) and len(extras) == 2:
             extras, self.ignored_extras = extras
-            if isinstance(self.ignored_extras, string_type):
+            if isinstance(self.ignored_extras, str):
                 self.ignored_extras = self.ignored_extras.split()
 
         else:
@@ -206,7 +206,7 @@ def json_sanitized(value, stringify=stringified, dt=str, none=False):
     if isinstance(value, dict):
         return dict(
             (
-                json_sanitized(none if k is None and isinstance(none, string_type) else k, stringify=stringify, dt=dt, none=none),
+                json_sanitized(none if k is None and isinstance(none, str) else k, stringify=stringify, dt=dt, none=none),
                 json_sanitized(v, stringify=stringify, dt=dt, none=none),
             )
             for k, v in value.items()
@@ -238,7 +238,7 @@ def same_type(t1, t2):
     if not isinstance(t2, type):
         t2 = t2.__class__
 
-    if issubclass(t1, string_type) and issubclass(t2, string_type):
+    if issubclass(t1, str) and issubclass(t2, str):
         return True
 
     return t1 == t2
@@ -255,7 +255,7 @@ def type_name(value):
     if value is None:
         return "None"
 
-    if isinstance(value, string_type):
+    if isinstance(value, str):
         return "str"
 
     if isinstance(value, type):
@@ -286,7 +286,7 @@ def scan_all_attributes(cls):
                 yield key, value
 
 
-class SerializableDescendants(object):
+class SerializableDescendants:
     """Tracks all descendants of Serializable, with at least one attribute defined"""
 
     by_name = {}  # Tracks by class name only, last imported class wins
@@ -340,7 +340,7 @@ class SerializableDescendants(object):
                 func(*args, **kwargs)
 
 
-class ClassMetaDescription(object):
+class ClassMetaDescription:
     """Info on class attributes and properties"""
 
     def __init__(self, cls, mbehavior=None):
@@ -486,7 +486,7 @@ def add_metaclass(metaclass):
         orig_vars = dict(cls.__dict__)
         slots = orig_vars.get("__slots__")
         if slots is not None:
-            if isinstance(slots, string_type):
+            if isinstance(slots, str):
                 orig_vars.pop(slots)
 
             else:
@@ -536,7 +536,7 @@ def add_meta(meta_type):
 
 
 @add_meta(ClassMetaDescription)
-class Serializable(object):
+class Serializable:
     """Serializable object"""
 
     _meta = None  # type: ClassMetaDescription  # This describes fields and properties of descendant classes, populated via metaclass

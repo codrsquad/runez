@@ -3,10 +3,9 @@ This is module should not import any other runez module, it's the lowest on the 
 """
 
 import re
-import sys
 from collections import defaultdict
 
-from runez.system import flattened, joined, string_type, stringified
+from runez.system import flattened, joined, stringified
 
 
 DEFAULT_BASE = 1000
@@ -25,7 +24,7 @@ def parsed_tabular(content):
     Returns:
         (list[dict]): Parsed output, one entry per parsed line, each line is a dict keyed by the stated header from output
     """
-    if isinstance(content, string_type):
+    if isinstance(content, str):
         content = content.splitlines()
 
     return list(_TabularHeader.parsed_lines(content))
@@ -79,7 +78,7 @@ def to_boolean(value):
     Returns:
         (bool): Deduced boolean value
     """
-    if isinstance(value, string_type):
+    if isinstance(value, str):
         if value.lower() in TRUE_TOKENS:
             return True
 
@@ -132,7 +131,7 @@ def to_float(value, lenient=False, default=None):
     Returns:
         (float | int | None): Extracted float if possible, otherwise `None`
     """
-    if isinstance(value, string_type):
+    if isinstance(value, str):
         return _float_from_text(value, lenient=lenient, default=default)
 
     if lenient:
@@ -158,7 +157,7 @@ def to_int(value, default=None):
     Returns:
         (int | None): Extracted int if possible, otherwise `None`
     """
-    if isinstance(value, string_type):
+    if isinstance(value, str):
         return _int_from_text(value, default=default)
 
     try:
@@ -232,7 +231,7 @@ def identifiers(text):
     return words(text, split=None)
 
 
-class Pluralizer(object):
+class Pluralizer:
     """Quick heuristic to pluralize most common english words"""
 
     letter_based = {"s": "ses", "x": "ces", "y": "ies"}
@@ -274,7 +273,7 @@ def plural(countable, singular=None, base=1000, prefixes=DEFAULT_UNITS):
     Returns:
         (str): Rudimentary, best-effort plural of "<count> <name>(s)"
     """
-    if isinstance(countable, string_type) and singular is None:
+    if isinstance(countable, str) and singular is None:
         return Pluralizer.plural(countable)
 
     if singular is None:
@@ -395,14 +394,6 @@ def _int_from_text(text, base=None, default=None):
 
     except ValueError:
         if base is None:
-            if sys.version_info[:2] <= (3, 5):  # 3.5 has the same quirk as PY2
-                text = RE_UNDERSCORED_NUMBERS.sub(r"\1\2", text)
-                try:
-                    return int(text)
-
-                except ValueError:
-                    pass
-
             if len(text) >= 3 and text[0] == "0":
                 if text[1] == "o":
                     return _int_from_text(text, base=8, default=default)
@@ -463,7 +454,7 @@ def _represented_with_units(size, unit, base, delimiter, prefixes, exponent=0):
     return "%s%s%s%s" % (represented_size, delimiter, prefixes[exponent - 1], unit)
 
 
-class _TabularInterval(object):
+class _TabularInterval:
     """Allows to parse tabulated output such as given by the `ps` command, tracks header column positions"""
 
     def __init__(self, name, start=0, end=0):
@@ -483,7 +474,7 @@ class _TabularInterval(object):
         return self
 
 
-class _TabularHeader(object):
+class _TabularHeader:
     """Allows to parse `ps` tabulated output, parses header then can extract rest of `ps` output info"""
 
     regex = re.compile(r"(\s*)(\S+)")

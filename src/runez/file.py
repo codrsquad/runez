@@ -277,7 +277,7 @@ def symlink(source, destination, must_exist=True, fatal=True, logger=UNSET, dryr
     return _file_op(source, destination, _symlink, fatal, logger, dryrun, must_exist=must_exist)
 
 
-class TempFolder(object):
+class TempFolder:
     """Context manager for obtaining a temp folder"""
 
     def __init__(self, anchor=True, dryrun=UNSET, follow=True):

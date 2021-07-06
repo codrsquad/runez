@@ -1,9 +1,8 @@
-# -*- encoding: utf-8 -*-
-
 """
 Convenience logging setup
 """
 
+import faulthandler
 import logging
 import os
 import re
@@ -12,21 +11,14 @@ import sys
 import threading
 import time
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
-
-try:
-    # faulthandler is only available in python 3.3+
-    import faulthandler
-    from typing import List, Optional  # noqa
-
-except ImportError:
-    faulthandler = None
+from typing import List, Optional
 
 from runez.ascii import AsciiAnimation
 from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone
 from runez.file import parent_folder
-from runez.system import _getframe, _R, abort, cached_property, decode, DEV, flattened, quoted, short, stringified, uncolored
-from runez.system import LOG, Slotted, string_type, SYS_INFO, ThreadGlobalContext, UNSET, WINDOWS
+from runez.system import _R, abort, cached_property, decode, DEV, flattened, quoted, short, stringified, uncolored
+from runez.system import LOG, Slotted, SYS_INFO, ThreadGlobalContext, UNSET, WINDOWS
 
 
 ORIGINAL_CF = logging.currentframe
@@ -78,9 +70,9 @@ class ProgressHandler(logging.Handler):
         """Not needed"""
 
 
-class ProgressBar(object):
+class ProgressBar:
 
-    def __init__(self, iterable=None, total=None, columns=8, frames=u" ▏▎▍▌▋▊▉"):
+    def __init__(self, iterable=None, total=None, columns=8, frames=" ▏▎▍▌▋▊▉"):
         self.columns = columns
         self.frames = frames
         self.per_char = 100.0 / columns
@@ -152,7 +144,7 @@ class ProgressBar(object):
                     fi = int((percent - full_chars * self.per_char) / self.per_frame)
                     bar += self.frames[fi]
 
-            return u"%s%s%s%%" % (bar, self.blank_char * blanks, percent)
+            return "%s%s%s%%" % (bar, self.blank_char * blanks, percent)
 
     def _remove_parent(self, parent):
         if parent is self.parent:
@@ -162,7 +154,7 @@ class ProgressBar(object):
             self.parent._remove_parent(parent)
 
 
-class _SpinnerComponent(object):
+class _SpinnerComponent:
 
     def __init__(self, fps, source, color, adapter=None):
         self.adapter = adapter
@@ -203,7 +195,7 @@ class _SpinnerComponent(object):
         return 0
 
 
-class _SpinnerState(object):
+class _SpinnerState:
 
     def __init__(self, parent, frames, max_columns, message_color, progress_color, spinner_color):
         """
@@ -236,7 +228,7 @@ class _SpinnerState(object):
             return " %s" % " ".join(line) if line else ""
 
 
-class ProgressSpinner(object):
+class ProgressSpinner:
     """
     Background progress spinner on stderr tty - with an animation conveying that work is being performed.
     This can be enabled with one call:
@@ -439,7 +431,7 @@ class ProgressSpinner(object):
             self.stop()
 
 
-class TraceHandler(object):
+class TraceHandler:
     """
     Allows to optionally provide trace logging, typically activated by an env var, like:
         MY_APP_DEBUG=1 my-app ...
@@ -629,7 +621,7 @@ def default_log_locations():
     return ["{dev}/log/{basename}", "/logs/{appname}/{basename}", "/var/log/{basename}"]
 
 
-class LogManager(object):
+class LogManager:
     """
     Global logging context managed by runez.
     There's only one, as multiple contexts would not be useful (logging setup is a global thing)
@@ -796,10 +788,10 @@ class LogManager(object):
                 if cls.tracer is None:
                     trace = cls.trace_env_var
 
-            elif isinstance(trace, string_type):
+            elif isinstance(trace, str):
                 cls.trace_env_var = trace
 
-            if isinstance(trace, string_type) and "+" in trace:
+            if isinstance(trace, str) and "+" in trace:
                 p = trace.partition("+")
                 cls.enable_trace(p[0], prefix=p[2])
 
@@ -901,13 +893,12 @@ class LogManager(object):
             return _formatted_text(greeting, cls.spec._props(location=location))
 
     @classmethod
-    def silence(cls, *modules, **kwargs):
+    def silence(cls, *modules, level=logging.WARNING):
         """
         Args:
             *modules: Modules, or names of modules to silence (by setting their log level to WARNING or above)
-            **kwargs: Pass as kwargs due to PY2, would be level=logging.WARNING otherwise
+            level (int): Logging level to limit logging to for given 'modules'
         """
-        level = kwargs.pop("level", logging.WARNING)
         for mod in modules:
             name = mod.__name__ if hasattr(mod, "__name__") else mod
             logging.getLogger(name).setLevel(level)
@@ -944,7 +935,7 @@ class LogManager(object):
                 cls._disable_faulthandler()
                 return
 
-            if not cls.file_handler or faulthandler is None:
+            if not cls.file_handler:
                 return
 
             cls.faulthandler_signum = signum
@@ -967,7 +958,7 @@ class LogManager(object):
             stream: Where to trace (by default: current 'console_stream' if configured, otherwise sys.stderr)
         """
         if spec is not UNSET:
-            if spec and (not isinstance(spec, string_type) or spec in os.environ):
+            if spec and (not isinstance(spec, str) or spec in os.environ):
                 cls.tracer = TraceHandler(prefix, stream or cls.spec.console_stream or sys.stderr)
 
             else:
@@ -982,7 +973,7 @@ class LogManager(object):
         Returns:
             (bool): Resolved value for dryrun
         """
-        return _R.is_dryrun() if dryrun is UNSET else dryrun
+        return _R.resolved_dryrun(dryrun)
 
     @classmethod
     def trace(cls, message, *args, **kwargs):
@@ -1011,19 +1002,7 @@ class LogManager(object):
         Returns:
             (bool): True if we were indeed in dryrun mode, and we logged the message
         """
-        if cls.resolved_dryrun(dryrun):
-            if logger is not None and message is not None:
-                message = "Would %s" % _R.actual_message(message)
-                if logger is False:
-                    cls.trace(message)
-
-                elif callable(logger):
-                    logger(message)
-
-                else:
-                    print(message)
-
-            return True
+        return _R.hdry(dryrun, logger, message)
 
     @staticmethod
     def current_test():
@@ -1107,7 +1086,7 @@ class LogManager(object):
 
     @classmethod
     def _disable_faulthandler(cls):
-        if faulthandler and cls.faulthandler_signum:
+        if cls.faulthandler_signum:
             faulthandler.unregister(cls.faulthandler_signum)
             faulthandler.disable()
             cls.faulthandler_signum = None
@@ -1150,7 +1129,7 @@ class LogManager(object):
         logging.logProcesses = cls.is_using_format("%(process)")
         logging.logThreads = cls.is_using_format("%(thread) %(threadName)")
 
-        if not isinstance(logging.info, _LogWrap) and _getframe is not None:
+        if not isinstance(logging.info, _LogWrap) and _R.getframe is not None:
             logging.critical = _LogWrap(logging.CRITICAL)
             logging.fatal = logging.critical
             logging.error = _LogWrap(logging.ERROR)
@@ -1161,7 +1140,7 @@ class LogManager(object):
             logging.log = _LogWrap.log
 
 
-class _LogWrap(object):
+class _LogWrap:
     """Allows to correctly report caller file/function/line from convenience calls such as logging.info()"""
 
     def __init__(self, level, exc_info=None):
@@ -1172,10 +1151,10 @@ class _LogWrap(object):
     @staticmethod
     def log(level, msg, *args, **kwargs):
         offset = kwargs.pop("_stack_offset", 1)
-        name = _getframe(offset).f_globals.get("__name__")
+        name = _R.getframe(offset).f_globals.get("__name__")
         logger = logging.getLogger(name)
         try:
-            logging.currentframe = lambda: _getframe(3 + offset)
+            logging.currentframe = lambda: _R.getframe(3 + offset)
             logger.log(level, msg, *args, **kwargs)
 
         finally:

@@ -148,8 +148,7 @@ def test_script_invocations(cli):
 
     # Below will properly make test coverage detect properly that we did execute code in __main__.py
     cli.exercise_main("-mrunez", "src/runez/__main__.py")
-    if not runez.PY2:  # no type annotations in py2
-        cli.exercise_main("extra-validations")  # Checks also that script is found even in tests/ subfolder
+    cli.exercise_main("extra-validations")  # Checks also that script is found even in tests/ subfolder
 
     with pytest.raises(AssertionError):
         cli.exercise_main("failed-help")

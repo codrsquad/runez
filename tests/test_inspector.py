@@ -9,7 +9,7 @@ from runez.inspector import auto_import_siblings, auto_install, ImportTime
 from runez.system import _R
 
 
-class MockFrame(object):
+class MockFrame:
     f_globals = None
 
 

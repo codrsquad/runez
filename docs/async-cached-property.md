@@ -20,7 +20,7 @@ except (ImportError, SyntaxError):
     asyncio = None
 
 
-class cached_property(object):
+class cached_property:
     """
     A property that is only computed once per instance and then replaces itself with an ordinary attribute.
     Same as https://pypi.org/project/cached-property/ (without having to add another dependency).

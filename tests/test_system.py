@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-
-from __future__ import print_function
-
 import datetime
 import logging
 import os
@@ -218,7 +214,7 @@ def test_fallback(logged):
     assert len(c1.failed) == 1
     assert str(c1) == "[test chain] <lambda> (+0), failed: oopsie"
 
-    class MyRunner(object):
+    class MyRunner:
         def prepare(self):
             """Preparation succeeds"""
 
@@ -298,9 +294,6 @@ def test_first_line():
 
 
 def test_flattened():
-    with pytest.raises(TypeError):  # TODO: remove once py2 support is dropped
-        runez.flattened("", foo=1)
-
     assert runez.flattened(None) == [None]
     assert runez.flattened([None]) == [None]
 
@@ -410,9 +403,6 @@ def test_get_version():
 
 
 def test_joined():
-    with pytest.raises(TypeError):  # TODO: remove once py2 support is dropped
-        runez.joined("", foo=1)
-
     def gen():
         yield "foo"
         yield None
@@ -448,9 +438,6 @@ def test_path_resolution(temp_folder):
 
 
 def test_quoted():
-    with pytest.raises(TypeError):  # TODO: remove once py2 support is dropped
-        runez.quoted("", foo=1)
-
     assert runez.quoted(None) == "None"
     assert runez.quoted("") == ""
     assert runez.quoted(" ") == '" "'
@@ -486,7 +473,7 @@ def test_shortening():
     assert runez.short(" some  text ", size=0) == "some text"
 
     # Verify that coloring is not randomly truncated
-    assert runez.short(u"\033[38;2;255;0;0mfoo bar baz\033[39m", size=6, uncolor=True) == "foo..."
+    assert runez.short("\033[38;2;255;0;0mfoo bar baz\033[39m", size=6, uncolor=True) == "foo..."
 
     with runez.TempFolder() as tmp:
         assert runez.short(os.path.join(tmp, "some-file")) == "some-file"
@@ -649,22 +636,20 @@ def test_user_id(monkeypatch):
 
 def test_wcswidth():
     assert runez.wcswidth(None) == 0
-    assert runez.wcswidth(u"") == 0
-    assert runez.wcswidth(u"") == 0
-    assert runez.wcswidth(u"foo") == 3
-    assert runez.wcswidth(u"コンニチハ, セカイ!") == 19
-    assert runez.wcswidth(u"abc\x00def") == 6
-    assert runez.wcswidth(u"--\u05bf--") == 4
-    assert runez.wcswidth(u"café") == 4
-    assert runez.wcswidth(u"\u0410\u0488") == 1
-    # assert runez.wcswidth(u"ᬓᬨᬮ᭄") == 4
+    assert runez.wcswidth("") == 0
+    assert runez.wcswidth("foo") == 3
+    assert runez.wcswidth("コンニチハ, セカイ!") == 19
+    assert runez.wcswidth("abc\x00def") == 6
+    assert runez.wcswidth("--\u05bf--") == 4
+    assert runez.wcswidth("café") == 4
+    assert runez.wcswidth("\u0410\u0488") == 1
+    # assert runez.wcswidth("ᬓᬨᬮ᭄") == 4
 
-    if not runez.PY2:
-        assert runez.wcswidth(u"😊") == 2
-        assert runez.wcswidth(u"⚡") == 2
-        assert runez.wcswidth(u"hello ⚡ world") == 14
-        assert runez.wcswidth(u"\x1b[33mhello ⚡ world\x1b[39m") == 14  # ANSI coloring
+    assert runez.wcswidth("😊") == 2
+    assert runez.wcswidth("⚡") == 2
+    assert runez.wcswidth("hello ⚡ world") == 14
+    assert runez.wcswidth("\x1b[33mhello ⚡ world\x1b[39m") == 14  # ANSI coloring
 
-    assert runez.wcswidth(u"hello world") == 11
-    assert runez.wcswidth(u"\x1b[0m") == 0
-    assert runez.wcswidth(u"\x1b[0mhello") == 5
+    assert runez.wcswidth("hello world") == 11
+    assert runez.wcswidth("\x1b[0m") == 0
+    assert runez.wcswidth("\x1b[0mhello") == 5

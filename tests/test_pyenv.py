@@ -37,9 +37,9 @@ def mk_python(basename, prefix=None, base_prefix=None, executable=True, content=
         content = [version, prefix, base_prefix]
 
     content = "#!/bin/bash\n%s\n" % "\n".join("echo %s" % s for s in content)
-    runez.write(path, content)
+    runez.write(path, content, logger=None)
     if executable:
-        runez.make_executable(path)
+        runez.make_executable(path, logger=None)
 
 
 def check_find_python(depot, spec, expected):
@@ -67,7 +67,7 @@ def test_empty_depot():
     assert str(depot) == "0 scanned"
 
 
-def test_depot(temp_folder, monkeypatch):
+def test_depot(temp_folder, monkeypatch, logged):
     # Create some pyenv-style python installation mocks (using version 8 so it sorts above any real version...)
     mk_python("8.6.1")
     mk_python("8.7.2")
@@ -83,21 +83,22 @@ def test_depot(temp_folder, monkeypatch):
     assert depot.scanned == [p8, p86]
     assert depot.from_path == []
     assert depot.scanned_prefixes == {runez.resolved_path(".pyenv/versions")}
+    assert not logged
 
     mk_python("8.8.3", executable=False)
     mk_python("8.9.0")
     mk_python("miniconda3-4.7.12")
 
     # Create some PATH-style python installation mocks (using version 9 so it sorts higher than pyenv ones)
-    mk_python("python", folder="foo", version="9.5.1")
-    mk_python("python2", folder="foo", content=["foo; bar"])  # --version fails
-    mk_python("python3", folder="foo", content=["foo"])  # Invalid: mocked _pv.py does not return the right number of lines
-    mk_python("some-other-python-exe-name", folder="additional", version="8.5.0")
-    mk_python("python2", folder="additional")  # Invalid version
-    with runez.CurrentFolder("additional/bin"):
-        runez.symlink("some-other-python-exe-name", "python")
+    mk_python("python", folder="path1", version="9.5.1")
+    mk_python("python3", folder="path1", content=["foo"])  # Invalid: mocked _pv.py does not return the right number of lines
+    mk_python("python", folder="path2", content=["foo; bar"])  # --version fails
+    mk_python("some-other-python-exe-name", folder="path3", version="8.5.0")
+    mk_python("python3", folder="path3")  # Invalid version
+    with runez.CurrentFolder("path3/bin"):
+        runez.symlink("some-other-python-exe-name", "python", logger=None)
 
-    monkeypatch.setenv("PATH", "foo/bin:bar:additional/bin")
+    monkeypatch.setenv("PATH", "bar:path1/bin:path2/bin:path3/bin")
     scanner = pyenv_scanner(".pyenv:non-existent-folder")
     depot = PythonDepot(scanner=scanner, use_path=True)
     assert str(depot) == "4 scanned, 2 from PATH"
@@ -110,9 +111,9 @@ def test_depot(temp_folder, monkeypatch):
     assert depot.scanned_prefixes == {runez.resolved_path(".pyenv/versions")}
     assert depot.scan_path_env_var() is None  # Already scanned to try and find invoker
     p95 = depot.find_python("9.5.1")
-    assert str(p95) == "foo/bin/python [cpython:9.5.1]"
+    assert str(p95) == "path1/bin/python [cpython:9.5.1]"
 
-    check_find_python(depot, "9", "foo/bin/python [cpython:9.5.1]")
+    check_find_python(depot, "9", "path1/bin/python [cpython:9.5.1]")
     check_find_python(depot, "42.4", "42.4 [not available]")
     check_find_python(depot, "foo", "foo [not available]")
     check_find_python(depot, "python:43.0.0", "python:43.0.0 [not available]")

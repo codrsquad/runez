@@ -11,17 +11,17 @@ from runez.pyenv import PythonDepot
 from runez.system import CaptureOutput, LOG, short, stringified
 
 
-runez.date.DEFAULT_TIMEZONE = runez.date.UTC
-runez.serialize.set_default_behavior(strict=False, extras=True)
 cli.default_main = main
 PythonDepot.use_path = False
+runez.date.DEFAULT_TIMEZONE = runez.date.UTC
+runez.serialize.set_default_behavior(strict=False, extras=True)
 
 
 # This is here only to satisfy flake8, mentioning the imported fixtures so they're not declared "unused"
 assert all(s for s in [cli, isolated_log_setup, logged, temp_folder])
 
 
-class TempLog(object):
+class TempLog:
     """Extra test-oriented convenience on top of runez.TrackedOutput"""
 
     def __init__(self, tracked):

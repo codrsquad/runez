@@ -7,7 +7,7 @@ if __name__ == "__main__":
         setup_requires="setupmeta",
         versioning="dev",
         author="Zoran Simic zoran@simicweb.com",
-        python_requires='>=2.7',
+        python_requires='>=3.6',
         url="https://github.com/codrsquad/runez",
         classifiers=[
             "Development Status :: 5 - Production/Stable",
@@ -17,8 +17,6 @@ if __name__ == "__main__":
             "Operating System :: POSIX :: Linux",
             "Operating System :: Unix",
             "Programming Language :: Python",
-            "Programming Language :: Python :: 2",
-            "Programming Language :: Python :: 2.7",
             "Programming Language :: Python :: 3",
             "Programming Language :: Python :: 3.5",
             "Programming Language :: Python :: 3.6",

@@ -9,8 +9,6 @@ Convenience commonly used click options:
         ...
 """
 
-from __future__ import absolute_import
-
 import errno
 import logging
 import os
@@ -27,7 +25,7 @@ from runez.colors import ColorManager
 from runez.convert import affixed
 from runez.file import basename
 from runez.logsetup import LogManager
-from runez.system import _R, find_caller_frame, flattened, get_version, string_type, stringified
+from runez.system import _R, find_caller_frame, flattened, get_version, stringified
 
 
 def command(help=None, width=140, **attrs):
@@ -242,7 +240,7 @@ def _auto_complete_callback(attrs, func):
         attrs["callback"] = _callback
 
 
-class _ConfigOption(object):
+class _ConfigOption:
     def __init__(self, attrs):
         self.adapter = attrs.pop("adapter", str.lower)
         self.default = attrs.pop("default", None)  # Defaults can't go via click, otherwise they always take precedence
@@ -272,7 +270,7 @@ class _ConfigOption(object):
         self._add_dict(c, self.name, self._get_values(value))
 
         if self.env:
-            env_prefix = self.env if isinstance(self.env, string_type) else basename(sys.argv[0]).upper()
+            env_prefix = self.env if isinstance(self.env, str) else basename(sys.argv[0]).upper()
             if not env_prefix.endswith("_"):
                 env_prefix += "_"
 
@@ -288,7 +286,7 @@ class _ConfigOption(object):
             self._add_dict(c, "%s* env vars" % env_prefix, values)
 
         if self.propsfs:
-            folder = self.propsfs if isinstance(self.propsfs, string_type) else None
+            folder = self.propsfs if isinstance(self.propsfs, str) else None
             c.add(runez.config.PropsfsProvider(folder))
 
         if self.default:

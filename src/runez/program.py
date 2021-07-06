@@ -2,8 +2,6 @@
 Convenience methods for executing programs
 """
 
-from __future__ import print_function
-
 import errno
 import fcntl
 import os
@@ -14,12 +12,11 @@ import subprocess
 import sys
 import tempfile
 import termios
-import time
 from io import BytesIO
 from select import select
 
 from runez.convert import parsed_tabular, to_int
-from runez.system import _R, abort, cached_property, decode, flattened, quoted, resolved_path, short, StringIO, SYS_INFO, uncolored
+from runez.system import _R, abort, cached_property, decode, flattened, quoted, resolved_path, short, SYS_INFO, uncolored
 from runez.system import UNSET, WINDOWS
 
 
@@ -32,7 +29,7 @@ PS_FOLLOW = {
 }
 
 
-class PsInfo(object):
+class PsInfo:
     """Summary info about a process, as given by `ps -f` command"""
 
     info = None  # type: dict # Info returned by `ps`
@@ -397,7 +394,7 @@ def shell(*args, **kwargs):
         return r.output
 
 
-class RunAudit(object):
+class RunAudit:
     """Provided as given by original code, for convenient reference"""
 
     def __init__(self, program, args, kwargs):
@@ -413,7 +410,7 @@ class RunAudit(object):
         self.dryrun = False  # Was this a dryrun?
 
 
-class RunResult(object):
+class RunResult:
     """Holds result of a runez.run()"""
 
     def __init__(self, output=None, error=None, code=1, audit=None):
@@ -571,13 +568,10 @@ def _read_data(fd, length=1024):
 
 def _run_popen(args, kwargs, passthrough, fatal, stdout, stderr):
     """Run subprocess.Popen(), capturing output accordingly"""
-    if not passthrough or not hasattr(subprocess.Popen, "__enter__"):
+    if not passthrough:
         p = subprocess.Popen(args, stdout=stdout, stderr=stderr, **kwargs)
         if fatal is None and stdout is None and stderr is None:
             return p, None, None  # Don't wait on spawned process
-
-        if passthrough:
-            p = _SimplePassthrough(p)  # PY2: use a simple pass-through capture (Popen is not a context manager)
 
         out, err = p.communicate()
         return p, decode(out), decode(err)
@@ -624,62 +618,6 @@ def _run_popen(args, kwargs, passthrough, fatal, stdout, stderr):
     return p, uncolored(decode(stdout_buffer.getvalue())), uncolored(decode(stderr_buffer.getvalue()))
 
 
-class _SimplePassthrough(object):
-    """Capture process stdout/stderr while still letting pass through to sys.stdout/stderr"""
-
-    def __init__(self, process):
-        """
-        Args:
-            process (subprocess.Popen): Process to capture and let output pass-through
-        """
-        self.process = process
-
-    @property
-    def pid(self):
-        return self.process.pid
-
-    @property
-    def returncode(self):
-        return self.process.returncode
-
-    @staticmethod
-    def _mark_non_blocking(channel):
-        """Make `channel` non-blocking when using read/readline"""
-        fl = fcntl.fcntl(channel, fcntl.F_GETFL)
-        fcntl.fcntl(channel, fcntl.F_SETFL, fl | os.O_NONBLOCK)
-
-    @staticmethod
-    def handle_output(incoming, outgoing, buffer):
-        """Pass-through output from `incoming` -> `outgoing`, and capture it in `buffer` as well"""
-        try:
-            s = incoming.readline()
-            while s:
-                s = decode(s)
-                outgoing.write(s)
-                buffer.write(s)
-                s = incoming.readline()
-
-        except IOError:
-            pass  # Non-blocking readline() raises IOError when empty (py2 only)
-
-    def communicate(self):
-        stdout = self.process.stdout
-        stderr = self.process.stderr
-        self._mark_non_blocking(stdout)
-        self._mark_non_blocking(stderr)
-        buffer_stdout = StringIO()
-        buffer_stderr = StringIO()
-        while self.process.poll() is None:
-            self.handle_output(stdout, sys.stdout, buffer_stdout)
-            self.handle_output(stderr, sys.stderr, buffer_stderr)
-            time.sleep(0.1)
-
-        # Ensure no bits left behind
-        self.handle_output(stdout, sys.stdout, buffer_stdout)
-        self.handle_output(stderr, sys.stderr, buffer_stderr)
-        return buffer_stdout.getvalue(), buffer_stderr.getvalue()
-
-
 def _windows_exe(path):  # pragma: no cover
     if path:
         for extension in (".exe", ".bat"):
@@ -691,7 +629,7 @@ def _windows_exe(path):  # pragma: no cover
                 return fpath
 
 
-class _WrappedArgs(object):
+class _WrappedArgs:
     """Context manager to temporarily work around https://youtrack.jetbrains.com/issue/PY-40692"""
 
     def __init__(self, args):
