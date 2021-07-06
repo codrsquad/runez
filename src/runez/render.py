@@ -2,7 +2,7 @@ import os
 
 from runez.colors import cast_style
 from runez.convert import to_int
-from runez.system import _R, AdaptedProperty, flattened, is_iterable, joined, short, Slotted, stringified
+from runez.system import _R, AdaptedProperty, flattened, is_iterable, joined, resolved_default, short, Slotted, stringified
 from runez.system import SYS_INFO, UNSET, wcswidth
 
 
@@ -378,12 +378,12 @@ class PrettyTable(PrettyCustomizable):
         return table.get_string()
 
     @staticmethod
-    def two_column_diagnostics(*sources, **kwargs):
+    def two_column_diagnostics(
+        *sources, align="right", border=UNSET, columns=UNSET, delimiter="\n\n", missing=UNSET, style=UNSET, title_color=UNSET
+    ):
         """
         Args:
             *sources (callable | iterable | dict): Must yield pairs of values (name of diagnostic, and its value)
-
-        Keyword Args:
             align (str): Alignment for 1st column (default: right)
             border (str): Border for the PrettyTable used to render the two-column diagnostics
             columns (int | None): Optional max number of columns in output (default: terminal width)
@@ -395,14 +395,11 @@ class PrettyTable(PrettyCustomizable):
         Returns:
             (PrettyTable): Rendered PrettyTable showing diagnostics info
         """
-        align = kwargs.pop("align", "right")
-        border = kwargs.pop("border", os.environ.get("DIAGNOSTICS_BORDER", "colon"))
-        columns = kwargs.pop("columns", SYS_INFO.terminal.columns)
-        delimiter = kwargs.pop("delimiter", "\n\n")
-        missing = kwargs.pop("missing", _R._runez_module().orange)
-        style = kwargs.pop("style", _R._runez_module().bold)
-        title_color = kwargs.pop("title_color", _R._runez_module().blue)
-        assert not kwargs, "Unexpected kwargs: %s" % short(kwargs)
+        border = resolved_default(border, os.environ.get("DIAGNOSTICS_BORDER") or "colon")
+        columns = resolved_default(columns, SYS_INFO.terminal.columns)
+        missing = resolved_default(missing, _R._runez_module().orange)
+        style = resolved_default(style, _R._runez_module().bold)
+        title_color = resolved_default(title_color, _R._runez_module().blue)
         additional = []
         named_sources = {}
         regular_sources = []

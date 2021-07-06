@@ -82,7 +82,7 @@ def test_capture(monkeypatch):
         assert r.error is None
         assert r.full_output is None
 
-        r = runez.run(CHATTER, "hello", path_env={"PATH": ":."})
+        r = runez.run(CHATTER, "hello", path_env={"PATH": ":.", "CPPFLAGS": " -I/usr/local/opt/openssl/include"})
         assert str(r) == "RunResult(exit_code=0)"
         assert r.succeeded
         assert r.output == "hello"

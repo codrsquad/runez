@@ -4,16 +4,13 @@ Base functionality used by other parts of `runez`.
 This class should not import any other `runez` class, to avoid circular deps.
 """
 
-import functools
 import inspect
 import logging
 import os
-import random
 import re
 import shutil
 import sys
 import threading
-import time
 import unicodedata
 from io import StringIO
 
@@ -504,6 +501,10 @@ def quoted(*items, delimiter=" ", adapter=UNSET, keep_empty=True):
     return delimiter.join(result)
 
 
+def resolved_default(value, default_value):
+    return default_value if value is UNSET else value
+
+
 def resolved_path(path, base=None):
     """
     Args:
@@ -521,126 +522,6 @@ def resolved_path(path, base=None):
         return os.path.join(resolved_path(base), path)
 
     return os.path.abspath(path)
-
-
-class RetryHandler:
-    """Retry a function N times before giving up"""
-
-    # Defaults for retry decorator, these can be modified from your application, if convenient / applicable
-    # The below values lead to an average of ~12 minutes retrying (outcome can be seen with: python -mrunez retry -i2000)
-    exceptions = Exception  # Exception(s) to catch
-    tries = 5  # Number of attempts to perform (minimum: 1)
-    delay = 1.0  # Initial delay in seconds between attempts (minimum: 0)
-    max_delay = 60  # Maximum delay in seconds (None or 0: no limit)
-    backoff = 1.25  # Multiplier applied to delay between attempts (None or 1: no backoff, minimum: 0.5)
-    jitter = 2.0  # Random extra seconds between 0 and 'jitter' added to delay between attempts (None or 0: no jitter)
-    logger = LOG.debug  # Logger to use
-
-    def __init__(self, **settings):
-        Slotted.fill_attributes(self, settings)
-        self.tries = capped(self.tries, minimum=1, key="tries")
-        self.delay = capped(self.delay, minimum=0, key="delay")
-        self.max_delay = capped(self.max_delay, minimum=0, key="max_delay", none_ok=True) or None
-        self.backoff = capped(self.backoff, minimum=0.5, key="backoff", none_ok=True)
-        self.jitter = capped(self.jitter, minimum=0, key="jitter", none_ok=True)
-
-    def __repr__(self):
-        if isinstance(self.exceptions, tuple):
-            exceptions = "(%s)" % joined(flattened(self.exceptions, transform=lambda x: x.__name__), delimiter=", ")
-
-        else:
-            exceptions = self.exceptions.__name__
-
-        r = (
-            "exceptions=%s" % exceptions,
-            "tries=%s" % stringified(self.tries),
-            "delay=%s" % stringified(self.delay),
-            "max_delay=%s" % stringified(self.max_delay),
-            "backoff=%s" % stringified(self.backoff),
-            "jitter=%s" % stringified(self.jitter),
-        )
-        return "retry(%s)" % joined(r, delimiter=", ")
-
-    def decorator(self, func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            return self.call(func, *args, **kwargs)
-
-        return wrapper
-
-    def call(self, func, *args, **kwargs):
-        remaining = self.tries
-        delay = self.delay
-        while remaining:
-            try:
-                return func(*args, **kwargs)
-
-            except self.exceptions as e:
-                remaining -= 1
-                if not remaining:
-                    raise
-
-                _R.hlog(self.logger, "%s, retrying in %s..." % (e, _R._runez_module().represented_duration(delay, span=2)))
-                sleep(delay)
-                if self.backoff:
-                    delay *= self.backoff
-
-                if self.jitter:
-                    delay += random.uniform(0, self.jitter)
-
-                delay = capped(delay, minimum=0, maximum=self.max_delay)
-
-
-def retry(func=None, exceptions=UNSET, tries=UNSET, delay=UNSET, max_delay=UNSET, backoff=UNSET, jitter=UNSET, logger=UNSET):
-    """See class `RetryHandler` for defaults
-
-    Args:
-        func (callable): Function being wrapped
-        exceptions (Exception | tuple[Exception]): Exception(s) to catch
-        tries (int): Number of attempts to perform (minimum: 1)
-        delay (int | float): Initial delay in seconds between attempts (minimum: 0)
-        max_delay (int | float | None): Maximum delay in seconds (None or 0: no limit)
-        backoff (float): Multiplier applied to delay between attempts (None or 1: no backoff, minimum: 0.5)
-        jitter (int | float): Random extra seconds between 0 and 'jitter' added to delay between attempts (None or 0: no jitter)
-        logger (callable | None): Logger to use
-
-    Returns:
-        Decorated function
-    """
-    handler = RetryHandler(
-        exceptions=exceptions, tries=tries, delay=delay, max_delay=max_delay, backoff=backoff, jitter=jitter, logger=logger
-    )
-    if func is None:
-        # We're called with args, form: `@my_decorator(...)`
-        return handler.decorator
-
-    # We're called without args, form: `@my_decorator`
-    return handler.decorator(func)
-
-
-def retry_run(func, *args, **kwargs):
-    """Handy variant of retry that can be used directly, without decorating a function
-    Example:
-        session = requests.Session()
-        r = runez.retry_run(session.get, url, timeout=5, _tries=2)
-
-    Args:
-        func (callable): Function being wrapped
-        *args: Passed-through to 'func'
-        **kwargs: Passed-through to 'func' (with below optional keyword arguments removed)
-
-    Keyword Args:
-        _exceptions (Exception | tuple[Exception]): Exception(s) to catch
-        _tries (int): Number of attempts to perform (minimum: 1)
-        _delay (int | float): Initial delay in seconds between attempts (minimum: 0)
-        _max_delay (int | float | None): Maximum delay in seconds (None or 0: no limit)
-        _backoff (float): Multiplier applied to delay between attempts (None or 1: no backoff, minimum: 0.5)
-        _jitter (int | float): Random extra seconds between 0 and 'jitter' added to delay between attempts (None or 0: no jitter)
-        _logger (callable | None): Logger to use
-    """
-    settings = Slotted.pop_private(RetryHandler, kwargs)
-    handler = RetryHandler(**settings)
-    return handler.call(func, *args, **kwargs)
 
 
 def short(value, size=UNSET, none="None", uncolor=False):
@@ -669,11 +550,6 @@ def short(value, size=UNSET, none="None", uncolor=False):
             text = "%s..." % text[:size - 3]
 
     return text
-
-
-def sleep(seconds):
-    """Same as time.sleep(), can be mocked/overridden"""
-    time.sleep(seconds)
 
 
 def uncolored(text):
@@ -1177,14 +1053,14 @@ class TrackedOutput:
 class Slotted:
     """This class allows to easily initialize/set a descendant using named arguments"""
 
-    def __init__(self, *positionals, **kwargs):
+    def __init__(self, *positionals, **named):
         """
         Args:
             *positionals: Optionally provide positional objects to extract values from, when possible
-            **kwargs: Override one or more of this classes' fields (keys must refer to valid slots)
+            **named: Override one or more of this classes' fields (keys must refer to valid slots)
         """
         self._seed()
-        self.set(*positionals, **kwargs)
+        self.set(*positionals, **named)
 
     def __repr__(self):
         return "%s(%s)" % (self.__class__.__name__, self.represented_values())
@@ -1236,24 +1112,24 @@ class Slotted:
 
         return default
 
-    def set(self, *positionals, **kwargs):
+    def set(self, *positionals, **named):
         """Conveniently set one or more fields at a time.
 
         Args:
             *positionals: Optionally set from other objects, available fields from the passed object are used in order
-            **kwargs: Set from given key/value pairs (only names defined in __slots__ are used)
+            **named: Set from given key/value pairs (only names defined in __slots__ are used)
         """
         for positional in positionals:
             if positional is not UNSET:
                 values = self._values_from_positional(positional)
                 if values:
                     for k, v in values.items():
-                        if v is not UNSET and kwargs.get(k) in (None, UNSET):
+                        if v is not UNSET and named.get(k) in (None, UNSET):
                             # Positionals take precedence over None and UNSET only
-                            kwargs[k] = v
+                            named[k] = v
 
-        for name in kwargs:
-            self._set(name, kwargs.get(name, UNSET))
+        for name in named:
+            self._set(name, named.get(name, UNSET))
 
     def pop(self, settings):
         """
@@ -1275,12 +1151,12 @@ class Slotted:
         return result
 
     @staticmethod
-    def fill_attributes(obj, kwargs):
-        """Allows to turn kwargs into named attributes, UNSET values allow to fall back to stated default at class level"""
+    def fill_attributes(obj, named):
+        """Allows to turn 'named' into named attributes, UNSET values allow to fall back to stated default at class level"""
         if isinstance(obj, type):
             raise ValueError("extract_settings() called on class %s (should be instance)" % obj)
 
-        for k, v in kwargs.items():
+        for k, v in named.items():
             if k and not k.startswith("_"):
                 if k not in obj.__class__.__dict__:
                     raise AttributeError("Unknown %s key '%s'" % (obj.__class__.__name__, k))
@@ -1289,28 +1165,6 @@ class Slotted:
                     v = getattr(obj.__class__, k)
 
                 setattr(obj, k, v)
-
-    @staticmethod
-    def pop_private(cls, kwargs):
-        """
-        Args:
-            cls (type): Class (or object) holding default values to use
-            kwargs (dict): Pop all keys that start with an '_' and refer to a setting in 'cls', UNSET means "take default from class"
-
-        Returns:
-            (dict): Popped key/value pairs
-        """
-        result = {}
-        if not isinstance(cls, type):
-            cls = cls.__class__
-
-        pkeys = [k for k in kwargs.keys() if k.startswith("_")]
-        for pk in pkeys:
-            k = pk[1:]
-            if k in cls.__dict__:
-                result[k] = kwargs.pop(pk)
-
-        return result
 
     def __iter__(self):
         """Iterate over all defined values in this object"""
@@ -1455,7 +1309,7 @@ class PlatformInfo:
 
     def __init__(self, text=None):
         if text is None:
-            text = "Windows" if WINDOWS else _R._runez_module().shell("uname -msrp", dryrun=False)
+            text = "Windows" if WINDOWS else _R.shell_output("uname", "-msrp")
 
         self.os_name = text or "unknown-os"
         self.os_version = None
@@ -1651,7 +1505,7 @@ class TerminalInfo:
         Returns:
             (int | None): Current number of columns, determined dynamically
         """
-        return _R.to_int(_R.program_output("tput", "cols", fatal=False, logger=None))
+        return _R.to_int(_R.shell_output("tput", "cols"))
 
     @staticmethod
     def get_lines():
@@ -1659,7 +1513,7 @@ class TerminalInfo:
         Returns:
             (int | None): Current number of lines, determined dynamically
         """
-        return _R.to_int(_R.program_output("tput", "lines", fatal=False, logger=None))
+        return _R.to_int(_R.shell_output("tput", "lines"))
 
     @staticmethod
     def get_size(default_columns=160, default_lines=25):
@@ -1878,10 +1732,8 @@ class _R:
         return message
 
     @classmethod
-    def program_output(cls, program, *args, **kwargs):
-        r = cls._runez_module().run(program, *args, **kwargs)
-        if r.succeeded:
-            return r.output
+    def shell_output(cls, program, *args):
+        return cls._runez_module().shell(program, *args)
 
     @classmethod
     def to_int(cls, text):

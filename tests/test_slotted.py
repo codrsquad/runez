@@ -127,11 +127,8 @@ def test_insights():
     assert foo.age == 10
     runez.Slotted.fill_attributes(foo, {"name": "my-name"})
     assert foo.name == "my-name"
-
-    kwargs = {"_name": "pika", "foo": 123}
-    extracted = runez.Slotted.pop_private(foo, kwargs)
-    assert kwargs == {"foo": 123}
-    assert extracted == {"name": "pika"}
+    runez.Slotted.fill_attributes(foo, {"name": runez.UNSET})
+    assert foo.name == "testing"  # back to class default
 
     with pytest.raises(AttributeError) as exc:
         runez.Slotted.fill_attributes(foo, {"bar": 5})

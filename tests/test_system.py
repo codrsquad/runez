@@ -596,7 +596,7 @@ def test_terminal():
         assert t.padded_columns() == 160
         assert t.padded_columns(padding=6) == 154
         assert t.padded_columns(padding=180, minimum=7) == 7
-        with patch("runez.run", return_value=RunResult("12", code=0)):  # Simulate tput output
+        with patch("runez.program.run", return_value=RunResult("12", code=0)):  # Simulate tput output
             assert t.get_columns() == 12
             assert t.get_lines() == 12
 

@@ -165,6 +165,13 @@ class PsInfo:
         return [p] + p.parent_list(follow=follow) if p else []
 
 
+def auto_shellify(args):
+    if args and len(args) == 1 and hasattr(args[0], "split"):
+        return args[0].split()
+
+    return flattened(args, shellify=True)
+
+
 def check_pid(pid):
     """
     Args:
@@ -260,43 +267,36 @@ def make_executable(path, fatal=True, logger=UNSET, dryrun=UNSET):
         return abort("Can't chmod %s" % short(path), exc_info=e, return_value=-1, fatal=fatal, logger=logger)
 
 
-def run(program, *args, **kwargs):
-    """
-    Run 'program' with 'args'
-
-    Keyword Args:
+def run(
+    program, *args, background=False, fatal=True, logger=UNSET, dryrun=UNSET,
+    passthrough=False, path_env=None,
+    stdout=subprocess.PIPE, stderr=subprocess.PIPE, strip="\r\n",
+    **popen_args
+):
+    """Run 'program' with 'args'
+    Args:
+        program (str): Program to run (full path, or basename)
+        *args: Command line args to call 'program' with
         background (bool): When True, background the spawned process (detach from console and current process)
-        dryrun (bool): When True, do not really run but call logger("Would run: ...") instead [default: runez.DRYRUN]
-        fatal (bool): If True: abort() on error [default: True]
+        fatal (type | bool | None): If True: abort() on error [default: True]
         logger (callable | None): When provided, call logger("Running: ...") [default: LOG.debug]
+        dryrun (bool): When True, do not really run but call logger("Would run: ...") instead [default: runez.DRYRUN]
         passthrough (bool): If True, pass-through stderr/stdout in addition to capturing it
         path_env (dict | None): Allows to inject PATH-like env vars, see `_added_env_paths()`
         stdout (int | IO[Any] | None): Passed-through to subprocess.Popen, [default: subprocess.PIPE]
         stderr (int | IO[Any] | None): Passed-through to subprocess.Popen, [default: subprocess.PIPE]
         strip (str | bool | None): If provided, `strip()` the captured output [default: strip "\n" newlines]
-
-    Args:
-        *args: Command line args to call 'program' with
-        **kwargs: Passed through to `subprocess.Popen`
+        **popen_args: Passed through to `subprocess.Popen`
 
     Returns:
         (RunResult): Run outcome, use .failed, .succeeded, .output, .error etc to inspect the outcome
     """
-    background = kwargs.pop("background", False)
-    fatal = kwargs.pop("fatal", True)
-    logger = kwargs.pop("logger", UNSET)
-    dryrun = kwargs.pop("dryrun", UNSET)
-    stdout = kwargs.pop("stdout", subprocess.PIPE)
-    stderr = kwargs.pop("stderr", subprocess.PIPE)
-    strip = kwargs.pop("strip", "\r\n")
-    passthrough = kwargs.pop("passthrough", False)
-    path_env = kwargs.pop("path_env", None)
     if path_env:
-        kwargs["env"] = _added_env_paths(path_env, env=kwargs.get("env"))
+        popen_args["env"] = _added_env_paths(path_env, env=popen_args.get("env"))
 
     args = flattened(args, shellify=True)
     full_path = which(program)
-    result = RunResult(audit=RunAudit(full_path or program, args, kwargs))
+    result = RunResult(audit=RunAudit(full_path or program, args, popen_args))
     description = "%s %s" % (short(full_path or program), quoted(args))
     if background:
         description += " &"
@@ -338,7 +338,7 @@ def run(program, *args, **kwargs):
 
     with _WrappedArgs([full_path] + args) as wrapped_args:
         try:
-            p, out, err = _run_popen(wrapped_args, kwargs, passthrough, fatal, stdout, stderr)
+            p, out, err = _run_popen(wrapped_args, popen_args, passthrough, fatal, stdout, stderr)
             result.output = decode(out, strip=strip)
             result.error = decode(err, strip=strip)
             result.pid = p.pid
@@ -382,14 +382,9 @@ def run(program, *args, **kwargs):
         return result
 
 
-def shell(*args, **kwargs):
+def shell(*args, fatal=False, logger=None, dryrun=False):
     """Output of a quick shell command, same as run(), but doesn't log and returns output only (when available)"""
-    kwargs.setdefault("fatal", False)
-    kwargs.setdefault("logger", None)
-    if len(args) == 1:
-        args = flattened(args, split=" ")
-
-    r = run(*args, **kwargs)
+    r = run(*auto_shellify(args), fatal=fatal, logger=logger, dryrun=dryrun)
     if r.succeeded:
         return r.output
 
@@ -397,16 +392,16 @@ def shell(*args, **kwargs):
 class RunAudit:
     """Provided as given by original code, for convenient reference"""
 
-    def __init__(self, program, args, kwargs):
+    def __init__(self, program, args, popen_args):
         """
         Args:
             program (str): Program as given by caller (or full path when available)
             args (list): Args given by caller
-            kwargs (dict): Keyword args passed-through to subporcess.Popen()
+            popen_args (dict): Keyword args passed-through to subporcess.Popen()
         """
         self.program = program
         self.args = args
-        self.kwargs = kwargs
+        self.popen_args = popen_args
         self.dryrun = False  # Was this a dryrun?
 
 
@@ -566,10 +561,10 @@ def _read_data(fd, length=1024):
     return os.read(fd, length)
 
 
-def _run_popen(args, kwargs, passthrough, fatal, stdout, stderr):
+def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
     """Run subprocess.Popen(), capturing output accordingly"""
     if not passthrough:
-        p = subprocess.Popen(args, stdout=stdout, stderr=stderr, **kwargs)
+        p = subprocess.Popen(args, stdout=stdout, stderr=stderr, **popen_args)
         if fatal is None and stdout is None and stderr is None:
             return p, None, None  # Don't wait on spawned process
 
@@ -585,7 +580,7 @@ def _run_popen(args, kwargs, passthrough, fatal, stdout, stderr):
     for fd in (stdout_r, stdout_w, stderr_r, stderr_w):
         fcntl.ioctl(fd, termios.TIOCSWINSZ, term_size)
 
-    with subprocess.Popen(args, stdout=stdout_w, stderr=stderr_w, **kwargs) as p:
+    with subprocess.Popen(args, stdout=stdout_w, stderr=stderr_w, **popen_args) as p:
         os.close(stdout_w)
         os.close(stderr_w)
         readable = [stdout_r, stderr_r]

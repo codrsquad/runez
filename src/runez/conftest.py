@@ -20,7 +20,7 @@ from runez.colors import ActivateColors
 from runez.file import TempFolder
 from runez.logsetup import LogManager
 from runez.render import Header
-from runez.system import _R, CaptureOutput, DEV, Slotted, TempArgv, TrackedOutput
+from runez.system import _R, CaptureOutput, DEV, resolved_default, Slotted, TempArgv, TrackedOutput
 from runez.system import flattened, LOG, quoted, short, stringified, UNSET
 
 try:
@@ -202,11 +202,11 @@ class WrappedHandler(_pytest.logging.LogCaptureHandler):
     _current_instance = None
     isolation = 0
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *more):
         if cls._current_instance is not None:
             return cls._current_instance
 
-        cls._current_instance = super(WrappedHandler, cls).__new__(cls, *args, **kwargs)
+        cls._current_instance = super(WrappedHandler, cls).__new__(cls, *more)
         return cls._current_instance
 
     @classmethod
@@ -304,16 +304,15 @@ class ClickRunner:
                     logging.error("%s\n%s", msg, r.full_output)
                     assert False, msg
 
-    def run(self, *args, **kwargs):
+    def run(self, *args, exe=None, main=UNSET):
         """
         Args:
             *args: Command line args
-            **kwargs: If provided, format each arg with given `kwargs`
+            exe (str | None): Optional, override sys.argv[0] just for this run
+            main (callable | None): Optional, override current self.main just for this run
         """
-        exe = kwargs.pop("exe", None)  # Default: sys.argv[0]
-        main = kwargs.pop("main", self.main or cli.default_main)
+        main = resolved_default(main, self.main or cli.default_main)
         assert bool(main), "No main provided"
-        assert not kwargs, "Unexpected cli.run() kwargs: %s" % short(kwargs)
         if len(args) == 1 and hasattr(args[0], "split"):
             # Convenience: allow to provide full command as one string argument
             args = args[0].split()

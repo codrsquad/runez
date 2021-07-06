@@ -27,7 +27,6 @@ API_EXCEPTIONS = {
     "serialize.read_json": collections.OrderedDict(logger=None),
     "system.abort": {},
     "system.get_version": {},
-    "system.retry": {},
 }
 IO_API_NO_CONTENT = collections.OrderedDict(fatal=True, logger="UNSET", dryrun="UNSET")
 EXPECTED_DRYRUN_UNSET = collections.OrderedDict(dryrun="UNSET")
