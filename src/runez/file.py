@@ -3,6 +3,7 @@ import os
 import shutil
 import tempfile
 import time
+from pathlib import Path
 
 from runez.convert import plural, represented_bytesize
 from runez.system import _R, abort, Anchored, decode, resolved_path, short, SYMBOLIC_TMP, UNSET
@@ -12,7 +13,7 @@ def basename(path, extension_marker=os.extsep):
     """Base name of given `path`, ignoring extension if `extension_marker` is provided
 
     Args:
-        path (str | pathlib.Path | None): Path to consider
+        path (str | Path | None): Path to consider
         extension_marker (str | None): Also trim file extension, if marker provided
 
     Returns:
@@ -36,8 +37,8 @@ def copy(source, destination, ignore=None, fatal=True, logger=UNSET, dryrun=UNSE
     """Copy source -> destination
 
     Args:
-        source (str | pathlib.Path | None): Source file or folder
-        destination (str | pathlib.Path | None): Destination file or folder
+        source (str | Path | None): Source file or folder
+        destination (str | Path | None): Destination file or folder
         ignore (callable | list | str | None): Names to be ignored
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
@@ -52,7 +53,7 @@ def copy(source, destination, ignore=None, fatal=True, logger=UNSET, dryrun=UNSE
 def delete(path, fatal=True, logger=UNSET, dryrun=UNSET):
     """
     Args:
-        path (str | pathlib.Path | None): Path to file or folder to delete
+        path (str | Path | None): Path to file or folder to delete
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
@@ -86,7 +87,7 @@ def ensure_folder(path, clean=False, fatal=True, logger=UNSET, dryrun=UNSET):
     """Ensure folder with 'path' exists
 
     Args:
-        path (str | pathlib.Path | None): Path to file or folder
+        path (str | Path | None): Path to file or folder
         clean (bool): True: If True, ensure folder is clean (delete any file/folder it may have)
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
@@ -131,7 +132,7 @@ def ini_to_dict(path, default=UNSET, logger=None, keep_empty=False):
     """Contents of an INI-style config file as a dict of dicts: section -> key -> value
 
     Args:
-        path (str | pathlib.Path | None): Path to file to parse
+        path (str | Path | None): Path to file to parse
         default (dict | callable | None): Object to return if conf couldn't be read
         logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
         keep_empty (bool): If True, keep definitions with empty values
@@ -181,7 +182,7 @@ def ini_to_dict(path, default=UNSET, logger=None, keep_empty=False):
 def is_younger(path, age, default=False):
     """
     Args:
-        path (str | pathlib.Path): Path to file
+        path (str | Path): Path to file
         age (int | float | None): How many seconds to consider the file too old
         default (bool): Returned when file is not present
 
@@ -200,7 +201,7 @@ def parent_folder(path, base=None):
     """Parent folder of `path`, relative to `base`
 
     Args:
-        path (str | pathlib.Path | None): Path to file or folder
+        path (str | Path | None): Path to file or folder
         base (str | None): Base folder to use for relative paths (default: current working dir)
 
     Returns:
@@ -212,7 +213,7 @@ def parent_folder(path, base=None):
 def readlines(path, default=UNSET, logger=None, first=None, errors=None):
     """
     Args:
-        path (str | pathlib.Path | None): Path to file to read lines from
+        path (str | Path | None): Path to file to read lines from
         default (list | callable | None): Default if file is not present, or it could not be read
         logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
         first (int | None): Return only the 'first' lines when specified
@@ -244,6 +245,20 @@ def readlines(path, default=UNSET, logger=None, first=None, errors=None):
         return _R.hdef(default, logger, "Can't read %s" % short(path), e=e)
 
 
+def to_path(path):
+    """
+    Args:
+        path (str | Path): Path to convert
+
+    Returns:
+        (Path | None): Converted to `Path` object, if necessary
+    """
+    if isinstance(path, Path):
+        return path
+
+    return Path(os.path.expanduser(path)) if path else None
+
+
 def move(source, destination, fatal=True, logger=UNSET, dryrun=UNSET):
     """Move `source` -> `destination`
 
@@ -264,8 +279,8 @@ def symlink(source, destination, must_exist=True, fatal=True, logger=UNSET, dryr
     """Symlink `source` <- `destination`
 
     Args:
-        source (str | pathlib.Path | None): Source file or folder
-        destination (str | pathlib.Path | None): Destination file or folder
+        source (str | Path | None): Source file or folder
+        destination (str | Path | None): Destination file or folder
         must_exist (bool): If True, verify that source does indeed exist
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
@@ -275,6 +290,41 @@ def symlink(source, destination, must_exist=True, fatal=True, logger=UNSET, dryr
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
     """
     return _file_op(source, destination, _symlink, fatal, logger, dryrun, must_exist=must_exist)
+
+
+def tar(source, destination, basename=None, mode="w:gz", fatal=True, logger=UNSET, dryrun=UNSET):
+    """
+    Args:
+        source (str | Path | None): Source folder to tar
+        destination (str | Path | None): Destination folder
+        basename (str | bool | None): Basename for 'source' within the tarball
+                                      str: Use given basename
+                                      True: Use 'basename(source)'
+                                      False or None: No basename (contents of source are directly in tarball)
+        mode (str): tarfile mode to use
+        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+        dryrun (bool): Optionally override current dryrun setting
+
+    Returns:
+        (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
+    """
+    return _file_op(source, destination, _tar, fatal, logger, dryrun, basename=basename, mode=mode)
+
+
+def untar(source, destination, fatal=True, logger=UNSET, dryrun=UNSET):
+    """
+    Args:
+        source (str | Path | None): Source file to untar
+        destination (str | Path | None): Destination folder
+        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+        dryrun (bool): Optionally override current dryrun setting
+
+    Returns:
+        (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
+    """
+    return _file_op(source, destination, _untar, fatal, logger, dryrun)
 
 
 class TempFolder:
@@ -324,7 +374,7 @@ def touch(path, fatal=True, logger=UNSET, dryrun=UNSET):
     """Touch file with `path`
 
     Args:
-        path (str | pathlib.Path | None): Path to file to touch
+        path (str | Path | None): Path to file to touch
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
@@ -339,8 +389,8 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
     """Write `contents` to file with `path`
 
     Args:
-        path (str | pathlib.Path | None): Path to file
-        contents (str | None): Contents to write (only touch file if None)
+        path (str | Path | None): Path to file
+        contents (str | bytes | None): Contents to write (only touch file if None)
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
@@ -358,12 +408,13 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
 
     ensure_folder(parent_folder(path), fatal=fatal, logger=None, dryrun=dryrun)
     try:
-        with io.open(path, "wt") as fh:
+        mode = "wb" if isinstance(contents, bytes) else "wt"
+        with io.open(path, mode) as fh:
             if contents is None:
                 os.utime(path, None)
 
             else:
-                fh.write(decode(contents))
+                fh.write(contents)
 
         _R.hlog(logger, "%s %s" % ("Wrote %s to" % byte_size if byte_size else "Touched", short(path)))
         return 1
@@ -401,7 +452,29 @@ def _symlink(source, destination):
     os.symlink(source, destination)
 
 
-def _file_op(source, destination, func, fatal, logger, dryrun, must_exist=True, ignore=None):
+def _tar(source, destination, basename, mode):
+    """Effective tar"""
+    import tarfile
+
+    source = to_path(source)
+    if basename is True:
+        basename = source.name
+
+    delete(destination, fatal=False, logger=None, dryrun=False)
+    with tarfile.open(destination, mode=mode) as fh:
+        fh.add(source, arcname=basename or "")
+
+
+def _untar(source, destination):
+    """Effective untar"""
+    import tarfile
+
+    delete(destination, fatal=False, logger=None, dryrun=False)
+    with tarfile.open(source) as fh:
+        fh.extractall(destination)
+
+
+def _file_op(source, destination, func, fatal, logger, dryrun, must_exist=True, ignore=None, **extra):
     """Call func(source, destination)
 
     Args:
@@ -413,6 +486,7 @@ def _file_op(source, destination, func, fatal, logger, dryrun, must_exist=True, 
         dryrun (bool): Optionally override current dryrun setting
         must_exist (bool): If True, verify that source does indeed exist
         ignore (callable | list | str | None): Names to be ignored
+        **extra: Passed-through to 'func'
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
@@ -442,13 +516,13 @@ def _file_op(source, destination, func, fatal, logger, dryrun, must_exist=True, 
         _R.hlog(logger, lambda: "%s%s" % (description[0].upper(), description[1:]))
         if ignore is not None:
             if callable(ignore):
-                func(source, destination, ignore=ignore)
+                func(source, destination, ignore=ignore, **extra)
 
             else:
-                func(source, destination, ignore=lambda *_: ignore)
+                func(source, destination, ignore=lambda *_: ignore, **extra)
 
         else:
-            func(source, destination)
+            func(source, destination, **extra)
 
         return 1
 

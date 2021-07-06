@@ -20,7 +20,7 @@ from runez.colors import ActivateColors
 from runez.file import TempFolder
 from runez.logsetup import LogManager
 from runez.render import Header
-from runez.system import _R, CaptureOutput, DEV, resolved_default, Slotted, TempArgv, TrackedOutput
+from runez.system import _R, CaptureOutput, DEV, Slotted, TempArgv, TrackedOutput
 from runez.system import flattened, LOG, quoted, short, stringified, UNSET
 
 try:
@@ -311,7 +311,7 @@ class ClickRunner:
             exe (str | None): Optional, override sys.argv[0] just for this run
             main (callable | None): Optional, override current self.main just for this run
         """
-        main = resolved_default(main, self.main or cli.default_main)
+        main = _R.rdefault(main, self.main or cli.default_main)
         assert bool(main), "No main provided"
         if len(args) == 1 and hasattr(args[0], "split"):
             # Convenience: allow to provide full command as one string argument

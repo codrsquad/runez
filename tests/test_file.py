@@ -2,6 +2,7 @@ import io
 import logging
 import os
 import shutil
+from pathlib import Path
 
 import pytest
 
@@ -257,9 +258,8 @@ def test_file_operations(temp_folder):
 
 
 def test_pathlib(temp_folder):
-    from pathlib import Path
-
     subfolder = Path("subfolder")
+    assert runez.to_path(subfolder) is subfolder
     assert not subfolder.is_dir()
     runez.ensure_folder(subfolder)
     assert subfolder.is_dir()
@@ -295,3 +295,32 @@ def test_parent_folder():
         assert parent == "/logs"
         assert runez.parent_folder(parent) == "/"
         assert runez.parent_folder("/") == "/"
+
+
+def test_untar(temp_folder, logged):
+    runez.write("test/README.md", "hello", logger=None)
+
+    assert runez.tar("test", "test.tar.gz", dryrun=True) == 1
+    assert "Would tar test -> test.tar.gz" in logged.pop()
+
+    # Direct tar (no basename)
+    assert runez.tar("test", "test.tar.gz", basename=None) == 1
+    assert "Tar test -> test.tar.gz" in logged.pop()
+
+    assert runez.untar("test.tar.gz", "unpacked", dryrun=True) == 1
+    assert "Would untar test.tar.gz -> unpacked" in logged.pop()
+
+    assert runez.untar("test.tar.gz", "unpacked") == 1
+    assert runez.readlines("unpacked/README.md") == ["hello"]
+    assert "Untar test.tar.gz -> unpacked" in logged.pop()
+
+    # Using source folder basename
+    assert runez.tar("test", "test.tar.gz", basename=True, logger=None) == 1
+    assert runez.untar("test.tar.gz", "unpacked", logger=None) == 1
+    assert runez.readlines("unpacked/test/README.md") == ["hello"]
+    assert not logged
+
+    # Using a custom basename
+    assert runez.tar("test", "test.tar.gz", basename="foo") == 1
+    assert runez.untar("test.tar.gz", "unpacked") == 1
+    assert runez.readlines("unpacked/foo/README.md") == ["hello"]

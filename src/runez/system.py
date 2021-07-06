@@ -501,10 +501,6 @@ def quoted(*items, delimiter=" ", adapter=UNSET, keep_empty=True):
     return delimiter.join(result)
 
 
-def resolved_default(value, default_value):
-    return default_value if value is UNSET else value
-
-
 def resolved_path(path, base=None):
     """
     Args:
@@ -1750,6 +1746,10 @@ class _R:
             (bool): Same as runez.DRYRUN, but as a function (and with late import)
         """
         return cls._runez_module().DRYRUN
+
+    @staticmethod
+    def rdefault(value, default_value):
+        return default_value if value is UNSET else value
 
     @classmethod
     def resolved_dryrun(cls, dryrun):

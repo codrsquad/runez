@@ -7,6 +7,8 @@ History
 
 * Dropped support for python2
 
+* Added ``runez.http``
+
 
 2.7.17 (2021-07-02)
 -------------------

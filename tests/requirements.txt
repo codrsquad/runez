@@ -3,3 +3,4 @@ freezegun
 mock
 psutil
 pytest-cov
+requests

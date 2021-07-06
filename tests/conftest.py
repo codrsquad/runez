@@ -6,12 +6,14 @@ import runez
 from runez.__main__ import main
 from runez.conftest import cli, isolated_log_setup, IsolatedLogSetup, logged, temp_folder
 from runez.file import readlines
+from runez.http import GlobalHttpCalls
 from runez.logsetup import LogManager
 from runez.pyenv import PythonDepot
 from runez.system import CaptureOutput, LOG, short, stringified
 
 
 cli.default_main = main
+GlobalHttpCalls.forbid()
 PythonDepot.use_path = False
 runez.date.DEFAULT_TIMEZONE = runez.date.UTC
 runez.serialize.set_default_behavior(strict=False, extras=True)

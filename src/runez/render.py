@@ -2,7 +2,7 @@ import os
 
 from runez.colors import cast_style
 from runez.convert import to_int
-from runez.system import _R, AdaptedProperty, flattened, is_iterable, joined, resolved_default, short, Slotted, stringified
+from runez.system import _R, AdaptedProperty, flattened, is_iterable, joined, short, Slotted, stringified
 from runez.system import SYS_INFO, UNSET, wcswidth
 
 
@@ -395,11 +395,11 @@ class PrettyTable(PrettyCustomizable):
         Returns:
             (PrettyTable): Rendered PrettyTable showing diagnostics info
         """
-        border = resolved_default(border, os.environ.get("DIAGNOSTICS_BORDER") or "colon")
-        columns = resolved_default(columns, SYS_INFO.terminal.columns)
-        missing = resolved_default(missing, _R._runez_module().orange)
-        style = resolved_default(style, _R._runez_module().bold)
-        title_color = resolved_default(title_color, _R._runez_module().blue)
+        border = _R.rdefault(border, os.environ.get("DIAGNOSTICS_BORDER") or "colon")
+        columns = _R.rdefault(columns, SYS_INFO.terminal.columns)
+        missing = _R.rdefault(missing, _R._runez_module().orange)
+        style = _R.rdefault(style, _R._runez_module().bold)
+        title_color = _R.rdefault(title_color, _R._runez_module().blue)
         additional = []
         named_sources = {}
         regular_sources = []
