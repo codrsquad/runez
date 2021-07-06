@@ -944,10 +944,10 @@ class LogManager:
             faulthandler.register(signum, file=dump_file, all_threads=True, chain=False)
 
     @classmethod
-    def override_spec(cls, **kwargs):
+    def override_spec(cls, **settings):
         """Override 'spec' and '_default_spec' with given values"""
-        cls._default_spec.set(**kwargs)
-        cls.spec.set(**kwargs)
+        cls._default_spec.set(**settings)
+        cls.spec.set(**settings)
 
     @classmethod
     def enable_trace(cls, spec, prefix=":: ", stream=UNSET):
@@ -976,13 +976,13 @@ class LogManager:
         return _R.resolved_dryrun(dryrun)
 
     @classmethod
-    def trace(cls, message, *args, **kwargs):
+    def trace(cls, message, *args):
         """
         Args:
             message (str): Message to trace
         """
         if cls.tracer or cls.progress.is_running:
-            message = formatted(message, *args, **kwargs)
+            message = formatted(message, *args)
             cls.progress._show_debug(message)
             if cls.tracer:
                 cls.tracer.trace(message)

@@ -541,9 +541,9 @@ class Serializable:
 
     _meta = None  # type: ClassMetaDescription  # This describes fields and properties of descendant classes, populated via metaclass
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *more):
         """Args passed to __new__() is deprecated in py3"""
-        obj = super(Serializable, cls).__new__(cls)
+        obj = super(Serializable, cls).__new__(cls, *more)
         obj.reset()
         return obj
 
@@ -649,7 +649,7 @@ def read_json(path, default=UNSET, logger=None):
         return _R.hdef(default, logger, "Can't read %s" % short(path), e=e)
 
 
-def represented_json(data, stringify=stringified, dt=str, none=False, indent=2, sort_keys=True, **kwargs):
+def represented_json(data, stringify=stringified, dt=str, none=False, indent=2, sort_keys=True):
     """
     Args:
         data (object | None): Data to serialize
@@ -661,23 +661,19 @@ def represented_json(data, stringify=stringified, dt=str, none=False, indent=2, 
                            - True: No filtering, keep `None` keys/values as-is
         indent (int | None): Indentation to use, if None: use compact (one line) mode
         sort_keys (bool): Whether keys should be sorted
-        **kwargs: Passed through to `json.dumps()`
 
     Returns:
         (dict | list | str): Serialized `data`, with defaults that are usually desirable for a nice and clean looking json
     """
     data = json_sanitized(data, stringify=stringify, dt=dt, none=none)
-    kwargs.setdefault("separators", K_INDENTED_SEPARATORS if indent else K_COMPACT_SEPARATORS)
-    rep = json.dumps(data, indent=indent, sort_keys=sort_keys, **kwargs)
+    rep = json.dumps(data, indent=indent, sort_keys=sort_keys, separators=K_INDENTED_SEPARATORS if indent else K_COMPACT_SEPARATORS)
     if indent:
         return "%s\n" % rep
 
     return rep
 
 
-def save_json(
-    data, path, stringify=stringified, dt=str, none=False, indent=2, sort_keys=True, fatal=True, logger=UNSET, dryrun=UNSET, **kwargs
-):
+def save_json(data, path, stringify=stringified, dt=str, none=False, indent=2, sort_keys=True, fatal=True, logger=UNSET, dryrun=UNSET):
     """
     Args:
         data (object | None): Data to serialize and save
@@ -693,7 +689,6 @@ def save_json(
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
-        **kwargs: Passed through to `json.dump()`
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
@@ -708,9 +703,8 @@ def save_json(
 
         ensure_folder(parent_folder(path), fatal=fatal, logger=None)
         data = json_sanitized(data, stringify=stringify, dt=dt, none=none)
-        kwargs.setdefault("separators", K_INDENTED_SEPARATORS if indent else K_COMPACT_SEPARATORS)
         with open(path, "wt") as fh:
-            json.dump(data, fh, indent=indent, sort_keys=sort_keys, **kwargs)
+            json.dump(data, fh, indent=indent, sort_keys=sort_keys, separators=K_INDENTED_SEPARATORS if indent else K_COMPACT_SEPARATORS)
             if indent:
                 fh.write("\n")
 

@@ -395,7 +395,7 @@ def _date_from_components(components, tz=UNSET):
     """
     Args:
         components: Components from regex
-        tz (datetime.tzinfo | None): Optional timezone info, used as default if could not be determined from `components`
+        tz (datetime.tzinfo | runez.Undefined | None): Optional timezone info, used as default if could not be determined from `components`
 
     Returns:
         (datetime.date | datetime.datetime | None)
@@ -423,7 +423,7 @@ def _date_from_components(components, tz=UNSET):
         return None  # Funky date style, ignore
 
 
-def _date_from_text(text, epocher, **kwargs):
+def _date_from_text(text, epocher, tz=UNSET):
     """
     Args:
         text (str): Value to turn into date or datetime
@@ -436,7 +436,7 @@ def _date_from_text(text, epocher, **kwargs):
     if match is None:
         m = RE_DURATION.match(text)
         if m:
-            tz = kwargs.get("tz", UTC)
+            tz = UTC if tz is UNSET else tz
             offset = to_seconds(text)
             now = datetime.datetime.now(tz=tz)
             return to_datetime(to_epoch(now) - offset, tz=tz)
@@ -446,9 +446,9 @@ def _date_from_text(text, epocher, **kwargs):
     # _, number, _, _, y, m, d, _, hh, mm, ss, sf, _, tz, _, _ = match.groups()
     components = match.groups()
     if components[1]:
-        return epocher(_float_from_text(components[1], lenient=True), **kwargs)
+        return epocher(_float_from_text(components[1], lenient=True), tz=tz)
 
-    return _date_from_components(components[4:14], **kwargs)
+    return _date_from_components(components[4:14], tz=tz)
 
 
 def _duration_span(count, name, short_form, immutable=False):

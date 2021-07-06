@@ -219,6 +219,32 @@ def test_deprecated():
     assert runez.log.tests_path() == runez.DEV.tests_path()  # deprecated
 
 
+@pytest.mark.skipif(runez.WINDOWS, reason="No /dev/null on Windows")
+def test_file_location_not_writable(temp_log):
+    runez.log.setup(
+        greetings="Logging to: {location}",
+        console_level=logging.DEBUG,
+        file_location="/dev/null/somewhere.log",
+    )
+    assert "DEBUG Logging to: given location '/dev/null/somewhere.log' is not usable" in temp_log.stderr
+    assert runez.log.file_handler is None
+
+
+def test_formatted():
+    assert formatted("foo") == "foo"
+    assert formatted("foo", "bar") == "foo"  # Ignoring extra positionals
+
+    assert formatted("foo %s", "bar") == "foo bar"
+    assert formatted("foo {0}", "bar") == "foo bar"
+    assert formatted("foo %s {0}", "bar") == "foo bar {0}"  # '%s' format used first
+
+    assert formatted("foo %s {a}", "bar", a="val_a") == "foo %s val_a"  # '%s' does not apply when there are kwargs
+
+    # Bogus formats
+    assert formatted("foo %s %s {0}", "bar") == "foo %s %s bar"  # bogus '%s' format
+    assert formatted("foo %s %s {0} {1}", "bar") == "foo %s %s {0} {1}"  # bogus '%s' and {positional} format
+
+
 def test_formatted_text():
     # Unsupported formats
     assert _formatted_text("{filename}", {}) == "{filename}"
@@ -251,33 +277,6 @@ def test_formatted_text():
     assert _formatted_text("{a}", cycle, max_depth=1) == "{b}"
     assert _formatted_text("{a}", cycle, max_depth=2) == "{a}"
     assert _formatted_text("{a}", cycle, max_depth=3) == "{b}"
-
-
-@pytest.mark.skipif(runez.WINDOWS, reason="No /dev/null on Windows")
-def test_file_location_not_writable(temp_log):
-    runez.log.setup(
-        greetings="Logging to: {location}",
-        console_level=logging.DEBUG,
-        file_location="/dev/null/somewhere.log",
-    )
-    assert "DEBUG Logging to: given location '/dev/null/somewhere.log' is not usable" in temp_log.stderr
-    assert runez.log.file_handler is None
-
-
-def test_formatted():
-    assert formatted("foo") == "foo"
-    assert formatted("foo", "bar") == "foo"  # Ignoring extra positionals
-
-    assert formatted("foo %s", "bar") == "foo bar"
-    assert formatted("foo {0}", "bar") == "foo bar"
-    assert formatted("foo %s {0}", "bar") == "foo bar {0}"  # '%s' format used first
-
-    assert formatted("foo %s {a}", "bar", a="val_a") == "foo %s val_a"  # '%s' does not apply when there are kwargs
-
-    # Bogus formats
-    assert formatted("foo %s %s {0}", "bar") == "foo %s %s bar"  # bogus '%s' format
-    assert formatted("foo %s %s {0} {1}", "bar") == "foo %s %s {0} {1}"  # bogus '%s' and {positional} format
-    assert formatted("{a} {b}", a="val_a") == "{a} {b}"  # Incomplete
 
 
 def test_level(temp_log):

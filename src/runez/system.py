@@ -1809,12 +1809,12 @@ class _R:
         return old_dryrun
 
     @classmethod
-    def trace(cls, message, *args, **kwargs):
+    def trace(cls, message, *args):
         """
         Args:
             message (str): Message to trace
         """
-        cls._runez_module().log.trace(message, *args, **kwargs)
+        cls._runez_module().log.trace(message, *args)
 
     @staticmethod
     def find_parent_folder(path, basenames):
