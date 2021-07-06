@@ -385,8 +385,6 @@ History
 
 * Moved to github actions
 
-* Added ``FallbackChain``
-
 * Corrected edge case with ``cli.run(..., exe=)``
 
 * Ignore errors when deleting temp folders in context managers
