@@ -2,7 +2,7 @@
 History
 =======
 
-3.0.0 (2021-07-02)
+3.0.0 (2021-07-06)
 ------------------
 
 * Dropped support for python2
@@ -532,8 +532,6 @@ History
 * Added support for ``ignore=[...]`` in ``copy()``
 
 * Strip trailing spaces by default when saving pretty-printed json
-
-* Better information when ``verify_abort()`` fails
 
 * Added ``runez.log.spec.clean_handlers`` (``True`` by default), to automatically cleanup any pre-existing ``logging.root.handlers``
 

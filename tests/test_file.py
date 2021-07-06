@@ -74,8 +74,10 @@ def test_ensure_folder(temp_folder, logged):
     assert runez.ensure_folder(".", clean=True) == 0
     assert not logged
 
-    assert runez.touch("some-file") == 1
-    assert "Can't create folder" in runez.conftest.verify_abort(runez.ensure_folder, "some-file")
+    assert runez.touch("some-file", logger=None) == 1
+    with pytest.raises(Exception):
+        runez.ensure_folder("some-file")
+    assert "Can't create folder" in logged.pop()
 
     assert runez.ensure_folder("some-dir", dryrun=True) == 1
     assert "Would create some-dir" in logged.pop()
@@ -120,9 +122,9 @@ def test_ini_to_dict(temp_folder, logged):
 
 
 def test_failure(monkeypatch):
-    runez.conftest.patch_raise(monkeypatch, io, "open")
-    runez.conftest.patch_raise(monkeypatch, os, "unlink", "bad unlink")
-    runez.conftest.patch_raise(monkeypatch, shutil, "copy")
+    monkeypatch.setattr(io, "open", runez.conftest.exception_raiser())
+    monkeypatch.setattr(os, "unlink", runez.conftest.exception_raiser("bad unlink"))
+    monkeypatch.setattr(shutil, "copy", runez.conftest.exception_raiser())
     monkeypatch.setattr(os.path, "exists", lambda _: True)
     monkeypatch.setattr(os.path, "isfile", lambda _: True)
     monkeypatch.setattr(os.path, "getsize", lambda _: 10)

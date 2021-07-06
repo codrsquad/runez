@@ -133,7 +133,7 @@ def test_json(temp_folder, monkeypatch):
         assert not logged
 
         with monkeypatch.context() as m:
-            runez.conftest.patch_raise(m, runez.serialize, "open", raising=False)
+            m.setattr(runez.serialize, "open", runez.conftest.exception_raiser(), raising=False)
             assert runez.save_json(data, "sample.json", fatal=False) == -1
             assert "Can't save" in logged.pop()
 
@@ -141,7 +141,7 @@ def test_json(temp_folder, monkeypatch):
         assert "Saved " in logged.pop()
 
         with monkeypatch.context() as m:
-            runez.conftest.patch_raise(m, io, "open")
+            m.setattr(io, "open", runez.conftest.exception_raiser())
             with pytest.raises(runez.system.AbortException):
                 runez.read_json("sample.json", logger=logging.debug)
             assert "Can't read sample.json" in logged.pop()

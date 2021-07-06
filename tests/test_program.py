@@ -7,7 +7,7 @@ import pytest
 from mock import patch
 
 import runez
-from runez.conftest import verify_abort
+from runez.conftest import exception_raiser
 from runez.program import RunResult
 
 
@@ -95,9 +95,12 @@ def test_capture(monkeypatch):
         assert r.output == ""
         assert r.error == "complaining"
         assert r.full_output == "complaining"
+        logged.pop()
 
         # Test failure
-        assert "ERROR" in verify_abort(runez.run, CHATTER, "fail")
+        with pytest.raises(Exception):
+            runez.run(CHATTER, "fail")
+        assert "Run failed:" in logged.pop()
 
         r = runez.run(CHATTER, "silent-fail", fatal=False)
         assert str(r) == "RunResult(exit_code=1)"
@@ -150,14 +153,13 @@ def test_capture(monkeypatch):
         r = runez.run("foo/bar", fatal=False)
         assert r.exit_code == 1
         assert "foo/bar is not an executable" in r.error
-        assert "foo/bar is not an executable" in verify_abort(runez.run, "foo/bar")
 
         r = runez.run("foo-bar-no-such-program", fatal=False)
         assert r.exit_code == 1
         assert "is not installed (PATH=" in r.error
 
         with monkeypatch.context() as m:
-            runez.conftest.patch_raise(m, subprocess, "Popen", OSError("testing"))
+            m.setattr(subprocess, "Popen", exception_raiser(OSError("testing")))
             r = runez.run("python", "--version", fatal=False)
             assert not r
             assert r.failed
@@ -222,7 +224,7 @@ def test_executable(temp_folder):
 def test_pids():
     assert not runez.check_pid(None)
     assert not runez.check_pid(0)
-    assert not runez.check_pid("foo")  # garbage given, don't crash
+    assert not runez.check_pid("foo")  # noqa, garbage given, don't crash
 
     assert runez.check_pid(os.getpid())
     assert not runez.check_pid(1)  # No privilege to do this (tests shouldn't run as root)
@@ -344,7 +346,10 @@ def test_ps_follow():
 
 
 def check_ri(platform, instructions=None):
-    return verify_abort(runez.program.require_installed, "foo", instructions=instructions, platform=platform)
+    with pytest.raises(Exception) as exc:
+        runez.program.require_installed("foo", instructions=instructions, platform=platform)
+
+    return str(exc)
 
 
 def test_require_installed(monkeypatch):
@@ -362,7 +367,7 @@ def test_require_installed(monkeypatch):
     assert "foo is not installed, custom instructions" in r
 
     r = check_ri(None)
-    assert "foo is not installed:\n" in r
+    assert "foo is not installed:" in r
     assert "- on darwin: run: `brew install foo`" in r
     assert "- on linux: run: `apt install foo`" in r
 

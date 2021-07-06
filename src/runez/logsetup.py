@@ -25,7 +25,7 @@ ORIGINAL_CF = logging.currentframe
 RE_FORMAT_MARKERS = re.compile(r"{([a-z][a-z0-9_]*)}", re.IGNORECASE)
 
 
-def formatted(message, *args, **kwargs):
+def formatted(message, *args, **named_values):
     """
     Args:
         message (str): Message to format, support either the '%s' old method, or newer format() method
@@ -33,7 +33,7 @@ def formatted(message, *args, **kwargs):
     Returns:
         (str): Formatted message
     """
-    if not kwargs:
+    if not named_values:
         if not args:
             return message
 
@@ -45,7 +45,7 @@ def formatted(message, *args, **kwargs):
                 pass
 
     try:
-        return message.format(*args, **kwargs)
+        return message.format(*args, **named_values)
 
     except (IndexError, KeyError):
         return message

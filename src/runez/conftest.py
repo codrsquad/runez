@@ -74,67 +74,28 @@ def exception_raiser(exc=Exception):
     return _raise
 
 
-def patch_env(monkeypatch, clear=True, uppercase=True, **kwargs):
+def patch_env(monkeypatch, clear=True, uppercase=True, **values):
     """
     Args:
         monkeypatch (pytest.MonkeyPatch): Monkeypatch object (obtained from pytest fixture)
-        clear (bool): If True, clear all env vars (other than the ones given in kwargs)
-        uppercase (bool): If True, uppercase all keys in kwargs
-        **kwargs: Env vars to mock
+        clear (bool): If True, clear all env vars (other than the ones given in 'values')
+        uppercase (bool): If True, uppercase all keys in 'values'
+        **values: Env vars to mock
     """
     if uppercase:
-        kwargs = {k.upper(): v for k, v in kwargs.items()}
+        values = {k.upper(): v for k, v in values.items()}
 
     if clear:
         for k in os.environ.keys():
-            if k not in kwargs:
+            if k not in values:
                 monkeypatch.delenv(k)
 
-    for k, v in kwargs.items():
+    for k, v in values.items():
         if v:
             monkeypatch.setenv(k, v)
 
         else:
             monkeypatch.delenv(k, raising=False)
-
-
-def patch_raise(monkeypatch, target, name, exc=Exception, raising=True, wrapper=None):
-    """
-    Args:
-        monkeypatch (pytest.MonkeyPatch): Monkeypatch object (obtained from pytest fixture)
-        target: Target to patch
-        name: Name of attribute in target to patch
-        exc (BaseException | type | str): Exception to raise
-        raising (bool): Passed through to monkeypatch
-        wrapper (callable | None): Optional wrapper to use (for example: staticmethod)
-    """
-    value = exception_raiser(exc)
-    if wrapper:
-        value = wrapper(value)
-
-    monkeypatch.setattr(target, name, value, raising=raising)
-
-
-def verify_abort(func, *args, **kwargs):
-    """
-    Convenient wrapper around functions that should exit or raise an exception
-
-    Args:
-        func (callable): Function to execute
-        *args: Args to pass to 'func'
-        **kwargs: Named args to pass to 'func'
-
-    Returns:
-        (str): Chatter from call to 'func', if it did indeed raise
-    """
-    expected_exception = _R.abort_exception(override=kwargs.get("fatal"))
-    with CaptureOutput() as logged:
-        try:
-            value = func(*args, **kwargs)
-            assert False, "%s did not raise, but returned %s" % (func, value)
-
-        except expected_exception as e:
-            return "%s %s" % (e, stringified(logged))
 
 
 class IsolatedLogSetup:

@@ -7,15 +7,10 @@ import pytest
 from mock import mock_open, patch
 
 import runez
-from runez.conftest import verify_abort
 from runez.program import RunResult
 from runez.system import _R, SystemInfo, TerminalInfo, TerminalProgram
 
 VERSION = "1.2.3.dev4"
-
-
-def failed_function(message, fatal=True, logger=runez.UNSET):
-    runez.abort(message, fatal=fatal, logger=logger)
 
 
 def test_abort(logged, monkeypatch):
@@ -54,18 +49,27 @@ def test_abort(logged, monkeypatch):
     assert not logged
 
     monkeypatch.setattr(runez.system.logging.root, "handlers", [])
-    assert "stderr: oops" in verify_abort(failed_function, "oops")  # logger is UNSET -> log failure
-    assert "oops" in verify_abort(failed_function, "oops", logger=None)  # Message is part of raised exception
+    with pytest.raises(Exception):
+        # logger is UNSET -> log failure
+        runez.abort("oops")
+    assert "oops" in logged.pop()
 
-    # Verify experimental passing of exception via 'fatal' works
-    assert "stderr: oops" in verify_abort(failed_function, "oops", fatal=SystemExit, logger=None)  # log failure anyway due to sys.exit()
+    with pytest.raises(Exception) as exc:
+        # Message not logged, but part of raised exception
+        runez.abort("oops", logger=None)
+    assert "oops" in str(exc)
+    assert not logged
+
+    with pytest.raises(SystemExit):
+        # Failure logged anyway due to sys.exit()
+        runez.abort("oops", fatal=SystemExit, logger=None)
+    assert "oops" in logged.pop()
 
     # Verify we still log failure when we're about to sys.exit(), even when logger given is explicitly None
-    prev = runez.system.AbortException
-    runez.system.AbortException = SystemExit
-    assert "stderr: oops" in verify_abort(failed_function, "oops", logger=None)  # logger is None -> log failure anyway
-    runez.system.AbortException = prev
-    assert not logged
+    monkeypatch.setattr(runez.system, "AbortException", SystemExit)
+    with pytest.raises(SystemExit):
+        runez.abort("oops", logger=None)
+    assert "oops" in logged.pop()
 
 
 def test_capped():

@@ -103,15 +103,6 @@ def test_crash(cli):
 
 
 def test_edge_cases(temp_folder, monkeypatch):
-    # verify_abort should complain about called function not having raised anything
-    with pytest.raises(AssertionError):
-        assert runez.conftest.verify_abort(sample_main)
-
-    # Edge case for wrapper= arg in patch_raise()
-    runez.conftest.patch_raise(monkeypatch, runez.cached_property, "reset", wrapper=staticmethod)
-    with pytest.raises(Exception):
-        runez.cached_property.reset(None)
-
     # Exercise dev folder determination code
     info = runez.system.DevInfo()
     info.tests_folder = "./bar/baz"

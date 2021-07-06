@@ -38,15 +38,15 @@ class ThreadLocalSingleton:
                 ...
     """
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *positional, **named):
         # We could do singleton by combination of args, but outcome of that could be hard to grok for users
         # Not sure if there's a good use case for this (one where gotcha-factor is much lower than added value)
-        assert not args and not kwargs, "Current limitation: only classes that can be created without args are supported for now"
+        assert not positional and not named, "Current limitation: only classes that can be created without args are supported for now"
 
         key = "singleton %s.%s" % (cls.__module__, cls.__name__)
         existing = getattr(_THREAD_LOCAL, key, None)
         if existing is None:
-            existing = super(ThreadLocalSingleton, cls).__new__(cls, *args, **kwargs)
+            existing = super(ThreadLocalSingleton, cls).__new__(cls)
             setattr(_THREAD_LOCAL, key, existing)
 
         return existing

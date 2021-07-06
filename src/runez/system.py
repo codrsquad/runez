@@ -2157,11 +2157,12 @@ def _prettified(value):
 
 
 def _show_abort_message(message, exc_info, logger):
-    if logging.root.handlers:
-        _R.hlog(logger, message, exc_info=exc_info)
+    if logger is not None:
+        if logging.root.handlers:
+            _R.hlog(logger, message, exc_info=exc_info)
 
-    else:
-        sys.stderr.write("%s\n" % message)
+        else:
+            sys.stderr.write("%s\n" % message)
 
 
 def _has_stream_handler():
