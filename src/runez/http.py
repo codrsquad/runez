@@ -468,7 +468,7 @@ def mock_http(*specs, base=None, default_status=404):
     SOME_SESSION = RestAPI("https://example.com")
 
     @mock_http({
-        "base": "https://example.com"
+        "_base": "https://example.com"
         "foo": {"some": "payload"}
     })
     def test_foo():
@@ -494,7 +494,7 @@ class MockHttp:
         self._original_new_session = None
         for by_endpoint in specs:
             assert isinstance(by_endpoint, dict), "Mocked response specs must be a dict of url -> what to return"
-            base_url = by_endpoint.pop("base", base)  # Convenience: allow to "factor out" the base url
+            base_url = by_endpoint.pop("_base", base)  # Convenience: allow to "factor out" the base url
             for url, rspec in by_endpoint.items():
                 url = urljoin(base_url, url)
                 if not isinstance(rspec, MockResponseSpec):

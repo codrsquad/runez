@@ -54,7 +54,7 @@ def test_edge_cases():
 
 
 @mock_http({
-    "base": "https://example.com",
+    "_base": "https://example.com",
     "README": "hello",
 })
 def test_files(temp_folder):
@@ -148,7 +148,7 @@ def dynamic_call(method, url, **_):
 
 
 @mock_http({
-    "base": "https://example.com",  # Base url (so we don't have to repeat it on every line below)
+    "_base": "https://example.com",  # Base url (so we don't have to repeat it on every line below)
     "foo-bar": {"foo": "bar"},  # status 200 implied, payload is a dict
     "bad-request": (400, dict(error="oops", msg="more info")),  # status 400, with sample error
     "server-crashed": (500, "failed"),  # status 500, with optional content as well
@@ -197,7 +197,7 @@ def test_rest(logged):
     assert "Internal error" in str(exc)
 
     with MockHttp({
-        "base": "https://example.com",
+        "_base": "https://example.com",
         "a": MockResponse("", "", "", 123, None),
         "fail1": Exception,
         "fail2": Exception("oops"),

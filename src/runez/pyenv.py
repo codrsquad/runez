@@ -430,12 +430,12 @@ class PythonDepot:
         self._register(python, None)
         return python
 
-    def representation(self, colored=True):
+    def representation(self, colored=True, no_scanned_note=None):
         """(str): Textual representation of available pythons"""
         scanned = [p.representation(colored=colored) for p in self.scanned]
         from_path = self.from_path and [p.representation(colored=colored) for p in self.from_path]
         return joined(
-            scanned and ("\nAvailable pythons:", scanned),
+            ("\nAvailable pythons:", scanned) if scanned else no_scanned_note,
             from_path and ("\nAvailable pythons from PATH:", "\n".join(from_path)),
             delimiter="\n",
             keep_empty=False
