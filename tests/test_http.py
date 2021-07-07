@@ -6,11 +6,32 @@ import runez
 from runez.http import GlobalHttpCalls, mock_http, MockHttp, MockResponse, RestClient, urljoin
 
 
+@GlobalHttpCalls.allowed
+def test_decorator_allowed():
+    assert GlobalHttpCalls.is_forbidden() is False
+
+
+@GlobalHttpCalls.forbidden
+def test_decorator_forbidden():
+    assert GlobalHttpCalls.is_forbidden() is True
+
+
 @mock_http({
     "https://example.com/test/README.txt": "Hello",
 })
 def test_download(temp_folder, logged):
     session = RestClient("https://example.com")
+
+    r = session.put("test/README.txt", data=Path("foo"), fatal=False, dryrun=True)
+    assert r.ok
+    assert r.json() == {"message": "dryrun PUT https://example.com/test/README.txt"}
+    assert "Would PUT" in logged.pop()
+
+    with pytest.raises(FileNotFoundError):
+        # fatal=False addresses http(s) communications only, not existence of files that are referred to by caller
+        session.put("test/README.txt", data=Path("foo"), fatal=False, dryrun=False)
+    assert not logged
+
     assert session.download("test/test.zip", "test.zip", dryrun=True).ok
     assert "Would download" in logged.pop()
 
@@ -39,17 +60,17 @@ def test_edge_cases():
 
     assert RestClient.response_description(None) == ""
 
-    r1 = MockResponse("GET", "http://foo", '""', 400, None)
+    r1 = MockResponse("GET", "http://foo", '""', 400)
     assert str(r1) == '400 ""'
     r1.payload = "invalid json"
     assert RestClient.response_description(r1) == "GET http://foo [400 Bad request] invalid json"
 
-    r1.history = [MockResponse("GET", "http://foo", "", 400, None)]
+    r1.history = [MockResponse("GET", "http://foo", "", 400)]
     s = RestClient.response_description(r1)
     assert "Response history" in s
 
     # Check message shortened (don't dump full output)
-    r1 = MockResponse("GET", "http://foo", "-" * 1050, 400, None)
+    r1 = MockResponse("GET", "http://foo", "-" * 1050, 400)
     assert RestClient.response_snippet(r1).endswith("...")
 
 
@@ -68,11 +89,18 @@ def test_files(temp_folder):
 
     # Use local README.txt, which should get opened/closed appropriately
     # Exercise data=Path(...) code path, headers are temporarily used
-    assert session.get_response("README", data=sample, headers={"foo": "bar"}).ok
+    r = session.post("README", headers={"foo": "bar"}, data=sample)
+    assert isinstance(r, MockResponse)
+    assert r.ok
+    assert len(r.kwargs) == 3
+    assert "data" in r.kwargs
 
     # Exercise filepaths= code path
-    assert session.post("README", filepaths={"sample": sample}).ok
-    assert len(session.headers) == 1
+    r = session.post("README", filepaths={"sample": sample})
+    assert isinstance(r, MockResponse)
+    assert r.ok
+    assert len(r.kwargs) == 3
+    assert "sample" in r.kwargs["files"]
 
 
 def test_new_session(monkeypatch):
@@ -82,8 +110,8 @@ def test_new_session(monkeypatch):
         def __init__(self, app):
             self.app = app
 
-        def get(self, url, timeout=None, **kwargs):
-            return MockResponse("GET", url, {"app": self.app, "timeout": timeout}, 201, kwargs)
+        def get(self, url, **kwargs):
+            return MockResponse("GET", url, {"app": self.app}, 201, **kwargs)
 
     def dedicated_session(app=None):
         return MySession(app)
@@ -95,19 +123,19 @@ def test_new_session(monkeypatch):
         return MySession(app)
 
     session = RestClient("https://example.com", app="my-app", new_session=dedicated_session)
-    r = session.get_response("foo", timeout=123)
+    r = session.get_response("foo")
     assert r.ok
-    assert r.json() == {"app": "my-app", "timeout": 123}
+    assert r.json() == {"app": "my-app"}
 
     monkeypatch.setattr(RestClient, "new_session", my_session)
     session = RestClient("https://example.com", app="my-app")
     r = session.get_response("foo")
     assert r.status_code == 201
-    assert r.json() == {"app": "my-app", "timeout": 30}
+    assert r.json() == {"app": "my-app"}
 
-    r = session.get_response("foo", timeout=123)
+    r = session.get_response("foo")
     assert r.ok
-    assert r.json() == {"app": "my-app", "timeout": 123}
+    assert r.json() == {"app": "my-app"}
 
 
 def test_outgoing_disabled():
@@ -198,7 +226,7 @@ def test_rest(logged):
 
     with MockHttp({
         "_base": "https://example.com",
-        "a": MockResponse("", "", "", 123, None),
+        "a": MockResponse("", "", "", 123),
         "fail1": Exception,
         "fail2": Exception("oops"),
     }) as ms:

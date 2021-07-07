@@ -275,7 +275,7 @@ def run(
 ):
     """Run 'program' with 'args'
     Args:
-        program (str): Program to run (full path, or basename)
+        program (str | pathlib.Path): Program to run (full path, or basename)
         *args: Command line args to call 'program' with
         background (bool): When True, background the spawned process (detach from console and current process)
         fatal (type | bool | None): If True: abort() on error [default: True]
