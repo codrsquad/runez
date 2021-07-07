@@ -98,15 +98,20 @@ class RestClient:
         )
 
     @staticmethod
+    def default_retry():
+        from urllib3 import Retry
+
+        return Retry(backoff_factor=1, status_forcelist={413, 429, 500, 502, 503, 504})
+
+    @staticmethod
     def new_requests_session(http_adapter=None, https_adapter=None, retry=None):
         """Implementation using requests.Session(), you must provide a custom new_session() if you don't have `requests` as a req"""
         import requests
         from requests.adapters import HTTPAdapter
-        from urllib3 import Retry
 
         session = requests.Session()
         if retry is None:
-            retry = Retry(backoff_factor=1, status_forcelist=[413, 429, 500, 502, 503, 504])
+            retry = RestClient.default_retry()
 
         if retry and https_adapter is None:
             https_adapter = HTTPAdapter(max_retries=retry)
