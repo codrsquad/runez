@@ -274,6 +274,8 @@ class MockWrapper:
         self.key = None
         self.stack = None
         if base_url:
+            assert isinstance(base_url, str)
+            assert isinstance(self.specs, dict)
             self.specs = {urljoin(base_url, k): v for k, v in self.specs.items()}
 
     def __repr__(self):
@@ -554,13 +556,15 @@ class RestClient:
 
     handler = RequestsHandler
 
-    def __init__(self, base_url=None, headers=None, timeout=30, user_agent=SYS_INFO.user_agent, handler=None, **session_spec):
+    def __init__(self, base_url=None, headers=None, timeout=30, user_agent=SYS_INFO.user_agent, handler=None, session=None, **session_spec):
         """
         Args:
             base_url (str | None): Base url of remote REST server
             headers (dict | None): Default headers to use
             timeout (int): Default timeout in seconds
             user_agent (str | None): User-Agent to use for outgoing calls coming from this client
+            handler: Optional: override default handler
+            session: Optional: override getting handler.new_session()
         """
         self.base_url = base_url
         self.headers = {}
@@ -572,12 +576,25 @@ class RestClient:
         if not self.handler or not self.handler.is_usable():
             raise Exception("RestClient handler '%s' is not usable" % self.handler)
 
-        self.session = self.handler.new_session(**session_spec)
+        self.session = session or self.handler.new_session(**session_spec)
         if user_agent:
             self.headers["User-Agent"] = user_agent
 
         if headers:
             self.headers.update(headers)
+
+    def sub_client(self, relative_url):
+        """
+        Args:
+            relative_url (str): Relative url (relative to self.base_url)
+
+        Returns:
+            (RestClient): Same as current client, with a different/child base url
+        """
+        url = urljoin(self.base_url, relative_url)
+        return RestClient(
+            url, headers=self.headers, timeout=self.timeout, user_agent=self.user_agent, handler=self.handler, session=self.session
+        )
 
     def full_url(self, url):
         """

@@ -41,27 +41,28 @@ def test_decorator_forbidden():
     "test/README.txt": "Hello",
 })
 def test_download(temp_folder, logged):
-    r = EXAMPLE.put("test/README.txt", data=Path("foo"), fatal=False, dryrun=True)
+    client = EXAMPLE.sub_client("test/")
+    r = client.put("README.txt", data=Path("foo"), fatal=False, dryrun=True)
     assert r.ok
     assert r.json() == {"message": "dryrun PUT https://example.com/test/README.txt"}
     assert "Would PUT" in logged.pop()
 
     with pytest.raises(FileNotFoundError):
         # fatal=False addresses http(s) communications only, not existence of files that are referred to by caller
-        EXAMPLE.put("test/README.txt", data=Path("foo"), fatal=False, dryrun=False)
+        client.put("README.txt", data=Path("foo"), fatal=False, dryrun=False)
     assert not logged
 
-    assert EXAMPLE.download("test/test.zip", "test.zip", dryrun=True).ok
+    assert client.download("test.zip", "test.zip", dryrun=True).ok
     assert "Would download" in logged.pop()
 
-    assert EXAMPLE.download("foo/test.zip", "test.zip", fatal=False).status_code == 404
+    assert client.download("foo/test.zip", "test.zip", fatal=False).status_code == 404
     assert "404" in logged.pop()
 
-    assert EXAMPLE.download("test/README.txt", "README.txt", fatal=False).ok
+    assert client.download("README.txt", "README.txt", fatal=False).ok
     assert "GET https://example.com/test/README.txt [200]" in logged.pop()
     assert runez.readlines("README.txt") == ["Hello"]
 
-    EXAMPLE.untar("foo/test.tar.gz", "my-folder", dryrun=True)
+    client.untar("foo/test.tar.gz", "my-folder", dryrun=True)
     assert "Would untar test.tar.gz -> my-folder" in logged.pop()
 
 
