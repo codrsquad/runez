@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 import runez
-from runez.http import GlobalHttpCalls, RestClient, RestResponse, urljoin
+from runez.http import GlobalHttpCalls, RestClient, RestHandler, RestResponse, urljoin
 
 
 EXAMPLE = RestClient("https://example.com")
@@ -12,10 +12,28 @@ EXAMPLE = RestClient("https://example.com")
 @GlobalHttpCalls.allowed
 def test_decorator_allowed():
     assert GlobalHttpCalls.is_forbidden() is False
+    with GlobalHttpCalls(allowed=False) as mg:
+        assert GlobalHttpCalls.is_forbidden() is True
+        assert str(mg) == "forbidden"
+
+    assert GlobalHttpCalls.is_forbidden() is False
+
+
+def test_default_disabled():
+    assert GlobalHttpCalls.is_forbidden() is True
+    with pytest.raises(AssertionError) as exc:
+        client = RestClient()
+        client.head("https://example.com")
+    assert "intentionally forbidden" in str(exc)
 
 
 @GlobalHttpCalls.forbidden
 def test_decorator_forbidden():
+    assert GlobalHttpCalls.is_forbidden() is True
+    with GlobalHttpCalls(allowed=True) as mg:
+        assert GlobalHttpCalls.is_forbidden() is False
+        assert str(mg) == "allowed"
+
     assert GlobalHttpCalls.is_forbidden() is True
 
 
@@ -59,6 +77,10 @@ def test_edge_cases():
     assert urljoin("http://example.net/a/#/b", "c") == 'http://example.net/a/#/b/c'
     assert urljoin("http://example.net/a#b", "c") == 'http://example.net/a#b/c'
 
+    with pytest.raises(Exception) as exc:
+        RestClient(handler=RestHandler)
+    assert "is not usable" in str(exc)
+
     r1 = RestResponse("GET", "http://foo", 400, '""')
     assert str(r1) == '400 ""'
     assert r1.description() == 'GET http://foo [400] ""'
@@ -70,42 +92,54 @@ def test_edge_cases():
     assert desc.endswith("...")
 
 
-@EXAMPLE.mock({
-    "README": "hello",
-})
+@EXAMPLE.mock({})
+@RestClient.handler.mock
+@EXAMPLE.mock
+@RestClient.handler.mock({})
 def test_files(temp_folder):
     # Exercise download code path
     sample = Path("README.txt")
-    EXAMPLE.download("README", sample)
-    assert runez.readlines(sample) == ["hello"]
+    r = EXAMPLE.download("README", sample, fatal=False)
+    assert r.status_code == 404
+    assert r.url == "https://example.com/README"
 
-    # Use local README.txt, which should get opened/closed appropriately
-    # Exercise data=Path(...) code path, headers are temporarily used
-    r = EXAMPLE.post("README", headers={"foo": "bar"}, data=sample)
-    assert isinstance(r, RestResponse)
-    assert r.ok
+    with EXAMPLE.mock({"README": "hello"}) as mm:
+        assert str(mm) == "tests.test_http.test_files started, 1 specs"
+        assert str(mm.stack) == "RequestsHandler mock active, 1 specs [depth: 5]"
+        EXAMPLE.download("README", sample)
+        assert runez.readlines(sample) == ["hello"]
 
-    # Exercise filepaths= code path
-    r = EXAMPLE.post("README", filepaths={"sample": sample})
-    assert isinstance(r, RestResponse)
-    assert r.ok
+        # Use local README.txt, which should get opened/closed appropriately
+        # Exercise data=Path(...) code path, headers are temporarily used
+        r = EXAMPLE.post("README", headers={"foo": "bar"}, data=sample)
+        assert isinstance(r, RestResponse)
+        assert r.ok
+
+        # Exercise filepaths= code path
+        r = EXAMPLE.post("README", filepaths={"sample": sample})
+        assert isinstance(r, RestResponse)
+        assert r.ok
 
 
-def test_outgoing_disabled():
-    assert GlobalHttpCalls.is_forbidden() is True
-    with GlobalHttpCalls(True) as mg:
-        assert GlobalHttpCalls.is_forbidden() is False
-        assert str(mg) == "allowed"
+@EXAMPLE.mock
+@RestClient.handler.mock("https://example.com/tt", {"test": 205})
+def test_handler_mock(logged):
+    session = RestClient("https://example.com", handler=EXAMPLE.handler)
+    assert session.head("tt/test", fatal=False).status_code == 205
+    assert session.head("foo", fatal=False).status_code == 404
 
-    with GlobalHttpCalls(False) as mg:
-        assert GlobalHttpCalls.is_forbidden() is True
-        assert str(mg) == "forbidden"
-        with pytest.raises(AssertionError) as exc:
-            client = RestClient()
-            client.head("https://example.com")
-        assert "intentionally forbidden" in str(exc)
+    with EXAMPLE.mock({"foo": 201, "tt/test": 206}) as mm:
+        mock_stack = mm.stack
+        assert str(mm.stack) == "RequestsHandler mock active, 2 specs [depth: 3]"
+        assert str(mm) == "tests.test_http.test_handler_mock started, 2 specs"
+        assert session.head("foo", fatal=False).status_code == 201
+        assert session.head("tt/test", fatal=False).status_code == 206  # Comes from closest mock context
 
-    assert GlobalHttpCalls.is_forbidden() is True
+    assert str(mm) == "tests.test_http.test_handler_mock stopped, 2 specs"
+    assert mm.stack is None
+    assert str(mock_stack) == "RequestsHandler mock active, 1 specs [depth: 2]"
+    assert session.head("foo", fatal=False).status_code == 404
+    assert session.head("tt/test", fatal=False).status_code == 205  # Reverts back to prev mock
 
 
 def test_reporting():

@@ -29,7 +29,7 @@ import urllib.parse
 from pathlib import Path
 
 from runez.file import TempFolder, to_path, untar, write
-from runez.system import _R, abort, short, stringified, SYS_INFO, UNSET
+from runez.system import _R, abort, find_caller_frame, short, stringified, SYS_INFO, UNSET
 
 
 def urljoin(base, url):
@@ -185,7 +185,14 @@ class MockedHandlerStack:
         self.handler = None
         self.ms = None
         self.specs = {}
+        self.spec_stack = []
         self.original_send_function = None
+
+    def __repr__(self):
+        name = self.handler and self.handler.__name__
+        status = "active" if self.original_send_function else "stopped"
+        nested = " [depth: %s]" % len(self.spec_stack) if self.spec_stack else ""
+        return "%s mock %s, %s specs%s" % (name, status, len(self.specs), nested)
 
     def register_handler(self, handler):
         if self.handler:
@@ -195,20 +202,23 @@ class MockedHandlerStack:
         self.ms = handler.intercept(None)
         self.handler = handler
 
-    def add_spec(self, base_url, specs):
-        self.specs.update({urljoin(base_url, k): v for k, v in specs.items()})
-
     def _intercept(self, *args, **kwargs):
         return self.handler.intercept(self, *args, **kwargs)
 
-    def start(self):
-        if self.original_send_function is None:
+    def start(self, specs):
+        if not self.spec_stack:
+            assert self.original_send_function is None
             target, name = self.ms
             self.original_send_function = getattr(target, name)
             setattr(target, name, self._intercept)
 
+        self.spec_stack.append(dict(self.specs))  # Push snapshot of current specs, to be restored by .stop()
+        self.specs.update(specs)
+
     def stop(self):
-        if self.original_send_function is not None:
+        self.specs = self.spec_stack.pop()
+        if not self.spec_stack:
+            assert self.original_send_function is not None
             target, name = self.ms
             setattr(target, name, self.original_send_function)
             self.original_send_function = None
@@ -244,14 +254,14 @@ class MockCentral:
     _stacks = {}
 
     @classmethod
-    def get_stack(cls, func):
+    def get_stack(cls, handler, key):
         """Keep mock specifications stacked by decorated function, to allow stacking several mock specs per function"""
-        key = "%s.%s" % (func.__module__, func.__qualname__)
         stack = cls._stacks.get(key)
         if stack is None:
             stack = MockedHandlerStack()
             cls._stacks[key] = stack
 
+        stack.register_handler(handler)
         return stack
 
 
@@ -260,25 +270,54 @@ class MockWrapper:
 
     def __init__(self, handler, base_url, specs):
         self.handler = handler
-        self.base_url = base_url
-        self.specs = specs
+        self.specs = specs or {}
+        self.key = None
+        self.stack = None
+        if base_url:
+            self.specs = {urljoin(base_url, k): v for k, v in self.specs.items()}
+
+    def __repr__(self):
+        status = "stopped" if self.stack is None else "started"
+        return "%s %s, %s specs" % (self.key, status, len(self.specs))
+
+    def start(self):
+        self.stack = MockCentral.get_stack(self.handler, self.key)
+        self.stack.start(self.specs)
+
+    def stop(self):
+        self.stack.stop()
+        self.stack = None
 
     def __call__(self, func):
-        """We're used as a decorator"""
-        stack = MockCentral.get_stack(func)
-        stack.register_handler(self.handler)
-        stack.add_spec(self.base_url, self.specs)
+        """
+        Args:
+            func (callable): We're used as a decorator of function 'func'
+
+        Returns:
+            (callable): Decorated function
+        """
+        self.key = "%s.%s" % (func.__module__, func.__qualname__)
 
         @functools.wraps(func)
         def inner(*args, **kwargs):
-            stack.start()
+            self.start()
             try:
                 return func(*args, **kwargs)
 
             finally:
-                stack.stop()
+                self.stop()
 
         return inner
+
+    def __enter__(self):
+        """We're used as a context"""
+        caller = find_caller_frame()
+        self.key = "%s.%s" % (caller.f_globals.get("__name__"), caller.f_code.co_name)
+        self.start()
+        return self
+
+    def __exit__(self, *_):
+        self.stop()
 
 
 class RestResponse:
@@ -363,7 +402,7 @@ class RestHandler:
     """Allows to use multiple http(s) implementations"""
 
     @classmethod
-    def mock(cls, base_url, specs):
+    def mock(cls, base_url, specs=None):
         """
         Usage example:
 
@@ -382,6 +421,11 @@ class RestHandler:
         Returns:
             Function decorator that will enact the mock
         """
+        if callable(base_url):
+            # We were invoked without arguments, form: @RestHandler.mock
+            w = MockWrapper(cls, None, None)
+            return w(base_url)
+
         return MockWrapper(cls, base_url, specs)
 
     @classmethod
@@ -480,10 +524,7 @@ class RequestsHandler(RestHandler):
     @classmethod
     def raw_response(cls, session, method, url, **passed_through):
         func = getattr(session, method.lower())
-        try:
-            return func(url, **passed_through)
-        except Exception as e:
-            raise
+        return func(url, **passed_through)
 
     @classmethod
     def to_rest_response(cls, method, url, response):
@@ -724,6 +765,11 @@ class RestClient:
         Returns:
             Function decorator that will enact the mock
         """
+        if callable(specs):
+            # We were invoked without arguments, form: @MY_CLIENT.mock
+            w = MockWrapper(self.handler, self.base_url, None)
+            return w(specs)
+
         return MockWrapper(self.handler, self.base_url, specs)
 
     def _get_response(self, method, url, fatal, logger, dryrun=False, params=None, headers=None, state=None, action=None):
