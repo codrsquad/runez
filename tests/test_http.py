@@ -3,7 +3,10 @@ from pathlib import Path
 import pytest
 
 import runez
-from runez.http import GlobalHttpCalls, mock_http, MockHttp, MockResponse, RestClient, urljoin
+from runez.http import GlobalHttpCalls, RestClient, RestResponse, urljoin
+
+
+EXAMPLE = RestClient("https://example.com")
 
 
 @GlobalHttpCalls.allowed
@@ -16,33 +19,31 @@ def test_decorator_forbidden():
     assert GlobalHttpCalls.is_forbidden() is True
 
 
-@mock_http({
-    "https://example.com/test/README.txt": "Hello",
+@EXAMPLE.mock({
+    "test/README.txt": "Hello",
 })
 def test_download(temp_folder, logged):
-    session = RestClient("https://example.com")
-
-    r = session.put("test/README.txt", data=Path("foo"), fatal=False, dryrun=True)
+    r = EXAMPLE.put("test/README.txt", data=Path("foo"), fatal=False, dryrun=True)
     assert r.ok
     assert r.json() == {"message": "dryrun PUT https://example.com/test/README.txt"}
     assert "Would PUT" in logged.pop()
 
     with pytest.raises(FileNotFoundError):
         # fatal=False addresses http(s) communications only, not existence of files that are referred to by caller
-        session.put("test/README.txt", data=Path("foo"), fatal=False, dryrun=False)
+        EXAMPLE.put("test/README.txt", data=Path("foo"), fatal=False, dryrun=False)
     assert not logged
 
-    assert session.download("test/test.zip", "test.zip", dryrun=True).ok
+    assert EXAMPLE.download("test/test.zip", "test.zip", dryrun=True).ok
     assert "Would download" in logged.pop()
 
-    assert session.download("foo/test.zip", "test.zip", fatal=False).status_code == 404
+    assert EXAMPLE.download("foo/test.zip", "test.zip", fatal=False).status_code == 404
     assert "404" in logged.pop()
 
-    assert session.download("test/README.txt", "README.txt", fatal=False).ok
+    assert EXAMPLE.download("test/README.txt", "README.txt", fatal=False).ok
     assert "GET https://example.com/test/README.txt [200]" in logged.pop()
     assert runez.readlines("README.txt") == ["Hello"]
 
-    session.untar("foo/test.tar.gz", "my-folder", dryrun=True)
+    EXAMPLE.untar("foo/test.tar.gz", "my-folder", dryrun=True)
     assert "Would untar test.tar.gz -> my-folder" in logged.pop()
 
 
@@ -58,93 +59,45 @@ def test_edge_cases():
     assert urljoin("http://example.net/a/#/b", "c") == 'http://example.net/a/#/b/c'
     assert urljoin("http://example.net/a#b", "c") == 'http://example.net/a#b/c'
 
-    assert RestClient.response_description(None) == ""
-
-    r1 = MockResponse("GET", "http://foo", '""', 400)
+    r1 = RestResponse("GET", "http://foo", 400, '""')
     assert str(r1) == '400 ""'
-    r1.payload = "invalid json"
-    assert RestClient.response_description(r1) == "GET http://foo [400 Bad request] invalid json"
-
-    r1.history = [MockResponse("GET", "http://foo", "", 400)]
-    s = RestClient.response_description(r1)
-    assert "Response history" in s
+    assert r1.description() == 'GET http://foo [400] ""'
 
     # Check message shortened (don't dump full output)
-    r1 = MockResponse("GET", "http://foo", "-" * 1050, 400)
-    assert RestClient.response_snippet(r1).endswith("...")
+    r1 = RestResponse("GET", "http://foo", 400, "-" * 1050)
+    desc = r1.description()
+    assert len(desc) == 1027
+    assert desc.endswith("...")
 
 
-@mock_http({
-    "_base": "https://example.com",
+@EXAMPLE.mock({
     "README": "hello",
 })
 def test_files(temp_folder):
-    session = RestClient("https://example.com")
-    assert len(session.headers) == 1
-
     # Exercise download code path
     sample = Path("README.txt")
-    session.download("README", sample)
+    EXAMPLE.download("README", sample)
     assert runez.readlines(sample) == ["hello"]
 
     # Use local README.txt, which should get opened/closed appropriately
     # Exercise data=Path(...) code path, headers are temporarily used
-    r = session.post("README", headers={"foo": "bar"}, data=sample)
-    assert isinstance(r, MockResponse)
+    r = EXAMPLE.post("README", headers={"foo": "bar"}, data=sample)
+    assert isinstance(r, RestResponse)
     assert r.ok
-    assert len(r.kwargs) == 3
-    assert "data" in r.kwargs
 
     # Exercise filepaths= code path
-    r = session.post("README", filepaths={"sample": sample})
-    assert isinstance(r, MockResponse)
+    r = EXAMPLE.post("README", filepaths={"sample": sample})
+    assert isinstance(r, RestResponse)
     assert r.ok
-    assert len(r.kwargs) == 3
-    assert "sample" in r.kwargs["files"]
-
-
-def test_new_session(monkeypatch):
-    # Test replacing RestClient.new_session with a custom function
-    class MySession:
-        """Simulates a non-requests session... we're exercising .get() only here"""
-        def __init__(self, app):
-            self.app = app
-
-        def get(self, url, **kwargs):
-            return MockResponse("GET", url, {"app": self.app}, 201, **kwargs)
-
-    def dedicated_session(app=None):
-        return MySession(app)
-
-    def my_session(client, app=None):
-        """Simulate a custom session creator, with 'app' as custom session_spec"""
-        assert isinstance(client, RestClient)
-        assert client.base_url == "https://example.com"
-        return MySession(app)
-
-    session = RestClient("https://example.com", app="my-app", new_session=dedicated_session)
-    r = session.get_response("foo")
-    assert r.ok
-    assert r.json() == {"app": "my-app"}
-
-    monkeypatch.setattr(RestClient, "new_session", my_session)
-    session = RestClient("https://example.com", app="my-app")
-    r = session.get_response("foo")
-    assert r.status_code == 201
-    assert r.json() == {"app": "my-app"}
-
-    r = session.get_response("foo")
-    assert r.ok
-    assert r.json() == {"app": "my-app"}
 
 
 def test_outgoing_disabled():
     assert GlobalHttpCalls.is_forbidden() is True
-    with GlobalHttpCalls(allowed=True) as mg:
+    with GlobalHttpCalls(True) as mg:
         assert GlobalHttpCalls.is_forbidden() is False
         assert str(mg) == "allowed"
 
-    with GlobalHttpCalls(allowed=False) as mg:
+    with GlobalHttpCalls(False) as mg:
         assert GlobalHttpCalls.is_forbidden() is True
         assert str(mg) == "forbidden"
         with pytest.raises(AssertionError) as exc:
@@ -157,33 +110,31 @@ def test_outgoing_disabled():
 
 def test_reporting():
     # Verify reasonable extraction of error messages
-    assert RestClient.extract_message(None) is None
-    assert RestClient.extract_message(" foo ") == "foo"
-    assert RestClient.extract_message({"message": " oops "}) == "oops"
-    assert RestClient.extract_message({"error": " oops "}) == "oops"
-    assert RestClient.extract_message({"errors": " oops "}) == "oops"
-    assert RestClient.extract_message({"errors": [{"error": " nested "}]}) == "nested"
+    assert RestResponse.extract_message(None) is None
+    assert RestResponse.extract_message(" foo ") == "foo"
+    assert RestResponse.extract_message({"message": " oops "}) == "oops"
+    assert RestResponse.extract_message({"error": " oops "}) == "oops"
+    assert RestResponse.extract_message({"errors": " oops "}) == "oops"
+    assert RestResponse.extract_message({"errors": [{"error": " nested "}]}) == "nested"
 
 
-def dynamic_call(method, url, **_):
+def dynamic_call(method, url):
     if url.endswith("-a"):
         return 201, "invalid json"  # Simulate request not return valid json
 
-    if method == "POST":
-        return None  # Simulate invalid mock-spec (should return an int, string, or payload)
-
-    return ["bar"]  # Implied status 200
+    return ["bar", method]  # Implied status 200
 
 
-@mock_http({
-    "_base": "https://example.com",  # Base url (so we don't have to repeat it on every line below)
+@EXAMPLE.mock({
     "foo-bar": {"foo": "bar"},  # status 200 implied, payload is a dict
     "bad-request": (400, dict(error="oops", msg="more info")),  # status 400, with sample error
     "server-crashed": (500, "failed"),  # status 500, with optional content as well
-    "not-found": 404,  # status 404 (payload unimportant, will default to "status 404")
     "dynamic-a": dynamic_call,  # status and payload will come from function call
     "dynamic-b": dynamic_call,
-}, default_status=405)
+    "explicit": RestResponse("", "", 202, "explicit RestResponse"),
+    "fail1": Exception,
+    "fail2": Exception("oops"),
+})
 def test_rest(logged):
     session = RestClient("https://example.com", headers={"test": "testing"})
     assert len(session.headers) == 2
@@ -202,13 +153,8 @@ def test_rest(logged):
     assert session.put("foo-bar").ok
     assert "PUT https://example.com/foo-bar [200]" in logged.pop()
 
-    # 'undeclared-spec' not present in mock_http() -> defaults to specified default_status
-    assert session.head("undeclared-spec", fatal=False, logger=None).status_code == 405
-    assert session.url_exists("undeclared-spec") is False
-    assert session.url_exists("") is False
-
     assert not session.post("bad-request", fatal=False).ok
-    assert "POST https://example.com/bad-request [400 Bad request] oops {" in logged.pop()
+    assert "POST https://example.com/bad-request [400] oops" in logged.pop()
 
     # Status 500 in mock spec does NOT impact dryrun
     assert session.post("server-crashed", dryrun=True).ok
@@ -217,38 +163,28 @@ def test_rest(logged):
     # But does impact actual (no dryrun) run
     with pytest.raises(runez.system.AbortException):
         session.get("server-crashed", fatal=True)
-    assert "GET https://example.com/server-crashed [500 Internal error]" in logged.pop()
+    assert "GET https://example.com/server-crashed [500]" in logged.pop()
     r = session.get_response("server-crashed", fatal=False, logger=None)
+    assert not r.ok
     assert r.status_code == 500
-    with pytest.raises(IOError) as exc:
-        r.raise_for_status()
-    assert "Internal error" in str(exc)
 
-    with MockHttp({
-        "_base": "https://example.com",
-        "a": MockResponse("", "", "", 123),
-        "fail1": Exception,
-        "fail2": Exception("oops"),
-    }) as ms:
-        assert str(ms) == "3 specs"
-        assert str(ms.specs.get("https://example.com/a")) == "https://example.com/a 123 "
-        assert session.get_response("foo-bar", fatal=False).status_code == 404  # No access to parent mock...
-        assert session.get_response("a", fatal=False).status_code == 123
-        with pytest.raises(Exception):
-            session.get_response("fail1", fatal=False)
-
-        with pytest.raises(Exception):
-            session.get_response("fail2", fatal=False)
-        logged.pop()
-
+    assert session.url_exists("") is False
+    assert session.url_exists("not-found") is False
     assert session.get("not-found", fatal=False, logger=None) is None
     assert session.head("not-found", fatal=False, logger=None).status_code == 404
 
     assert str(session.get_response("dynamic-a", logger=None)) == "201 invalid json"
-    assert session.get("dynamic-b", logger=None) == ["bar"]
+    assert session.get("dynamic-b", logger=None) == ["bar", "GET"]
     assert not logged
 
-    with pytest.raises(AssertionError) as exc:
-        # dynamic_call() returns None for POST, which is interpreted as an invalid mock-spec
-        session.post("dynamic-b", fatal=False)
-    assert "Check mock response: None" in str(exc)
+    r = session.put("explicit")
+    assert r.method == "PUT"
+    assert str(r) == "202 explicit RestResponse"
+
+    with pytest.raises(Exception) as exc:
+        session.get("fail1")
+    assert "Simulated crash" in str(exc)
+
+    with pytest.raises(Exception) as exc:
+        session.get("fail2")
+    assert "oops" in str(exc)

@@ -11,21 +11,15 @@ Benefits and use case:
 Usage pattern:
     from runez.http import RestClient
 
-    # You can either have a global 'new_session'
-    def my_session_creator(client: RestClient, foo=None, ...):
-        return requests.Session()  # customized 'session'
-
-    RestClient.new_session = my_session_creator
-    MY_SERVER = RestClient("https://example.net", foo="my-foo")
+    # You can replace the default RestClient.handler
+    RestClient.handler = MyHandler
+    MY_CLIENT = runez.http.RestClient("https://example.net", foo="my-foo")
 
     # Or do it per client:
-    def my_dedicated_creator(foo=None, ...):
-        return requests.Session()  # customized 'session'
-
-    MY_SERVER = RestClient("https://example.net", spec="my-spec", new_session=my_dedicated_creator)
+    MY_CLIENT = runez.http.RestClient("https://example.net", spec="my-spec", handler=MyHandler)
 
     # Then use the client
-    response = MY_SERVER.get("api/v1/....", fatal=False, dryrun=False)
+    response = MY_CLIENT.get("api/v1/....", fatal=False, dryrun=False)
 """
 
 import functools
@@ -35,7 +29,7 @@ import urllib.parse
 from pathlib import Path
 
 from runez.file import TempFolder, to_path, untar, write
-from runez.system import _R, abort, joined, short, stringified, SYS_INFO, UNSET
+from runez.system import _R, abort, short, stringified, SYS_INFO, UNSET
 
 
 def urljoin(base, url):
@@ -51,366 +45,6 @@ def urljoin(base, url):
         base += "/"
 
     return urllib.parse.urljoin(base, url, allow_fragments=False)
-
-
-class RestClient:
-    """REST client with good defaults for retry, timeout, ... + support for --dryrun mode etc"""
-
-    _sessions = {}  # Cached underlying 'new_session()' objects, mostly so tests can intercept this to mock out accesses
-
-    def __init__(self, base_url=None, headers=None, timeout=30, user_agent=SYS_INFO.user_agent, new_session=None, **session_spec):
-        """
-        Args:
-            base_url (str | None): Base url of remote REST server
-            headers (dict | None): Default headers to use
-            timeout (int): Default timeout in seconds
-            user_agent (str | None): User-Agent to use for outgoing calls coming from this client
-            new_session (callable): Optionally client-dedicated 'new_session()` creator
-        """
-        self.session_spec = session_spec
-        self.key = tuple(session_spec.items())
-        self.base_url = base_url
-        self.headers = {}
-        self.timeout = timeout
-        self.user_agent = user_agent
-        if user_agent:
-            self.headers["User-Agent"] = user_agent
-
-        if headers:
-            self.headers.update(headers)
-
-        if new_session is not None:
-            self.new_session = new_session
-
-    @classmethod
-    def new_session(cls, **session_spec):
-        """
-        Args:
-            **session_spec: Spec that underlying implementation can use to tweak returned session object
-
-        Returns:
-            Session object, needs to have a requests-like .get(), .put() etc
-        """
-        return RestClient.new_requests_session(
-            http_adapter=session_spec.pop("http_adapter", None),
-            https_adapter=session_spec.pop("https_adapter", None),
-            retry=session_spec.pop("retry", None),
-        )
-
-    @staticmethod
-    def default_retry():
-        from urllib3 import Retry
-
-        return Retry(backoff_factor=1, status_forcelist={413, 429, 500, 502, 503, 504})
-
-    @staticmethod
-    def new_requests_session(http_adapter=None, https_adapter=None, retry=None):
-        """Implementation using requests.Session(), you must provide a custom new_session() if you don't have `requests` as a req"""
-        import requests
-        from requests.adapters import HTTPAdapter
-
-        session = requests.Session()
-        if retry is None:
-            retry = RestClient.default_retry()
-
-        if retry and https_adapter is None:
-            https_adapter = HTTPAdapter(max_retries=retry)
-
-        if retry and http_adapter is None:
-            http_adapter = HTTPAdapter(max_retries=retry)
-
-        if https_adapter:
-            session.mount("https://", https_adapter)
-
-        if http_adapter:
-            session.mount("http://", http_adapter)
-
-        return session
-
-    def full_url(self, url):
-        """
-        Args:
-            url (str): Relative URL
-
-        Returns:
-            (str): Absolute URL, auto-completed with `self.base_url`
-        """
-        return urljoin(self.base_url, url)
-
-    def download(self, url, destination, fatal=True, logger=UNSET, dryrun=UNSET, params=None, headers=None):
-        """
-        Args:
-            url (str): URL of resource to download (may be absolute, or relative to self.base_url)
-            destination (str | Path): Path to local file where to store the download
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
-            dryrun (bool): Optionally override current dryrun setting
-            params (dict | None): Key/value pairs for query string
-            headers (dict | None): Optional Headers specific to this request
-
-        Returns:
-            (requests.Response): Response from underlying call
-        """
-        response = self._get_response("GET", url, fatal, logger, dryrun=dryrun, params=params, headers=headers, action="download")
-        if response.ok:
-            write(destination, response.content, fatal=fatal, logger=logger, dryrun=dryrun)
-
-        return response
-
-    def untar(self, url, destination, fatal=True, logger=UNSET, dryrun=UNSET, params=None, headers=None):
-        """
-        Args:
-            url (str): URL of .tar.gz to unpack (may be absolute, or relative to self.base_url)
-            destination (str | Path): Path to local folder where to untar url
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
-            dryrun (bool): Optionally override current dryrun setting
-            params (dict | None): Key/value pairs for query string
-            headers (dict | None): Optional Headers specific to this request
-
-        Returns:
-            (requests.Response): Response from underlying call
-        """
-        destination = to_path(destination).absolute()
-        with TempFolder():
-            tarball_path = to_path(os.path.basename(url)).absolute()
-            response = self.download(url, tarball_path, fatal=fatal, logger=logger, dryrun=dryrun, params=params, headers=headers)
-            if response.ok:
-                untar(tarball_path, destination, fatal=fatal, logger=logger, dryrun=dryrun)
-
-            return response
-
-    def get_response(self, url, fatal=True, logger=UNSET, params=None, headers=None):
-        """
-        Args:
-            url (str): Remote URL (may be absolute, or relative to self.base_url)
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
-            params (dict | None): Key/value pairs for query string
-            headers (dict | None): Optional Headers specific to this request
-
-        Returns:
-            (requests.Response): Response from underlying call
-        """
-        return self._get_response("GET", url, fatal, logger, params=params, headers=headers)
-
-    def delete(self, url, fatal=True, logger=UNSET, dryrun=UNSET, params=None, headers=None):
-        """Same as underlying .delete(), but respecting 'dryrun' mode
-
-        Args:
-            url (str): URL to query (can be absolute, or relative to self.base_url)
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
-            dryrun (bool): Optionally override current dryrun setting
-            params (dict | None): Key/value pairs for query string
-            headers (dict | None): Optional Headers specific to this request
-
-        Returns:
-            (requests.Response): Response from underlying call
-        """
-        return self._get_response("DELETE", url, fatal, logger, dryrun=dryrun, params=params, headers=headers)
-
-    def get(self, url, fatal=True, logger=UNSET, params=None, headers=None):
-        """
-        Args:
-            url (str): Remote URL (may be absolute, or relative to self.base_url)
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
-            params (dict | None): Key/value pairs for query string
-            headers (dict | None): Optional Headers specific to this request
-
-        Returns:
-            (dict | None): Deserialized .json() from response, if available
-        """
-        response = self.get_response(url, fatal=fatal, logger=logger, params=params, headers=headers)
-        if response.ok:
-            return response.json()
-
-    def head(self, url, fatal=True, logger=UNSET, params=None, headers=None):
-        """
-        Args:
-            url (str): URL to query (can be absolute, or relative to self.base_url)
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
-            params (dict | None): Key/value pairs for query string
-            headers (dict | None): Optional Headers specific to this request
-
-        Returns:
-            (requests.Response): Response from underlying call
-        """
-        return self._get_response("HEAD", url, fatal, logger, params=params, headers=headers)
-
-    def post(
-        self, url, fatal=True, logger=UNSET, dryrun=UNSET, params=None, headers=None, data=None, json=None, files=None, filepaths=None
-    ):
-        """Same as underlying .post(), but respecting 'dryrun' mode
-
-        Args:
-            url (str): URL to query (can be absolute, or relative to self.base_url)
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
-            dryrun (bool): Optionally override current dryrun setting
-            params (dict | None): Key/value pairs for query string
-            headers (dict | None): Optional Headers specific to this request
-            data (dict | tuple | bytes | file | None): Data to send in the body
-            json: (optional) json to send in the body
-            files (dict | None): File-like-objects for multipart encoding upload.
-            filepaths (dict[str, Path] | None): File-like-objects for multipart encoding upload.
-
-        Returns:
-            (requests.Response): Response from underlying call
-        """
-        state = DataState.wrapped(dryrun, data, json, files, filepaths)
-        return self._get_response("POST", url, fatal, logger, dryrun=dryrun, params=params, headers=headers, state=state)
-
-    def put(self, url, fatal=True, logger=UNSET, dryrun=UNSET, params=None, headers=None, data=None, json=None, files=None, filepaths=None):
-        """
-        Args:
-            url (str): URL to query (can be absolute, or relative to self.base_url)
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
-            dryrun (bool): Optionally override current dryrun setting
-            params (dict | None): Key/value pairs for query string
-            headers (dict | None): Optional Headers specific to this request
-            data (dict | tuple | bytes | file | None): Data to send in the body
-            json: (optional) json to send in the body
-            files (dict | None): File-like-objects for multipart encoding upload.
-            filepaths (dict[str, Path] | None): File-like-objects for multipart encoding upload.
-
-        Returns:
-            (requests.Response): Response from underlying call
-        """
-        state = DataState.wrapped(dryrun, data, json, files, filepaths)
-        return self._get_response("PUT", url, fatal, logger, dryrun=dryrun, params=params, headers=headers, state=state)
-
-    def url_exists(self, url, logger=False):
-        """
-        Args:
-            url (str): URL to query (can be absolute, or relative to self.base_url)
-            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
-
-        Returns:
-            (bool): True if remote URL exists (ie: not a 404)
-        """
-        response = self.head(url, fatal=False, logger=logger)
-        return bool(response and response.ok)
-
-    def _get_response(self, method, url, fatal, logger, dryrun=False, params=None, headers=None, state=None, action=None):
-        """
-        Args:
-            method (str): Underlying method to call
-            url (str): Remote URL (may be absolute, or relative to self.base_url)
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
-            dryrun (bool): Optionally override current dryrun setting
-            params (dict | None): Key/value pairs for query string
-            headers (dict | None): Optional Headers specific to this request
-            state (DataState | None): For PUT/POST requests
-            action (str | None): Action to refer to in dryrun message (default: method)
-
-        Returns:
-            (requests.Response): Response from underlying call
-        """
-        absolute_url = self.full_url(url)
-        message = "%s %s" % (action or method, absolute_url)
-        if _R.hdry(dryrun, logger, message):
-            return MockResponse(method, absolute_url, dict(message="dryrun %s" % message), 200, params=params, headers=headers)
-
-        full_headers = self.headers
-        if headers:
-            full_headers = dict(full_headers)
-            full_headers.update(headers)
-
-        keyword_args = dict(headers=full_headers, timeout=self.timeout)
-        if state is not None:
-            state.complete(keyword_args)
-
-        session = self._sessions.get(self.key)
-        if session is None:
-            session = self._sessions[self.key] = self.new_session(**self.session_spec)
-
-        try:
-            func = getattr(session, method.lower())
-            response = func(absolute_url, **keyword_args)
-
-        finally:
-            if state is not None:
-                state.close()
-
-        if fatal or logger is not None:
-            msg = self.response_description(response)
-            if fatal and not response.ok:
-                abort(msg)
-
-            _R.hlog(logger, msg)
-
-        return response
-
-    @staticmethod
-    def extract_message(data):
-        """
-        Try to get to the point of a returned REST json bit, extract meaningful message if possible.
-        Otherwise, we fallback the .text of response (which may be verbose / hard to read)
-        """
-        if not data:
-            return None
-
-        if data and isinstance(data, str):
-            return data.strip()
-
-        if isinstance(data, dict):
-            msg = RestClient.extract_message(data.get("message"))
-            if msg:
-                return msg
-
-            msg = RestClient.extract_message(data.get("error"))
-            if msg:
-                return msg
-
-            return RestClient.extract_message(data.get("errors"))
-
-        if isinstance(data, list):
-            for item in data:
-                msg = RestClient.extract_message(item)
-                if msg:
-                    return msg
-
-    @staticmethod
-    def response_snippet(response, size=1024):
-        """Meaningful text from 'response'"""
-        if response.ok or response.status_code == 404:
-            return ""
-
-        try:
-            msg = RestClient.extract_message(response.json())
-
-        except Exception:
-            msg = None
-
-        if msg is None or len(msg) < 6:
-            msg = "%s %s" % (msg or "", stringified(response.text).strip() or "-empty response text-")
-            msg = msg.strip()
-
-        if len(msg) > size:
-            msg = "%s..." % msg[:size]
-
-        return msg
-
-    @staticmethod
-    def response_description(response, history=True):
-        """Description showing what happened with requests 'response', fir .debug() output, or .error() reporting"""
-        if response is None:
-            return ""
-
-        method = response.request and response.request.method
-        status = joined(response.status_code, response.reason, keep_empty=None)
-        msg = "%s %s [%s] %s" % (method, response.url, status, RestClient.response_snippet(response))
-        msg = msg.strip()
-        if history and response.history:
-            h = (RestClient.response_description(r, history=False) for r in response.history)
-            msg = joined(msg, "\n-- Response history: --", h, delimiter="\n", keep_empty=None)
-
-        return msg
 
 
 class GlobalHttpCalls:
@@ -545,203 +179,595 @@ class DataState:
             return state
 
 
-def mock_http(*specs, base=None, default_status=404):
-    """
-    Usage example:
+class MockedHandlerStack:
 
-    SOME_SESSION = RestAPI("https://example.com")
+    def __init__(self):
+        self.handler = None
+        self.ms = None
+        self.specs = {}
+        self.original_send_function = None
 
-    @mock_http({
-        "_base": "https://example.com"
-        "foo": {"some": "payload"}
-    })
-    def test_foo():
-        assert SOME_SESSION.get("foo") == {"some": "payload"}
+    def register_handler(self, handler):
+        if self.handler:
+            assert self.handler is handler, "Mocks targeting multiple handlers is not supported"
+            return
 
-    Args:
-        *specs (dict): Map of url -> what to return
-        base (str): Base url
-        default_status (int): Default status code to use for all queries that don't have a url declared in 'specs' (default: 404)
+        self.ms = handler.intercept(None)
+        self.handler = handler
 
-    Returns:
-        Function decorator that will enact the mock
-    """
-    return MockHttp(*specs, base=base, default_status=default_status)
+    def add_spec(self, base_url, specs):
+        self.specs.update({urljoin(base_url, k): v for k, v in specs.items()})
+
+    def _intercept(self, *args, **kwargs):
+        return self.handler.intercept(self, *args, **kwargs)
+
+    def start(self):
+        if self.original_send_function is None:
+            target, name = self.ms
+            self.original_send_function = getattr(target, name)
+            setattr(target, name, self._intercept)
+
+    def stop(self):
+        if self.original_send_function is not None:
+            target, name = self.ms
+            setattr(target, name, self.original_send_function)
+            self.original_send_function = None
+
+    def response_for_url(self, method, url):
+        spec = self.specs.get(url)
+        if spec is None:
+            return RestResponse(method, url, 404, dict(message="Default status code 404"))
+
+        if isinstance(spec, BaseException):
+            raise spec
+
+        if isinstance(spec, type) and issubclass(spec, BaseException):
+            raise spec("Simulated crash")
+
+        if callable(spec):
+            spec = spec(method, url)
+
+        if isinstance(spec, RestResponse):
+            return RestResponse(method, url, spec.status_code, spec.content)
+
+        if isinstance(spec, int):
+            return RestResponse(method, url, spec, "status %s" % spec)
+
+        if isinstance(spec, tuple) and len(spec) == 2:
+            return RestResponse(method, url, *spec)
+
+        return RestResponse(method, url, 200, spec)
 
 
-class MockHttp:
+class MockCentral:
+
+    _stacks = {}
+
+    @classmethod
+    def get_stack(cls, func):
+        """Keep mock specifications stacked by decorated function, to allow stacking several mock specs per function"""
+        key = "%s.%s" % (func.__module__, func.__qualname__)
+        stack = cls._stacks.get(key)
+        if stack is None:
+            stack = MockedHandlerStack()
+            cls._stacks[key] = stack
+
+        return stack
+
+
+class MockWrapper:
     """Intercept and mock out outgoing RestClient calls"""
 
-    def __init__(self, *specs, base=None, default_status=404):
-        self.specs = {}
-        self.default_status = default_status
-        self._original_new_session = None
-        for by_endpoint in specs:
-            assert isinstance(by_endpoint, dict), "Mocked response specs must be a dict of url -> what to return"
-            base_url = by_endpoint.pop("_base", base)  # Convenience: allow to "factor out" the base url
-            for url, rspec in by_endpoint.items():
-                url = urljoin(base_url, url)
-                if not isinstance(rspec, MockResponseSpec):
-                    rspec = MockResponseSpec(url, rspec)
-
-                self.specs[url] = rspec
-
-    def __repr__(self):
-        return "%s specs" % len(self.specs)
+    def __init__(self, handler, base_url, specs):
+        self.handler = handler
+        self.base_url = base_url
+        self.specs = specs
 
     def __call__(self, func):
         """We're used as a decorator"""
+        stack = MockCentral.get_stack(func)
+        stack.register_handler(self.handler)
+        stack.add_spec(self.base_url, self.specs)
+
         @functools.wraps(func)
         def inner(*args, **kwargs):
-            self.__enter__()
+            stack.start()
             try:
                 return func(*args, **kwargs)
 
             finally:
-                self.__exit__()
+                stack.stop()
 
         return inner
 
-    def __enter__(self):
-        """We're used as a context manager"""
-        self._original_new_session = RestClient.new_session
-        RestClient.new_session = self._new_session
-        RestClient._sessions = {}
-        return self
 
-    def __exit__(self, *_):
-        RestClient.new_session = self._original_new_session
-        RestClient._sessions = {}
+class RestResponse:
+    """Simplified response, from a typical REST query, vaguely similar to requests.Response"""
 
-    def _new_session(self, **session_spec):
-        return self
-
-    def _get_response(self, method, url, kwargs):
-        spec = self.specs.get(url)
-        if spec is None:
-            spec = MockResponseSpec(url, (self.default_status, dict(message="Default status code %s" % self.default_status)))
-
-        return spec.get_response(method, kwargs)
-
-    def delete(self, url, **kwargs):
-        """Mocked out GET call"""
-        return self._get_response("DELETE", url, kwargs)
-
-    def get(self, url, **kwargs):
-        """Mocked out GET call"""
-        return self._get_response("GET", url, kwargs)
-
-    def head(self, url, **kwargs):
-        """Mocked out HEAD call"""
-        return self._get_response("HEAD", url, kwargs)
-
-    def post(self, url, **kwargs):
-        """Mocked out POST call"""
-        return self._get_response("POST", url, kwargs)
-
-    def put(self, url, **kwargs):
-        """Mocked out PUT call"""
-        return self._get_response("PUT", url, kwargs)
-
-
-class MockedRequest:
-    """Pretends to be a requests' Request"""
-
-    def __init__(self, method, url):
+    def __init__(self, method, url, status_code, content):
         self.method = method
         self.url = url
-
-
-class MockResponse:
-    """Pretends to be a requests' Response"""
-
-    def __init__(self, method, url, payload, status_code, **kwargs):
-        self.url = url
         self.status_code = status_code
-        self.kwargs = kwargs
-        self.history = tuple()
-        self.request = MockedRequest(method, url)
-        if payload is None or isinstance(payload, str):
-            self.payload = payload
+        if content is not None and not isinstance(content, bytes):
+            if not isinstance(content, str):
+                content = json.dumps(content)
 
-        else:
-            self.payload = json.dumps(payload)
+            content = content.encode("utf-8")
+
+        self.content = content
 
     def __repr__(self):
-        return "%s %s" % (self.status_code, short(self.payload))
-
-    @property
-    def content(self):
-        return self.text.encode("UTF-8")
+        return "%s %s" % (self.status_code, short(self.text))
 
     def json(self):
         return json.loads(self.text)
 
     @property
     def ok(self):
-        return self.status_code < 400
-
-    def raise_for_status(self):
-        if not self.ok:
-            from requests import HTTPError
-
-            raise HTTPError(self.reason, response=self)
-
-    @property
-    def reason(self):
-        if self.ok:
-            return ""
-
-        if 400 <= self.status_code < 500:
-            return "Bad request"
-
-        return "Internal error"
+        return self.status_code and self.status_code < 400
 
     @property
     def text(self):
-        return stringified(self.payload)
+        return stringified(self.content)
 
+    def description(self, size=1024):
+        """Description showing what happened with requests 'response', fir .debug() output, or .error() reporting"""
+        msg = "%s %s [%s]" % (self.method, self.url, self.status_code)
+        if not self.ok and self.status_code != 404:
+            msg += " %s" % self.error_reason()
 
-class MockResponseSpec:
-    """Represents a user-given spec of how to mock a given url"""
+        if len(msg) > size:
+            msg = "%s..." % msg[:size]
 
-    def __init__(self, url, spec):
-        self.url = url
-        self.spec = spec
+        return msg
 
-    def get_response(self, method, kwargs):
+    def error_reason(self):
+        """Meaningful text from 'response'"""
+        try:
+            return self.extract_message(self.json()) or self.text
+
+        except Exception:
+            return self.text
+
+    @staticmethod
+    def extract_message(data):
         """
+        Try to get to the point of a returned REST json bit, extract meaningful message if possible.
+        Otherwise, we fallback the .text of response (which may be verbose / hard to read)
+        """
+        if not data:
+            return None
+
+        if data and isinstance(data, str):
+            return data.strip()
+
+        if isinstance(data, dict):
+            msg = RestResponse.extract_message(data.get("message"))
+            if msg:
+                return msg
+
+            msg = RestResponse.extract_message(data.get("error"))
+            if msg:
+                return msg
+
+            return RestResponse.extract_message(data.get("errors"))
+
+        if isinstance(data, list):
+            for item in data:
+                msg = RestResponse.extract_message(item)
+                if msg:
+                    return msg
+
+
+class RestHandler:
+    """Allows to use multiple http(s) implementations"""
+
+    @classmethod
+    def mock(cls, base_url, specs):
+        """
+        Usage example:
+
+        MY_CLIENT = RestClient("https://example.com")
+
+        @MY_CLIENT.mock({
+            "foo": {"some": "payload"}
+        })
+        def test_foo():
+            assert MY_CLIENT.get("foo") == {"some": "payload"}
+
         Args:
-            method (str): Method 'self.url' was accessed with
-            kwargs: Keyword arguments passed-through to underlying requests call
+            base (str | None): Base url (all urls in given 'spec' are relative to the base url)
+            specs (dict): Map of relative url -> what to return
 
         Returns:
-            (MockResponse): Mocked response
+            Function decorator that will enact the mock
         """
-        if isinstance(self.spec, BaseException):
-            raise self.spec
+        return MockWrapper(cls, base_url, specs)
 
-        if isinstance(self.spec, type) and issubclass(self.spec, BaseException):
-            raise self.spec("Simulated crash")
+    @classmethod
+    def is_usable(cls):
+        """Is this handler currently usable"""
 
-        result = self.spec(method, self.url, **kwargs) if callable(self.spec) else self.spec
-        if isinstance(result, MockResponse):
-            return result
+    @classmethod
+    def new_session(cls, **session_spec):
+        """New session for 'session_spec'"""
 
-        if isinstance(result, int):
-            status_code, payload = result, "status %s" % result
+    @classmethod
+    def raw_response(cls, session, method, url, **passed_through):
+        """
+        Args:
+            session: Session as obtained via new_session() call from this handler
+            method (str): Underlying method to call (GET, PUT, POST, etc)
+            url (str): Absolute remote URL
+            **passed_through: Passed through to underlying call
+        """
 
-        elif isinstance(result, (dict, list, str)):
-            status_code, payload = 200, result
+    @classmethod
+    def to_rest_response(cls, method, url, raw_response):
+        """
+        Args:
+            method (str): Underlying method to call (GET, PUT, POST, etc)
+            url (str): Absolute remote URL
+            raw_response: Raw response as received by underlying call
 
-        elif isinstance(result, tuple) and len(result) == 2:
-            status_code, payload = result
+        Returns:
+            (RestResponse): Our simplified response object
+        """
 
-        else:
-            # Spec does not return a "known result form": int, or <content>, or tuple(int, <content>)
-            assert False, "Check mock response: %s" % result
+    @classmethod
+    def intercept(cls, mock_caller, *_, **__):
+        """
+        Args:
+            mock_caller (MockedHandlerStack | None): If provided: effectively intercept, if None: return target+name of function to replace
+        """
 
-        return MockResponse(method, self.url, payload, status_code, **kwargs)
 
-    def __repr__(self):
-        return "%s %s" % (self.url, self.spec)
+class RequestsHandler(RestHandler):
+    """Using requests (client is to bring in the dependency)"""
+
+    _is_usable = None
+
+    @classmethod
+    def is_usable(cls):
+        if cls._is_usable is None:
+            try:
+                import requests
+                import urllib3
+
+                # Silence logs, we use runez' more sophisticated logging setup
+                _R._runez_module().log.silence(requests, urllib3)
+                cls._is_usable = True
+
+            except ImportError:  # pragma: no cover
+                cls._is_usable = False
+
+        return cls._is_usable
+
+    @classmethod
+    def default_retry(cls):
+        import urllib3
+
+        return urllib3.Retry(backoff_factor=1, status_forcelist={413, 429, 500, 502, 503, 504})
+
+    @classmethod
+    def get_adapter(cls, retry=None):
+        from requests.adapters import HTTPAdapter
+
+        return HTTPAdapter(max_retries=retry or cls.default_retry())
+
+    @classmethod
+    def new_session(cls, http_adapter=None, https_adapter=None, retry=None):
+        import requests
+
+        session = requests.Session()
+        if retry is None:
+            retry = cls.default_retry()
+
+        if retry and https_adapter is None:
+            https_adapter = cls.get_adapter(retry)
+
+        if retry and http_adapter is None:
+            http_adapter = cls.get_adapter(retry)
+
+        if https_adapter:
+            session.mount("https://", https_adapter)
+
+        if http_adapter:
+            session.mount("http://", http_adapter)
+
+        return session
+
+    @classmethod
+    def raw_response(cls, session, method, url, **passed_through):
+        func = getattr(session, method.lower())
+        try:
+            return func(url, **passed_through)
+        except Exception as e:
+            raise
+
+    @classmethod
+    def to_rest_response(cls, method, url, response):
+        return RestResponse(method, url, response.status_code, response.text)
+
+    @classmethod
+    def intercept(cls, mock_caller, *args, **__):
+        if mock_caller is None:
+            from requests.adapters import HTTPAdapter
+
+            return HTTPAdapter, "send"
+
+        from requests import Response
+
+        request = args[0]
+        mocked = mock_caller.response_for_url(request.method, request.url)
+        r = Response()
+        r.status_code = mocked.status_code
+        r.url = mocked.url
+        r.request = request
+        r._content = mocked.content
+        return r
+
+
+class RestClient:
+    """REST client with good defaults for retry, timeout, ... + support for --dryrun mode etc"""
+
+    handler = RequestsHandler
+
+    def __init__(self, base_url=None, headers=None, timeout=30, user_agent=SYS_INFO.user_agent, handler=None, **session_spec):
+        """
+        Args:
+            base_url (str | None): Base url of remote REST server
+            headers (dict | None): Default headers to use
+            timeout (int): Default timeout in seconds
+            user_agent (str | None): User-Agent to use for outgoing calls coming from this client
+        """
+        self.base_url = base_url
+        self.headers = {}
+        self.timeout = timeout
+        self.user_agent = user_agent
+        if handler:
+            self.handler = handler
+
+        if not self.handler or not self.handler.is_usable():
+            raise Exception("RestClient handler '%s' is not usable" % self.handler)
+
+        self.session = self.handler.new_session(**session_spec)
+        if user_agent:
+            self.headers["User-Agent"] = user_agent
+
+        if headers:
+            self.headers.update(headers)
+
+    def full_url(self, url):
+        """
+        Args:
+            url (str): Relative URL
+
+        Returns:
+            (str): Absolute URL, auto-completed with `self.base_url`
+        """
+        return urljoin(self.base_url, url)
+
+    def download(self, url, destination, fatal=True, logger=UNSET, dryrun=UNSET, params=None, headers=None):
+        """
+        Args:
+            url (str): URL of resource to download (may be absolute, or relative to self.base_url)
+            destination (str | Path): Path to local file where to store the download
+            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+            dryrun (bool): Optionally override current dryrun setting
+            params (dict | None): Key/value pairs for query string
+            headers (dict | None): Optional Headers specific to this request
+
+        Returns:
+            (RestResponse): Response from underlying call
+        """
+        response = self._get_response("GET", url, fatal, logger, dryrun=dryrun, params=params, headers=headers, action="download")
+        if response.ok:
+            write(destination, response.content, fatal=fatal, logger=logger, dryrun=dryrun)
+
+        return response
+
+    def untar(self, url, destination, fatal=True, logger=UNSET, dryrun=UNSET, params=None, headers=None):
+        """
+        Args:
+            url (str): URL of .tar.gz to unpack (may be absolute, or relative to self.base_url)
+            destination (str | Path): Path to local folder where to untar url
+            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+            dryrun (bool): Optionally override current dryrun setting
+            params (dict | None): Key/value pairs for query string
+            headers (dict | None): Optional Headers specific to this request
+
+        Returns:
+            (RestResponse): Response from underlying call
+        """
+        destination = to_path(destination).absolute()
+        with TempFolder():
+            tarball_path = to_path(os.path.basename(url)).absolute()
+            response = self.download(url, tarball_path, fatal=fatal, logger=logger, dryrun=dryrun, params=params, headers=headers)
+            if response.ok:
+                untar(tarball_path, destination, fatal=fatal, logger=logger, dryrun=dryrun)
+
+            return response
+
+    def get_response(self, url, fatal=True, logger=UNSET, params=None, headers=None):
+        """
+        Args:
+            url (str): Remote URL (may be absolute, or relative to self.base_url)
+            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+            params (dict | None): Key/value pairs for query string
+            headers (dict | None): Optional Headers specific to this request
+
+        Returns:
+            (RestResponse): Response from underlying call
+        """
+        return self._get_response("GET", url, fatal, logger, params=params, headers=headers)
+
+    def delete(self, url, fatal=True, logger=UNSET, dryrun=UNSET, params=None, headers=None):
+        """Same as underlying .delete(), but respecting 'dryrun' mode
+
+        Args:
+            url (str): URL to query (can be absolute, or relative to self.base_url)
+            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+            dryrun (bool): Optionally override current dryrun setting
+            params (dict | None): Key/value pairs for query string
+            headers (dict | None): Optional Headers specific to this request
+
+        Returns:
+            (RestResponse): Response from underlying call
+        """
+        return self._get_response("DELETE", url, fatal, logger, dryrun=dryrun, params=params, headers=headers)
+
+    def get(self, url, fatal=True, logger=UNSET, params=None, headers=None):
+        """
+        Args:
+            url (str): Remote URL (may be absolute, or relative to self.base_url)
+            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+            params (dict | None): Key/value pairs for query string
+            headers (dict | None): Optional Headers specific to this request
+
+        Returns:
+            (dict | None): Deserialized .json() from response, if available
+        """
+        response = self.get_response(url, fatal=fatal, logger=logger, params=params, headers=headers)
+        if response.ok:
+            return response.json()
+
+    def head(self, url, fatal=True, logger=UNSET, params=None, headers=None):
+        """
+        Args:
+            url (str): URL to query (can be absolute, or relative to self.base_url)
+            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+            params (dict | None): Key/value pairs for query string
+            headers (dict | None): Optional Headers specific to this request
+
+        Returns:
+            (RestResponse): Response from underlying call
+        """
+        return self._get_response("HEAD", url, fatal, logger, params=params, headers=headers)
+
+    def post(
+        self, url, fatal=True, logger=UNSET, dryrun=UNSET, params=None, headers=None, data=None, json=None, files=None, filepaths=None
+    ):
+        """Same as underlying .post(), but respecting 'dryrun' mode
+
+        Args:
+            url (str): URL to query (can be absolute, or relative to self.base_url)
+            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+            dryrun (bool): Optionally override current dryrun setting
+            params (dict | None): Key/value pairs for query string
+            headers (dict | None): Optional Headers specific to this request
+            data (dict | tuple | bytes | file | None): Data to send in the body
+            json: (optional) json to send in the body
+            files (dict | None): File-like-objects for multipart encoding upload.
+            filepaths (dict[str, Path] | None): File-like-objects for multipart encoding upload.
+
+        Returns:
+            (RestResponse): Response from underlying call
+        """
+        state = DataState.wrapped(dryrun, data, json, files, filepaths)
+        return self._get_response("POST", url, fatal, logger, dryrun=dryrun, params=params, headers=headers, state=state)
+
+    def put(self, url, fatal=True, logger=UNSET, dryrun=UNSET, params=None, headers=None, data=None, json=None, files=None, filepaths=None):
+        """
+        Args:
+            url (str): URL to query (can be absolute, or relative to self.base_url)
+            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+            dryrun (bool): Optionally override current dryrun setting
+            params (dict | None): Key/value pairs for query string
+            headers (dict | None): Optional Headers specific to this request
+            data (dict | tuple | bytes | file | None): Data to send in the body
+            json: (optional) json to send in the body
+            files (dict | None): File-like-objects for multipart encoding upload.
+            filepaths (dict[str, Path] | None): File-like-objects for multipart encoding upload.
+
+        Returns:
+            (RestResponse): Response from underlying call
+        """
+        state = DataState.wrapped(dryrun, data, json, files, filepaths)
+        return self._get_response("PUT", url, fatal, logger, dryrun=dryrun, params=params, headers=headers, state=state)
+
+    def url_exists(self, url, logger=False):
+        """
+        Args:
+            url (str): URL to query (can be absolute, or relative to self.base_url)
+            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+
+        Returns:
+            (bool): True if remote URL exists (ie: not a 404)
+        """
+        response = self.head(url, fatal=False, logger=logger)
+        return bool(response and response.ok)
+
+    def mock(self, specs):
+        """
+        Usage example:
+
+        MY_CLIENT = RestClient("https://example.com")
+
+        @MY_CLIENT.mock({
+            "foo": {"some": "payload"}
+        })
+        def test_foo():
+            assert MY_CLIENT.get("foo") == {"some": "payload"}
+
+        Args:
+            specs (dict): Map of relative url -> what to return
+
+        Returns:
+            Function decorator that will enact the mock
+        """
+        return MockWrapper(self.handler, self.base_url, specs)
+
+    def _get_response(self, method, url, fatal, logger, dryrun=False, params=None, headers=None, state=None, action=None):
+        """
+        Args:
+            method (str): Underlying method to call
+            url (str): Remote URL (may be absolute, or relative to self.base_url)
+            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+            dryrun (bool): Optionally override current dryrun setting
+            params (dict | None): Key/value pairs for query string
+            headers (dict | None): Optional Headers specific to this request
+            state (DataState | None): For PUT/POST requests
+            action (str | None): Action to refer to in dryrun message (default: method)
+
+        Returns:
+            (RestResponse): Response from underlying call
+        """
+        absolute_url = self.full_url(url)
+        message = "%s %s" % (action or method, absolute_url)
+        if _R.hdry(dryrun, logger, message):
+            return RestResponse(method, absolute_url, 200, dict(message="dryrun %s" % message))
+
+        full_headers = self.headers
+        if headers:
+            full_headers = dict(full_headers)
+            full_headers.update(headers)
+
+        keyword_args = dict(headers=full_headers, timeout=self.timeout)
+        if state is not None:
+            state.complete(keyword_args)
+
+        try:
+            raw_response = self.handler.raw_response(self.session, method, absolute_url, **keyword_args)
+            response = self.handler.to_rest_response(method, absolute_url, raw_response)
+            if fatal or logger is not None:
+                msg = response.description()
+                if fatal and not response.ok:
+                    abort(msg)
+
+                _R.hlog(logger, msg)
+
+            return response
+
+        finally:
+            if state is not None:
+                state.close()
