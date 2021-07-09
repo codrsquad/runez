@@ -298,6 +298,61 @@ def test_pypi_standardized_naming():
     assert PypiStd.std_wheel_basename("a.b_-___1.5--c") == "a.b_1.5_c"
 
 
+LEGACY_SAMPLE = """
+<html><head><title>Simple Index</title><meta name="api-version" value="2" /></head><body>
+
+# 1.8.1 intentionally malformed
+<a href="/pypi/shell-functools/shell_functools-1.8.1!1-py2.py3-none-any.whl9#">shell_functools-1.8.1-py2.py3-none-any.whl</a><br/>
+<a href="/pypi/shell-functools/shell-functools-1.8.1!1.tar.gz#">shell-functools-1.8.1.tar.gz</a><br/>
+
+<a href="/pypi/shell-functools/shell_functools-1.9.9+local-py2.py3-none-any.whl#sha...">shell_functools-1.9.9-py2.py3-none-any.whl</a><br/>
+<a href="/pypi/shell-functools/shell-functools-1.9.9+local.tar.gz#sha256=ff...">shell-functools-1.9.9.tar.gz</a><br/>
+<a href="/pypi/shell-functools/shell_functools-1.9.11-py2.py3-none-any.whl#sha256=...">shell_functools-1.9.11-py2.py3-none-any.whl</a><br/>
+<a href="/pypi/shell-functools/shell-functools-1.9.11.tar.gz#sha256=ca...">shell-functools-1.9.11.tar.gz</a><br/>
+</body></html>
+"""
+
+PRERELEASE_SAMPLE = """
+<html><head><title>Simple Index</title><meta name="api-version" value="2" /></head><body>
+<a href="/pypi/packages/pypi-public/black/black-18.3a0-py3-none-any.whl#sha256=..."</a><br/>
+<a href="/pypi/packages/pypi-public/black/black-18.3a0.tar.gz#sha256=...">black-18.3a0.tar.gz</a><br/>
+<a href="/pypi/packages/pypi-public/black/black-18.3a1-py3-none-any.whl#sha256=..."
+"""
+
+FUNKY_SAMPLE = """
+<html><head><title>Simple Index</title><meta name="api-version" value="2" /></head><body>
+<a href="/pypi/packages/pypi-private/someproj/some.proj-1.3.0+dirty_custom-py3-none-any.whl#sha256=..."</a><br/>
+<a href="/pypi/packages/pypi-private/someproj/some.proj-1.3.0_custom.tar.gz#sha256=...">someproj-1.3.0_custom.tar.gz</a><br/>
+"""
+
+
+def test_pypi_parsing():
+    sample = sorted(PypiStd.parsed_legacy_html(LEGACY_SAMPLE))
+    assert len(sample) == 5
+    assert sample[0].version == Version("1.8.1")
+    assert not sample[0].is_dirty
+    assert sample[0].category == "source distribution"
+
+    assert sample[4].version == Version("1.9.11")
+    assert sample[4].category == "wheel"
+    assert sample[4].is_wheel
+    assert sample[4].tags == "py2.py3-none-any"
+
+    pre = sorted(PypiStd.parsed_legacy_html(PRERELEASE_SAMPLE))
+    assert len(pre) == 3
+    assert pre[0].version.prerelease
+
+    funky = sorted(PypiStd.parsed_legacy_html(FUNKY_SAMPLE))
+    assert len(funky) == 2
+    assert funky[0].package_name == "some.proj"
+    assert funky[0].pypi_name == "some-proj"
+    assert str(funky[0]) == "some-proj/some.proj-1.3.0_custom.tar.gz"
+    assert funky[1].is_dirty
+
+    assert sample[4] < funky[0]
+    assert funky[0] != sample[0]
+
+
 def test_sorting(temp_folder):
     mk_python("3.6.1")
     mk_python("3.7.2")

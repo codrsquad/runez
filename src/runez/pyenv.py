@@ -58,6 +58,77 @@ def pyenv_scanner(*locations):
             _R.trace("Found %s pythons in %s" % (count, short(location)))
 
 
+class ArtifactInfo:
+    """Info extracted from a typical python build artifact basename"""
+
+    def __init__(self, basename, package_name, version, is_wheel=False, tags=None, wheel_build_number=None):
+        """
+        Args:
+            basename (str): Basename of artifact
+            package_name (str): Package name, may not be completely standard
+            version (Version): Package version
+            is_wheel (bool): Is this artifact a wheel?
+            tags (str | None): Wheel tags, if any
+            wheel_build_number (str | None): Wheel build number, if any
+        """
+        self.basename = basename
+        self.package_name = package_name
+        self.version = version
+        self.is_wheel = is_wheel
+        self.tags = tags
+        self.wheel_build_number = wheel_build_number
+        self.pypi_name = PypiStd.std_package_name(package_name)
+        self.relative_url = "%s/%s" % (self.pypi_name, basename)
+
+    @classmethod
+    def from_basename(cls, basename):
+        """
+        Args:
+            basename (str): Basename to parse
+
+        Returns:
+            (ArtifactInfo | None): Parsed artifact info, if any
+        """
+        wheel_build_number = tags = None
+        is_wheel = False
+        m = PypiStd.RX_SDIST.match(basename)
+        if not m:
+            m = PypiStd.RX_WHEEL.match(basename)
+            if m:
+                wheel_build_number = m.group(4)
+                tags = m.group(5)
+                is_wheel = True
+
+        if m:
+            # RX_SDIST and RX_WHEEL both yield package_name and version as match groups 1 and 2
+            return cls(basename, m.group(1), Version(m.group(2)), is_wheel=is_wheel, tags=tags, wheel_build_number=wheel_build_number)
+
+    def __repr__(self):
+        return self.relative_url or self.basename
+
+    def __eq__(self, other):
+        return isinstance(other, ArtifactInfo) and self.basename == other.basename
+
+    def __lt__(self, other):
+        """Order is such that wheel for currently packaged project shows up first in a sorted() call"""
+        if isinstance(other, ArtifactInfo):
+            if self.pypi_name == other.pypi_name:
+                if self.version == other.version:
+                    return self.category < other.category
+
+                return self.version and other.version and self.version < other.version
+
+            return self.pypi_name and other.pypi_name and self.pypi_name < other.pypi_name
+
+    @property
+    def category(self):
+        return "wheel" if self.is_wheel else "source distribution"
+
+    @property
+    def is_dirty(self):
+        return not self.version or "dirty" in self.version.text
+
+
 class PypiStd:
     """
     Check/standardize pypi package names
@@ -67,6 +138,10 @@ class PypiStd:
     RX_ACCEPTABLE_PACKAGE_NAME = re.compile(r"^[a-z][a-z0-9._-]*[a-z0-9]$", re.IGNORECASE)
     RR_PYPI = re.compile(r"([^a-z0-9-]+|--+)", re.IGNORECASE)
     RR_WHEEL = re.compile(r"[^a-z0-9.]+", re.IGNORECASE)
+
+    RX_HREF = re.compile(r'href=".+/([^/#]+\.(tar\.gz|whl))#', re.IGNORECASE)
+    RX_SDIST = re.compile(r"^([a-z][a-z0-9._-]*[a-z0-9])-([0-9][0-9a-z_.!+-]*)\.tar\.gz$", re.IGNORECASE)
+    RX_WHEEL = re.compile(r"^([a-z][a-z0-9._]*[a-z0-9])-([0-9][0-9a-z_.!+]*)(-([0-9][0-9a-z_.]*))?-(.*)\.whl$", re.IGNORECASE)
 
     @classmethod
     def is_acceptable(cls, name):
@@ -85,6 +160,25 @@ class PypiStd:
         """Standardized wheel file base name, single underscores, dots and alpha numeric chars only"""
         if cls.is_acceptable(name):
             return cls.RR_WHEEL.sub("_", name)
+
+    @classmethod
+    def parsed_legacy_html(cls, text):
+        """
+        Args:
+            text (str): Text as received from a legacy pypi server
+
+        Yields:
+            (ArtifactInfo): Extracted information
+        """
+        if text:
+            lines = text.strip().splitlines()
+            if lines and "does not exist" not in lines[0]:
+                for line in lines:
+                    m = cls.RX_HREF.search(line)
+                    if m:
+                        info = ArtifactInfo.from_basename(m.group(1))
+                        if info:
+                            yield info
 
 
 class PythonSpec:
