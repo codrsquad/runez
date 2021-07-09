@@ -301,6 +301,19 @@ def test_flattened():
     assert runez.flattened(["a", "-f", "", "c"], keep_empty="", shellify=True) == ["a", "-f", "", "c"]
     assert runez.flattened(["a", "-f", "", "c"], keep_empty="null", shellify=True) == ["a", "-f", "", "c"]
 
+    # keep_empty with transform
+    def keep_odds(i):
+        if i % 2:
+            return i
+
+        return 0 if i % 4 else None
+
+    sample = list(range(8))
+    assert runez.flattened(sample, transform=keep_odds, keep_empty=True) == [None, 1, 0, 3, None, 5, 0, 7]
+    assert runez.flattened(sample, transform=keep_odds, keep_empty=False) == [1, 0, 3, 5, 0, 7]
+    assert runez.flattened(sample, transform=keep_odds, keep_empty=None) == [1, 3, 5, 7]
+    assert runez.flattened(sample, transform=keep_odds, keep_empty="foo") == ["foo", 1, 0, 3, "foo", 5, 0, 7]
+
 
 def test_flattened_split():
     # Splitting on a given char

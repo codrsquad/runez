@@ -1894,6 +1894,12 @@ def _flatten(result, value, keep_empty, split, shellify, transform, unique):
 
     if transform is not None:
         value = transform(value)
+        if value is None or value is UNSET or (keep_empty is None and not value):
+            if keep_empty is None or (keep_empty is False and (value is None or value is UNSET)):
+                return
+
+            if isinstance(keep_empty, str):
+                value = keep_empty
 
     if not unique or value not in result:
         result.append(value)
