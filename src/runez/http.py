@@ -583,6 +583,9 @@ class RestClient:
         if headers:
             self.headers.update(headers)
 
+    def __repr__(self):
+        return stringified(self.base_url or self.session)
+
     def sub_client(self, relative_url):
         """
         Args:

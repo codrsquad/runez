@@ -41,7 +41,9 @@ def test_decorator_forbidden():
     "test/README.txt": "Hello",
 })
 def test_download(temp_folder, logged):
+    assert str(EXAMPLE) == "https://example.com"
     client = EXAMPLE.sub_client("test/")
+    assert str(client) == "https://example.com/test/"
     r = client.put("README.txt", data=Path("foo"), fatal=False, dryrun=True)
     assert r.ok
     assert r.json() == {"message": "dryrun PUT https://example.com/test/README.txt"}

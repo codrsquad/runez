@@ -6,7 +6,7 @@ import pytest
 from mock import patch
 
 import runez
-from runez.pyenv import pyenv_scanner, PythonDepot, PythonSpec, Version
+from runez.pyenv import pyenv_scanner, PypiStd, PythonDepot, PythonSpec, Version
 
 
 RE_VERSION = re.compile(r"^(.*)(\d+\.\d+.\d+)$")
@@ -262,6 +262,40 @@ def test_invoker():
     depot = mocked_invoker(base_prefix="/usr/local/Cellar/python@3.7/3.7.1_1/Frameworks/Python.framework/Versions/3.7")
     assert depot.invoker.executable == "/usr/local/bin/python3"
     assert depot.invoker.major == 3
+
+
+def test_pypi_standardized_naming():
+    assert not PypiStd.is_acceptable(None)
+    assert not PypiStd.is_acceptable(1)
+    assert not PypiStd.is_acceptable("")
+    assert not PypiStd.is_acceptable("a")  # Don't bother with one letter packages
+    assert not PypiStd.is_acceptable("1a")  # Don't bother with anything that does start with a letter
+    assert not PypiStd.is_acceptable("-a")
+    assert not PypiStd.is_acceptable(".a")
+    assert not PypiStd.is_acceptable("a.")  # Must end with a letter or number
+    assert not PypiStd.is_acceptable("a b")  # No spaces plz
+
+    assert PypiStd.is_acceptable("a1")
+    assert PypiStd.is_acceptable("aB")
+    assert PypiStd.is_acceptable("foo")
+    assert PypiStd.is_acceptable("Foo_1.0")
+
+    assert PypiStd.std_package_name(None) is None
+    assert PypiStd.std_package_name(5) is None
+    assert PypiStd.std_package_name("") is None
+    assert PypiStd.std_package_name("-a-") is None
+    assert PypiStd.std_package_name("a") is None
+    assert PypiStd.std_package_name("foo") == "foo"
+    assert PypiStd.std_package_name("Foo") == "foo"
+    assert PypiStd.std_package_name("A__b-c_1.0") == "a-b-c-1-0"
+    assert PypiStd.std_package_name("some_-Test") == "some-test"
+    assert PypiStd.std_package_name("a_-_-.-_.--b") == "a-b"
+
+    assert PypiStd.std_wheel_basename(None) is None
+    assert PypiStd.std_package_name(10.1) is None
+    assert PypiStd.std_wheel_basename("") is None
+    assert PypiStd.std_wheel_basename("a.b_-_1.5--c") == "a.b_1.5_c"
+    assert PypiStd.std_wheel_basename("a.b_-___1.5--c") == "a.b_1.5_c"
 
 
 def test_sorting(temp_folder):

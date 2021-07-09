@@ -58,6 +58,35 @@ def pyenv_scanner(*locations):
             _R.trace("Found %s pythons in %s" % (count, short(location)))
 
 
+class PypiStd:
+    """
+    Check/standardize pypi package names
+    More strict than actual pypi (for example: names starting with a number are not considered value)
+    """
+
+    RX_ACCEPTABLE_PACKAGE_NAME = re.compile(r"^[a-z][a-z0-9._-]*[a-z0-9]$", re.IGNORECASE)
+    RR_PYPI = re.compile(r"([^a-z0-9-]+|--+)", re.IGNORECASE)
+    RR_WHEEL = re.compile(r"[^a-z0-9.]+", re.IGNORECASE)
+
+    @classmethod
+    def is_acceptable(cls, name):
+        """Is 'name' an acceptable pypi package name?"""
+        return bool(isinstance(name, str) and name != "UNKNOWN" and cls.RX_ACCEPTABLE_PACKAGE_NAME.match(name))
+
+    @classmethod
+    def std_package_name(cls, name):
+        """Standardized pypi package name, single dashes and alpha numeric chars allowed only"""
+        if cls.is_acceptable(name):
+            dashed = cls.RR_PYPI.sub("-", name).lower()
+            return cls.RR_PYPI.sub("-", dashed)  # 2nd pass to ensure no `--` remains
+
+    @classmethod
+    def std_wheel_basename(cls, name):
+        """Standardized wheel file base name, single underscores, dots and alpha numeric chars only"""
+        if cls.is_acceptable(name):
+            return cls.RR_WHEEL.sub("_", name)
+
+
 class PythonSpec:
     """
     Holds a canonical reference to a desired python installation
