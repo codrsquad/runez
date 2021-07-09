@@ -61,13 +61,14 @@ def pyenv_scanner(*locations):
 class ArtifactInfo:
     """Info extracted from a typical python build artifact basename"""
 
-    def __init__(self, basename, package_name, version, is_wheel=False, tags=None, wheel_build_number=None):
+    def __init__(self, basename, package_name, version, is_wheel=False, source=None, tags=None, wheel_build_number=None):
         """
         Args:
             basename (str): Basename of artifact
             package_name (str): Package name, may not be completely standard
             version (Version): Package version
             is_wheel (bool): Is this artifact a wheel?
+            source: Optional object identifying the provenance of this artifact info
             tags (str | None): Wheel tags, if any
             wheel_build_number (str | None): Wheel build number, if any
         """
@@ -75,16 +76,18 @@ class ArtifactInfo:
         self.package_name = package_name
         self.version = version
         self.is_wheel = is_wheel
+        self.source = source
         self.tags = tags
         self.wheel_build_number = wheel_build_number
         self.pypi_name = PypiStd.std_package_name(package_name)
         self.relative_url = "%s/%s" % (self.pypi_name, basename)
 
     @classmethod
-    def from_basename(cls, basename):
+    def from_basename(cls, basename, source=None):
         """
         Args:
             basename (str): Basename to parse
+            source: Optional object identifying the provenance of this artifact info
 
         Returns:
             (ArtifactInfo | None): Parsed artifact info, if any
@@ -101,7 +104,15 @@ class ArtifactInfo:
 
         if m:
             # RX_SDIST and RX_WHEEL both yield package_name and version as match groups 1 and 2
-            return cls(basename, m.group(1), Version(m.group(2)), is_wheel=is_wheel, tags=tags, wheel_build_number=wheel_build_number)
+            return cls(
+                basename,
+                m.group(1),
+                Version(m.group(2)),
+                is_wheel=is_wheel,
+                source=source,
+                tags=tags,
+                wheel_build_number=wheel_build_number,
+            )
 
     def __repr__(self):
         return self.relative_url or self.basename
@@ -110,15 +121,18 @@ class ArtifactInfo:
         return isinstance(other, ArtifactInfo) and self.basename == other.basename
 
     def __lt__(self, other):
-        """Order is such that wheel for currently packaged project shows up first in a sorted() call"""
+        """Ordered by source, then pypi_name, then version, then category"""
         if isinstance(other, ArtifactInfo):
-            if self.pypi_name == other.pypi_name:
-                if self.version == other.version:
-                    return self.category < other.category
+            if self.source == other.source:
+                if self.pypi_name == other.pypi_name:
+                    if self.version == other.version:
+                        return self.category < other.category
 
-                return self.version and other.version and self.version < other.version
+                    return self.version and other.version and self.version < other.version
 
-            return self.pypi_name and other.pypi_name and self.pypi_name < other.pypi_name
+                return self.pypi_name and other.pypi_name and self.pypi_name < other.pypi_name
+
+            return self.source and (not other.source or self.source < other.source)
 
     @property
     def category(self):
@@ -162,10 +176,11 @@ class PypiStd:
             return cls.RR_WHEEL.sub("_", name)
 
     @classmethod
-    def parsed_legacy_html(cls, text):
+    def parsed_legacy_html(cls, text, source=None):
         """
         Args:
             text (str): Text as received from a legacy pypi server
+            source: Optional object identifying the provenance of this artifact info
 
         Yields:
             (ArtifactInfo): Extracted information
@@ -176,7 +191,7 @@ class PypiStd:
                 for line in lines:
                     m = cls.RX_HREF.search(line)
                     if m:
-                        info = ArtifactInfo.from_basename(m.group(1))
+                        info = ArtifactInfo.from_basename(m.group(1), source=source)
                         if info:
                             yield info
 

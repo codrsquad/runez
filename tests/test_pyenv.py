@@ -327,29 +327,33 @@ FUNKY_SAMPLE = """
 
 
 def test_pypi_parsing():
-    sample = sorted(PypiStd.parsed_legacy_html(LEGACY_SAMPLE))
+    sample = sorted(PypiStd.parsed_legacy_html(LEGACY_SAMPLE, source="s1"))
     assert len(sample) == 5
     assert sample[0].version == Version("1.8.1")
     assert not sample[0].is_dirty
     assert sample[0].category == "source distribution"
 
+    assert sample[3].version == Version("1.9.11")
+    assert not sample[3].is_wheel
     assert sample[4].version == Version("1.9.11")
     assert sample[4].category == "wheel"
     assert sample[4].is_wheel
     assert sample[4].tags == "py2.py3-none-any"
+    assert sample[3] < sample[4]  # Source distribution before wheel
 
-    pre = sorted(PypiStd.parsed_legacy_html(PRERELEASE_SAMPLE))
+    pre = sorted(PypiStd.parsed_legacy_html(PRERELEASE_SAMPLE, source="s1"))
     assert len(pre) == 3
     assert pre[0].version.prerelease
+    assert pre[0] < sample[0]  # Alphabetical sort for same-source artifacts
 
-    funky = sorted(PypiStd.parsed_legacy_html(FUNKY_SAMPLE))
+    funky = sorted(PypiStd.parsed_legacy_html(FUNKY_SAMPLE, source=None))
     assert len(funky) == 2
     assert funky[0].package_name == "some.proj"
     assert funky[0].pypi_name == "some-proj"
     assert str(funky[0]) == "some-proj/some.proj-1.3.0_custom.tar.gz"
     assert funky[1].is_dirty
 
-    assert sample[4] < funky[0]
+    assert sample[4] < funky[0]  # Source-defined comes before no-source
     assert funky[0] != sample[0]
 
 
