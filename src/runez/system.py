@@ -1327,11 +1327,6 @@ class SystemInfo:
         return TerminalInfo()
 
     @cached_property
-    def user_agent(self):
-        """(str): Mimic browser user-agent, can be used to conveniently identify client in http(s) requests"""
-        return "%s/%s (%s)" % (self.program_name, self.program_version, self.platform_info)
-
-    @cached_property
     def userid(self):
         """str: User id of user we're currently running as"""
         return os.environ.get("USER") or self.current_process.userid

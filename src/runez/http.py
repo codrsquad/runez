@@ -467,6 +467,11 @@ class RestHandler:
             mock_caller (MockedHandlerStack | None): If provided: effectively intercept, if None: return target+name of function to replace
         """
 
+    @classmethod
+    def user_agent(cls):
+        """Default user agent to use"""
+        return "%s/%s (%s)" % (SYS_INFO.program_name, SYS_INFO.program_version, SYS_INFO.platform_info)
+
 
 class RequestsHandler(RestHandler):
     """Using requests (client is to bring in the dependency)"""
@@ -550,38 +555,41 @@ class RequestsHandler(RestHandler):
         r._content = mocked.content
         return r
 
+    @classmethod
+    def user_agent(cls):
+        import requests
+
+        return "%s requests/%s" % (super().user_agent(), requests.__version__)
+
 
 class RestClient:
     """REST client with good defaults for retry, timeout, ... + support for --dryrun mode etc"""
 
     handler = RequestsHandler
 
-    def __init__(self, base_url=None, headers=None, timeout=30, user_agent=SYS_INFO.user_agent, handler=None, session=None, **session_spec):
+    def __init__(self, base_url=None, headers=None, timeout=30, user_agent=None, handler=None, session=None, **session_spec):
         """
         Args:
             base_url (str | None): Base url of remote REST server
             headers (dict | None): Default headers to use
             timeout (int): Default timeout in seconds
-            user_agent (str | None): User-Agent to use for outgoing calls coming from this client
+            user_agent (str | None): User-Agent to use for outgoing calls coming from this client (default: handler.user_agent())
             handler: Optional: override default handler
             session: Optional: override getting handler.new_session()
         """
         self.base_url = base_url
-        self.headers = {}
+        self.headers = dict(headers) if headers else {}
         self.timeout = timeout
-        self.user_agent = user_agent
         if handler:
             self.handler = handler
 
         if not self.handler or not self.handler.is_usable():
             raise Exception("RestClient handler '%s' is not usable" % self.handler)
 
+        self.user_agent = user_agent or self.handler.user_agent()
         self.session = session or self.handler.new_session(**session_spec)
-        if user_agent:
-            self.headers["User-Agent"] = user_agent
-
-        if headers:
-            self.headers.update(headers)
+        if self.user_agent:
+            self.headers["User-Agent"] = self.user_agent
 
     def __repr__(self):
         return stringified(self.base_url or self.session)

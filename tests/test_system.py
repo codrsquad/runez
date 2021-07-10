@@ -471,8 +471,6 @@ def test_system():
     assert str(runez.system.PlatformInfo("Darwin 20.5.0 x86_64 i386")) == "Darwin/20.5.0; x86_64 i386"
     assert str(runez.system.PlatformInfo("Linux 5.10.25 x86_64 x86_64")) == "Linux/5.10.25; x86_64"
 
-    assert "/" in runez.SYS_INFO.user_agent
-
     assert "test_system.py" in runez.DEV.current_test()
 
     # Ensure we stop once callstack is exhausted
