@@ -74,7 +74,7 @@ def abort(message, code=1, exc_info=None, return_value=None, fatal=True, logger=
         exc_info (Exception): Exception info to pass on to logger
         return_value (Any): Value to return when `fatal` is not True
         fatal (type | bool | None): True: abort execution, False: don't abort but log, None: don't abort, don't log
-        logger (callable | None): Logger to use, or None to disable log chatter
+        logger (callable | bool | None): Logger to use, True to print(), None to disable log chatter
 
     Returns:
         Given `return_value`
@@ -327,7 +327,7 @@ def get_version(mod, default="0.0.0", logger=LOG.warning):
     Args:
         mod (module | str): Module, or module name to find version for (pass either calling module, or its .__name__)
         default (str): Value to return if version determination fails
-        logger (callable | None): Logger to use to report inability to determine version
+        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
 
     Returns:
         (str): Determined version
@@ -1670,7 +1670,7 @@ class _R:
 
         Args:
             default (Any): The default value to return, if it is not UNSET
-            logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
             message (str): Message explaining failure
             e (Exception): Exception, if this comes from a try/except block
 
@@ -1709,7 +1709,7 @@ class _R:
         and ensure they all respect the same convention.
 
         Args:
-            logger (callable | None): Logger to use, or None to disable log chatter
+            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
             message (str | callable): Message to log
             exc_info: Optional exception info to pass-through to logger
         """

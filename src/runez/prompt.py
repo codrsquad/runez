@@ -9,7 +9,7 @@ def ask_once(name, instructions, serializer=stringified, default=UNSET, logger=N
         instructions (str): Instructions to show to user when prompt is necessary
         serializer (callable): Function that will turn provided value into object to be stored
         default: Default value to return if answer not available
-        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         base (str): Base folder where to stored provided answer
 
     Returns:

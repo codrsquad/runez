@@ -116,7 +116,6 @@ def cmd_import_speed():
 def cmd_passthrough():
     """Run a program, capture its output as well as pass it through as-is (preserving terminal colors etc)"""
     parser = argparse.ArgumentParser(description="Capture pass-through test")
-    # parser.add_argument("args", nargs="*", help="Command to run")
     args, unknown = parser.parse_known_args()
 
     unknown = runez.flattened(unknown, split=" ")

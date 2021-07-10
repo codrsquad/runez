@@ -24,6 +24,9 @@ API_EXCEPTIONS = {
     "logsetup.setup": {},
     "prompt.ask_once": collections.OrderedDict(logger=None),
     "pyenv.find_python": collections.OrderedDict(fatal="UNSET"),
+    "pyenv.latest_pypi_version": collections.OrderedDict(fatal=True, logger="UNSET"),
+    "pyenv.ls_pypi": collections.OrderedDict(fatal=True, logger="UNSET"),
+    "pyenv.pypi_response": collections.OrderedDict(fatal=True, logger="UNSET"),
     "serialize.read_json": collections.OrderedDict(logger=None),
     "system.abort": {},
     "system.get_version": {},
@@ -32,7 +35,7 @@ IO_API_NO_CONTENT = collections.OrderedDict(fatal=True, logger="UNSET", dryrun="
 EXPECTED_DRYRUN_UNSET = collections.OrderedDict(dryrun="UNSET")
 IO_API_DOCSTRINGS = dict(
     fatal="fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log",
-    logger="logger (callable | None): Logger to use, False to log errors only, None to disable log chatter",
+    logger="logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter",
     dryrun="dryrun (bool): Optionally override current dryrun setting",
 )
 

@@ -41,7 +41,7 @@ def copy(source, destination, ignore=None, fatal=True, logger=UNSET, dryrun=UNSE
         destination (str | Path | None): Destination file or folder
         ignore (callable | list | str | None): Names to be ignored
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
 
     Returns:
@@ -55,7 +55,7 @@ def delete(path, fatal=True, logger=UNSET, dryrun=UNSET):
     Args:
         path (str | Path | None): Path to file or folder to delete
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
 
     Returns:
@@ -90,7 +90,7 @@ def ensure_folder(path, clean=False, fatal=True, logger=UNSET, dryrun=UNSET):
         path (str | Path | None): Path to file or folder
         clean (bool): True: If True, ensure folder is clean (delete any file/folder it may have)
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
 
     Returns:
@@ -134,7 +134,7 @@ def ini_to_dict(path, default=UNSET, logger=None, keep_empty=False):
     Args:
         path (str | Path | None): Path to file to parse
         default (dict | callable | None): Object to return if conf couldn't be read
-        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         keep_empty (bool): If True, keep definitions with empty values
 
     Returns:
@@ -215,7 +215,7 @@ def readlines(path, default=UNSET, logger=None, first=None, errors=None):
     Args:
         path (str | Path | None): Path to file to read lines from
         default (list | callable | None): Default if file is not present, or it could not be read
-        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         first (int | None): Return only the 'first' lines when specified
         errors (str | None): Optional string specifying how encoding errors are to be handled
 
@@ -266,7 +266,7 @@ def move(source, destination, fatal=True, logger=UNSET, dryrun=UNSET):
         source (str | None): Source file or folder
         destination (str | None): Destination file or folder
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
 
     Returns:
@@ -283,7 +283,7 @@ def symlink(source, destination, must_exist=True, fatal=True, logger=UNSET, dryr
         destination (str | Path | None): Destination file or folder
         must_exist (bool): If True, verify that source does indeed exist
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
 
     Returns:
@@ -303,7 +303,7 @@ def tar(source, destination, basename=None, mode="w:gz", fatal=True, logger=UNSE
                                       False or None: No basename (contents of source are directly in tarball)
         mode (str): tarfile mode to use
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
 
     Returns:
@@ -318,7 +318,7 @@ def untar(source, destination, fatal=True, logger=UNSET, dryrun=UNSET):
         source (str | Path | None): Source file to untar
         destination (str | Path | None): Destination folder
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
 
     Returns:
@@ -376,7 +376,7 @@ def touch(path, fatal=True, logger=UNSET, dryrun=UNSET):
     Args:
         path (str | Path | None): Path to file to touch
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
 
     Returns:
@@ -392,7 +392,7 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
         path (str | Path | None): Path to file
         contents (str | bytes | None): Contents to write (only touch file if None)
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
 
     Returns:
@@ -482,7 +482,7 @@ def _file_op(source, destination, func, fatal, logger, dryrun, must_exist=True, 
         destination (str | None): Destination file or folder
         func (callable): Implementation function
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
         must_exist (bool): If True, verify that source does indeed exist
         ignore (callable | list | str | None): Names to be ignored

@@ -632,7 +632,7 @@ def read_json(path, default=UNSET, logger=None):
     Args:
         path (str | pathlib.Path | None): Path to file to deserialize
         default (dict | list | str | callable | None): Default if file is not present, or if it's not json
-        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
 
     Returns:
         (dict | list | str): Deserialized data from file
@@ -687,7 +687,7 @@ def save_json(data, path, stringify=stringified, dt=str, none=False, indent=2, s
         indent (int | None): Indentation to use, if None: use compact (one line) mode
         sort_keys (bool): Whether keys should be sorted
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
 
     Returns:

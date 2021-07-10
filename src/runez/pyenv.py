@@ -1,9 +1,11 @@
+import json
 import os
 import re
 import sys
 from collections import defaultdict
 
 from runez.file import parent_folder
+from runez.http import RestClient, urljoin
 from runez.program import is_executable, run
 from runez.system import _R, abort, flattened, joined, resolved_path, short, stringified, UNSET
 
@@ -68,7 +70,7 @@ class ArtifactInfo:
             package_name (str): Package name, may not be completely standard
             version (Version): Package version
             is_wheel (bool): Is this artifact a wheel?
-            source: Optional object identifying the provenance of this artifact info
+            source: Optional arbitrary object to track provenance of ArtifactInfo
             tags (str | None): Wheel tags, if any
             wheel_build_number (str | None): Wheel build number, if any
         """
@@ -87,32 +89,25 @@ class ArtifactInfo:
         """
         Args:
             basename (str): Basename to parse
-            source: Optional object identifying the provenance of this artifact info
+            source: Optional arbitrary object to track provenance of ArtifactInfo
 
         Returns:
             (ArtifactInfo | None): Parsed artifact info, if any
         """
-        wheel_build_number = tags = None
-        is_wheel = False
+        is_wheel = wheel_build_number = tags = None
         m = PypiStd.RX_SDIST.match(basename)
         if not m:
             m = PypiStd.RX_WHEEL.match(basename)
-            if m:
-                wheel_build_number = m.group(4)
-                tags = m.group(5)
-                is_wheel = True
+            if not m:
+                return None
 
-        if m:
-            # RX_SDIST and RX_WHEEL both yield package_name and version as match groups 1 and 2
-            return cls(
-                basename,
-                m.group(1),
-                Version(m.group(2)),
-                is_wheel=is_wheel,
-                source=source,
-                tags=tags,
-                wheel_build_number=wheel_build_number,
-            )
+            wheel_build_number = m.group(4)
+            tags = m.group(5)
+            is_wheel = True
+
+        # RX_SDIST and RX_WHEEL both yield package_name and version as match groups 1 and 2
+        version = Version(m.group(2))
+        return cls(basename, m.group(1), version, is_wheel=is_wheel, source=source, tags=tags, wheel_build_number=wheel_build_number)
 
     def __repr__(self):
         return self.relative_url or self.basename
@@ -157,6 +152,9 @@ class PypiStd:
     RX_SDIST = re.compile(r"^([a-z][a-z0-9._-]*[a-z0-9])-([0-9][0-9a-z_.!+-]*)\.tar\.gz$", re.IGNORECASE)
     RX_WHEEL = re.compile(r"^([a-z][a-z0-9._]*[a-z0-9])-([0-9][0-9a-z_.!+]*)(-([0-9][0-9a-z_.]*))?-(.*)\.whl$", re.IGNORECASE)
 
+    DEFAULT_PYPI_URL = "https://pypi.org/pypi/{name}/json"
+    _pypi_client = None
+
     @classmethod
     def is_acceptable(cls, name):
         """Is 'name' an acceptable pypi package name?"""
@@ -176,11 +174,129 @@ class PypiStd:
             return cls.RR_WHEEL.sub("_", name)
 
     @classmethod
-    def parsed_legacy_html(cls, text, source=None):
+    def default_pypi_client(cls):
+        """
+        Returns:
+            (RestClient): Default client to use to query pypi
+        """
+        if cls._pypi_client is None:
+            cls._pypi_client = RestClient()
+
+        return cls._pypi_client
+
+    @classmethod
+    def pypi_response(cls, package_name, client=None, index=None, fatal=True, logger=UNSET):
+        """See https://warehouse.pypa.io/api-reference/json/
+        Args:
+            package_name (str): Pypi package name
+            client (RestClient | None): Optional custom pypi client to use
+            index (str | None): Optional custom pypi index url
+            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+
+        Returns:
+            (dict | str | None): Dict if we queried actual REST endpoint, html text otherwise (legacy pypi simple)
+        """
+        pypi_name = cls.std_package_name(package_name)
+        if not pypi_name:
+            return None
+
+        if client:
+            if not index:
+                index = client.base_url
+
+        else:
+            client = cls.default_pypi_client()
+
+        if not index:
+            index = cls.DEFAULT_PYPI_URL
+
+        if "{name}" in index:
+            url = index.format(name=pypi_name)
+
+        else:
+            url = urljoin(index, "%s/" % pypi_name)
+
+        r = client.get_response(url, fatal=fatal, logger=logger)
+        if r.ok:
+            text = (r.text or "").strip()
+            if text.startswith("{"):
+                return json.loads(text)
+
+            return text
+
+    @classmethod
+    def latest_pypi_version(cls, package_name, client=None, index=None, include_prerelease=False, fatal=True, logger=UNSET):
+        """
+        Args:
+            package_name (str): Pypi package name
+            client (RestClient | None): Optional custom pypi client to use
+            index (str | None): Optional custom pypi index url
+            include_prerelease (bool): If True, include pre-releases
+            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+
+        Returns:
+            (Version | None): Latest version, if any
+        """
+        response = cls.pypi_response(package_name, client=client, index=index, fatal=fatal, logger=logger)
+        if isinstance(response, dict):
+            info = response.get("info")
+            if isinstance(info, dict) and not info.get("yanked"):  # Not sure if this can ever happen
+                version = Version(info.get("version"))
+                if version.is_valid and (include_prerelease or not version.prerelease):
+                    return version
+
+            versions = sorted(x.version for x in cls._versions_from_pypi(response.get("releases")))
+
+        else:
+            versions = sorted(i.version for i in cls._parsed_legacy_html(response))
+
+        if not include_prerelease:
+            candidates = [v for v in versions if v.is_valid and not v.prerelease]
+            if candidates:
+                versions = candidates
+
+        if versions:
+            return versions[-1]
+
+    @classmethod
+    def ls_pypi(cls, package_name, client=None, index=None, source=None, fatal=True, logger=UNSET):
+        """
+        Args:
+            package_name (str): Pypi package name
+            client (RestClient | None): Optional custom pypi client to use
+            index (str | None): Optional custom pypi index url
+            source: Optional arbitrary object to track provenance of ArtifactInfo
+            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+
+        Returns:
+            (list[ArtifactInfo] | None): Artifacts reported by pypi mirror
+        """
+        response = cls.pypi_response(package_name, client=client, index=index, fatal=fatal, logger=logger)
+        if isinstance(response, dict):
+            yield from cls._versions_from_pypi(response.get("releases"), source=source)
+
+        else:
+            yield from cls._parsed_legacy_html(response, source=source)
+
+    @classmethod
+    def _versions_from_pypi(cls, releases, source=None):
+        if isinstance(releases, dict):
+            for v, infos in releases.items():
+                for info in infos:
+                    if not info.get("yanked"):
+                        info = ArtifactInfo.from_basename(info.get("filename"), source=source)
+                        if info:
+                            yield info
+
+    @classmethod
+    def _parsed_legacy_html(cls, text, source=None):
         """
         Args:
             text (str): Text as received from a legacy pypi server
-            source: Optional object identifying the provenance of this artifact info
+            source: Optional arbitrary object to track provenance of ArtifactInfo
 
         Yields:
             (ArtifactInfo): Extracted information

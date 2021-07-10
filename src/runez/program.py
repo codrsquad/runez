@@ -243,7 +243,7 @@ def make_executable(path, fatal=True, logger=UNSET, dryrun=UNSET):
     Args:
         path (str): chmod file with 'path' as executable
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | None): Logger to use, False to log errors only, None to disable log chatter
+        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
 
     Returns:
@@ -279,7 +279,7 @@ def run(
         *args: Command line args to call 'program' with
         background (bool): When True, background the spawned process (detach from console and current process)
         fatal (type | bool | None): If True: abort() on error [default: True]
-        logger (callable | None): When provided, call logger("Running: ...") [default: LOG.debug]
+        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): When True, do not really run but call logger("Would run: ...") instead [default: runez.DRYRUN]
         passthrough (bool): If True, pass-through stderr/stdout in addition to capturing it
         path_env (dict | None): Allows to inject PATH-like env vars, see `_added_env_paths()`

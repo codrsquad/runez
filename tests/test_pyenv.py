@@ -6,10 +6,12 @@ import pytest
 from mock import patch
 
 import runez
+from runez.http import RestClient
 from runez.pyenv import pyenv_scanner, PypiStd, PythonDepot, PythonSpec, Version
 
 
 RE_VERSION = re.compile(r"^(.*)(\d+\.\d+.\d+)$")
+PYPI_CLIENT = RestClient("https://example.com/pypi")
 
 
 def mk_python(basename, prefix=None, base_prefix=None, executable=True, content=None, folder=None, version=None):
@@ -298,7 +300,28 @@ def test_pypi_standardized_naming():
     assert PypiStd.std_wheel_basename("a.b_-___1.5--c") == "a.b_1.5_c"
 
 
-LEGACY_SAMPLE = """
+P_BLACK = """
+<html><head><title>Simple Index</title><meta name="api-version" value="2" /></head><body>
+<a href="/pypi/packages/pypi-public/black/black-18.3a0-py3-none-any.whl#sha256=..."</a><br/>
+<a href="/pypi/packages/pypi-public/black/black-18.3a0.tar.gz#sha256=...">black-18.3a0.tar.gz</a><br/>
+<a href="/pypi/packages/pypi-public/black/black-18.3a1-py3-none-any.whl#sha256=..."
+"""
+
+P_FUNKY = """
+href="funky-proj/funky.proj-1.3.0+dirty_custom-py3-none-any.whl#sha256=..."
+href="funky-proj/funky.proj-1.3.0_custom.tar.gz#sha256=..."
+"""
+
+P_PICKLEY = {
+  "info": {"version": "2.5.6.dev1"},
+  "releases": {
+    "2.5.3": [{"filename": "pickley-2.5.3-py2.py3-none-any.whl", "yanked": True}, {"filename": "oops-bad-filename"}],
+    "2.5.4": [{"filename": "pickley-2.5.4-py2.py3-none-any.whl"}],
+    "2.5.5": [{"filename": "pickley-2.5.5-py2.py3-none-any.whl"}, {"filename": "pickley-2.5.5.tar.gz"}]
+  }
+}
+
+P_SHELL_FUNCTOOLS = """
 <html><head><title>Simple Index</title><meta name="api-version" value="2" /></head><body>
 
 # 1.8.1 intentionally malformed
@@ -312,26 +335,33 @@ LEGACY_SAMPLE = """
 </body></html>
 """
 
-PRERELEASE_SAMPLE = """
-<html><head><title>Simple Index</title><meta name="api-version" value="2" /></head><body>
-<a href="/pypi/packages/pypi-public/black/black-18.3a0-py3-none-any.whl#sha256=..."</a><br/>
-<a href="/pypi/packages/pypi-public/black/black-18.3a0.tar.gz#sha256=...">black-18.3a0.tar.gz</a><br/>
-<a href="/pypi/packages/pypi-public/black/black-18.3a1-py3-none-any.whl#sha256=..."
-"""
 
-FUNKY_SAMPLE = """
-<html><head><title>Simple Index</title><meta name="api-version" value="2" /></head><body>
-<a href="/pypi/packages/pypi-private/someproj/some.proj-1.3.0+dirty_custom-py3-none-any.whl#sha256=..."</a><br/>
-<a href="/pypi/packages/pypi-private/someproj/some.proj-1.3.0_custom.tar.gz#sha256=...">someproj-1.3.0_custom.tar.gz</a><br/>
-"""
-
-
+@PYPI_CLIENT.mock({
+    "shell-functools/": P_SHELL_FUNCTOOLS,
+    "https://pypi.org/pypi/black/json": P_BLACK,
+    "https://pypi.org/pypi/foo/json": {"info": {"version": "1.2.3"}},
+    "https://pypi.org/pypi/pickley/json": P_PICKLEY,
+    "https://pypi.org/pypi/funky-proj/json": P_FUNKY,
+})
 def test_pypi_parsing():
-    sample = sorted(PypiStd.parsed_legacy_html(LEGACY_SAMPLE, source="s1"))
+    assert PypiStd.pypi_response("-invalid-") is None
+    assert PypiStd.latest_pypi_version("shell_functools", index=PYPI_CLIENT.base_url) == Version("1.9.11")
+    assert PypiStd.latest_pypi_version("foo") == Version("1.2.3")  # Vanilla case
+    assert PypiStd.latest_pypi_version("pickley") == Version("2.5.5")  # Pre-release ignored
+    assert PypiStd.latest_pypi_version("pickley", include_prerelease=True) == Version("2.5.6.dev1")
+
+    assert sorted(PypiStd.ls_pypi("foo")) == []
+
+    sample = sorted(PypiStd.ls_pypi("shell-functools", client=PYPI_CLIENT, source="s1"))
     assert len(sample) == 5
+    assert str(sample[0]) == "shell-functools/shell-functools-1.8.1!1.tar.gz"
     assert sample[0].version == Version("1.8.1")
     assert not sample[0].is_dirty
     assert sample[0].category == "source distribution"
+
+    pickley = sorted(PypiStd.ls_pypi("pickley", source="s1"))
+    assert len(pickley) == 3
+    assert pickley[0] < sample[0]  # Alphabetical sort for same-source artifacts
 
     assert sample[3].version == Version("1.9.11")
     assert not sample[3].is_wheel
@@ -340,21 +370,19 @@ def test_pypi_parsing():
     assert sample[4].is_wheel
     assert sample[4].tags == "py2.py3-none-any"
     assert sample[3] < sample[4]  # Source distribution before wheel
+    assert sample[3] != sample[4]
 
-    pre = sorted(PypiStd.parsed_legacy_html(PRERELEASE_SAMPLE, source="s1"))
-    assert len(pre) == 3
-    assert pre[0].version.prerelease
-    assert pre[0] < sample[0]  # Alphabetical sort for same-source artifacts
+    black = sorted(PypiStd.ls_pypi("black"))  # All versions are pre-releases
+    assert len(black) == 3
+    assert black[0].version.prerelease
 
-    funky = sorted(PypiStd.parsed_legacy_html(FUNKY_SAMPLE, source=None))
+    funky = sorted(PypiStd.ls_pypi("funky-proj", source=None))
     assert len(funky) == 2
-    assert funky[0].package_name == "some.proj"
-    assert funky[0].pypi_name == "some-proj"
-    assert str(funky[0]) == "some-proj/some.proj-1.3.0_custom.tar.gz"
+    assert funky[0].package_name == "funky.proj"
+    assert funky[0].pypi_name == "funky-proj"
     assert funky[1].is_dirty
-
+    assert black[0] < funky[0]  # Alphabetical sort when both have no source
     assert sample[4] < funky[0]  # Source-defined comes before no-source
-    assert funky[0] != sample[0]
 
 
 def test_sorting(temp_folder):
