@@ -20,7 +20,7 @@ API_EXCEPTIONS = {
     "http.get": collections.OrderedDict(fatal=True, logger="UNSET"),
     "http.head": collections.OrderedDict(fatal=True, logger="UNSET"),
     "http.url_exists": collections.OrderedDict(logger=False),
-    "logsetup.greet": {},
+    "logsetup.hdry": collections.OrderedDict(dryrun="UNSET", logger="UNSET"),
     "logsetup.setup": {},
     "prompt.ask_once": collections.OrderedDict(logger=None),
     "pyenv.find_python": collections.OrderedDict(fatal="UNSET"),

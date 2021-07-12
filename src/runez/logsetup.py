@@ -729,7 +729,7 @@ class LogManager:
             dryrun (bool): Enable dryrun
             level (int | None): Shortcut to set both `console_level` and `file_level` at once
             clean_handlers (bool): Remove any existing logging.root.handlers
-            greetings (str | list[str] | None): Optional greetings message(s) to log
+            greetings (str | None): Optional greetings message(s) to log
             appname (str | None): Program's base name, not used directly, just as reference for default 'basename'
             basename (str | None): Base name of target log file, not used directly, just as reference for default 'locations'
             console_format (str | None): Format to use for console log, use None to deactivate
@@ -814,7 +814,7 @@ class LogManager:
                 allow_root = SYS_INFO.is_running_in_docker
 
             if not allow_root and os.geteuid() == 0:
-                message = _formatted_text(cls.disallow_root_message, cls.spec._props(), strict=False)
+                message = _formatted_text(cls.disallow_root_message, cls._props(), strict=False)
                 if message.endswith("!"):
                     bars = "=" * len(message)
                     message = "\n%s\n%s\n%s\n\n" % (bars, message, bars)
@@ -836,17 +836,15 @@ class LogManager:
         return DEV.tests_path(*relative_path)
 
     @classmethod
-    def greet(cls, greetings, logger=LOG.debug):
+    def greet(cls, greetings):
         """
         Args:
-            greetings (str | list[str] | None): Greetings message(s) to log
-            logger (callable | None): Logger to use
+            greetings (str | None): Greetings message(s) to log
         """
-        if greetings and logger:
-            for msg in flattened(greetings, keep_empty=False):
-                message = cls.formatted_greeting(msg)
-                if message:
-                    logger(message)
+        if greetings:
+            logger = cls.spec.default_logger
+            if callable(logger):
+                logger(_formatted_text(greetings, cls._props()))
 
     @classmethod
     def clean_handlers(cls):
@@ -874,23 +872,6 @@ class LogManager:
         cls.progress.stop()
         cls.tracer = None
         cls.used_formats = None
-
-    @classmethod
-    def formatted_greeting(cls, greeting):
-        if greeting:
-            if cls.file_handler and cls.file_handler.baseFilename:
-                location = cls.file_handler.baseFilename
-
-            elif not cls.spec.should_log_to_file:
-                location = "file log disabled"
-
-            elif cls.spec.file_location:
-                location = "given location '{file_location}' is not usable"
-
-            else:
-                location = "no usable locations from {locations}"
-
-            return _formatted_text(greeting, cls.spec._props(location=location))
 
     @classmethod
     def silence(cls, *modules, level=logging.WARNING):
@@ -968,7 +949,7 @@ class LogManager:
     def resolved_dryrun(cls, dryrun):
         """
         Args:
-            dryrun (bool | Undefined | None): Optionally overridden current dryrun setting
+            dryrun (bool | runez.Undefined | None): Optionally overridden current dryrun setting
 
         Returns:
             (bool): Resolved value for dryrun
@@ -988,16 +969,16 @@ class LogManager:
                 cls.tracer.trace(message)
 
     @classmethod
-    def hdry(cls, dryrun, logger, message):
+    def hdry(cls, message, dryrun=UNSET, logger=UNSET):
         """Handle dryrun, allows to handle dryrun=UNSET with a code pattern of the form:
 
-            if runez.log.hdry(dryrun, logger, "it was a dryrun"):
+            if runez.log.hdry("it was a dryrun"):
                 return
 
         Args:
-            logger (callable | None): Logger to use, None to disable log chatter, False to trace(), any other value to print()
-            dryrun (bool | runez.system.Undefined | None): Optionally override current dryrun setting
             message (str | callable | None): Message to log
+            dryrun (bool): Optionally override current dryrun setting
+            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
 
         Returns:
             (bool): True if we were indeed in dryrun mode, and we logged the message
@@ -1013,6 +994,22 @@ class LogManager:
     def dev_folder(*relative_path):
         """Deprecated, use runez.DEV.venv_path()"""
         return DEV.venv_path(*relative_path)
+
+    @classmethod
+    def _props(cls):
+        if cls.file_handler and cls.file_handler.baseFilename:
+            location = cls.file_handler.baseFilename
+
+        elif not cls.spec.should_log_to_file:
+            location = "file log disabled"
+
+        elif cls.spec.file_location:
+            location = "given location '{file_location}' is not usable"
+
+        else:
+            location = "no usable locations from {locations}"
+
+        return cls.spec._props(location=location)
 
     @classmethod
     def _auto_enable_progress_handler(cls):

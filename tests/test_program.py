@@ -2,13 +2,14 @@ import errno
 import logging
 import os
 import subprocess
+import sys
 
 import pytest
 from mock import patch
 
 import runez
 from runez.conftest import exception_raiser
-from runez.program import RunResult
+from runez.program import RunAudit, RunResult
 
 
 CHATTER = runez.DEV.tests_path("chatter")
@@ -370,6 +371,44 @@ def test_require_installed(monkeypatch):
     assert "foo is not installed:" in r
     assert "- on darwin: run: `brew install foo`" in r
     assert "- on linux: run: `apt install foo`" in r
+
+
+def test_run_description():
+    short_py = runez.short(sys.executable)
+    audit = RunAudit(sys.executable, ["-mpip", "--help"], {})
+    assert audit.run_description() == "pip --help"
+    assert audit.run_description(short_exe=None) == "%s -mpip --help" % short_py
+    assert audit.run_description(short_exe=False) == "%s -mpip --help" % short_py
+    assert audit.run_description(short_exe=True) == "pip --help"
+    assert audit.run_description(short_exe="foo") == "foo -mpip --help"
+
+    audit = RunAudit(sys.executable, ["-m", "pip", "--help"], {})
+    assert audit.run_description() == "pip --help"
+    assert audit.run_description(short_exe=None) == "%s -m pip --help" % short_py
+    assert audit.run_description(short_exe=False) == "%s -m pip --help" % short_py
+    assert audit.run_description(short_exe=True) == "pip --help"
+    assert audit.run_description(short_exe="foo") == "foo -m pip --help"
+
+    audit = RunAudit(sys.executable, ["bin/pip/__main__.py", "--help"], {})
+    assert audit.run_description() == "pip --help"
+    assert audit.run_description(short_exe=None) == "%s bin/pip/__main__.py --help" % short_py
+    assert audit.run_description(short_exe=False) == "%s bin/pip/__main__.py --help" % short_py
+    assert audit.run_description(short_exe=True) == "pip --help"
+    assert audit.run_description(short_exe="foo") == "foo bin/pip/__main__.py --help"
+
+    audit = RunAudit("foo/python3", ["-mpip", "--help"], {})
+    assert audit.run_description() == "foo/python3 -mpip --help"
+    assert audit.run_description(short_exe=None) == "foo/python3 -mpip --help"
+    assert audit.run_description(short_exe=False) == "foo/python3 -mpip --help"
+    assert audit.run_description(short_exe=True) == "pip --help"
+    assert audit.run_description(short_exe="foo") == "foo -mpip --help"
+
+    audit = RunAudit("foo/bar", ["-mpip", "--help"], {})
+    assert audit.run_description() == "foo/bar -mpip --help"
+    assert audit.run_description(short_exe=None) == "foo/bar -mpip --help"
+    assert audit.run_description(short_exe=False) == "foo/bar -mpip --help"
+    assert audit.run_description(short_exe=True) == "foo/bar -mpip --help"
+    assert audit.run_description(short_exe="foo") == "foo -mpip --help"
 
 
 def test_which():

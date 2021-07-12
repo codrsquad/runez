@@ -268,10 +268,9 @@ def make_executable(path, fatal=True, logger=UNSET, dryrun=UNSET):
 
 
 def run(
-    program, *args, background=False, fatal=True, logger=UNSET, dryrun=UNSET,
-    passthrough=False, path_env=None,
-    stdout=subprocess.PIPE, stderr=subprocess.PIPE, strip="\r\n",
-    **popen_args
+    program, *args, background=False, fatal=True, logger=UNSET, dryrun=UNSET, short_exe=UNSET,
+    passthrough=False, path_env=None, strip="\r\n",
+    stdout=subprocess.PIPE, stderr=subprocess.PIPE, **popen_args
 ):
     """Run 'program' with 'args'
     Args:
@@ -281,11 +280,12 @@ def run(
         fatal (type | bool | None): If True: abort() on error [default: True]
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): When True, do not really run but call logger("Would run: ...") instead [default: runez.DRYRUN]
+        short_exe (str | bool | None): Try to log a compact representation of executable
         passthrough (bool): If True, pass-through stderr/stdout in addition to capturing it
         path_env (dict | None): Allows to inject PATH-like env vars, see `_added_env_paths()`
+        strip (str | bool | None): If provided, `strip()` the captured output [default: strip "\n" newlines]
         stdout (int | IO[Any] | None): Passed-through to subprocess.Popen, [default: subprocess.PIPE]
         stderr (int | IO[Any] | None): Passed-through to subprocess.Popen, [default: subprocess.PIPE]
-        strip (str | bool | None): If provided, `strip()` the captured output [default: strip "\n" newlines]
         **popen_args: Passed through to `subprocess.Popen`
 
     Returns:
@@ -297,7 +297,7 @@ def run(
     args = flattened(args, shellify=True)
     full_path = which(program)
     result = RunResult(audit=RunAudit(full_path or program, args, popen_args))
-    description = "%s %s" % (short(full_path or program), quoted(args))
+    description = result.audit.run_description(short_exe=short_exe)
     if background:
         description += " &"
 
@@ -403,6 +403,46 @@ class RunAudit:
         self.args = args
         self.popen_args = popen_args
         self.dryrun = False  # Was this a dryrun?
+
+    @staticmethod
+    def shortened_program(program, args):
+        if program and args and os.path.basename(program) in ("python", "python3"):
+            if args[0] == "-m":
+                return args[1], args[2:]
+
+            if args[0].startswith("-m"):
+                return args[0][2:], args[1:]
+
+            if args[0].endswith("__main__.py"):
+                program = args[0]
+                program = os.path.dirname(os.path.abspath(program))
+                return os.path.basename(program), args[1:]
+
+        return short(program), args
+
+    def run_description(self, short_exe=UNSET):
+        """
+        Args:
+            short_exe (str | bool | None): Try to log a compact representation of executable
+
+        Returns:
+            (str): Description for self.program run with self.args
+        """
+        program = self.program
+        args = self.args
+        if short_exe is UNSET:
+            short_exe = program == sys.executable
+
+        if isinstance(short_exe, str):
+            program = short_exe
+
+        elif short_exe is True:
+            program, args = self.shortened_program(program, args)
+
+        else:
+            program = short(program)
+
+        return "%s %s" % (program, quoted(args)) if args and program else program
 
 
 class RunResult:

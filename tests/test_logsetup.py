@@ -86,11 +86,11 @@ def test_console(temp_log):
     old_level = logger.level
 
     try:
-        runez.log.setup(console_level=logging.DEBUG, file_location="", greetings=["Logging to: {location}", ":: argv: {argv}"])
+        runez.log.setup(console_level=logging.DEBUG, file_location="", greetings="Logging to: {location}, argv: {argv}")
 
         assert temp_log.logfile is None
         assert "DEBUG Logging to: file log disabled" in temp_log.stderr
-        assert ":: argv: " in temp_log.stderr
+        assert ", argv: " in temp_log.stderr
         logger.info("hello")
         assert "INFO hello" in temp_log.stderr
 
@@ -179,7 +179,12 @@ def test_default(temp_log):
     assert runez.log.resolved_dryrun(True) is True
     assert runez.log.resolved_dryrun(False) is False
     assert runez.log.resolved_dryrun(runez.UNSET) is False
-    assert runez.log.hdry(True, None, "") is True
+
+    assert not runez.log.hdry("do something")
+    assert not temp_log.pop()
+
+    assert runez.log.hdry("do something", dryrun=True)
+    assert temp_log.pop() == "Would do something"
 
     assert runez.log.spec.console_level == logging.WARNING
     runez.log.context.set_global(version="1.0")
