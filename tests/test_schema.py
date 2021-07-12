@@ -149,6 +149,11 @@ class Car(Serializable, with_behavior(extras=(logging.info, "foo bar"))):
     serial = UniqueIdentifier
     year = Integer
 
+    def __init__(self, make=None, serial=None, year=None):
+        self.make = make
+        self.serial = serial
+        self.year = year
+
 
 class Hat(Struct):
     size = Integer(default=1)
@@ -203,6 +208,9 @@ def test_serializable(logged):
     assert Person._meta.attributes_by_type(Date) == ["age"]
     assert GPerson._meta.attributes_by_type(Integer) == ["age", "fingerprint", "group"]
     assert GPerson._meta.attributes_by_type(Date) is None
+
+    car = Car(year=2020)
+    assert car.to_dict() == {"year": 2020}
 
     car = Car.from_dict({"foo": 1, "baz": 2, "serial": "bar"})
     assert car.serial == "bar"

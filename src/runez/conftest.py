@@ -202,11 +202,11 @@ class WrappedHandler(_pytest.logging.LogCaptureHandler):
     _current_instance = None
     isolation = 0
 
-    def __new__(cls, *more):
+    def __new__(cls, *_):
         if cls._current_instance is not None:
             return cls._current_instance
 
-        cls._current_instance = super().__new__(cls, *more)
+        cls._current_instance = super().__new__(cls)
         return cls._current_instance
 
     @classmethod
