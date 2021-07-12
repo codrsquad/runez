@@ -597,7 +597,7 @@ class _ContextFilter(logging.Filter):
             context (ThreadGlobalContext): Associated context
             name (str): Passed through to parent
         """
-        super(_ContextFilter, self).__init__(name=name)
+        super().__init__(name=name)
         self.context = context
 
     def filter(self, record):

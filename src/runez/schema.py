@@ -149,7 +149,7 @@ class _MetaSerializable(Any):
             default: Default to use (when no value is provided)
         """
         self.meta = getattr(meta, "_meta", meta)
-        super(_MetaSerializable, self).__init__(default=default)
+        super().__init__(default=default)
 
     def _problem(self, value):
         if not isinstance(value, dict):
@@ -189,7 +189,7 @@ class Datetime(Any):
             tz (datetime.tzinfo | None): Timezone info used as default if could not be determined from converted value
         """
         self.tz = tz
-        super(Datetime, self).__init__(default=default)
+        super().__init__(default=default)
 
     def _problem(self, value):
         if to_datetime(value) is None:
@@ -211,7 +211,7 @@ class Dict(Any):
         """
         self.key = determined_schema_type(key)  # type: Any
         self.value = determined_schema_type(value)  # type: Any
-        super(Dict, self).__init__(default=default)
+        super().__init__(default=default)
 
     def representation(self):
         return "%s[%s, %s]" % (_R._schema_type_name(self), self.key, self.value)
@@ -245,7 +245,7 @@ class Enum(Any):
         if hasattr(values, "split"):
             values = values.split()
         self.values = set(values)
-        super(Enum, self).__init__(default=default)
+        super().__init__(default=default)
 
     def representation(self):
         return "%s[%s]" % (_R._schema_type_name(self), ", ".join(sorted(self.values)))
@@ -287,7 +287,7 @@ class List(Any):
             default: Default to use when no value was provided
         """
         self.subtype = determined_schema_type(subtype)  # type: Any
-        super(List, self).__init__(default=default)
+        super().__init__(default=default)
 
     def representation(self):
         return "%s[%s]" % (_R._schema_type_name(self), self.subtype)
@@ -323,7 +323,7 @@ class Struct(Any):
         if not hasattr(self.__class__, "_meta"):
             self.__class__._meta = _R.meta_description(self)
 
-        super(Struct, self).__init__(default=default)
+        super().__init__(default=default)
 
     def __eq__(self, other):
         if other is not None and other.__class__ is self.__class__:
@@ -383,7 +383,7 @@ class UniqueIdentifier(Any):
             subtype: Optional type constraint for this identifier (defaults to `String`)
         """
         self.subtype = determined_schema_type(subtype or String)  # type: Any
-        super(UniqueIdentifier, self).__init__(default=None)
+        super().__init__(default=None)
 
 
 TYPE_MAP = {

@@ -154,7 +154,7 @@ class NamedRenderables(Slotted):
 
             colors[key] = color
 
-        super(NamedRenderables, self).__init__(**colors)
+        super().__init__(**colors)
 
 
 class NamedColors(NamedRenderables):

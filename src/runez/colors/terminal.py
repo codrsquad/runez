@@ -77,7 +77,7 @@ class AnsiColor(Renderable):
             ansi (str): Ansi codeset to use (ansi16, ansi256 or truecolor)
             flavor (str): Flavor to use (neutral, light or dark)
         """
-        super(AnsiColor, self).__init__(name)
+        super().__init__(name)
         self.rgb = rgb
         fmt = getattr(AnsiCode, ansi)
         offset = AnsiCode.bg_offset if rgb < 0 else AnsiCode.fg_offset
@@ -95,7 +95,7 @@ class AnsiColor(Renderable):
 
 class AnsiStyle(Renderable):
     def __init__(self, name, start, end):
-        super(AnsiStyle, self).__init__(name)
+        super().__init__(name)
         self.start = start
         self.end = end
         self.fmt = "\033[%sm{}\033[%sm" % (start, end)

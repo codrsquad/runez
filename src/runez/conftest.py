@@ -206,7 +206,7 @@ class WrappedHandler(_pytest.logging.LogCaptureHandler):
         if cls._current_instance is not None:
             return cls._current_instance
 
-        cls._current_instance = super(WrappedHandler, cls).__new__(cls, *more)
+        cls._current_instance = super().__new__(cls, *more)
         return cls._current_instance
 
     @classmethod
@@ -226,7 +226,7 @@ class WrappedHandler(_pytest.logging.LogCaptureHandler):
                     self.handleError(record)
 
             else:
-                super(WrappedHandler, self).emit(record)
+                super().emit(record)
 
     @classmethod
     def clean_accumulated_logs(cls):

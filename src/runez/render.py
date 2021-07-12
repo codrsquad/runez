@@ -159,7 +159,7 @@ class PrettyBorder(Slotted):
         if value is not None and name != "pad":
             value = _PTBorderChars.cast(value)
 
-        super(PrettyBorder, self)._set_field(name, value)
+        super()._set_field(name, value)
 
 
 class PrettyCustomizable:
@@ -480,7 +480,7 @@ class _PTBorderChars(Slotted):
             first, mid, last, h = obj
             return dict(first=first, mid=mid, last=last, h=h)
 
-        return super(_PTBorderChars, self)._values_from_object(obj)
+        return super()._values_from_object(obj)
 
     def __repr__(self):
         return self.represented_values(delimiter="", operator="", name_formatter=lambda x: "")

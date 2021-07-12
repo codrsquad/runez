@@ -208,12 +208,14 @@ def test_serializable(logged):
     assert car.serial == "bar"
     assert "foo" not in logged
     assert "Extra content given for Car: baz" in logged.pop()
+    assert car.to_dict() == {"serial": "bar"}
 
     pp = Person()
     assert pp.age is None
     assert pp.fingerprint is None
     assert pp.name is None  # overridden by Person.__init__()
     assert pp.car is None
+    assert pp.to_dict() == {}
 
     pp = Person.from_dict({"car": "foo", "fingerprint": "foo"})
     assert pp.fingerprint == "foo"  # Bogus value still used because 'strict' setting does not raise an exception

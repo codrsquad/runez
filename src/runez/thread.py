@@ -46,7 +46,7 @@ class ThreadLocalSingleton:
         key = "singleton %s.%s" % (cls.__module__, cls.__name__)
         existing = getattr(_THREAD_LOCAL, key, None)
         if existing is None:
-            existing = super(ThreadLocalSingleton, cls).__new__(cls)
+            existing = super().__new__(cls)
             setattr(_THREAD_LOCAL, key, existing)
 
         return existing

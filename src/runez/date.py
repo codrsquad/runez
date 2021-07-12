@@ -39,7 +39,7 @@ class timezone(datetime.tzinfo):
     def __new__(cls, offset, name=None):
         existing = cls.__singletons.get(offset)
         if existing is None:
-            existing = super(timezone, cls).__new__(cls, offset, name=name)
+            existing = super().__new__(cls, offset, name=name)
             cls.__singletons[offset] = existing
 
         return existing
