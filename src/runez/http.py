@@ -28,8 +28,8 @@ import os
 import urllib.parse
 from pathlib import Path
 
-from runez.file import TempFolder, to_path, untar, write
-from runez.system import _R, abort, find_caller_frame, short, stringified, SYS_INFO, UNSET
+from runez.file import TempFolder, to_path, untar
+from runez.system import _R, abort, find_caller_frame, stringified, SYS_INFO, UNSET
 
 
 def urljoin(base, url):
@@ -179,6 +179,26 @@ class DataState:
             return state
 
 
+class MockResponse:
+
+    def __init__(self, status_code, content):
+        self.status_code = status_code
+        if content is not None and not isinstance(content, bytes):
+            if not isinstance(content, str):
+                content = json.dumps(content)
+
+            content = content.encode("utf-8")
+
+        self.content = content
+
+    def json(self):
+        return json.loads(self.text)
+
+    @property
+    def text(self):
+        return stringified(self.content)
+
+
 class MockedHandlerStack:
 
     def __init__(self):
@@ -226,7 +246,7 @@ class MockedHandlerStack:
     def response_for_url(self, method, url):
         spec = self.specs.get(url)
         if spec is None:
-            return RestResponse(method, url, 404, dict(message="Default status code 404"))
+            return MockResponse(404, dict(message="Default status code 404"))
 
         if isinstance(spec, BaseException):
             raise spec
@@ -237,16 +257,16 @@ class MockedHandlerStack:
         if callable(spec):
             spec = spec(method, url)
 
-        if isinstance(spec, RestResponse):
-            return RestResponse(method, url, spec.status_code, spec.content)
+        if isinstance(spec, MockResponse):
+            return spec
 
         if isinstance(spec, int):
-            return RestResponse(method, url, spec, "status %s" % spec)
+            return MockResponse(spec, "status %s" % spec)
 
         if isinstance(spec, tuple) and len(spec) == 2:
-            return RestResponse(method, url, *spec)
+            return MockResponse(*spec)
 
-        return RestResponse(method, url, 200, spec)
+        return MockResponse(200, spec)
 
 
 class MockCentral:
@@ -325,23 +345,27 @@ class MockWrapper:
 class RestResponse:
     """Simplified response, from a typical REST query, vaguely similar to requests.Response"""
 
-    def __init__(self, method, url, status_code, content):
+    def __init__(self, method, url, raw_response):
+        """
+        Args:
+            method (str): Method used to query url
+            url (url): Remote URL that was queried
+            raw_response: Should have similar API to requests.Response
+        """
         self.method = method
         self.url = url
-        self.status_code = status_code
-        if content is not None and not isinstance(content, bytes):
-            if not isinstance(content, str):
-                content = json.dumps(content)
-
-            content = content.encode("utf-8")
-
-        self.content = content
+        self.raw_response = raw_response
+        self.status_code = raw_response.status_code
 
     def __repr__(self):
-        return "%s %s" % (self.status_code, short(self.text))
+        return "<Response [%s]>" % self.status_code
 
     def json(self):
-        return json.loads(self.text)
+        return self.raw_response.json()
+
+    @property
+    def content(self):
+        return self.raw_response.content
 
     @property
     def ok(self):
@@ -349,7 +373,7 @@ class RestResponse:
 
     @property
     def text(self):
-        return stringified(self.content)
+        return self.raw_response.text
 
     def description(self, size=1024):
         """Description showing what happened with requests 'response', fir .debug() output, or .error() reporting"""
@@ -363,19 +387,20 @@ class RestResponse:
         return msg
 
     def error_reason(self):
-        """Meaningful text from 'response'"""
+        """Meaningful error reason from 'response'"""
         try:
-            return self.extract_message(self.json()) or self.text
+            msg = self.extract_message(self.json())
+            if msg:
+                return msg
 
         except Exception:
-            return self.text
+            pass
+
+        return self.text
 
     @staticmethod
     def extract_message(data):
-        """
-        Try to get to the point of a returned REST json bit, extract meaningful message if possible.
-        Otherwise, we fallback the .text of response (which may be verbose / hard to read)
-        """
+        """Try to get to the point of a returned REST json bit, extract meaningful message if possible"""
         if not data:
             return None
 
@@ -534,8 +559,8 @@ class RequestsHandler(RestHandler):
         return func(url, **passed_through)
 
     @classmethod
-    def to_rest_response(cls, method, url, response):
-        return RestResponse(method, url, response.status_code, response.text)
+    def to_rest_response(cls, method, url, raw_response):
+        return RestResponse(method, url, raw_response)
 
     @classmethod
     def intercept(cls, mock_caller, *args, **__):
@@ -550,7 +575,7 @@ class RequestsHandler(RestHandler):
         mocked = mock_caller.response_for_url(request.method, request.url)
         r = Response()
         r.status_code = mocked.status_code
-        r.url = mocked.url
+        r.url = request.url
         r.request = request
         r._content = mocked.content
         return r
@@ -632,8 +657,9 @@ class RestClient:
             (RestResponse): Response from underlying call
         """
         response = self._get_response("GET", url, fatal, logger, dryrun=dryrun, params=params, headers=headers, action="download")
-        if response.ok:
-            write(destination, response.content, fatal=fatal, logger=logger, dryrun=dryrun)
+        if response.ok and not _R.resolved_dryrun(dryrun):
+            with open(destination, "wb") as fh:
+                fh.write(response.content)
 
         return response
 
@@ -819,7 +845,7 @@ class RestClient:
         absolute_url = self.full_url(url)
         message = "%s %s" % (action or method, absolute_url)
         if _R.hdry(dryrun, logger, message):
-            return RestResponse(method, absolute_url, 200, dict(message="dryrun %s" % message))
+            return RestResponse(method, absolute_url, MockResponse(200, dict(message="dryrun %s" % message)))
 
         full_headers = self.headers
         if headers:

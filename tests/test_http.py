@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 import runez
-from runez.http import GlobalHttpCalls, RestClient, RestHandler, RestResponse, urljoin
+from runez.http import GlobalHttpCalls, MockResponse, RestClient, RestHandler, RestResponse, urljoin
 
 
 EXAMPLE = RestClient("https://example.com")
@@ -84,16 +84,6 @@ def test_edge_cases():
         RestClient(handler=RestHandler)
     assert "is not usable" in str(exc)
 
-    r1 = RestResponse("GET", "http://foo", 400, '""')
-    assert str(r1) == '400 ""'
-    assert r1.description() == 'GET http://foo [400] ""'
-
-    # Check message shortened (don't dump full output)
-    r1 = RestResponse("GET", "http://foo", 400, "-" * 1050)
-    desc = r1.description()
-    assert len(desc) == 1027
-    assert desc.endswith("...")
-
 
 @EXAMPLE.mock({})
 @RestClient.handler.mock
@@ -168,7 +158,7 @@ def dynamic_call(method, url):
     "server-crashed": (500, "failed"),  # status 500, with optional content as well
     "dynamic-a": dynamic_call,  # status and payload will come from function call
     "dynamic-b": dynamic_call,
-    "explicit": RestResponse("", "", 202, "explicit RestResponse"),
+    "explicit": MockResponse(202, "explicit RestResponse"),
     "fail1": Exception,
     "fail2": Exception("oops"),
 })
@@ -210,13 +200,14 @@ def test_rest(logged):
     assert session.get("not-found", fatal=False, logger=None) is None
     assert session.head("not-found", fatal=False, logger=None).status_code == 404
 
-    assert str(session.get_response("dynamic-a", logger=None)) == "201 invalid json"
-    assert session.get("dynamic-b", logger=None) == ["bar", "GET"]
+    assert str(session.get_response("dynamic-a", logger=None)) == "<Response [201]>"
+    r = session.get_response("dynamic-b", logger=None)
+    assert r.description(size=12) == "GET https://..."
     assert not logged
 
     r = session.put("explicit")
     assert r.method == "PUT"
-    assert str(r) == "202 explicit RestResponse"
+    assert str(r) == "<Response [202]>"
 
     with pytest.raises(Exception) as exc:
         session.get("fail1")
