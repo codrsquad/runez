@@ -574,6 +574,7 @@ class RequestsHandler(RestHandler):
         request = args[0]
         mocked = mock_caller.response_for_url(request.method, request.url)
         r = Response()
+        r.encoding = "utf-8"
         r.status_code = mocked.status_code
         r.url = request.url
         r.request = request
