@@ -1252,13 +1252,18 @@ class SystemInfo:
         """Info on currently running process"""
         return _R._runez_module().PsInfo()
 
-    def diagnostics(self, via=" ⚡ "):
+    def diagnostics(self, via=" ⚡ ", userid=UNSET):
         """Usable by runez.render.PrettyTable.two_column_diagnostics()"""
         yield "platform", self.platform_info
         if self.terminal.term_program:
             yield "terminal", "%s (TERM=%s)" % (self.terminal.term_program, os.environ.get("TERM"))
 
-        yield "userid", self.userid
+        if userid is UNSET:
+            userid = self.userid
+
+        if userid:
+            yield "userid", userid
+
         if self.program_version:
             yield "version", "%s v%s" % (self.program_name, self.program_version)
 
