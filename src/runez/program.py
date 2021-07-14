@@ -8,7 +8,7 @@ import os
 import pty
 import shutil
 import struct
-import subprocess
+import subprocess  # nosec
 import sys
 import tempfile
 import termios
@@ -604,7 +604,7 @@ def _read_data(fd, length=1024):
 def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
     """Run subprocess.Popen(), capturing output accordingly"""
     if not passthrough:
-        p = subprocess.Popen(args, stdout=stdout, stderr=stderr, **popen_args)
+        p = subprocess.Popen(args, stdout=stdout, stderr=stderr, **popen_args)  # nosec
         if fatal is None and stdout is None and stderr is None:
             return p, None, None  # Don't wait on spawned process
 
@@ -620,7 +620,7 @@ def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
     for fd in (stdout_r, stdout_w, stderr_r, stderr_w):
         fcntl.ioctl(fd, termios.TIOCSWINSZ, term_size)
 
-    with subprocess.Popen(args, stdout=stdout_w, stderr=stderr_w, **popen_args) as p:
+    with subprocess.Popen(args, stdout=stdout_w, stderr=stderr_w, **popen_args) as p:  # nosec
         os.close(stdout_w)
         os.close(stderr_w)
         readable = [stdout_r, stderr_r]

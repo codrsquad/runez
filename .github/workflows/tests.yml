@@ -38,4 +38,4 @@ jobs:
         python-version: '3.8'
 
     - run: pip install -U pip tox
-    - run: tox -e docs,style
+    - run: tox -e docs,style,security

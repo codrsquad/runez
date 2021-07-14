@@ -393,7 +393,7 @@ class RestResponse:
             if msg:
                 return msg
 
-        except Exception:
+        except Exception:  # nosec
             pass
 
         return self.text

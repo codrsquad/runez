@@ -26,7 +26,7 @@ class AsciiAnimation:
 
             names = cls.available_names(include_virtual=False)
             n = len(names)
-            n = max(0, min(n - 1, int(n * random.random())))
+            n = max(0, min(n - 1, int(n * random.random())))  # nosec (irrelevant for crypto)
             name = names[n]
 
         if name in cls.available_names():
