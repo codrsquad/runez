@@ -27,6 +27,7 @@ setup(
     ],
     project_urls={
         "Documentation": "https://github.com/codrsquad/runez/wiki",
+        "Release notes": "https://github.com/codrsquad/runez/wiki/Release-notes",
         "Source": "https://github.com/codrsquad/runez",
     },
 )

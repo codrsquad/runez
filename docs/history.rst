@@ -2,14 +2,12 @@
 History
 =======
 
-3.0.1 (2021-07-13)
+3.0.3 (2021-07-15)
 ------------------
 
-* Corrected ``RestClient.download()``
+* Moved release notes to wiki: https://github.com/codrsquad/runez/wiki/Release-notes
 
-
-3.0.0 (2021-07-12)
-------------------
+* Corrected ``@thread_local_property`` decorator
 
 * Dropped support for python2
 
