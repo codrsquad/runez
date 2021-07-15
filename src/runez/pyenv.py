@@ -4,7 +4,7 @@ import re
 import sys
 from collections import defaultdict
 
-from runez.file import parent_folder
+from runez.file import parent_folder, to_path
 from runez.http import RestClient, urljoin
 from runez.program import is_executable, run
 from runez.system import _R, abort, flattened, joined, resolved_path, short, stringified, UNSET
@@ -30,34 +30,6 @@ def guess_family(text):
                 return name
 
     return CPYTHON
-
-
-def pyenv_scanner(*locations):
-    """Scan pyenv-style installation location(s)"""
-    for location in flattened(locations, split=":", keep_empty=None):
-        location = resolved_path(location)
-        if location and os.path.isdir(location):
-            count = 0
-            pv = os.path.join(location, "versions")
-            if os.path.isdir(pv):
-                location = pv
-
-            for fname in os.listdir(location):
-                folder = os.path.join(location, fname)
-                spec = PythonSpec(fname, folder)
-                if spec.version:
-                    exes = list(PythonDepot.python_exes_in_folder(folder))
-                    if exes:
-                        count += 1
-                        problem = None
-
-                    else:
-                        problem = "invalid pyenv installation"
-
-                    exes.append(folder)
-                    yield PythonInstallation(exes[0], spec, equivalents=exes, problem=problem)
-
-            _R.trace("Found %s pythons in %s" % (count, short(location)))
 
 
 class ArtifactInfo:
@@ -461,6 +433,60 @@ class PythonSpec:
         return PythonSpec(value)
 
 
+class PythonInstallationScanner:
+    """
+    Scan python installations
+    Default implementation scans a pyenv-like location, descendants of this class can redefine this
+    """
+
+    def __init__(self, location):
+        """
+        Args:
+            location (pathlib.Path | str | None): Location on disk to examine
+        """
+        self.location = to_path(location)
+
+    def __repr__(self):
+        return short(self.location)
+
+    def scan(self):
+        """
+        Yields:
+            (PythonInstallation): Found python installations
+        """
+        location = self.location
+        if location and location.is_dir():
+            count = 0
+            pv = location / "versions"
+            if pv.is_dir():
+                location = pv
+
+            for child in location.iterdir():
+                if child.is_dir():
+                    spec = PythonSpec(child.name, str(child))
+                    if spec.version:
+                        folder = resolved_path(child)
+                        exes = list(PythonDepot.python_exes_in_folder(folder))
+                        if exes:
+                            count += 1
+                            problem = None
+
+                        else:
+                            problem = "invalid pyenv installation"
+
+                        exes.append(folder)
+                        yield PythonInstallation(exes[0], spec, equivalents=exes, problem=problem)
+
+    def unknown_python(self, spec):
+        """
+        Args:
+            spec (PythonSpec): Called when find_python() was given the spec of an unknown (not scanned) python
+
+        Returns:
+            (PythonInstallation): Object to represent python with 'spec', if this scanner can provide one
+        """
+
+
 class PythonDepot:
     """
     Scan usual locations to discover python installations.
@@ -469,14 +495,14 @@ class PythonDepot:
     - PATH env var (slower scan, scanned as late as possible)
 
     Example usage:
-        my_depot = PythonDepot(pyenv="~/.pyenv")
+        my_scanner = PythonInstallationScanner("~/.pyenv")
+        my_depot = PythonDepot(scanner=my_scanner)
         p = my_depot.find_python("3.7")
     """
 
     from_path = None  # type: list[PythonInstallation]  # Installations from PATH env var
     invoker = None  # type: PythonInstallation  # The python installation (parent python, non-venv) that we're currently running under
     scanned = None  # type: list[PythonInstallation]  # Installations found by scanner
-    scanned_prefixes = None  # type: set[str]  # Common path prefixes of installations yielded by scanners
 
     fatal = False  # abort() by default when a python could not be found?
     use_path = True  # Scan $PATH env var for python installations as well?
@@ -485,17 +511,26 @@ class PythonDepot:
     def __init__(self, scanner=None, use_path=UNSET, logger=False):
         """
         Args:
-            scanner (typing.Iterator[PythonInstallation]): Optional additional scanner to use
+            scanner (PythonInstallationScanner | None): Optional additional scanner to use
             use_path (bool): Scan $PATH env var? (default: class attribute default)
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         """
+        self.py_scanner = scanner
         if use_path is not UNSET:
             self.use_path = use_path
 
         self.logger = logger
         self.from_path = None if self.use_path else []
         self._cache = {}
-        self.scan(scanner)
+        self.scanned = []
+        scanned = scanner.scan() if scanner else None
+        if scanned:
+            for python in scanned:
+                if python:
+                    self._register(python, self.scanned)
+
+            self.scanned = sorted(self.scanned, reverse=True)
+
         base_prefix = getattr(sys, "real_prefix", None) or getattr(sys, "base_prefix", sys.prefix)
         self.invoker = self._cache.get(base_prefix)
         if self.use_path and self.invoker is None:
@@ -571,27 +606,17 @@ class PythonDepot:
         if self.invoker.satisfies(spec):
             return self.invoker
 
-        python = PythonInstallation(spec.text, spec, problem="not available")
+        python = None
+        if self.py_scanner:
+            python = self.py_scanner.unknown_python(spec)
+            if python and not python.problem:
+                if self._register(python, self.scanned):
+                    self.scanned = sorted(self.scanned, reverse=True)
+
+        if python is None:
+            python = PythonInstallation(spec.text, spec, problem="not available")
+
         return self._checked_pyinstall(python, fatal)
-
-    def scan(self, *scanners):
-        self.scanned = []
-        self.scanned_prefixes = set()
-        for scanner in scanners:
-            folders = []
-            if scanner:
-                for python in scanner:
-                    self._register(python, self.scanned)
-                    folder = python.folder
-                    if folder:
-                        folders.append(folder)
-
-                prefix = os.path.commonprefix(folders)
-                prefix = prefix and os.path.dirname(prefix)
-                if prefix and len(prefix) > 2:
-                    self.scanned_prefixes.add(prefix)
-
-                self.scanned = sorted(self.scanned, reverse=True)
 
     def scan_path_env_var(self):
         """Ensure env vars locations are scanned
@@ -628,7 +653,7 @@ class PythonDepot:
     def python_exes_in_folder(path, major=None):
         """
         Args:
-            path (str): Path to python exe or folder with a python installation
+            path (pathlib.Path | str): Path to python exe or folder with a python installation
             major (int | None): Optional, major version to search for
 
         Returns:
@@ -738,7 +763,7 @@ class PythonDepot:
                 self._cache[p] = python
                 cached = True
 
-        if cached and not python.problem and target is not None:
+        if cached and not python.problem and target is not None and python not in target:
             target.append(python)
             return 1
 

@@ -7,7 +7,7 @@ from mock import patch
 
 import runez
 from runez.http import RestClient
-from runez.pyenv import pyenv_scanner, PypiStd, PythonDepot, PythonSpec, Version
+from runez.pyenv import PypiStd, PythonDepot, PythonInstallation, PythonInstallationScanner, PythonSpec, Version
 
 
 RE_VERSION = re.compile(r"^(.*)(\d+\.\d+.\d+)$")
@@ -54,7 +54,6 @@ def test_empty_depot():
     assert str(depot) == "0 scanned"
     assert depot.from_path == []
     assert depot.scanned == []
-    assert not depot.scanned_prefixes
 
     assert depot.find_python(depot.invoker) is depot.invoker
     assert depot.find_python(PythonSpec(depot.invoker.executable)) is depot.invoker
@@ -84,7 +83,6 @@ def test_depot(temp_folder, monkeypatch, logged):
     assert str(depot) == "2 scanned"
     assert depot.scanned == [p8, p86]
     assert depot.from_path == []
-    assert depot.scanned_prefixes == {runez.resolved_path(".pyenv/versions")}
     assert not logged
 
     mk_python("8.8.3", executable=False)
@@ -101,7 +99,8 @@ def test_depot(temp_folder, monkeypatch, logged):
         runez.symlink("some-other-python-exe-name", "python", logger=None)
 
     monkeypatch.setenv("PATH", "bar:path1/bin:path2/bin:path3/bin")
-    scanner = pyenv_scanner(".pyenv:non-existent-folder")
+    scanner = PythonInstallationScanner(".pyenv")
+    assert str(scanner) == ".pyenv"
     depot = PythonDepot(scanner=scanner, use_path=True)
     assert str(depot) == "4 scanned, 2 from PATH"
     r = depot.representation()
@@ -110,7 +109,6 @@ def test_depot(temp_folder, monkeypatch, logged):
 
     assert len(depot.from_path) == 2
     assert len(depot.scanned) == 4
-    assert depot.scanned_prefixes == {runez.resolved_path(".pyenv/versions")}
     assert depot.scan_path_env_var() is None  # Already scanned to try and find invoker
     p95 = depot.find_python("9.5.1")
     assert str(p95) == "path1/bin/python [cpython:9.5.1]"
@@ -140,7 +138,6 @@ def test_depot(temp_folder, monkeypatch, logged):
     assert c47 is c
     assert depot.find_python(PythonSpec("conda47")) is c47
     assert depot.scanned == [p89, p87, p86, c47]
-    assert depot.scanned_prefixes == {runez.resolved_path(".pyenv/versions")}
 
     assert p8.major == 8
     assert p88.major == 8
@@ -204,7 +201,7 @@ def mocked_invoker(**sysattrs):
     sysattrs.setdefault("executable", "%s/bin/python" % sysattrs["base_prefix"])
     sysattrs["version_info"] = (major, 7, 1)
     sysattrs["version"] = ".".join(str(s) for s in sysattrs["version_info"])
-    scanner = None if not pyenv else pyenv_scanner(pyenv)
+    scanner = None if not pyenv else PythonInstallationScanner(pyenv)
     with patch("runez.pyenv.os.path.realpath", side_effect=lambda x: x):
         with patch("runez.pyenv.sys") as mocked:
             for k, v in sysattrs.items():
@@ -391,10 +388,9 @@ def test_sorting(temp_folder):
     mk_python("3.8.3")
     mk_python("conda-4.6.1")
     mk_python("miniconda3-4.3.2")
-    depot = PythonDepot(scanner=pyenv_scanner(".pyenv"), use_path=False)
+    depot = PythonDepot(scanner=PythonInstallationScanner(".pyenv"), use_path=False)
     assert str(depot) == "5 scanned"
     versions = [p.spec.canonical for p in depot.scanned]
-    assert depot.scanned_prefixes == {runez.resolved_path(".pyenv/versions")}
     assert versions == ["conda:4.6.1", "conda:4.3.2", "cpython:3.8.3", "cpython:3.7.2", "cpython:3.6.1"]
 
 
@@ -538,6 +534,12 @@ def import_pv():
     assert runez._pv
 
 
+class CustomScanner(PythonInstallationScanner):
+    def unknown_python(self, spec):
+        # Pretend an auto-installation for example
+        return PythonInstallation(runez.resolved_path(self.location / spec.text / "bin" / "python"), spec)
+
+
 def test_venv(temp_folder, logged):
     depot = PythonDepot(use_path=False)
     import sys
@@ -555,12 +557,16 @@ def test_venv(temp_folder, logged):
     assert str(pvenv) == ".pyenv/versions/8.6.1 [cpython:8.6.1]"
 
     # Edge case: version is found via .pyenv first
-    depot = PythonDepot(scanner=pyenv_scanner(".pyenv"), use_path=False)
+    depot = PythonDepot(scanner=CustomScanner(".pyenv"), use_path=False)
     assert str(depot) == "1 scanned"
     pvenv = depot.find_python(".venv/bin/python")
     assert str(pvenv) == ".pyenv/versions/8.6.1 [cpython:8.6.1]"
     assert depot.scanned == [pvenv]
-    assert depot.scanned_prefixes == {runez.resolved_path(".pyenv/versions/8.6.1")}
+
+    p95 = depot.find_python("9.5.1")
+    assert p95.problem is None
+    assert str(depot) == "2 scanned"
+    assert depot.scanned == [p95, pvenv]
 
     # Trigger code coverage for private _pv module
     with runez.TempArgv(["dump"]):
