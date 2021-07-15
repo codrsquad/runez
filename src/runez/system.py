@@ -20,6 +20,7 @@ LOG = logging.getLogger("runez")
 RE_ANSI_ESCAPE = re.compile(r"\x1b(\[[;\d]*[A-Za-z]?)?")
 RE_SPACES = re.compile(r"[\s\n]+", re.MULTILINE)
 SYMBOLIC_TMP = "<tmp>"
+THREAD_LOCAL = threading.local()
 WINDOWS = sys.platform.startswith("win")
 
 
@@ -102,6 +103,19 @@ def abort(message, code=1, exc_info=None, return_value=None, fatal=True, logger=
     return return_value
 
 
+def py_mimic(target, source):
+    """Make 'target' mimic python definition of 'source'
+    Args:
+        target: Object to decorate
+        source: Object to mimic
+    """
+    if target is not None and source is not None:
+        target.__annotations__ = source.__annotations__
+        target.__doc__ = source.__doc__
+        target.__module__ = source.__module__
+        target.__name__ = source.__name__
+
+
 class cached_property:
     """
     A property that is only computed once per instance and then replaces itself with an ordinary attribute.
@@ -114,10 +128,7 @@ class cached_property:
 
     def __init__(self, func):
         self.func = func
-        self.__annotations__ = getattr(func, "__annotations__", None)
-        self.__doc__ = func.__doc__
-        self.__module__ = func.__module__
-        self.__name__ = func.__name__
+        py_mimic(self, func)
 
     def __get__(self, instance, owner):
         if instance is None:
@@ -642,8 +653,8 @@ class AdaptedProperty:
             # 'validator' is available when used as decorator of the form: @AdaptedProperty
             assert caster is None and type is None, "'caster' and 'type' are not applicable to AdaptedProperty decorator"
             self.validator = validator
-            self.__doc__ = validator.__doc__
             self.key = "__%s" % validator.__name__
+            py_mimic(self, validator)
 
         else:
             # 'validator' is NOT available when decorator of this form is used: @AdaptedProperty(default=...)
@@ -660,8 +671,8 @@ class AdaptedProperty:
         """Called when used as decorator of the form: @AdaptedProperty(default=...)"""
         assert self.caster is None and self.type is None, "'caster' and 'type' are not applicable to decorated properties"
         self.validator = validator
-        self.__doc__ = validator.__doc__
         self.key = "__%s" % validator.__name__
+        py_mimic(self, validator)
         return self
 
     def __get__(self, instance, owner):
@@ -1515,7 +1526,7 @@ class ThreadGlobalContext:
 
     def has_threadlocal(self):
         with self._lock:
-            return bool(self._tpayload)
+            return bool(getattr(self._tpayload, "log_context", None))
 
     def has_global(self):
         with self._lock:
@@ -1525,13 +1536,13 @@ class ThreadGlobalContext:
         """Set current thread's logging context to specified `values`"""
         with self._lock:
             self._ensure_threadlocal()
-            self._tpayload.context = values
+            self._tpayload.log_context = values
 
     def add_threadlocal(self, **values):
         """Add `values` to current thread's logging context"""
         with self._lock:
             self._ensure_threadlocal()
-            self._tpayload.context.update(**values)
+            self._tpayload.log_context.update(**values)
 
     def remove_threadlocal(self, name):
         """
@@ -1539,12 +1550,12 @@ class ThreadGlobalContext:
             name (str): Remove entry with `name` from current thread's context
         """
         with self._lock:
-            if self._tpayload is not None:
-                if name in self._tpayload.context:
-                    del self._tpayload.context[name]
+            c = getattr(self._tpayload, "log_context", None)
+            if c is not None and name in c:
+                del c[name]
 
-                if not self._tpayload.context:
-                    self._tpayload = None
+            if not c:
+                self._tpayload = None
 
     def clear_threadlocal(self):
         """Clear current thread's context"""
@@ -1588,15 +1599,18 @@ class ThreadGlobalContext:
             if self._gpayload:
                 result.update(self._gpayload)
 
-            if self._tpayload:
-                result.update(getattr(self._tpayload, "context", {}))
+            c = getattr(self._tpayload, "log_context", None)
+            if c:
+                result.update(c)
 
             return result
 
     def _ensure_threadlocal(self):
         if self._tpayload is None:
-            self._tpayload = threading.local()
-            self._tpayload.context = {}
+            self._tpayload = THREAD_LOCAL
+
+        if not hasattr(self._tpayload, "log_context"):
+            self._tpayload.log_context = {}
 
     def _ensure_global(self, values=None):
         """

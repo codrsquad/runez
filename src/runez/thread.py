@@ -1,6 +1,4 @@
-import threading
-
-_THREAD_LOCAL = threading.local()
+from runez.system import py_mimic, THREAD_LOCAL
 
 
 class thread_local_property:
@@ -12,19 +10,18 @@ class thread_local_property:
     """
 
     def __init__(self, func):
-        self.__doc__ = getattr(func, "__doc__")
-        self.name = func.__name__
         self.func = func
-        self.thread_local = threading.local()
+        self.key = "_tp%s" % func.__qualname__
+        py_mimic(self, func)
 
     def __get__(self, instance, owner):
         if instance is None:
             return self
 
-        if not hasattr(self.thread_local, self.name):
-            setattr(self.thread_local, self.name, self.func(instance))
+        if not hasattr(THREAD_LOCAL, self.key):
+            setattr(THREAD_LOCAL, self.key, self.func(instance))
 
-        return getattr(self.thread_local, self.name)
+        return getattr(THREAD_LOCAL, self.key)
 
 
 class ThreadLocalSingleton:
@@ -43,10 +40,10 @@ class ThreadLocalSingleton:
         # Not sure if there's a good use case for this (one where gotcha-factor is much lower than added value)
         assert not positional and not named, "Current limitation: only classes that can be created without args are supported for now"
 
-        key = "singleton %s.%s" % (cls.__module__, cls.__name__)
-        existing = getattr(_THREAD_LOCAL, key, None)
+        key = "_ts%s.%s" % (cls.__module__, cls.__name__)
+        existing = getattr(THREAD_LOCAL, key, None)
         if existing is None:
             existing = super().__new__(cls)
-            setattr(_THREAD_LOCAL, key, existing)
+            setattr(THREAD_LOCAL, key, existing)
 
         return existing

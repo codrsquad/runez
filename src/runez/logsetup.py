@@ -18,7 +18,7 @@ from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone
 from runez.file import parent_folder
 from runez.system import _R, abort, cached_property, decode, DEV, flattened, quoted, short, stringified, uncolored
-from runez.system import LOG, Slotted, SYS_INFO, ThreadGlobalContext, UNSET, WINDOWS
+from runez.system import LOG, py_mimic, Slotted, SYS_INFO, ThreadGlobalContext, UNSET, WINDOWS
 
 
 ORIGINAL_CF = logging.currentframe
@@ -1143,7 +1143,7 @@ class _LogWrap:
     def __init__(self, level, exc_info=None):
         self.level = level
         self.exc_info = exc_info
-        self.__doc__ = getattr(logging, logging.getLevelName(level).lower()).__doc__
+        py_mimic(self, getattr(logging, logging.getLevelName(level).lower()))
 
     @staticmethod
     def log(level, msg, *args, **kwargs):

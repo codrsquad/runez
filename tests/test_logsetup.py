@@ -130,15 +130,20 @@ def test_context(temp_log):
     runez.log.context.add_threadlocal(worker="susan", a="b")
     logging.info("hello")
     assert temp_log.pop() == "UTC [[a=b,name=foo,version=1.0,worker=susan]] INFO - hello"
+    assert runez.log.context.has_threadlocal()
 
     # Remove them one by one
     runez.log.context.remove_threadlocal("a")
+    assert runez.log.context.has_threadlocal()
     logging.info("hello")
     assert temp_log.pop() == "UTC [[name=foo,version=1.0,worker=susan]] INFO - hello"
 
     runez.log.context.remove_global("name")
     logging.info("hello")
     assert temp_log.pop() == "UTC [[version=1.0,worker=susan]] INFO - hello"
+
+    runez.log.context.remove_threadlocal("worker")
+    assert not runez.log.context.has_threadlocal()
 
     runez.log.context.clear_threadlocal()
     logging.info("hello")

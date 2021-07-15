@@ -63,7 +63,7 @@ def run_in_new_thread(target, *args, **kwargs):
 
 def test_thread_local_property():
     prop = SomeClass.thread_id
-    assert prop.name == "thread_id"
+    assert prop.__name__ == "thread_id"
     assert prop.__doc__ == "Testing thread local properties"
 
     obj = SomeClass()
