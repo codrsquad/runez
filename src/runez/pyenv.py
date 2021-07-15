@@ -361,13 +361,17 @@ class PythonSpec:
         """
         Args:
             color (callable | None): Optional color to use
-            compact (str | list | set | tuple | None): Show version only, if self.family is mentioned in `compact`
+            compact (str | list | set | tuple | bool | None): Show version only, if self.family is mentioned in `compact`
             stringify (callable): Function to use to stringify non-builtin types
 
         Returns:
             (str): Textual representation of this spec
         """
-        text = stringify(self.version if compact and self.family in compact else self)
+        text = self
+        if compact and self.version and (compact is True or self.family in compact):
+            text = self.version
+
+        text = stringify(text)
         return color(text) if callable(color) else text
 
     @classmethod

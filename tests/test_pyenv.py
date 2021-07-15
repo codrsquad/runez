@@ -441,9 +441,17 @@ def test_spec():
 
     assert p38.represented() == "3.8"
     assert p38.represented(compact=None) == "cpython:3.8"
+    assert p38.represented(compact=False) == "cpython:3.8"
+    assert p38.represented(compact=True) == "3.8"
     assert p38.represented(compact="cpython") == "3.8"
     assert p38.represented(compact=["cpython", "conda"]) == "3.8"
     assert p38.represented(color=str, compact=None) == "cpython:3.8"
+
+    assert c38a.represented() == "conda:3.8"
+    assert c38a.represented(compact=True) == "3.8"
+    assert c38a.represented(compact="cpython") == "conda:3.8"
+    assert c38a.represented(compact=["cpython", "conda"]) == "3.8"
+    assert c38a.represented(color=str, compact=None) == "conda:3.8"
 
     check_spec("", "cpython:")
     check_spec(" ", "cpython:")
