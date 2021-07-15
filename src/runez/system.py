@@ -416,7 +416,7 @@ def stringified(value, converter=None, none="None"):
         none (str | bool): Value to use to represent `None` ("" or False represents None as empty string)
 
     Returns:
-        (str): Ensure `text` is a string if necessary (this is to avoid transforming string types in py2 as much as possible)
+        (str): Ensure `text` is a string if necessary
     """
     if isinstance(value, str):
         return value
@@ -1267,7 +1267,7 @@ class SystemInfo:
         """Usable by runez.render.PrettyTable.two_column_diagnostics()"""
         yield "platform", self.platform_info
         if self.terminal.term_program:
-            yield "terminal", "%s (TERM=%s)" % (self.terminal.term_program, os.environ.get("TERM"))
+            yield "terminal", self.terminal.term_program.representation()
 
         if userid is UNSET:
             userid = self.userid
@@ -1476,10 +1476,11 @@ class TerminalProgram:
                 return
 
     def __repr__(self):
-        if self.extra_info:
-            return "%s (%s)" % (self.name, short(self.extra_info))
+        return self.representation(colored=False)
 
-        return self.name
+    def representation(self, colored=True):
+        """(str): Colored textual representation of this python installation"""
+        return joined(_R.bold(self.name, colored), self.extra_info, os.environ.get("TERM"), keep_empty=None)
 
     @staticmethod
     def known_terminal(text):
@@ -1653,6 +1654,18 @@ class _R:
             message = message()  # Allow message to be late-called function
 
         return message
+
+    @classmethod
+    def bold(cls, text, colored=True):
+        return cls._runez_module().bold(text) if colored else text
+
+    @classmethod
+    def green(cls, text, colored=True):
+        return cls._runez_module().green(text) if colored else text
+
+    @classmethod
+    def red(cls, text, colored=True):
+        return cls._runez_module().red(text) if colored else text
 
     @classmethod
     def shell_output(cls, program, *args):
@@ -1904,7 +1917,7 @@ def _flatten(result, value, keep_empty, split, shellify, transform, unique):
         return
 
     if shellify:
-        value = "%s" % value  # coerce to str() for py2
+        value = stringified(value)
 
     if transform is not None:
         value = transform(value)

@@ -48,9 +48,16 @@ def cmd_diagnostics():
     """Show system diagnostics sample"""
     parser = argparse.ArgumentParser(description="Show system diagnostics sample")
     parser.add_argument("--border", default="colon", choices=NAMED_BORDERS, help="Use custom border.")
+    parser.add_argument("--pyenv", default="~/.pyenv", help="Pyenv folder to scan for python installations.")
     args = parser.parse_args()
 
-    print(PrettyTable.two_column_diagnostics(runez.SYS_INFO.diagnostics(), border=args.border))
+    from runez.pyenv import PythonDepot, PythonInstallationScanner
+
+    scanner = PythonInstallationScanner(args.pyenv) if args.pyenv else None
+    depot = PythonDepot(scanner=scanner, use_path=True)
+    note = "No python installed in '%s'" % args.pyenv if args.pyenv else None
+    available = depot.representation(no_scanned_note=note)
+    print(PrettyTable.two_column_diagnostics(runez.SYS_INFO.diagnostics(), available, border=args.border))
 
 
 def cmd_import_speed():

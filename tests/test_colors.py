@@ -39,7 +39,7 @@ def test_colors():
         assert runez.dim("") == ""
         assert runez.dim("hello", size=4) == "\x1b[2mh...\x1b[22m"
 
-        # Verify unicode char 'μ' from represented_duration() works in py2
+        # Verify unicode char 'μ' from represented_duration() works
         assert "foo: %s" % runez.dim(runez.represented_duration(0.010049)) == "foo: \x1b[2m10 ms 49 μs\x1b[22m"
         assert "foo: %s" % runez.blue(runez.represented_duration(0.010049)) == "foo: \x1b[34m10 ms 49 μs\x1b[39m"
 

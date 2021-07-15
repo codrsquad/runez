@@ -22,7 +22,7 @@ from runez.system import LOG, py_mimic, Slotted, SYS_INFO, ThreadGlobalContext, 
 
 
 ORIGINAL_CF = logging.currentframe
-RE_FORMAT_MARKERS = re.compile(r"{([a-z][a-z0-9_]*)}", re.IGNORECASE)
+RE_FORMAT_MARKERS = re.compile(r"{([a-z]\w*)}", re.IGNORECASE)
 
 
 def formatted(message, *args, **named_values):
@@ -243,7 +243,7 @@ class ProgressSpinner:
     def __init__(self):
         self.is_running = False
         self._current_line = None
-        self._fps = 60.0  # Higher fps for _run(), to reduce flickering as much as possible (float for py2 compat)
+        self._fps = 60.0  # Higher fps for _run(), to reduce flickering as much as possible
         self._has_progress_line = False
         self._msg_show = None  # type: Optional[str] # Message coming from show() calls
         self._msg_debug = None  # type: Optional[str] # Message coming from trace() or debug() calls
@@ -283,14 +283,10 @@ class ProgressSpinner:
 
                     frames = AsciiAnimation.get_frames(frames)
                     self._state = _SpinnerState(self, frames, max_columns, message_color, progress_color, spinner_color)
-                    try:
-                        sys.stderr.write = self._on_stderr  # Will fail in py2
-                        self._stdout_write = self._original_write(sys.stdout)
-                        if self._stdout_write is not None:
-                            sys.stdout.write = self._on_stdout
-
-                    except AttributeError:  # pragma: no cover
-                        pass
+                    sys.stderr.write = self._on_stderr
+                    self._stdout_write = self._original_write(sys.stdout)
+                    if self._stdout_write is not None:
+                        sys.stdout.write = self._on_stdout
 
                     self._thread = threading.Thread(target=self._run, name="Progress")
                     self._thread.daemon = True

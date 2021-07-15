@@ -553,7 +553,7 @@ def test_terminal():
     with patch.dict(os.environ, {"LC_TERMINAL": "foo", "LC_TERMINAL_VERSION": "2"}):
         t = TerminalInfo()
         p = t.term_program
-        assert str(p) == "foo (v2)"
+        assert str(p) == "foo v2"
         p.extra_info = None
         assert str(p) == "foo"
 
@@ -563,7 +563,7 @@ def test_terminal():
         ps.followed_parent.cmd = "/dev/null/tilix"
         ps.followed_parent.cmd_basename = "tilix"
         p = TerminalProgram(ps=ps)
-        assert str(p) == "tilix (/dev/null/tilix)"
+        assert str(p) == "tilix /dev/null/tilix"
 
     with patch.dict(os.environ, {"COLUMNS": "foo", "LINES": "bar", "PYCHARM_HOSTED": "true"}, clear=True):
         t = TerminalInfo()

@@ -12,7 +12,7 @@ from runez.system import _R, abort, flattened, joined, resolved_path, short, str
 
 CPYTHON = "cpython"
 PYTHON_FAMILIES = (CPYTHON, "pypy", "conda")
-R_SPEC = re.compile(r"^\s*((|py?|c?python|(ana|mini)?conda[23]?|pypy)\s*[:-]?)\s*([0-9]*)\.?([0-9]*)\.?([0-9]*)\s*$", re.IGNORECASE)
+R_SPEC = re.compile(r"^\s*((|py?|c?python|(ana|mini)?conda[23]?|pypy)\s*[:-]?)\s*(\d*)\.?(\d*)\.?(\d*)\s*$", re.IGNORECASE)
 R_VERSION = re.compile(r"v?((\d+!)?(\d+)((\.(\d+))*)((a|b|c|rc)(\d+))?(\.(dev|post|final)\.?(\d+))?(\+[\w.-]*)?).*")
 
 
@@ -116,13 +116,13 @@ class PypiStd:
     More strict than actual pypi (for example: names starting with a number are not considered value)
     """
 
-    RX_ACCEPTABLE_PACKAGE_NAME = re.compile(r"^[a-z][a-z0-9._-]*[a-z0-9]$", re.IGNORECASE)
-    RR_PYPI = re.compile(r"([^a-z0-9-]+|--+)", re.IGNORECASE)
-    RR_WHEEL = re.compile(r"[^a-z0-9.]+", re.IGNORECASE)
+    RX_ACCEPTABLE_PACKAGE_NAME = re.compile(r"^[a-z][\w.-]*[a-z\d]$", re.IGNORECASE)
+    RR_PYPI = re.compile(r"([^a-z\d-]+|--+)", re.IGNORECASE)
+    RR_WHEEL = re.compile(r"[^a-z\d.]+", re.IGNORECASE)
 
     RX_HREF = re.compile(r'href=".+/([^/#]+\.(tar\.gz|whl))#', re.IGNORECASE)
-    RX_SDIST = re.compile(r"^([a-z][a-z0-9._-]*[a-z0-9])-([0-9][0-9a-z_.!+-]*)\.tar\.gz$", re.IGNORECASE)
-    RX_WHEEL = re.compile(r"^([a-z][a-z0-9._]*[a-z0-9])-([0-9][0-9a-z_.!+]*)(-([0-9][0-9a-z_.]*))?-(.*)\.whl$", re.IGNORECASE)
+    RX_SDIST = re.compile(r"^([a-z][\w.-]*[a-z\d])-(\d[\w.!+-]*)\.tar\.gz$", re.IGNORECASE)
+    RX_WHEEL = re.compile(r"^([a-z][\w.]*[a-z\d])-(\d[\w.!+]*)(-(\d[\w.]*))?-(.*)\.whl$", re.IGNORECASE)
 
     DEFAULT_PYPI_URL = "https://pypi.org/pypi/{name}/json"
     _pypi_client = None
@@ -357,51 +357,18 @@ class PythonSpec:
             if either_direction:
                 return other.canonical.startswith(self.canonical)
 
-    @staticmethod
-    def represented_specs(specs, compact=None, delimiter=", ", depot=None, highlight=None):
+    def represented(self, color=None, compact=CPYTHON, stringify=short):
         """
         Args:
-            specs (PythonSpec | PythonInstallation | list | tuple | None): Specs to represent textually
-            delimiter (str): Delimiter to use (if several specs provided)
-            depot (PythonDepot | None): Optional depot to validate specs against
-            highlight (PythonSpec | PythonInstallation | None): If provided, highlight corresponding in spec
-
-        Returns:
-            (str): Textual representation
-        """
-        if not specs:
-            return ""
-
-        result = []
-        for spec in flattened(specs, keep_empty=None):
-            python = depot and depot.find_python(spec)
-            spec = getattr(spec, "spec", spec)  # Support passed-in `PythonInstallation` objects
-            result.append(spec.represented(compact=compact, highlight=highlight, problem=python))
-
-        return joined(result, delimiter=delimiter)
-
-    def represented(self, compact=None, highlight=None, problem=None):
-        """
-        Args:
+            color (callable | None): Optional color to use
             compact (str | list | set | tuple | None): Show version only, if self.family is mentioned in `compact`
-            highlight (PythonInstallation | PythonSpec | None): If provided, color in green if `self` matches `highlight` spec
-            problem (PythonInstallation | str | bool | None): If true-ish, color in red
+            stringify (callable): Function to use to stringify non-builtin types
 
         Returns:
             (str): Textual representation of this spec
         """
-        text = self
-        if compact and self.family in compact:
-            text = self.version
-
-        problem = getattr(problem, "problem", problem)  # Support passed-in `PythonInstallation` objects
-        if problem:
-            text = _R._runez_module().red(text)
-
-        elif self.satisfies(getattr(highlight, "spec", highlight), either_direction=True):
-            text = _R._runez_module().green(text)
-
-        return short(text)
+        text = stringify(self.version if compact and self.family in compact else self)
+        return color(text) if callable(color) else text
 
     @classmethod
     def speccified(cls, values, strict=False):
@@ -458,7 +425,7 @@ class PythonInstallationScanner:
             m = self.regex.match(path.name)
             if m:
                 spec = PythonSpec(m.group(self.version_group), family=family)
-                if spec.version and spec.version.is_valid:
+                if spec.version:
                     return spec
 
     def resolved_location(self):
@@ -484,8 +451,7 @@ class PythonInstallationScanner:
                     exes = list(PythonDepot.python_exes_in_folder(child))
                     problem = None if exes else "invalid python installation"
                     exes.append(resolved_path(child))
-                    python = PythonInstallation(exes[0], spec, equivalents=exes, problem=problem, short_name=short_name)
-                    yield python
+                    yield PythonInstallation(exes[0], spec, equivalents=exes, problem=problem, short_name=short_name)
 
     def unknown_python(self, spec):
         """
@@ -537,9 +503,14 @@ class PythonDepot:
         if scanned:
             for python in scanned:
                 if python:
-                    self._register(python, self.scanned)
+                    if python.problem:
+                        _R.hlog(self.logger, "Ignoring invalid python in %s: %s" % (self, python))
+
+                    else:
+                        self._register(python, self.scanned)
 
             self.scanned = sorted(self.scanned, reverse=True)
+            _R.hlog(self.logger, "Found %s pythons in %s" % (len(self.scanned), scanner))
 
         base_prefix = getattr(sys, "real_prefix", None) or getattr(sys, "base_prefix", sys.prefix)
         self.invoker = self._cache.get(base_prefix)
@@ -938,13 +909,10 @@ class PythonInstallation:
             problem (str | None): Problem with this installation, if any
             short_name (str | None): Used to textually represent this installation
         """
-        self.executable = _simplified_python_path(exe)
-        if not short_name and self.executable and "pyenv" in self.executable:
-            short_name = parent_folder(parent_folder(self.executable))
-
-        self.short_name = short_name or self.executable
-        self.spec = spec
+        self.executable, self.short_name = _simplified_python_path(exe, short_name)
+        self.folder = to_path(self.executable).parent if exe and not problem else None
         self.problem = problem
+        self.spec = spec
         self._equivalents = {exe}
         if not problem:
             self._equivalents.add(os.path.realpath(exe))
@@ -977,12 +945,6 @@ class PythonInstallation:
             return self.spec < other.spec
 
     @property
-    def folder(self):
-        """Folder where this python is installed, if installation is valid"""
-        if self.executable and not self.problem:
-            return os.path.dirname(self.executable)
-
-    @property
     def major(self):
         """(int | None): Major python version, if any"""
         return self.spec and self.spec.version and self.spec.version.major
@@ -994,20 +956,9 @@ class PythonInstallation:
 
     def representation(self, colored=True):
         """(str): Colored textual representation of this python installation"""
-        bold = dim = green = red = str
-        if colored:
-            rm = _R._runez_module()
-            bold, dim, green, red = rm.bold, rm.dim, rm.green, rm.red
-
-        note = [red(self.problem) if self.problem else self.spec]
-        if self.is_invoker:
-            note.append(green("invoker"))
-
-        text = bold(short(self.short_name))
-        if note:
-            text += " [%s]" % ", ".join(dim(s) for s in note)
-
-        return text
+        text = _R.red(self.problem, colored) if self.problem else self.spec
+        text = joined(text, self.is_invoker and _R.green("invoker", colored), delimiter=", ", keep_empty=None)
+        return "%s [%s]" % (_R.bold(short(self.short_name), colored), text)
 
     def satisfies(self, spec):
         """
@@ -1025,11 +976,11 @@ class PyInstallInfo:
     """Information on a python installation, determined dynamically when needed"""
 
     def __init__(self, version=None, sys_prefix=None, base_prefix=None, problem=None):
-        self.version = Version(version) if version else None
+        self.version = Version(version)
         self.sys_prefix = sys_prefix
         self.base_prefix = base_prefix
-        if not problem and (not self.version or not self.version.is_valid):
-            problem = "unknown version '%s'" % self.version
+        if not problem and not self.version.is_valid:
+            problem = "invalid version '%s'" % self.version
 
         self.problem = problem
 
@@ -1076,9 +1027,9 @@ def _is_path(text):
         return text.startswith("~") or text.startswith(".") or "/" in text
 
 
-def _simplified_python_path(path):
-    """Simplify macos ridiculous paths"""
+def _simplified_python_path(path, short_name):
     if path and ".framework/" in path:
+        # Simplify macos ridiculous paths
         location = "/usr/bin"
         if "Cellar" in path:
             i = path.index("Cellar")
@@ -1088,6 +1039,9 @@ def _simplified_python_path(path):
 
         m = re.search(r"Versions/([\d])", path)
         if m:
-            return os.path.join(location, "python%s" % m.group(1))
+            path = os.path.join(location, "python%s" % m.group(1))
 
-    return path
+    if not short_name and path and "pyenv" in path:
+        short_name = parent_folder(parent_folder(path))
+
+    return path, short_name or path

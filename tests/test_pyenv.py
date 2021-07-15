@@ -78,7 +78,7 @@ def test_depot(temp_folder, monkeypatch, logged):
     p8 = depot.find_python("8")
     p86 = depot.find_python("8.6")
     assert str(p8) == ".pyenv/versions/8.7.2 [cpython:8.7.2]"  # Latest version 8 (invoker doesn't take precedence)
-    assert p8.folder == runez.resolved_path(".pyenv/versions/8.7.2/bin")
+    assert p8.folder == runez.to_path(".pyenv/versions/8.7.2/bin").absolute()
     assert p86 is depot.invoker
     assert str(depot) == "2 scanned"
     assert depot.scanned == [p8, p86]
@@ -229,7 +229,7 @@ def test_invoker():
     # Linux case with py3
     depot = mocked_invoker()
     assert depot.invoker.executable == "/usr/bin/python3"
-    assert depot.invoker.folder == "/usr/bin"
+    assert depot.invoker.folder == runez.to_path("/usr/bin")
     assert depot.invoker.major == 3
 
     # Linux case without py3
@@ -237,8 +237,8 @@ def test_invoker():
     assert depot.invoker.executable == "/usr/local/bin/python2"
     assert depot.invoker.major == 2
 
-    # Linux case without py3 or py2 (but only /usr/bin/python)
-    depot = mocked_invoker(major=2, exe_exists=lambda x: "python2" not in x)
+    # Linux case with only /usr/bin/python
+    depot = mocked_invoker(major=2, exe_exists=lambda x: "python2" not in x and "python3" not in x)
     assert depot.invoker.executable == "/usr/bin/python"
     assert depot.invoker.major == 2
 
@@ -247,17 +247,15 @@ def test_invoker():
     assert depot.invoker.executable == "/foo"
     assert depot.invoker.major == 2
 
-    # OSX py2 case
+    # macos silly path choices
     depot = mocked_invoker(major=2, base_prefix="/System/Library/Frameworks/Python.framework/Versions/2.7")
     assert depot.invoker.executable == "/usr/bin/python2"
     assert depot.invoker.major == 2
 
-    # OSX py3 case
     depot = mocked_invoker(base_prefix="/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.7")
     assert depot.invoker.executable == "/usr/bin/python3"
     assert depot.invoker.major == 3
 
-    # OSX brew
     depot = mocked_invoker(base_prefix="/usr/local/Cellar/python@3.7/3.7.1_1/Frameworks/Python.framework/Versions/3.7")
     assert depot.invoker.executable == "/usr/local/bin/python3"
     assert depot.invoker.major == 3
@@ -411,6 +409,7 @@ def test_spec():
     assert PythonSpec.speccified([2.7, 3.9]) == [PythonSpec("2.7"), PythonSpec("3.9")]
     assert PythonSpec.speccified("27") == [PythonSpec("2.7")]
     assert PythonSpec.speccified("39,2.7") == [PythonSpec("3.9"), PythonSpec("2.7")]
+    assert PythonSpec.speccified("2.7.7a", strict=True) == []
 
     pnone = PythonSpec(None)
     assert PythonSpec.to_spec(None) == pnone
@@ -440,17 +439,11 @@ def test_spec():
     assert c38a.version == p38.version
     assert c38a == c38b
 
-    assert p38.represented() == "cpython:3.8"
+    assert p38.represented() == "3.8"
+    assert p38.represented(compact=None) == "cpython:3.8"
     assert p38.represented(compact="cpython") == "3.8"
-
-    with runez.ActivateColors(enable=True):
-        assert p38.represented(highlight=p38) == "\x1b[32mcpython:3.8\x1b[39m"
-        assert p38.represented(problem=True) == "\x1b[31mcpython:3.8\x1b[39m"
-
-    assert PythonSpec.represented_specs(None) == ""
-    assert PythonSpec.represented_specs([]) == ""
-    assert PythonSpec.represented_specs([p38, invoker]) == "cpython:3.8, invoker"
-    assert PythonSpec.represented_specs([p38, c38a], compact="cpython", delimiter=" ") == "3.8 conda:3.8"
+    assert p38.represented(compact=["cpython", "conda"]) == "3.8"
+    assert p38.represented(color=str, compact=None) == "cpython:3.8"
 
     check_spec("", "cpython:")
     check_spec(" ", "cpython:")

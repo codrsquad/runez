@@ -13,7 +13,7 @@ class MyObject:
         return "some-value"
 
     @cached_property
-    def foo(self):
+    def foo(self) -> int:
         """Some example property"""
         MyObject._global_counter += 1
         return MyObject._global_counter
@@ -30,7 +30,7 @@ def test_simple_case():
     MyObject._global_counter = None  # Allows to trigger TypeError exception if property is accessed before expected
     cached_property.reset(MyObject)  # No-op when called on a class
     assert isinstance(MyObject.foo, cached_property)
-    assert not MyObject.foo.__annotations__  # Can't test annotations yet, until full drop for PY2 support
+    assert MyObject.foo.__annotations__ == {"return": int}
     assert MyObject.foo.__doc__ == "Some example property"
     assert MyObject.foo.__module__ == "tests.test_cached_property"
     assert MyObject.foo.__name__ == "foo"

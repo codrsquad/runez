@@ -12,17 +12,17 @@ SECONDS_IN_ONE_HOUR = 60 * SECONDS_IN_ONE_MINUTE
 SECONDS_IN_ONE_DAY = 24 * SECONDS_IN_ONE_HOUR
 SECONDS_IN_ONE_YEAR = 365.2425 * SECONDS_IN_ONE_DAY
 
-RE_DURATION = re.compile(r"^\s*([0-9]+[ywdhms]\s*)+$")
-RE_BASE_NUMBER = r"([-+]?[0-9_]*\.?[0-9_]*([eE][-+]?[0-9_]+)?|[-+]?\.inf|[-+]?\.Inf|[-+]?\.INF|\.nan|\.NaN|\.NAN|0o[0-7]+|0x[0-9a-fA-F]+)"
+RE_DURATION = re.compile(r"^\s*(\d+[ywdhms]\s*)+$")
+RE_BASE_NUMBER = r"([-+]?[\d_]*\.?[\d_]*([eE][-+]?[\d_]+)?|[-+]?\.inf|[-+]?\.Inf|[-+]?\.INF|\.nan|\.NaN|\.NAN|0o[0-7]+|0x[\da-fA-F]+)"
 RE_BASE_DATE = (
-    r"(([0-9]{1,4})[-/]([0-9][0-9]?)[-/]([0-9]{1,4})"
-    r"([Tt \t]([0-9][0-9]?):([0-9][0-9]?):([0-9][0-9]?)(\.[0-9]*)?"
-    r"([ \t]*(Z|[A-Z]{3}|[+-][0-9][0-9]?(:([0-9][0-9]?))?))?)?)"
+    r"((\d{1,4})[-/](\d\d?)[-/](\d{1,4})"
+    r"([Tt \t](\d\d?):(\d\d?):(\d\d?)(\.\d*)?"
+    r"([ \t]*(Z|[A-Z]{3}|[+-]\d\d?(:(\d\d?))?))?)?)"
 )
 
 RE_DATE = re.compile(r"^\s*(%s)\s*$" % "|".join((RE_BASE_NUMBER, RE_BASE_DATE)))
 EPOCH_MS_BREAK = 900000000000
-RE_TZ = re.compile(r"\s*(Z|UTC|([+-]?[0-9][0-9]):?([0-9][0-9]))\s*")
+RE_TZ = re.compile(r"\s*(Z|UTC|([+-]?\d\d):?(\d\d))\s*")
 DEFAULT_DURATION_SPAN = 2
 
 
