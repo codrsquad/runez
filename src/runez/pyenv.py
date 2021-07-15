@@ -439,43 +439,53 @@ class PythonInstallationScanner:
     Default implementation scans a pyenv-like location, descendants of this class can redefine this
     """
 
-    def __init__(self, location):
+    def __init__(self, location, regex=None, version_group=1):
         """
         Args:
             location (pathlib.Path | str | None): Location on disk to examine
+            regex: Optional regex to validate basename-s of folders under location scanned
+            version_group (int): Matched group in regex that corresponds to version
         """
         self.location = to_path(location)
+        self.regex = regex or re.compile(r"^.*?(\d+\.\d+\.\d+)$")
+        self.version_group = version_group
 
     def __repr__(self):
         return short(self.location)
+
+    def spec_from_path(self, path, family=None):
+        if path.is_dir():
+            m = self.regex.match(path.name)
+            if m:
+                spec = PythonSpec(m.group(self.version_group), family=family)
+                if spec.version and spec.version.is_valid:
+                    return spec
+
+    def resolved_location(self):
+        location = self.location
+        if location and location.is_dir():
+            pv = location / "versions"
+            if pv.is_dir():
+                location = pv
+
+            return location
 
     def scan(self):
         """
         Yields:
             (PythonInstallation): Found python installations
         """
-        location = self.location
-        if location and location.is_dir():
-            count = 0
-            pv = location / "versions"
-            if pv.is_dir():
-                location = pv
-
+        location = self.resolved_location()
+        if location:
             for child in location.iterdir():
-                if child.is_dir():
-                    spec = PythonSpec(child.name, str(child))
-                    if spec.version:
-                        folder = resolved_path(child)
-                        exes = list(PythonDepot.python_exes_in_folder(folder))
-                        if exes:
-                            count += 1
-                            problem = None
-
-                        else:
-                            problem = "invalid pyenv installation"
-
-                        exes.append(folder)
-                        yield PythonInstallation(exes[0], spec, equivalents=exes, problem=problem)
+                short_name = str(child.relative_to(self.location.parent))
+                spec = self.spec_from_path(child, family=short_name)
+                if spec:
+                    exes = list(PythonDepot.python_exes_in_folder(child))
+                    problem = None if exes else "invalid python installation"
+                    exes.append(resolved_path(child))
+                    python = PythonInstallation(exes[0], spec, equivalents=exes, problem=problem, short_name=short_name)
+                    yield python
 
     def unknown_python(self, spec):
         """
@@ -919,19 +929,20 @@ class PythonInstallation:
 
     _equivalents = None  # type: set[str] # Paths that are equivalent to this python installation
 
-    def __init__(self, exe, spec, equivalents=None, problem=None):
+    def __init__(self, exe, spec, equivalents=None, problem=None, short_name=None):
         """
         Args:
             exe (str): Path to executable
             spec (PythonSpec | None): Associated spec
             equivalents (list | set | None): Optional equivalent identifiers for this installation
             problem (str | None): Problem with this installation, if any
+            short_name (str | None): Used to textually represent this installation
         """
         self.executable = _simplified_python_path(exe)
-        self.short_name = self.executable
-        if "pyenv" in self.short_name:
-            self.short_name = parent_folder(parent_folder(self.short_name))
+        if not short_name and self.executable and "pyenv" in self.executable:
+            short_name = parent_folder(parent_folder(self.executable))
 
+        self.short_name = short_name or self.executable
         self.spec = spec
         self.problem = problem
         self._equivalents = {exe}
