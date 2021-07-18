@@ -853,7 +853,7 @@ class RestClient:
             full_headers = dict(full_headers)
             full_headers.update(headers)
 
-        keyword_args = dict(headers=full_headers, timeout=self.timeout)
+        keyword_args = dict(headers=full_headers, params=params, timeout=self.timeout)
         if state is not None:
             state.complete(keyword_args)
 
@@ -863,7 +863,7 @@ class RestClient:
             if fatal or logger is not None:
                 msg = response.description()
                 if fatal and not response.ok:
-                    abort(msg)
+                    abort(msg, fatal=fatal, logger=logger)
 
                 _R.hlog(logger, msg)
 

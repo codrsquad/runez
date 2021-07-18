@@ -357,22 +357,21 @@ class PythonSpec:
             if either_direction:
                 return other.canonical.startswith(self.canonical)
 
-    def represented(self, color=None, compact=CPYTHON, stringify=short):
+    def represented(self, color=None, compact=CPYTHON):
         """
         Args:
             color (callable | None): Optional color to use
             compact (str | list | set | tuple | bool | None): Show version only, if self.family is mentioned in `compact`
-            stringify (callable): Function to use to stringify non-builtin types
 
         Returns:
             (str): Textual representation of this spec
         """
-        text = self
+        value = self
         if compact and self.version and (compact is True or self.family in compact):
-            text = self.version
+            value = self.version
 
-        text = stringify(text)
-        return color(text) if callable(color) else text
+        value = str(value)
+        return color(value) if callable(color) else value
 
     @classmethod
     def speccified(cls, values, strict=False):
@@ -432,6 +431,16 @@ class PythonInstallationScanner:
                 if spec.version:
                     return spec
 
+    def python_from_path(self, path):
+        if path:
+            short_name = str(path.relative_to(self.location.parent))
+            spec = self.spec_from_path(path, family=short_name)
+            if spec:
+                exes = list(PythonDepot.python_exes_in_folder(path))
+                problem = None if exes else "invalid python installation"
+                exes.append(resolved_path(path))
+                return PythonInstallation(exes[0], spec, equivalents=exes, problem=problem, short_name=short_name)
+
     def resolved_location(self):
         location = self.location
         if location and location.is_dir():
@@ -449,13 +458,7 @@ class PythonInstallationScanner:
         location = self.resolved_location()
         if location:
             for child in location.iterdir():
-                short_name = str(child.relative_to(self.location.parent))
-                spec = self.spec_from_path(child, family=short_name)
-                if spec:
-                    exes = list(PythonDepot.python_exes_in_folder(child))
-                    problem = None if exes else "invalid python installation"
-                    exes.append(resolved_path(child))
-                    yield PythonInstallation(exes[0], spec, equivalents=exes, problem=problem, short_name=short_name)
+                yield self.python_from_path(child)
 
     def unknown_python(self, spec):
         """
