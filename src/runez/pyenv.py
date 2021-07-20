@@ -433,7 +433,7 @@ class PythonInstallationScanner:
 
     def python_from_path(self, path):
         if path:
-            short_name = str(path.relative_to(self.location.parent))
+            short_name = str(path)
             spec = self.spec_from_path(path, family=short_name)
             if spec:
                 exes = list(PythonDepot.python_exes_in_folder(path))
