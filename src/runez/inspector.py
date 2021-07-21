@@ -10,12 +10,13 @@ import argparse
 import os
 import sys
 import time
+from functools import wraps
 
 from runez.convert import to_int
 from runez.logsetup import LogManager
 from runez.program import run
 from runez.render import PrettyTable
-from runez.system import abort, find_caller_frame, first_line, TempArgv
+from runez.system import abort, find_caller_frame, first_line, py_mimic, TempArgv
 
 
 def auto_import_siblings(package=None, auto_clean="TOX_WORK_DIR", skip=None):
@@ -93,26 +94,45 @@ def auto_import_siblings(package=None, auto_clean="TOX_WORK_DIR", skip=None):
     return imported
 
 
-def auto_install(top_level, package_name=None):
+class AutoInstall:
     """
-    Args:
-        top_level (str): Name of top-level import that should be importable
-        package_name (str | None): Name of pypi package to install (defaults to `top_level`)
+    Decorator to trigger just-in-time pip installation of a requirement (if/when needed), example usage:
+
+        from runez.inspector import AutoInstall
+
+        @AutoInstall("requests")
+        def fetch(url):
+            import requests
+            ...
     """
-    package_name = package_name or top_level
-    base_prefix = getattr(sys, "real_prefix", None) or getattr(sys, "base_prefix", sys.prefix)
-    if sys.prefix == base_prefix:
-        return abort("Can't auto-install '%s' outside of a virtual environments" % package_name)
 
-    try:
-        return __import__(top_level)
+    def __init__(self, top_level, package_name=None):
+        """Decorator creation"""
+        self.top_level = top_level
+        self.package_name = package_name or top_level
 
-    except ImportError:
-        r = run(sys.executable, "-mpip", "install", package_name, dryrun=False)
-        if r.failed:
-            return abort("Can't auto-install '%s': %s" % (package_name, r.full_output))
+    def ensure_installed(self):
+        """Ensure that self.top_level is installed (install it if need be)"""
+        try:
+            __import__(self.top_level)
 
-        return __import__(top_level)
+        except ImportError:
+            if sys.prefix == sys.base_prefix:
+                abort("Can't auto-install '%s' outside of a virtual environment" % self.package_name)
+
+            r = run(sys.executable, "-mpip", "install", self.package_name, dryrun=False)
+            if r.failed:
+                abort("Can't auto-install '%s': %s" % (self.package_name, r.full_output))
+
+    def __call__(self, target):
+        """Decorator invoked with decorated function 'target'"""
+        @wraps(target)
+        def inner(*args, **kwargs):
+            self.ensure_installed()
+            return target(*args, **kwargs)
+
+        py_mimic(target, inner)
+        return inner
 
 
 def run_cmds(prog=None):

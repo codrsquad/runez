@@ -2,10 +2,10 @@ import os
 import sys
 
 import pytest
-from mock import patch
+from mock import MagicMock, patch
 
 import runez
-from runez.inspector import auto_import_siblings, auto_install, ImportTime
+from runez.inspector import auto_import_siblings, AutoInstall, ImportTime
 from runez.system import _R
 
 
@@ -95,25 +95,53 @@ def test_auto_import_siblings(monkeypatch):
     assert "tests.test_serialize" not in imported
 
 
+class SomeClass:
+    @AutoInstall("bar")
+    def needs_bar(self, msg):
+        return "OK: %s" % msg
+
+
+@AutoInstall("foo")
+def needs_foo(msg):
+    import foo  # noqa
+
+    return "OK: %s" % msg
+
+
 def test_auto_install(logged):
-    assert auto_install("runez")
+    # Verify that an already present req is a no-op
+    AutoInstall("runez").ensure_installed()
     assert not logged
 
+    # Verify failure to install raises abort exception
     with patch("runez.inspector.run", return_value=runez.program.RunResult("failed")):
         with pytest.raises(runez.system.AbortException):
-            auto_install("foo")
+            needs_foo("hello")
         assert "Can't auto-install 'foo': failed" in logged.pop()
 
+    # Verify successful install exercises function call
     with patch("runez.inspector.run", return_value=runez.program.RunResult("OK", code=0)):
-        with pytest.raises(ImportError):  # 2nd import attemp raises ImportError (in this case, because we're trying a mocked 'foo')
-            auto_install("foo")
+        with pytest.raises(ImportError):  # 2nd import attempt raises ImportError (in this case, because we're trying a mocked 'foo')
+            needs_foo("hello")
         assert not logged
 
+    # Full successful call
+    with patch("runez.inspector.run", return_value=runez.program.RunResult("OK", code=0)):
+        assert SomeClass().needs_bar("hello") == "OK: hello"
+        assert not logged
+
+    # Mocked successful import
+    with patch.dict("sys.modules", foo=MagicMock()):
+        with patch("runez.inspector.run", return_value=runez.program.RunResult("OK", code=0)):
+            assert needs_foo("hello") == "OK: hello"
+            assert not logged
+
+    # Ensure auto-installation is refused unless we have a venv
     with patch("runez.inspector.sys") as mocked:
-        mocked.real_prefix = mocked.prefix = "foo"
+        mocked.base_prefix = mocked.prefix = "foo"
         with pytest.raises(runez.system.AbortException):
-            auto_install("foo")
-        assert "Can't auto-install 'foo' outside of a virtual environments" in logged.pop()
+            needs_foo("hello")
+        assert "Can't auto-install 'foo' outside of a virtual environment" in logged.pop()
 
 
 def test_diagnostics_command(cli):
