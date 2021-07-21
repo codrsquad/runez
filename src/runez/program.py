@@ -395,11 +395,11 @@ class RunAudit:
     def __init__(self, program, args, popen_args):
         """
         Args:
-            program (str): Program as given by caller (or full path when available)
+            program (str | pathlib.Path): Program as given by caller (or full path when available)
             args (list): Args given by caller
             popen_args (dict): Keyword args passed-through to subporcess.Popen()
         """
-        self.program = program
+        self.program = str(program)
         self.args = args
         self.popen_args = popen_args
         self.dryrun = False  # Was this a dryrun?
@@ -497,7 +497,7 @@ class RunResult:
 def which(program, ignore_own_venv=False):
     """
     Args:
-        program (str | None): Program name to find via env var PATH
+        program (str | pathlib.Path | None): Program name to find via env var PATH
         ignore_own_venv (bool): If True, do not resolve to executables in current venv
 
     Returns:
@@ -506,6 +506,7 @@ def which(program, ignore_own_venv=False):
     if not program:
         return None
 
+    program = str(program)
     if os.path.basename(program) != program:
         program = resolved_path(program)
         if WINDOWS:  # pragma: no cover
@@ -529,7 +530,7 @@ def which(program, ignore_own_venv=False):
 
 
 def require_installed(program, instructions=None, platform=sys.platform):
-    """Raise an expcetion if 'program' is not available on PATH, show instructions on how to install it
+    """Raise an exception if 'program' is not available on PATH, show instructions on how to install it
 
     Args:
         program (str): Program to check
