@@ -1347,6 +1347,17 @@ class SystemInfo:
         """str: User id of user we're currently running as"""
         return os.environ.get("USER") or self.current_process.userid
 
+    @cached_property
+    def venv_bin_folder(self):
+        """Path to current venv/bin folder, if we're running from a virtual environment"""
+        if sys.prefix != sys.base_prefix:
+            return os.path.join(sys.prefix, "bin")
+
+    def venv_bin_path(self, name):
+        """Path to venv/bin/<name>, if we're running from a virtual environment"""
+        if self.venv_bin_folder:
+            return os.path.join(self.venv_bin_folder, name)
+
 
 SYS_INFO = SystemInfo()
 

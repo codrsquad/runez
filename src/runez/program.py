@@ -406,17 +406,22 @@ class RunAudit:
 
     @staticmethod
     def shortened_program(program, args):
-        if program and args and os.path.basename(program) in ("python", "python3"):
-            if args[0] == "-m":
-                return args[1], args[2:]
+        if program and args:
+            base = os.path.basename(program)
+            if base in ("python", "python3"):
+                if args[0] == "-m":
+                    return args[1], args[2:]
 
-            if args[0].startswith("-m"):
-                return args[0][2:], args[1:]
+                if args[0].startswith("-m"):
+                    return args[0][2:], args[1:]
 
-            if args[0].endswith("__main__.py"):
-                program = args[0]
-                program = os.path.dirname(os.path.abspath(program))
-                return os.path.basename(program), args[1:]
+                if args[0].endswith("__main__.py"):
+                    program = args[0]
+                    program = os.path.dirname(os.path.abspath(program))
+                    return os.path.basename(program), args[1:]
+
+            elif SYS_INFO.venv_bin_folder and program.startswith(SYS_INFO.venv_bin_folder):
+                return base, args
 
         return short(program), args
 
@@ -430,8 +435,8 @@ class RunAudit:
         """
         program = self.program
         args = self.args
-        if short_exe is UNSET:
-            short_exe = program == sys.executable
+        if short_exe is UNSET and program and SYS_INFO.venv_bin_folder:
+            short_exe = program.startswith(SYS_INFO.venv_bin_folder)
 
         if isinstance(short_exe, str):
             program = short_exe

@@ -108,7 +108,7 @@ def needs_foo(msg):
     return "OK: %s" % msg
 
 
-def test_auto_install(logged):
+def test_auto_install(logged, monkeypatch):
     # Verify that an already present req is a no-op
     AutoInstall("runez").ensure_installed()
     assert not logged
@@ -137,11 +137,10 @@ def test_auto_install(logged):
             assert not logged
 
     # Ensure auto-installation is refused unless we have a venv
-    with patch("runez.inspector.sys") as mocked:
-        mocked.base_prefix = mocked.prefix = "foo"
-        with pytest.raises(runez.system.AbortException):
-            needs_foo("hello")
-        assert "Can't auto-install 'foo' outside of a virtual environment" in logged.pop()
+    monkeypatch.setattr(runez.SYS_INFO, "venv_bin_folder", None)
+    with pytest.raises(runez.system.AbortException):
+        needs_foo("hello")
+    assert "Can't auto-install 'foo' outside of a virtual environment" in logged.pop()
 
 
 def test_diagnostics_command(cli):

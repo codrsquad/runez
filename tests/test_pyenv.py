@@ -195,7 +195,6 @@ def mocked_invoker(**sysattrs):
     pyenv = sysattrs.pop("pyenv", None)
     use_path = sysattrs.pop("use_path", False)
     exe_exists = sysattrs.pop("exe_exists", True)
-    sysattrs.setdefault("real_prefix", None)
     sysattrs.setdefault("base_prefix", "/usr")
     sysattrs.setdefault("prefix", sysattrs["base_prefix"])
     sysattrs.setdefault("executable", "%s/bin/python" % sysattrs["base_prefix"])
@@ -233,7 +232,7 @@ def test_invoker():
     assert depot.invoker.major == 3
 
     # Linux case without py3
-    depot = mocked_invoker(major=2, real_prefix="/usr/local")
+    depot = mocked_invoker(major=2, base_prefix="/usr/local")
     assert depot.invoker.executable == "/usr/local/bin/python2"
     assert depot.invoker.major == 2
 
@@ -259,6 +258,12 @@ def test_invoker():
     depot = mocked_invoker(base_prefix="/usr/local/Cellar/python@3.7/3.7.1_1/Frameworks/Python.framework/Versions/3.7")
     assert depot.invoker.executable == "/usr/local/bin/python3"
     assert depot.invoker.major == 3
+
+
+def test_pv(logged):
+    import runez._pv
+    assert runez._pv
+    assert logged
 
 
 def test_pypi_standardized_naming():
@@ -529,12 +534,6 @@ def test_spec():
     check_spec("~/.pyenv/3.8.1", "~/.pyenv/3.8.1")
 
 
-def import_pv():
-    import runez._pv
-
-    assert runez._pv
-
-
 class CustomScanner(PythonInstallationScanner):
     def unknown_python(self, spec):
         # Pretend an auto-installation for example
@@ -546,7 +545,6 @@ def test_venv(temp_folder, logged):
     import sys
     p = depot.find_python(sys.executable)
     assert p is depot.invoker
-    assert not logged
 
     # Simulate an explicit reference to a venv python
     mk_python("8.6.1")
@@ -568,11 +566,7 @@ def test_venv(temp_folder, logged):
     assert p95.problem is None
     assert str(depot) == "2 scanned"
     assert depot.scanned == [p95, pvenv]
-
-    # Trigger code coverage for private _pv module
-    with runez.TempArgv(["dump"]):
-        import_pv()
-        assert logged
+    assert not logged
 
 
 def test_unknown():

@@ -16,7 +16,7 @@ from runez.convert import to_int
 from runez.logsetup import LogManager
 from runez.program import run
 from runez.render import PrettyTable
-from runez.system import abort, find_caller_frame, first_line, py_mimic, TempArgv
+from runez.system import abort, find_caller_frame, first_line, py_mimic, SYS_INFO, TempArgv
 
 
 def auto_import_siblings(package=None, auto_clean="TOX_WORK_DIR", skip=None):
@@ -117,7 +117,7 @@ class AutoInstall:
             __import__(self.top_level)
 
         except ImportError:
-            if sys.prefix == sys.base_prefix:
+            if not SYS_INFO.venv_bin_folder:
                 abort("Can't auto-install '%s' outside of a virtual environment" % self.package_name)
 
             r = run(sys.executable, "-mpip", "install", self.package_name, dryrun=False)

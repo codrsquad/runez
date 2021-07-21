@@ -410,6 +410,9 @@ def test_run_description():
     assert audit.run_description(short_exe=True) == "foo/bar -mpip --help"
     assert audit.run_description(short_exe="foo") == "foo -mpip --help"
 
+    audit = RunAudit(os.path.join(runez.SYS_INFO.venv_bin_path("foo")), ["--help"], {})
+    assert audit.run_description() == "foo --help"
+
 
 def test_which():
     assert runez.which(None) is None

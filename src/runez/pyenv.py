@@ -519,14 +519,13 @@ class PythonDepot:
             self.scanned = sorted(self.scanned, reverse=True)
             _R.hlog(self.logger, "Found %s pythons in %s" % (len(self.scanned), scanner))
 
-        base_prefix = getattr(sys, "real_prefix", None) or getattr(sys, "base_prefix", sys.prefix)
-        self.invoker = self._cache.get(base_prefix)
+        self.invoker = self._cache.get(sys.base_prefix)
         if self.use_path and self.invoker is None:
             self.scan_path_env_var()
-            self.invoker = self._cache.get(base_prefix)
+            self.invoker = self._cache.get(sys.base_prefix)
 
         if self.invoker is None:
-            self.invoker = self._find_invoker(base_prefix)
+            self.invoker = self._find_invoker()
 
         self.invoker.is_invoker = True
         self._cache["invoker"] = self.invoker
@@ -674,8 +673,8 @@ class PythonDepot:
         for exe in self.python_exes_in_folder(path, major=major):
             return exe
 
-    def _find_invoker(self, base_prefix):
-        info = PyInstallInfo(sys.version.partition(" ")[0], sys.prefix, base_prefix)
+    def _find_invoker(self):
+        info = PyInstallInfo(sys.version.partition(" ")[0], sys.prefix, sys.base_prefix)
         equivalents = set()
         exe = None
         for path in self.python_exes_in_folder(info.base_prefix, major=info.version.major):
