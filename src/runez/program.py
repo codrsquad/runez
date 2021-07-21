@@ -519,8 +519,9 @@ def which(program, ignore_own_venv=False):
         if WINDOWS:  # pragma: no cover
             fp = _windows_exe(fp)
 
-        if fp and (not ignore_own_venv or not fp.startswith(sys.prefix)) and is_executable(fp):
-            return fp
+        if fp and (not ignore_own_venv or not SYS_INFO.venv_bin_folder or not fp.startswith(SYS_INFO.venv_bin_folder)):
+            if is_executable(fp):
+                return fp
 
     program = os.path.join(os.getcwd(), program)
     if is_executable(program):
@@ -661,6 +662,9 @@ def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
 
 def _windows_exe(path):  # pragma: no cover
     if path:
+        if os.path.isfile(path):
+            return path
+
         for extension in (".exe", ".bat"):
             fpath = path
             if not fpath.lower().endswith(extension):

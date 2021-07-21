@@ -1201,12 +1201,16 @@ class DevInfo:
     @cached_property
     def tests_folder(self):
         """(str | None): Path to current development project's tests/ folder, if we're running from a source compilation"""
-        return _R.find_parent_folder(self.current_test(), {"tests", "test"})
+        if SYS_INFO.venv_bin_folder:
+            ct = self.current_test()
+            if ct:
+                return _R.find_parent_folder(ct, {"tests", "test"})
 
     @cached_property
     def venv_folder(self):
         """(str | None): Path to current development venv, if we're running from one"""
-        return _R.find_parent_folder(sys.prefix, {"venv", ".venv", ".tox", "build"})
+        if SYS_INFO.venv_bin_folder:
+            return _R.find_parent_folder(sys.prefix, {"venv", ".venv", ".tox", "build"})
 
     def project_path(self, *relative_path):
         """(str | None): Full path relative to development project we're currently running from (if any)"""
@@ -1287,7 +1291,7 @@ class SystemInfo:
         if "diagnostics" not in sys.argv:
             yield "sys.argv", quoted(sys.argv)
 
-        if not sys.executable.startswith(sys.prefix):
+        if SYS_INFO.venv_bin_folder:
             yield "sys.prefix", sys.prefix
 
     @cached_property
