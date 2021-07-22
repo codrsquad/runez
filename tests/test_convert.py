@@ -138,7 +138,7 @@ def test_tabulated_parsing():
 DOCKER_PS_SAMPLE = """
 CONTAINER_ID  IMAGE                  COMMAND  CREATED         STATUS         PORTS                   NAMES
 d7907cca5247  foo/bar:stable         "/init"  18 minutes ago  Up 18 minutes                          foo
-6bda1a6f83eb  linuxserver/syncthing  "/init"  7 days ago      Up 43 hours    0.0.0.0:8384->8384/tcp  syncthing
+6bda1a6f83eb  linuxserver/syncthing  "/init"  7 days ago      Up 43 hours    0.0.0.0:123->123/tcp    syncthing
 """
 
 
@@ -159,7 +159,7 @@ def test_tabulated_docker_ps():
             "COMMAND": '"/init"',
             "CREATED": "7 days ago",
             "STATUS": "Up 43 hours",
-            "PORTS": "0.0.0.0:8384->8384/tcp",
+            "PORTS": "0.0.0.0:123->123/tcp",
             "NAMES": "syncthing"
         }
     ]
