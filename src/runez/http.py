@@ -555,7 +555,10 @@ class RequestsHandler(RestHandler):
 
     @classmethod
     def raw_response(cls, session, method, url, **passed_through):
-        func = getattr(session, method.lower())
+        func = getattr(session, method.lower(), None)
+        if func is None:
+            return session.request(method, url, **passed_through)
+
         return func(url, **passed_through)
 
     @classmethod
@@ -769,6 +772,22 @@ class RestClient:
         """
         state = DataState.wrapped(dryrun, data, json, files, filepaths)
         return self._get_response("POST", url, fatal, logger, dryrun=dryrun, params=params, headers=headers, state=state)
+
+    def purge(self, url, fatal=True, logger=UNSET, dryrun=UNSET, params=None, headers=None):
+        """Same as underlying .purge(), but respecting 'dryrun' mode
+
+        Args:
+            url (str): URL to query (can be absolute, or relative to self.base_url)
+            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+            dryrun (bool): Optionally override current dryrun setting
+            params (dict | None): Key/value pairs for query string
+            headers (dict | None): Optional Headers specific to this request
+
+        Returns:
+            (RestResponse): Response from underlying call
+        """
+        return self._get_response("PURGE", url, fatal, logger, dryrun=dryrun, params=params, headers=headers)
 
     def put(self, url, fatal=True, logger=UNSET, dryrun=UNSET, params=None, headers=None, data=None, json=None, files=None, filepaths=None):
         """

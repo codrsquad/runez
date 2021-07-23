@@ -172,6 +172,9 @@ def test_rest(logged):
     assert session.delete("foo-bar").ok
     assert "DELETE https://example.com/foo-bar [200]" in logged.pop()
 
+    assert session.purge("foo-bar").ok
+    assert "PURGE https://example.com/foo-bar [200]" in logged.pop()
+
     assert session.get("foo-bar") == {"foo": "bar"}
     assert session.get("https://example.com/foo-bar") == {"foo": "bar"}
     assert "GET https://example.com/foo-bar [200]" in logged.pop()
