@@ -432,18 +432,27 @@ def test_spec():
 
     assert p37a.satisfies(pnone)
     assert not pnone.satisfies(p37a)
-    assert pnone.satisfies(p37a, either_direction=True)
 
     invoker = PythonSpec("invoker")
     assert str(invoker) == "invoker"
     assert invoker.version.major == sys.version_info[0]
 
+    p38plus = PythonSpec("3.8+")
+    assert not p37a.satisfies(p38plus)
+    assert not p37b.satisfies(p38plus)
+
     p38 = PythonSpec("3.8")
     c38a = PythonSpec("conda:38")
     c38b = PythonSpec("conda:3.8")
+    assert p38.satisfies(p38plus)
     assert c38a != p38
     assert c38a.version == p38.version
     assert c38a == c38b
+
+    p39 = PythonSpec("3.9")
+    p395 = PythonSpec("3.9.5")
+    assert p39.satisfies(p38plus)
+    assert p395.satisfies(p38plus)
 
     assert p38.represented() == "3.8"
     assert p38.represented(compact=None) == "cpython:3.8"
@@ -466,6 +475,7 @@ def test_spec():
     check_spec(2, "cpython:2")
     check_spec("2", "cpython:2")
     check_spec("3", "cpython:3")
+    check_spec("3+", "cpython:3+")
     check_spec("P3", "cpython:3")
     check_spec("py3", "cpython:3")
     check_spec(" pY 3 ", "cpython:3")
@@ -477,6 +487,8 @@ def test_spec():
     check_spec(3.7, "cpython:3.7")
     check_spec(" p3.7 ", "cpython:3.7")
     check_spec(" cpython:3.7 ", "cpython:3.7")
+    check_spec(" p3.7+ ", "cpython:3.7+")
+    check_spec(" p3.7++ ", "?p3.7++")
 
     # Various convenience notations
     check_spec("37", "cpython:3.7")
@@ -502,7 +514,9 @@ def test_spec():
 
     # Non-cpython families
     check_spec("pypy", "pypy:")
+    check_spec("pypy+", "?pypy+")  # Need actual version for '+' marker to count
     check_spec("pypy36", "pypy:3.6")
+    check_spec("pypy36+", "pypy:3.6+")
     check_spec("pypy:37", "pypy:3.7")
     check_spec("pypy:3.8", "pypy:3.8")
     check_spec("conda", "conda:")
@@ -521,6 +535,9 @@ def test_spec():
     check_spec("py391", "cpython:3.9.1")
 
     # Invalid marked with starting '?' for canonical form
+    check_spec(" + ", "?+")
+    check_spec(" cpython+ ", "?cpython+")
+    check_spec(" python+ ", "?python+")
     check_spec("cpython:3.7a", "?cpython:3.7a")
     check_spec("miniconda3--4.7.1", "?miniconda3--4.7.1")
     check_spec("foo3.7", "?foo3.7")

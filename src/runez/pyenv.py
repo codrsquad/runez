@@ -12,7 +12,7 @@ from runez.system import _R, abort, flattened, joined, resolved_path, short, str
 
 CPYTHON = "cpython"
 PYTHON_FAMILIES = (CPYTHON, "pypy", "conda")
-R_SPEC = re.compile(r"^\s*((|py?|c?python|(ana|mini)?conda[23]?|pypy)\s*[:-]?)\s*(\d*)\.?(\d*)\.?(\d*)\s*$", re.IGNORECASE)
+R_SPEC = re.compile(r"^\s*((|py?|c?python|(ana|mini)?conda[23]?|pypy)\s*[:-]?)\s*(\d*)\.?(\d*)\.?(\d*)\s*(\+?)$", re.IGNORECASE)
 R_VERSION = re.compile(r"v?((\d+!)?(\d+)((\.(\d+))*)((a|b|c|rc)(\d+))?(\.(dev|post|final)\.?(\d+))?(\+[\w.-]*)?).*")
 
 
@@ -303,6 +303,7 @@ class PythonSpec:
         text = stringified(text, none="").strip()
         self.text = text
         self.version = None
+        self.is_min_spec = ""
         if text == "invoker":
             self.canonical = text
             self.family = guess_family(sys.version)
@@ -320,17 +321,21 @@ class PythonSpec:
             return
 
         components = [s for s in (m.group(4), m.group(5), m.group(6)) if s]
+        min_ver_marker = m.group(7)
         if len(components) == 1:
             components = [c for c in components[0]]  # Support notations of the form: "py37"
 
-        if len(components) > 3:
-            self.canonical = "?%s" % text  # Too many version components
+        if len(components) > 3 or (not components and min_ver_marker):
+            self.canonical = "?%s" % text  # Too many version components, or '+' marker without actual version
             return
 
         if components:
             self.version = Version(".".join(components))
 
-        self.canonical = "%s:%s" % (self.family, self.version or "")
+        if min_ver_marker:
+            self.is_min_spec = "+"
+
+        self.canonical = "%s:%s%s" % (self.family, self.version or "", self.is_min_spec)
 
     def __repr__(self):
         return short(self.canonical)
@@ -348,14 +353,14 @@ class PythonSpec:
 
             return self.version < other.version
 
-    def satisfies(self, other, either_direction=False):
+    def satisfies(self, other):
         """Does this spec satisfy 'other'?"""
         if isinstance(other, PythonSpec) and self.family == other.family:
+            if other.is_min_spec:
+                return self.version >= other.version
+
             if self.canonical.startswith(other.canonical):
                 return True
-
-            if either_direction:
-                return other.canonical.startswith(self.canonical)
 
     def represented(self, color=None, compact=CPYTHON):
         """
@@ -850,6 +855,10 @@ class Version:
 
     def __eq__(self, other):
         return isinstance(other, Version) and self.components == other.components and self.prerelease == other.prerelease
+
+    def __ge__(self, other):
+        if isinstance(other, Version):
+            return self == other or other < self
 
     def __lt__(self, other):
         if isinstance(other, Version):
