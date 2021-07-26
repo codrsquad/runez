@@ -72,6 +72,7 @@ def test_depot(temp_folder, monkeypatch, logged):
     # Create some pyenv-style python installation mocks (using version 8 so it sorts above any real version...)
     mk_python("8.6.1")
     mk_python("8.7.2")
+    runez.symlink("8.6.1", ".pyenv/versions/8.6", must_exist=False, logger=None)
 
     # Verify that if invoker is one of the pyenv-installations, it is properly detected
     depot = mocked_invoker(pyenv=".pyenv", base_prefix=".pyenv/versions/8.6.1")

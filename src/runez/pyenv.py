@@ -458,7 +458,8 @@ class PythonInstallationScanner:
         location = self.resolved_location()
         if location:
             for child in location.iterdir():
-                yield self.python_from_path(child)
+                if child.is_dir() and not child.is_symlink():
+                    yield self.python_from_path(child)
 
     def unknown_python(self, spec):
         """
