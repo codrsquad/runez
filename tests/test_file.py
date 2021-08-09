@@ -1,3 +1,4 @@
+import hashlib
 import io
 import logging
 import os
@@ -42,6 +43,14 @@ def test_basename():
     assert runez.basename("some-folder/bar.baz.pyc") == "bar.baz"
 
     assert runez.basename("some-folder/bar.py", extension_marker=None) == "bar.py"
+
+
+def test_checksum():
+    sample = runez.DEV.project_path("LICENSE")
+    assert runez.checksum(sample) == "0f7ae07a0fc3fccaf4e7e7888df52473abcbc2b29b47b7c2cfe8c125528e1536"
+    assert runez.checksum(sample, hash=hashlib.sha1) == "ea553d4e5a18aa83ba90b575ee63a37fc9a7bc07"
+    assert runez.checksum(sample, hash=hashlib.sha1()) == "ea553d4e5a18aa83ba90b575ee63a37fc9a7bc07"
+    assert runez.checksum(sample, hash=hashlib.md5()) == "cbc91d983eaeb4ce4724ea3f420c5ce4"
 
 
 def test_edge_cases():

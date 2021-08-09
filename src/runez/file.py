@@ -1,3 +1,4 @@
+import hashlib
 import io
 import os
 import shutil
@@ -31,6 +32,28 @@ def basename(path, extension_marker=os.extsep):
         return result  # We have a basename starting with '.'
 
     return result
+
+
+def checksum(path, hash=hashlib.sha256, blocksize=65536):
+    """
+    Args:
+        path (str | Path | None): Path to file
+        hash: Hash algorithm to use
+        blocksize (int):
+
+    Returns:
+        (str): Hex-digest
+    """
+    if callable(hash):
+        hash = hash()
+
+    with open(path, "rb") as fh:
+        buf = fh.read(blocksize)
+        while len(buf) > 0:
+            hash.update(buf)
+            buf = fh.read(blocksize)
+
+    return hash.hexdigest()
 
 
 def copy(source, destination, ignore=None, fatal=True, logger=UNSET, dryrun=UNSET):
