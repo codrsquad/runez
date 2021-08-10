@@ -628,14 +628,14 @@ class LogManager:
     _default_spec = LogSpec(
         appname=None,
         basename="{appname}.log",
-        console_format="%(asctime)s %(levelname)s %(message)s",
+        console_format="%(levelname)s %(message)s",
         console_level=logging.WARNING,
         console_stream=sys.stderr,
         context_format="[[%s]] ",
         default_logger=LOG.debug,
         dev=None,  # Location of development venv where we're currently running from, if any
         project=None,  # Location of source checkout we're currently running from, if any
-        file_format="%(asctime)s %(timezone)s [%(threadName)s] %(context)s%(levelname)s - %(message)s",
+        file_format="%(asctime)s %(levelname)s %(message)s",
         file_level=logging.DEBUG,
         file_location=None,
         locations=default_log_locations(),

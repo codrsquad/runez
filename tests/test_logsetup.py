@@ -204,8 +204,8 @@ def test_default(temp_log):
 
     logging.info("hello")
     logging.warning("hello")
-    temp_log.expect_logged("UTC [MainThread] [[version=1.0,worker=joe]] INFO - hello")
-    temp_log.expect_logged("UTC [MainThread] [[version=1.0,worker=joe]] WARNING - hello")
+    temp_log.expect_logged("INFO hello")
+    temp_log.expect_logged("WARNING hello")
     assert "INFO hello" not in temp_log.stderr
     assert "WARNING hello" in temp_log.stderr.pop()
 
