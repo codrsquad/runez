@@ -56,13 +56,14 @@ def checksum(path, hash=hashlib.sha256, blocksize=65536):
     return hash.hexdigest()
 
 
-def copy(source, destination, ignore=None, fatal=True, logger=UNSET, dryrun=UNSET):
+def copy(source, destination, ignore=None, overwrite=True, fatal=True, logger=UNSET, dryrun=UNSET):
     """Copy source -> destination
 
     Args:
         source (str | Path | None): Source file or folder
         destination (str | Path | None): Destination file or folder
         ignore (callable | list | str | None): Names to be ignored
+        overwrite (bool | None): True: replace existing, False: fail if destination exists, None: no destination check
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
@@ -70,7 +71,7 @@ def copy(source, destination, ignore=None, fatal=True, logger=UNSET, dryrun=UNSE
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
     """
-    return _file_op(source, destination, _copy, fatal, logger, dryrun, ignore=ignore)
+    return _file_op(source, destination, _copy, overwrite, fatal, logger, dryrun, ignore=ignore)
 
 
 def delete(path, fatal=True, logger=UNSET, dryrun=UNSET):
@@ -93,12 +94,7 @@ def delete(path, fatal=True, logger=UNSET, dryrun=UNSET):
         return 1
 
     try:
-        if islink or os.path.isfile(path):
-            os.unlink(path)
-
-        else:
-            shutil.rmtree(path, ignore_errors=fatal)
-
+        _do_delete(path, islink, fatal)
         _R.hlog(logger, "Deleted %s" % short(path))
         return 1
 
@@ -282,12 +278,13 @@ def to_path(path):
     return Path(os.path.expanduser(path)) if path else None
 
 
-def move(source, destination, fatal=True, logger=UNSET, dryrun=UNSET):
+def move(source, destination, overwrite=True, fatal=True, logger=UNSET, dryrun=UNSET):
     """Move `source` -> `destination`
 
     Args:
         source (str | None): Source file or folder
         destination (str | None): Destination file or folder
+        overwrite (bool | None): True: replace existing, False: fail if destination exists, None: no destination check
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
@@ -295,16 +292,17 @@ def move(source, destination, fatal=True, logger=UNSET, dryrun=UNSET):
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
     """
-    return _file_op(source, destination, _move, fatal, logger, dryrun)
+    return _file_op(source, destination, _move, overwrite, fatal, logger, dryrun)
 
 
-def symlink(source, destination, must_exist=True, fatal=True, logger=UNSET, dryrun=UNSET):
+def symlink(source, destination, must_exist=True, overwrite=True, fatal=True, logger=UNSET, dryrun=UNSET):
     """Symlink `source` <- `destination`
 
     Args:
         source (str | Path | None): Source file or folder
         destination (str | Path | None): Destination file or folder
         must_exist (bool): If True, verify that source does indeed exist
+        overwrite (bool | None): True: replace existing, False: fail if destination exists, None: no destination check
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
@@ -312,10 +310,10 @@ def symlink(source, destination, must_exist=True, fatal=True, logger=UNSET, dryr
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
     """
-    return _file_op(source, destination, _symlink, fatal, logger, dryrun, must_exist=must_exist)
+    return _file_op(source, destination, _symlink, overwrite, fatal, logger, dryrun, must_exist=must_exist)
 
 
-def tar(source, destination, basename=None, mode="w:gz", fatal=True, logger=UNSET, dryrun=UNSET):
+def tar(source, destination, basename=None, mode="w:gz", overwrite=True, fatal=True, logger=UNSET, dryrun=UNSET):
     """
     Args:
         source (str | Path | None): Source folder to tar
@@ -325,6 +323,7 @@ def tar(source, destination, basename=None, mode="w:gz", fatal=True, logger=UNSE
                                       True: Use 'basename(source)'
                                       False or None: No basename (contents of source are directly in tarball)
         mode (str): tarfile mode to use
+        overwrite (bool | None): True: replace existing, False: fail if destination exists, None: no destination check
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
@@ -332,14 +331,15 @@ def tar(source, destination, basename=None, mode="w:gz", fatal=True, logger=UNSE
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
     """
-    return _file_op(source, destination, _tar, fatal, logger, dryrun, basename=basename, mode=mode)
+    return _file_op(source, destination, _tar, overwrite, fatal, logger, dryrun, basename=basename, mode=mode)
 
 
-def untar(source, destination, fatal=True, logger=UNSET, dryrun=UNSET):
+def untar(source, destination, overwrite=True, fatal=True, logger=UNSET, dryrun=UNSET):
     """
     Args:
         source (str | Path | None): Source file to untar
         destination (str | Path | None): Destination folder
+        overwrite (bool | None): True: replace existing, False: fail if destination exists, None: no destination check
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
@@ -347,7 +347,7 @@ def untar(source, destination, fatal=True, logger=UNSET, dryrun=UNSET):
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
     """
-    return _file_op(source, destination, _untar, fatal, logger, dryrun)
+    return _file_op(source, destination, _untar, overwrite, fatal, logger, dryrun)
 
 
 class TempFolder:
@@ -426,7 +426,11 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
 
     path = resolved_path(path)
     byte_size = represented_bytesize(len(contents), unit="bytes") if contents else ""
-    if _R.hdry(dryrun, logger, lambda: "%s %s" % ("write %s to" % byte_size if byte_size else "touch", short(path))):
+
+    def dryrun_msg():
+        return "%s %s" % ("write %s to" % byte_size if byte_size else "touch", short(path))
+
+    if _R.hdry(dryrun, logger, dryrun_msg):
         return 1
 
     ensure_folder(parent_folder(path), fatal=fatal, logger=None, dryrun=dryrun)
@@ -465,6 +469,14 @@ def _copy(source, destination, ignore=None):
     shutil.copystat(source, destination)  # Make sure last modification time is preserved
 
 
+def _do_delete(path, islink, fatal):
+    if islink or os.path.isfile(path):
+        os.unlink(path)
+
+    else:
+        shutil.rmtree(path, ignore_errors=not fatal)
+
+
 def _move(source, destination):
     """Effective move"""
     shutil.move(source, destination)
@@ -497,13 +509,14 @@ def _untar(source, destination):
         fh.extractall(destination)
 
 
-def _file_op(source, destination, func, fatal, logger, dryrun, must_exist=True, ignore=None, **extra):
+def _file_op(source, destination, func, overwrite, fatal, logger, dryrun, must_exist=True, ignore=None, **extra):
     """Call func(source, destination)
 
     Args:
         source (str | None): Source file or folder
         destination (str | None): Destination file or folder
         func (callable): Implementation function
+        overwrite (bool | None): True: replace existing, False: fail if destination exists, None: no destination check
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
@@ -533,20 +546,29 @@ def _file_op(source, destination, func, fatal, logger, dryrun, must_exist=True, 
         message = "%s does not exist, can't %s to %s" % (short(source), action.lower(), short(destination))
         return abort(message, return_value=-1, fatal=fatal, logger=logger)
 
+    if overwrite is not None:
+        islink = os.path.islink(pdest)
+        if islink or os.path.exists(pdest):
+            if not overwrite:
+                message = "%s exists, can't %s" % (short(destination), action.lower())
+                return abort(message, return_value=-1, fatal=fatal, logger=logger)
+
+            _do_delete(pdest, islink, fatal)
+
     try:
         # Ensure parent folder exists
         ensure_folder(parent_folder(destination), fatal=fatal, logger=None, dryrun=dryrun)
-        _R.hlog(logger, lambda: "%s%s" % (description[0].upper(), description[1:]))
+        _R.hlog(logger, "%s%s" % (description[0].upper(), description[1:]))
         if ignore is not None:
-            if callable(ignore):
-                func(source, destination, ignore=ignore, **extra)
+            if not callable(ignore):
+                given = ignore
 
-            else:
-                func(source, destination, ignore=lambda *_: ignore, **extra)
+                def ignore(*_):
+                    return given
 
-        else:
-            func(source, destination, **extra)
+            extra["ignore"] = ignore
 
+        func(source, destination, **extra)
         return 1
 
     except Exception as e:
