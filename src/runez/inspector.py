@@ -6,17 +6,14 @@ Functions from this module must be explicitly imported, for example:
 >>> from runez.inspector import auto_import_siblings
 """
 
-import argparse
 import os
 import sys
 import time
 from functools import wraps
 
 from runez.convert import to_int
-from runez.logsetup import LogManager
 from runez.program import run
-from runez.render import PrettyTable
-from runez.system import abort, find_caller_frame, first_line, py_mimic, SYS_INFO, TempArgv
+from runez.system import abort, find_caller_frame, py_mimic, SYS_INFO
 
 
 def auto_import_siblings(package=None, auto_clean="TOX_WORK_DIR", skip=None):
@@ -133,73 +130,6 @@ class AutoInstall:
 
         py_mimic(target, inner)
         return inner
-
-
-def run_cmds(prog=None):
-    """Handy way of running multi-commands with argparse
-
-    If you don't have click, but would like to still have a quick multi-command entry point, you can use this.
-    How it works:
-    - Caller is automatically determined (from call stack), so no need to pass anything
-    - All functions named `cmd_...` from caller are considered commands, and are invocable by name
-    - All CLI args after command name are simply passed-through (command name removed)
-    - Those functions should take no argument and should use `argparse` or equivalent as they would normally
-
-    Example usage:
-        from runez.inspector import run_cmds
-
-        def cmd_foo():
-            print("foo")
-
-        def cmd_bar():
-            print("bar")
-
-        if __name__ == "__main__":
-            run_cmds()
-
-    Args:
-        prog (str | None): The name of the program (default: sys.argv[0])
-    """
-    caller = find_caller_frame()
-    f_globals = caller.f_globals
-    available_commands = {}
-    for name, func in f_globals.items():
-        if len(name) > 4 and name.startswith("cmd_"):
-            name = name[4:].replace("_", "-")
-            available_commands[name] = func
-
-    if not prog and f_globals.get("__name__") == "__main__":
-        package = f_globals.get("__package__")
-        if package:
-            prog = "python -m%s" % package
-
-    epilog = PrettyTable(2)
-    epilog.header[0].style = "bold"
-    for cmd, func in available_commands.items():
-        epilog.add_row(" " + cmd, first_line(func.__doc__, default=""))
-
-    epilog = "Available commands:\n%s" % epilog
-    # noinspection PyTypeChecker
-    parser = argparse.ArgumentParser(
-        prog=prog,
-        description=first_line(f_globals.get("__doc__"), default=""),
-        epilog=epilog,
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    parser.add_argument("--debug", action="store_true", help="Show debug info.")
-    parser.add_argument("command", choices=available_commands, metavar="command", help="Command to run.")
-    parser.add_argument("args", nargs=argparse.REMAINDER, help="Passed-through to command")
-    args = parser.parse_args()
-    LogManager.setup(debug=args.debug)
-
-    try:
-        func = available_commands[args.command]
-        with TempArgv(args.args):
-            func()
-
-    except KeyboardInterrupt:  # pragma: no cover
-        sys.stderr.write("\nAborted\n")
-        sys.exit(1)
 
 
 class ImportTime:

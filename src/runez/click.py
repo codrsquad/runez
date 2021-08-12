@@ -9,6 +9,7 @@ Convenience commonly used click options:
         ...
 """
 
+import argparse
 import errno
 import logging
 import os
@@ -25,7 +26,157 @@ from runez.colors import ColorManager
 from runez.convert import affixed
 from runez.file import basename
 from runez.logsetup import LogManager
-from runez.system import _R, find_caller_frame, flattened, get_version, stringified
+from runez.system import _R, find_caller_frame, find_caller_function, first_line, flattened, get_version, stringified, TempArgv, UNSET
+
+
+class Cli:
+    """Handy way of running multi-commands with argparse
+
+    If you don't have click, but would like to still have a quick multi-command entry point, you can use this.
+    How it works:
+    - Caller is automatically determined (from call stack), so no need to pass anything
+    - All functions named `cmd_...` from caller are considered commands, and are invocable by name
+    - All CLI args after command name are simply passed-through (command name removed)
+    - Those functions should take no argument and should use `argparse` or equivalent as they would normally
+
+    Example usage:
+        import runez
+
+        def cmd_foo():
+            "Docstring used in --help"
+            parser = runez.cli.parser()
+            ...
+
+        def cmd_bar():
+            print("bar")
+
+        if __name__ == "__main__":
+            runez.cli.run_cmds()
+    """
+
+    color = ("--no-color",)
+    debug = ("--debug", "-v")
+    dryrun = ("--dryrun", "-n")
+    version = ("--version", "-V")
+    console_format = "%(levelname)s %(message)s"
+    console_level = logging.INFO
+    default_logger = UNSET
+    log_locations = None
+    _prog = None
+
+    @classmethod
+    def parser(cls, epilog=None, help=None, prog=None):
+        """
+        Args:
+            epilog (str | None): Optional epilog
+            help (str | None): Help to use (default: __doc__ of caller)
+            prog (str | None): Name of the program (default: caller cmd_ function)
+
+        Returns:
+            (argparse.ArgumentParser): Parser with help auto-populated and well formatted
+        """
+        caller = None
+        if not help or not prog:
+            caller = find_caller_function()
+
+        if not help:
+            help = caller and caller.__doc__
+
+        if not prog:
+            prog = caller and caller.__name__
+            if prog and prog.startswith("cmd_"):
+                prog = prog[4:]
+
+        if prog and cls._prog and prog != cls._prog:
+            prog = "%s %s" % (cls._prog, prog)
+
+        return argparse.ArgumentParser(
+            prog=prog or cls._prog,
+            description=Cli.formatted_help(help),
+            epilog=epilog,
+            formatter_class=argparse.RawDescriptionHelpFormatter
+        )
+
+    @staticmethod
+    def formatted_help(text):
+        text = text and text.strip()
+        if text:
+            return "  %s" % "\n  ".join(x.strip() for x in text.splitlines())
+
+    @classmethod
+    def run_cmds(cls, prog=None):
+        """To be called from one's main()
+
+        Args:
+            prog (str | None): The name of the program (default: sys.argv[0])
+        """
+        from runez.render import PrettyTable
+
+        caller = find_caller_frame()
+        f_globals = caller.f_globals
+        package = f_globals.get("__package__")
+        available_commands = {}
+        for name, func in f_globals.items():
+            if len(name) > 4 and name.startswith("cmd_"):
+                name = name[4:].replace("_", "-")
+                available_commands[name] = func
+
+        if not prog:
+            if f_globals.get("__name__") == "__main__" and package:
+                prog = "python -m%s" % package
+
+            elif package:
+                prog = package
+
+            else:
+                fname = f_globals.get("__file__")
+                if fname and os.path.basename(fname) in ("__init__.py", "__main__.py"):
+                    prog = os.path.basename(os.path.dirname(fname))
+
+        epilog = PrettyTable(2)
+        epilog.header[0].style = "bold"
+        for cmd, func in available_commands.items():
+            epilog.add_row(" " + cmd, first_line(func.__doc__, default=""))
+
+        epilog = "Available commands:\n%s" % epilog
+        cls._prog = prog or package
+        parser = cls.parser(epilog=epilog, help=f_globals.get("__doc__"), prog=prog)
+        if cls.version and package:
+            parser.add_argument(*cls.version, action="version", version=get_version(package), help="Show version and exit")
+
+        if cls.color:
+            parser.add_argument(*cls.color, action="store_true", help="Do not use colors (even if on tty)")
+
+        if cls.debug:
+            parser.add_argument(*cls.debug, action="store_true", help="Show debugging information")
+
+        if cls.dryrun:
+            parser.add_argument(*cls.dryrun, action="store_true", help="Perform a dryrun")
+
+        parser.add_argument("command", choices=available_commands, metavar="command", help="Command to run")
+        parser.add_argument("args", nargs=argparse.REMAINDER, help="Passed-through to command")
+        args = parser.parse_args()
+        if cls.console_format or hasattr(args, "debug") or hasattr(args, "dryrun"):
+            LogManager.setup(
+                debug=getattr(args, "debug", UNSET),
+                dryrun=getattr(args, "dryrun", UNSET),
+                console_format=cls.console_format,
+                console_level=cls.console_level,
+                default_logger=cls.default_logger,
+                locations=cls.log_locations,
+            )
+        color = getattr(args, "no_color", None)
+        if color is not None:
+            ColorManager.activate_colors(enable=not color)
+
+        try:
+            func = available_commands[args.command]
+            with TempArgv(args.args):
+                func()
+
+        except KeyboardInterrupt:  # pragma: no cover
+            sys.stderr.write("\nAborted\n")
+            sys.exit(1)
 
 
 def command(help=None, width=140, **attrs):
@@ -68,7 +219,7 @@ def config(*args, **attrs):
 
 
 def debug(*args, **attrs):
-    """Show debugging information."""
+    """Show debugging information"""
     attrs.setdefault("is_flag", True)
     attrs.setdefault("default", None)
     _auto_complete_callback(attrs, LogManager.set_debug)
@@ -76,7 +227,7 @@ def debug(*args, **attrs):
 
 
 def dryrun(*args, **attrs):
-    """Perform a dryrun."""
+    """Perform a dryrun"""
     attrs.setdefault("is_flag", True)
     attrs.setdefault("default", None)
     attrs.setdefault("expose_value", False)
@@ -85,7 +236,7 @@ def dryrun(*args, **attrs):
 
 
 def log(*args, **attrs):
-    """Override log file location."""
+    """Override log file location"""
     attrs.setdefault("metavar", "PATH")
     attrs.setdefault("show_default", False)
     _auto_complete_callback(attrs, LogManager.set_file_location)
@@ -93,7 +244,7 @@ def log(*args, **attrs):
 
 
 def version(*args, **attrs):
-    """Show the version and exit."""
+    """Show the version and exit"""
     if "version" not in attrs:
         # Ensure 'version' is not None here, otherwise click gets runez version (instead of caller package's version)
         caller = find_caller_frame(validator=_R.frame_has_package)
@@ -158,7 +309,7 @@ def option(func, *args, **attrs):
 
 def prettify_epilogs(command, formatter=None):
     """
-    Conveniently re-arrage docstrings in click-decorated function in such a way that:
+    Conveniently re-arrange docstrings in click-decorated function in such a way that:
     - .help shows the first line of the docstring
     - .epilog shows the rest, with a \b separator if there is an empty line right after the 1st line
 

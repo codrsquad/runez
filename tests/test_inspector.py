@@ -144,7 +144,7 @@ def test_auto_install(logged, monkeypatch):
 
 
 def test_diagnostics_command(cli):
-    cli.run("diagnostics")
+    cli.run("--no-color", "diagnostics")
     assert cli.succeeded
     assert "platform : " in cli.logged
     assert "sys.executable : %s" % runez.short(sys.executable) in cli.logged

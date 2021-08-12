@@ -47,3 +47,4 @@ __all__ = [
 
 DRYRUN = False
 color.activate_colors()
+cli = click.Cli  # Handy way of running multi-commands with argparse

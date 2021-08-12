@@ -283,6 +283,23 @@ def find_caller_frame(validator=None, depth=2, maximum=1000):
                 return None
 
 
+def find_caller_function(validator=None, depth=2, maximum=1000):
+    """
+    Args:
+        validator (callable): Function that will decide whether a frame is suitable, and return value of interest from it
+        depth (int): Depth from top of stack where to start
+        maximum (int | None): Maximum depth to scan
+
+    Returns:
+        (callable | None): Caller function, if one could be determined
+    """
+    caller = find_caller_frame(validator=validator, depth=depth, maximum=maximum)
+    if caller:
+        info = inspect.getframeinfo(caller)
+        if info and hasattr(info, "function"):
+            return caller.f_globals.get(info.function)
+
+
 def first_line(text, keep_empty=False, default=None):
     """First line in 'data', if any
 

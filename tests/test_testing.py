@@ -131,11 +131,13 @@ def test_script_invocations(cli):
     # This unfortunately does is not enough to detect code coverage (due to cwd being a temp folder I think)
     cli.run("--help", main="-mrunez")
     assert cli.succeeded
-    assert "See some example behaviors of runez" in cli.logged
+    assert "usage: python -mrunez [-h]" in cli.logged
+    assert "Set of sample commands" in cli.logged
 
     cli.run("--help", main="src/runez/__main__.py")
     assert cli.succeeded
-    assert "See some example behaviors of runez" in cli.logged
+    assert "usage: runez [-h]" in cli.logged
+    assert "Set of sample commands" in cli.logged
 
     # Below will properly make test coverage detect properly that we did execute code in __main__.py
     cli.exercise_main("-mrunez", "src/runez/__main__.py")
