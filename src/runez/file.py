@@ -313,16 +313,12 @@ def symlink(source, destination, must_exist=True, overwrite=True, fatal=True, lo
     return _file_op(source, destination, _symlink, overwrite, fatal, logger, dryrun, must_exist=must_exist)
 
 
-def tar(source, destination, basename=None, mode="w:gz", overwrite=True, fatal=True, logger=UNSET, dryrun=UNSET):
+def compress(source, destination, ext=None, overwrite=True, fatal=True, logger=UNSET, dryrun=UNSET):
     """
     Args:
-        source (str | Path | None): Source folder to tar
+        source (str | Path | None): Source folder to compress
         destination (str | Path | None): Destination folder
-        basename (str | bool | None): Basename for 'source' within the tarball
-                                      str: Use given basename
-                                      True: Use 'basename(source)'
-                                      False or None: No basename (contents of source are directly in tarball)
-        mode (str): tarfile mode to use
+        ext (str | None): Extension determining compression (default: extension of given 'source' file)
         overwrite (bool | None): True: replace existing, False: fail if destination exists, None: no destination check
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
@@ -331,14 +327,30 @@ def tar(source, destination, basename=None, mode="w:gz", overwrite=True, fatal=T
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
     """
-    return _file_op(source, destination, _tar, overwrite, fatal, logger, dryrun, basename=basename, mode=mode)
+    if not ext:
+        _, _, ext = str(destination).lower().rpartition(".")
+
+    kwargs = {}
+    if ext == "zip":
+        func = _zip
+
+    elif ext in ("tar", "bz2", "gz", "xz"):
+        func = _tar
+        kwargs["mode"] = "w:" if ext == "tar" else "w:%s" % ext
+
+    else:
+        message = "Unknown extension '%s': can't compress file" % os.path.basename(destination)
+        return abort(message, return_value=-1, fatal=fatal, logger=logger)
+
+    return _file_op(source, destination, func, overwrite, fatal, logger, dryrun, **kwargs)
 
 
-def untar(source, destination, overwrite=True, fatal=True, logger=UNSET, dryrun=UNSET):
+def decompress(source, destination, ext=None, overwrite=True, fatal=True, logger=UNSET, dryrun=UNSET):
     """
     Args:
-        source (str | Path | None): Source file to untar
+        source (str | Path | None): Source file to decompress
         destination (str | Path | None): Destination folder
+        ext (str | None): Extension determining compression (default: extension of given 'source' file)
         overwrite (bool | None): True: replace existing, False: fail if destination exists, None: no destination check
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
@@ -347,7 +359,20 @@ def untar(source, destination, overwrite=True, fatal=True, logger=UNSET, dryrun=
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
     """
-    return _file_op(source, destination, _untar, overwrite, fatal, logger, dryrun)
+    if not ext:
+        _, _, ext = str(source).lower().rpartition(".")
+
+    if ext == "zip":
+        func = _unzip
+
+    elif ext in ("tar", "bz2", "gz", "xz"):
+        func = _untar
+
+    else:
+        message = "Unknown extension '%s': can't decompress file" % os.path.basename(source)
+        return abort(message, return_value=-1, fatal=fatal, logger=logger)
+
+    return _file_op(source, destination, func, overwrite, fatal, logger, dryrun)
 
 
 class TempFolder:
@@ -487,17 +512,14 @@ def _symlink(source, destination):
     os.symlink(source, destination)
 
 
-def _tar(source, destination, basename, mode):
+def _tar(source, destination, mode):
     """Effective tar"""
     import tarfile
 
     source = to_path(source)
-    if basename is True:
-        basename = source.name
-
     delete(destination, fatal=False, logger=None, dryrun=False)
     with tarfile.open(destination, mode=mode) as fh:
-        fh.add(source, arcname=basename or "")
+        fh.add(source, arcname=source.name, recursive=True)
 
 
 def _untar(source, destination):
@@ -507,6 +529,33 @@ def _untar(source, destination):
     delete(destination, fatal=False, logger=None, dryrun=False)
     with tarfile.open(source) as fh:
         fh.extractall(destination)
+
+
+def _unzip(source, destination):
+    """Effective unzip"""
+    from zipfile import ZipFile
+
+    delete(destination, fatal=False, logger=None, dryrun=False)
+    with ZipFile(source) as fh:
+        fh.extractall(destination)
+
+
+def _zip(source, destination, fh=None):
+    """Effective zip"""
+    if fh is None:
+        from zipfile import ZipFile, ZIP_DEFLATED
+
+        source = to_path(source)
+        destination = to_path(destination)
+        with ZipFile(destination, mode="w", compression=ZIP_DEFLATED) as fh:
+            _zip(source, source, fh=fh)
+
+    elif source.is_dir():
+        for f in source.iterdir():
+            _zip(f, destination, fh=fh)
+
+    else:
+        fh.write(source, arcname=source.relative_to(destination))
 
 
 def _file_op(source, destination, func, overwrite, fatal, logger, dryrun, must_exist=True, ignore=None, **extra):
@@ -535,7 +584,7 @@ def _file_op(source, destination, func, overwrite, fatal, logger, dryrun, must_e
     description = "%s %s %s %s" % (action, short(source), indicator, short(destination))
     psource = parent_folder(source)
     pdest = resolved_path(destination)
-    if psource != pdest and psource.startswith(pdest):
+    if psource.startswith(pdest):
         message = "Can't %s: source contained in destination" % description
         return abort(message, return_value=-1, fatal=fatal, logger=logger)
 

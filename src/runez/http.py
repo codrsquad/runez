@@ -28,7 +28,7 @@ import os
 import urllib.parse
 from pathlib import Path
 
-from runez.file import TempFolder, to_path, untar
+from runez.file import decompress, TempFolder, to_path
 from runez.system import _R, abort, find_caller_frame, stringified, SYS_INFO, UNSET
 
 
@@ -646,6 +646,29 @@ class RestClient:
         """
         return urljoin(self.base_url, url)
 
+    def decompress(self, url, destination, fatal=True, logger=UNSET, dryrun=UNSET, params=None, headers=None):
+        """
+        Args:
+            url (str): URL of .tar.gz to unpack (may be absolute, or relative to self.base_url)
+            destination (str | Path): Path to local folder where to untar url
+            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+            dryrun (bool): Optionally override current dryrun setting
+            params (dict | None): Key/value pairs for query string
+            headers (dict | None): Optional Headers specific to this request
+
+        Returns:
+            (RestResponse): Response from underlying call
+        """
+        destination = to_path(destination).absolute()
+        with TempFolder():
+            tarball_path = to_path(os.path.basename(url)).absolute()
+            response = self.download(url, tarball_path, fatal=fatal, logger=logger, dryrun=dryrun, params=params, headers=headers)
+            if response.ok:
+                decompress(tarball_path, destination, fatal=fatal, logger=logger, dryrun=dryrun)
+
+            return response
+
     def download(self, url, destination, fatal=True, logger=UNSET, dryrun=UNSET, params=None, headers=None):
         """
         Args:
@@ -666,29 +689,6 @@ class RestClient:
                 fh.write(response.content)
 
         return response
-
-    def untar(self, url, destination, fatal=True, logger=UNSET, dryrun=UNSET, params=None, headers=None):
-        """
-        Args:
-            url (str): URL of .tar.gz to unpack (may be absolute, or relative to self.base_url)
-            destination (str | Path): Path to local folder where to untar url
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-            dryrun (bool): Optionally override current dryrun setting
-            params (dict | None): Key/value pairs for query string
-            headers (dict | None): Optional Headers specific to this request
-
-        Returns:
-            (RestResponse): Response from underlying call
-        """
-        destination = to_path(destination).absolute()
-        with TempFolder():
-            tarball_path = to_path(os.path.basename(url)).absolute()
-            response = self.download(url, tarball_path, fatal=fatal, logger=logger, dryrun=dryrun, params=params, headers=headers)
-            if response.ok:
-                untar(tarball_path, destination, fatal=fatal, logger=logger, dryrun=dryrun)
-
-            return response
 
     def get_response(self, url, fatal=True, logger=UNSET, params=None, headers=None):
         """

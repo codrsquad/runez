@@ -54,6 +54,67 @@ def test_checksum():
     assert runez.checksum(sample, hash=hashlib.md5()) == "cbc91d983eaeb4ce4724ea3f420c5ce4"
 
 
+def dir_contents(path=None):
+    path = runez.to_path(path or ".")
+    return {f.name: dir_contents(f) if f.is_dir() else runez.readlines(f) for f in path.iterdir()}
+
+
+def test_decompress(temp_folder, logged):
+    runez.write("test/README.md", "hello", logger=None)
+    runez.write("test/a/b", "c", logger=None)
+    expected = dir_contents(".")
+
+    # Unknown extension
+    assert runez.compress("test", "test.foo", overwrite=False, fatal=False) == -1
+    assert "Unknown extension 'test.foo'" in logged.pop()
+    assert runez.decompress("test.foo", "somewhere", fatal=False) == -1
+    assert "Unknown extension 'test.foo'" in logged.pop()
+
+    assert runez.compress("test", "test.tar.gz", dryrun=True) == 1
+    assert "Would tar test -> test.tar.gz" in logged.pop()
+
+    assert runez.compress("test", "test.tar") == 1
+    assert runez.compress("test", "test.tar.gz") == 1
+    assert runez.compress("test", "test.tar.xz") == 1
+    assert runez.compress("test", "test.zip") == 1
+    assert "Tar test -> test.tar.gz" in logged.pop()
+    size_raw = runez.to_path("test.tar").stat().st_size
+    size_gz = runez.to_path("test.tar.gz").stat().st_size
+    size_xz = runez.to_path("test.tar.xz").stat().st_size
+    size_zip = runez.to_path("test.zip").stat().st_size
+    assert size_raw > size_gz
+    assert size_gz != size_xz
+    assert size_gz != size_zip
+
+    # Tar on top of existing file
+    assert runez.compress("test", "test.tar.gz", overwrite=False, fatal=False) == -1
+    assert "test.tar.gz exists, can't tar" in logged.pop()
+
+    assert runez.decompress("test.tar.gz", "unpacked", dryrun=True) == 1
+    assert "Would untar test.tar.gz -> unpacked" in logged.pop()
+
+    assert runez.decompress("test.tar.gz", "unpacked") == 1
+    assert "Untar test.tar.gz -> unpacked" in logged.pop()
+    assert dir_contents("unpacked") == expected
+
+    # Second attempt fails without overwrite
+    assert runez.decompress("test.tar.gz", "unpacked", overwrite=False, fatal=False) == -1
+    assert "unpacked exists, can't untar" in logged.pop()
+
+    # Second attempt succeeds with overwrite
+    assert runez.decompress("test.tar.gz", "unpacked", logger=None) == 1
+    assert dir_contents("unpacked") == expected
+
+    # Check .xz file
+    assert runez.decompress("test.tar.gz", "unpacked", logger=None) == 1
+    assert dir_contents("unpacked") == expected
+
+    # Check .zip file (top dir not repeated like in tars)
+    assert runez.decompress("test.zip", "unpacked", logger=None) == 1
+    assert dir_contents("unpacked") == expected["test"]
+    assert not logged
+
+
 def test_edge_cases():
     assert runez.file.ini_to_dict(None, default=None) is None
 
@@ -141,8 +202,9 @@ def test_failure(monkeypatch):
     monkeypatch.setattr(os.path, "getsize", lambda _: 10)
     with runez.CaptureOutput() as logged:
         with patch("runez.file._do_delete"):
-            assert runez.copy("some-file", "bar", fatal=False) == -1
-            assert "Can't copy" in logged.pop()
+            with patch("pathlib.Path.exists", return_value=True):
+                assert runez.copy("some-file", "bar", fatal=False) == -1
+                assert "Can't copy" in logged.pop()
 
         assert runez.delete("some-file", fatal=False) == -1
         assert "Can't delete" in logged
@@ -242,11 +304,6 @@ def test_file_inspection(temp_folder, logged):
     assert os.path.exists("x2/z2/sample2")
 
 
-def dir_contents(path=None):
-    path = runez.to_path(path or ".")
-    return {f.name: dir_contents(f) if f.is_dir() else runez.readlines(f) for f in path.iterdir()}
-
-
 def test_file_operations(temp_folder):
     runez.write("README.md", "hello")
     runez.copy("README.md", "sample1/README.md")
@@ -284,7 +341,7 @@ def test_file_operations(temp_folder):
         assert runez.delete(temp_folder) == 1
         assert "Would delete" in logged.pop()
 
-        assert runez.copy("some-folder/bar/baz", "some-folder", fatal=False) == -1
+        assert runez.copy("some-folder/bar", "some-folder", fatal=False) == -1
         assert "source contained in destination" in logged.pop()
 
         assert runez.move("some-folder/bar/baz", "some-folder", fatal=False) == -1
@@ -332,44 +389,3 @@ def test_parent_folder():
         assert parent == "/logs"
         assert runez.parent_folder(parent) == "/"
         assert runez.parent_folder("/") == "/"
-
-
-def test_untar(temp_folder, logged):
-    runez.write("test/README.md", "hello", logger=None)
-
-    assert runez.tar("test", "test.tar.gz", dryrun=True) == 1
-    assert "Would tar test -> test.tar.gz" in logged.pop()
-
-    # Direct tar (no basename)
-    assert runez.tar("test", "test.tar.gz", basename=None) == 1
-    assert "Tar test -> test.tar.gz" in logged.pop()
-
-    # Tar on top of existing file
-    assert runez.tar("test", "test.tar.gz", basename=None, overwrite=False, fatal=False) == -1
-    assert "test.tar.gz exists, can't tar" in logged.pop()
-
-    assert runez.untar("test.tar.gz", "unpacked", dryrun=True) == 1
-    assert "Would untar test.tar.gz -> unpacked" in logged.pop()
-
-    assert runez.untar("test.tar.gz", "unpacked") == 1
-    assert "Untar test.tar.gz -> unpacked" in logged.pop()
-    assert dir_contents("unpacked") == {"README.md": ["hello"]}
-
-    # Second attempt fails without overwrite
-    assert runez.untar("test.tar.gz", "unpacked", overwrite=False, fatal=False) == -1
-    assert "unpacked exists, can't untar" in logged.pop()
-
-    # Second attempt succeeds with overwrite
-    assert runez.untar("test.tar.gz", "unpacked", logger=None) == 1
-    assert dir_contents("unpacked") == {"README.md": ["hello"]}
-
-    # Using source folder basename
-    assert runez.tar("test", "test.tar.gz", basename=True, logger=None) == 1
-    assert runez.untar("test.tar.gz", "unpacked", logger=None) == 1
-    assert dir_contents("unpacked") == {"test": {"README.md": ["hello"]}}
-    assert not logged
-
-    # Using a custom basename
-    assert runez.tar("test", "test.tar.gz", basename="foo") == 1
-    assert runez.untar("test.tar.gz", "unpacked") == 1
-    assert dir_contents("unpacked") == {"foo": {"README.md": ["hello"]}}

@@ -64,7 +64,7 @@ def test_download(temp_folder, logged):
     assert "GET https://example.com/test/README.txt [200]" in logged.pop()
     assert runez.readlines("README.txt") == ["Hello"]
 
-    client.untar("foo/test.tar.gz", "my-folder", dryrun=True)
+    client.decompress("foo/test.tar.gz", "my-folder", dryrun=True)
     assert "Would untar test.tar.gz -> my-folder" in logged.pop()
 
 
