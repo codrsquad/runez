@@ -62,7 +62,7 @@ def dir_contents(path=None):
 def test_decompress(temp_folder, logged):
     runez.write("test/README.md", "hello", logger=None)
     runez.write("test/a/b", "c", logger=None)
-    expected = dir_contents(".")
+    expected = dir_contents("test")
 
     # Unknown extension
     assert runez.compress("test", "test.foo", overwrite=False, fatal=False) == -1
@@ -109,9 +109,9 @@ def test_decompress(temp_folder, logged):
     assert runez.decompress("test.tar.gz", "unpacked", logger=None) == 1
     assert dir_contents("unpacked") == expected
 
-    # Check .zip file (top dir not repeated like in tars)
+    # Check .zip file
     assert runez.decompress("test.zip", "unpacked", logger=None) == 1
-    assert dir_contents("unpacked") == expected["test"]
+    assert dir_contents("unpacked") == expected
     assert not logged
 
 

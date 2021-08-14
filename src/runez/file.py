@@ -526,9 +526,20 @@ def _untar(source, destination):
     """Effective untar"""
     import tarfile
 
-    delete(destination, fatal=False, logger=None, dryrun=False)
-    with tarfile.open(source) as fh:
-        fh.extractall(destination)
+    source = to_path(source).absolute()
+    destination = to_path(destination).absolute()
+    with TempFolder():
+        extracted_source = to_path(source.name)
+        with tarfile.open(source) as fh:
+            fh.extractall(extracted_source)
+
+        if extracted_source.is_dir():
+            # Tarballs often contain only one sub-folder, auto-unpack that to the destination (similar to how zip files work)
+            subfolders = list(extracted_source.iterdir())
+            if len(subfolders) == 1 and subfolders[0].is_dir():
+                extracted_source = subfolders[0]
+
+        _move(extracted_source, destination)
 
 
 def _unzip(source, destination):
