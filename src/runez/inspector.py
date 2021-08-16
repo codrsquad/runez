@@ -6,6 +6,7 @@ Functions from this module must be explicitly imported, for example:
 >>> from runez.inspector import auto_import_siblings
 """
 
+import importlib
 import os
 import sys
 import time
@@ -47,7 +48,7 @@ def auto_import_siblings(package=None, auto_clean="TOX_WORK_DIR", skip=None):
         (list): List of imported modules, if any
     """
     if package:
-        given = __import__(package)
+        given = importlib.import_module(package)
         folder = getattr(given, "__file__", None)
         if folder:
             folder = os.path.dirname(os.path.abspath(folder))
@@ -85,7 +86,7 @@ def auto_import_siblings(package=None, auto_clean="TOX_WORK_DIR", skip=None):
     imported = []
     for loader, module_name, _ in pkgutil.walk_packages([folder], prefix="%s." % package):
         if _should_auto_import(module_name, skip):
-            __import__(module_name)
+            importlib.import_module(module_name)
             imported.append(module_name)
 
     return imported
@@ -111,7 +112,7 @@ class AutoInstall:
     def ensure_installed(self):
         """Ensure that self.top_level is installed (install it if need be)"""
         try:
-            __import__(self.top_level)
+            importlib.import_module(self.top_level)
 
         except ImportError:
             if not SYS_INFO.venv_bin_folder:
