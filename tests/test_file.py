@@ -261,10 +261,12 @@ def test_file_inspection(temp_folder, logged):
     assert "does not exist" in logged.pop()
 
     # Creating dangling symlinks is possible
-    assert runez.symlink("bar", "baz", fatal=False, must_exist=False) == 1
-    assert "Symlink bar <- baz" in logged.pop()
-    assert os.path.islink("baz")
-    assert not os.path.exists("baz")
+    assert runez.symlink("s/bar", "s/baz", fatal=False, must_exist=False) == 1
+    assert "Symlink s/bar <- s/baz" in logged.pop()
+    assert os.path.islink("s/baz")
+    assert not os.path.exists("s/baz")
+    runez.touch("s/bar")
+    assert os.path.exists("s/baz")
 
     assert runez.copy("sample", "x/y/sample") == 1
     assert runez.symlink("sample", "x/y/sample3", fatal=False) == 1
@@ -357,6 +359,9 @@ def test_pathlib(temp_folder):
     assert not subfolder.is_dir()
     runez.ensure_folder(subfolder)
     assert subfolder.is_dir()
+
+    with pytest.raises(Exception):
+        runez.to_path("foo bar", no_spaces=Exception)
 
     with runez.CurrentFolder(subfolder, anchor=True):
         path = Path("foo")

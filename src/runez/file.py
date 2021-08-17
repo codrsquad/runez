@@ -264,14 +264,18 @@ def readlines(path, default=UNSET, logger=None, first=None, errors=None):
         return _R.hdef(default, logger, "Can't read %s" % short(path), e=e)
 
 
-def to_path(path):
+def to_path(path, no_spaces=False):
     """
     Args:
         path (str | Path): Path to convert
+        no_spaces (type | bool | None): If True-ish, abort if 'path' contains a space
 
     Returns:
         (Path | None): Converted to `Path` object, if necessary
     """
+    if no_spaces and " " in str(path):
+        abort("Refusing path with space (not worth escaping all the things to make this work): '%s'" % short(path), fatal=no_spaces)
+
     if isinstance(path, Path):
         return path
 
@@ -509,6 +513,14 @@ def _move(source, destination):
 
 def _symlink(source, destination):
     """Effective symlink"""
+    source = to_path(source)
+    destination = to_path(destination)
+    src = source.absolute()
+    dest = destination.absolute()
+    if str(src.parent).startswith(str(dest.parent)):
+        # Make relative symlinks automatically when applicable
+        source = src.relative_to(dest.parent)
+
     os.symlink(source, destination)
 
 

@@ -464,7 +464,7 @@ def stringified(value, converter=None, none="None"):
     return "{}".format(value)
 
 
-def joined(*args, delimiter=" ", keep_empty=True, stringify=stringified):
+def joined(*args, delimiter=" ", keep_empty=True, stringify=stringified, strip=None):
     """
     >>> joined(1, None, 2)
     '1 None 2'
@@ -480,11 +480,18 @@ def joined(*args, delimiter=" ", keep_empty=True, stringify=stringified):
                                         - False: Filter out `None` values only (keep False-ish values as-is)
                                         - True (default): No filtering, keep all values as-is
         stringify (callable): Function to use to stringify args (default: `stringified`)
+        strip (str | bool | None): If provided, `strip()` string representation of args
 
     Returns:
         (str): Joined string
     """
     args = [stringify(x) for x in flattened(args, keep_empty=keep_empty)]
+    if strip is True:
+        args = [x.strip() for x in args]
+
+    elif strip:
+        args = [x.strip(strip) for x in args]
+
     return delimiter.join(flattened(args, keep_empty=keep_empty))
 
 

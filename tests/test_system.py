@@ -372,6 +372,10 @@ def test_joined():
     assert runez.joined("", "") == " "
     assert runez.joined("", "", keep_empty=None) == ""
 
+    assert runez.joined(" a ", " b ", keep_empty=None)== " a   b "
+    assert runez.joined(" a ", " b ", keep_empty=None, strip=True) == "a b"
+    assert runez.joined(" a ", " b ", keep_empty=None, strip=" ") == "a b"
+
     assert runez.joined("", runez.UNSET, None, "foo", 0, "", None) == " UNSET None foo 0  None"
     assert runez.joined("", runez.UNSET, None, "foo", 0, "", None, keep_empty=None) == "foo"
     assert runez.joined("", runez.UNSET, None, "foo", 0, "", None, keep_empty=False) == " foo 0 "
