@@ -281,7 +281,8 @@ def run(
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): When True, do not really run but call logger("Would run: ...") instead [default: runez.DRYRUN]
         short_exe (str | bool | None): Try to log a compact representation of executable
-        passthrough (bool): If True, pass-through stderr/stdout in addition to capturing it
+        passthrough (bool | file | None): If True-ish, pass-through stderr/stdout in addition to capturing it
+                                          as well as 'passthrough' itself if it has a write() function
         path_env (dict | None): Allows to inject PATH-like env vars, see `_added_env_paths()`
         strip (str | bool | None): If provided, `strip()` the captured output [default: strip "\n" newlines]
         stdout (int | IO[Any] | None): Passed-through to subprocess.Popen, [default: subprocess.PIPE]
@@ -627,6 +628,10 @@ def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
     for fd in (stdout_r, stdout_w, stderr_r, stderr_w):
         fcntl.ioctl(fd, termios.TIOCSWINSZ, term_size)
 
+    passthrough = getattr(passthrough, "stream", passthrough)  # Convenience support for things like logging handlers
+    if not hasattr(passthrough, "write"):
+        passthrough = None
+
     with subprocess.Popen(args, stdout=stdout_w, stderr=stderr_w, **popen_args) as p:  # nosec
         os.close(stdout_w)
         os.close(stderr_w)
@@ -639,15 +644,15 @@ def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
                         readable.remove(fd)
                         continue
 
+                    text = decode(data)
+                    _safe_write(passthrough, text)
                     if fd == stdout_r:
-                        sys.stdout.write(decode(data))
-                        sys.stdout.buffer.flush()
-                        stdout_buffer.write(data)
-                        continue
+                        _safe_write(sys.stdout, text, flush=sys.stdout.buffer)
+                        _safe_write(stdout_buffer, data)
 
-                    sys.stderr.write(decode(data))
-                    sys.stderr.buffer.flush()
-                    stderr_buffer.write(data)
+                    else:
+                        _safe_write(sys.stderr, text, flush=sys.stderr.buffer)
+                        _safe_write(stderr_buffer, data)
 
                 except OSError as e:
                     if e.errno != errno.EIO:  # On some OS-es, EIO means EOF
@@ -658,6 +663,17 @@ def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
     os.close(stdout_r)
     os.close(stderr_r)
     return p, uncolored(decode(stdout_buffer.getvalue())), uncolored(decode(stderr_buffer.getvalue()))
+
+
+def _safe_write(target, data, flush=None):
+    if target is not None and data is not None:
+        try:
+            target.write(data)
+            if flush is not None:
+                flush.flush()
+
+        except Exception:
+            pass  # Don't consider run crashed if one of the channels we're passing through is failing
 
 
 def _windows_exe(path):  # pragma: no cover

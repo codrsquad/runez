@@ -39,6 +39,16 @@ def test_background_run(logged):
         assert "chatter hello &" in logged.pop()
 
 
+class CrashingWrite:
+    """Simulate a file/stream that keeps on crashing"""
+
+    crash_counter = 0
+
+    def write(self, message):
+        self.crash_counter += 1
+        raise Exception("oops, failed to write %s" % message)
+
+
 @pytest.mark.skipif(runez.WINDOWS, reason="Not supported on windows")
 def test_capture(monkeypatch):
     with runez.CurrentFolder(os.path.dirname(CHATTER)):
@@ -67,7 +77,9 @@ def test_capture(monkeypatch):
         assert "chatter hello" in logged.pop()
         assert runez.run(CHATTER, stdout=None) == RunResult(None, "", 0)
         assert "Running:" in logged.pop()
-        assert runez.run(CHATTER, "hello", fatal=True, passthrough=True) == RunResult("hello", "", 0)
+        crasher = CrashingWrite()
+        assert runez.run(CHATTER, "hello", fatal=True, passthrough=crasher) == RunResult("hello", "", 0)
+        assert crasher.crash_counter
         assert "hello" in logged.pop()
 
         # Test no-wait
