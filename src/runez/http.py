@@ -28,7 +28,7 @@ import os
 import urllib.parse
 from pathlib import Path
 
-from runez.file import decompress, TempFolder, to_path
+from runez.file import decompress, ensure_folder, TempFolder, to_path
 from runez.system import _R, abort, find_caller_frame, stringified, SYS_INFO, UNSET
 
 
@@ -685,6 +685,8 @@ class RestClient:
         """
         response = self._get_response("GET", url, fatal, logger, dryrun=dryrun, params=params, headers=headers, action="download")
         if response.ok and not _R.resolved_dryrun(dryrun):
+            destination = to_path(destination)
+            ensure_folder(destination.parent, fatal=fatal, logger=None)
             with open(destination, "wb") as fh:
                 fh.write(response.content)
 
