@@ -672,8 +672,8 @@ def _safe_write(target, data, flush=None):
             if flush is not None:
                 flush.flush()
 
-        except Exception:
-            pass  # Don't consider run crashed if one of the channels we're passing through is failing
+        except Exception:  # nosec, don't consider run crashed if one of the channels we're passing through is failing
+            pass
 
 
 def _windows_exe(path):  # pragma: no cover
