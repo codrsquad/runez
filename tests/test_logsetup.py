@@ -3,9 +3,9 @@ import os
 import sys
 import time
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
+from unittest.mock import patch
 
 import pytest
-from mock import patch
 
 import runez
 from runez.ascii import AsciiAnimation, AsciiFrames

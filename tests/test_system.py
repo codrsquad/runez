@@ -2,9 +2,9 @@ import datetime
 import logging
 import os
 import sys
+from unittest.mock import mock_open, patch
 
 import pytest
-from mock import mock_open, patch
 
 import runez
 from runez.program import RunResult
@@ -181,16 +181,17 @@ def test_decode():
     assert runez.decode(b" something ", strip=True) == "something"
 
 
-def test_docker_detection():
-    with patch.dict(os.environ, {"container": "foo"}):
+def test_docker_detection(monkeypatch):
+    monkeypatch.setenv("container", "foo")
+    info = SystemInfo()
+    assert info.is_running_in_docker is True
+
+    monkeypatch.setenv("container", "")
+    with patch("runez.system.open", side_effect=OSError):
         info = SystemInfo()
-        assert info.is_running_in_docker is True
+        assert info.is_running_in_docker is False
 
-    with patch.dict(os.environ, {"container": ""}):
-        with patch("runez.system.open", side_effect=OSError):
-            info = SystemInfo()
-            assert info.is_running_in_docker is False
-
+    if sys.version_info[:2] >= (3, 7):  # unittest.mock doesn't work correctly before 3.7
         with patch("runez.system.open", mock_open(read_data="1: /docker/foo")):
             info = SystemInfo()
             assert info.is_running_in_docker is True

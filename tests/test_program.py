@@ -3,9 +3,9 @@ import logging
 import os
 import subprocess
 import sys
+from unittest.mock import patch
 
 import pytest
-from mock import patch
 
 import runez
 from runez.conftest import exception_raiser

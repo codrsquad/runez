@@ -1,7 +1,7 @@
 import sys
+from unittest.mock import patch
 
 import pytest
-from mock import patch
 
 import runez
 from runez.colors import terminal

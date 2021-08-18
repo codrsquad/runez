@@ -1,9 +1,9 @@
 import os
 import sys
 from argparse import Namespace
+from unittest.mock import patch
 
 import pytest
-from mock import patch
 
 from runez.render import Align, Header, PrettyBorder, PrettyHeader, PrettyTable
 from runez.system import SYS_INFO, SystemInfo, UNSET

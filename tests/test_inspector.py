@@ -1,8 +1,8 @@
 import os
 import sys
+from unittest.mock import MagicMock, patch
 
 import pytest
-from mock import MagicMock, patch
 
 import runez
 from runez.inspector import auto_import_siblings, AutoInstall, ImportTime

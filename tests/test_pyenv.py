@@ -1,9 +1,9 @@
 import os
 import re
 import sys
+from unittest.mock import patch
 
 import pytest
-from mock import patch
 
 import runez
 from runez.http import RestClient
