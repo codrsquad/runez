@@ -68,9 +68,9 @@ class GlobalHttpCalls:
         self.allow(self.was_allowed)
 
     @staticmethod
-    def intentionally_disabled(*_, **__):
+    def intentionally_disabled(*_, **kwargs):
         """Used as replacement of urlopen(), when external http calls are forbidden"""
-        assert False, "Outgoing requests are intentionally forbidden in tests"
+        assert False, "Outgoing requests intentionally forbidden %s" % kwargs.get("url")
 
     @classmethod
     def is_forbidden(cls):
