@@ -638,6 +638,18 @@ def test_version():
     assert empty < v1
     assert v1 > empty
     assert v1 != empty
+    assert v1 < 2
+    assert v1 < 1.1
+    assert v1 < "1.1"
+    assert v1 < [5]
+    assert v1 > 0
+    assert v1 > 0.5
+    assert v1 > "0"
+
+    # All versions are bigger than anything not parsing to a valid version
+    assert v1 > ""
+    assert v1 > []
+    assert v1 > [5, 2, 3, 4, 5]
 
     v1foo = Version("1foo")  # Ignore additional text
     assert v1 == v1foo
@@ -681,6 +693,17 @@ def test_version():
     assert v11.suffix is None
     assert v12p.suffix == "post"
     assert v20d.suffix == "dev"
+
+    # Verify that numerical comparison takes place (not alphanumeric)
+    assert v12 < 1.19
+    assert v12 < "1.19"
+    assert v12 > 1
+    assert v12 == "1.2.3"
+    assert v12 == [1, 2, 3]
+    assert v12 == (1, 2, 3)
+    assert v20 == 2
+    assert v20 == 2.0
+    assert v20 != 2.1
 
     assert v2 == v20
     assert v12 > v11

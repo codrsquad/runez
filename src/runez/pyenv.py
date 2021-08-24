@@ -831,12 +831,18 @@ class Version:
     def from_text(cls, text, strict=False):
         """
         Args:
-            text (str | None): Text to be parsed
+            text: Text (or any object, for convenience) to be parsed
             strict (bool): If False, use first substring from 'text' that looks like a version number
 
         Returns:
             (Version | None): Parsed version, if valid
         """
+        if isinstance(text, Version):
+            return text
+
+        if text is not None:
+            text = joined(text, delimiter=".")
+
         if text:
             if not strict and (not text[0].isdigit() or not text[-1].isdigit()):
                 m = R_VERSION.search(text)
@@ -854,13 +860,23 @@ class Version:
         return hash(self.text)
 
     def __eq__(self, other):
+        other = Version.from_text(other, strict=True)
         return isinstance(other, Version) and self.components == other.components and self.prerelease == other.prerelease
 
     def __ge__(self, other):
         if isinstance(other, Version):
             return self == other or other < self
 
+    def __gt__(self, other):
+        other = Version.from_text(other, strict=True)
+        if other is None:
+            return True
+
+        if isinstance(other, Version):
+            return other < self
+
     def __lt__(self, other):
+        other = Version.from_text(other, strict=True)
         if isinstance(other, Version):
             if self.components is None or other.components is None:
                 return bool(other.components)
