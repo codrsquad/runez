@@ -614,7 +614,7 @@ def _file_op(source, destination, func, overwrite, fatal, logger, dryrun, must_e
     if _R.hdry(dryrun, logger, description):
         return 1
 
-    if must_exist and not os.path.exists(source):
+    if must_exist and not (os.path.exists(source) or os.path.islink(source)):
         message = "%s does not exist, can't %s to %s" % (short(source), action.lower(), short(destination))
         return abort(message, return_value=-1, fatal=fatal, logger=logger)
 

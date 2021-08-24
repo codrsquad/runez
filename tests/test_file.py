@@ -310,6 +310,10 @@ def test_file_inspection(temp_folder, logged):
 
 
 def test_file_operations(temp_folder):
+    runez.symlink("foo", "dangling-symlink", must_exist=False)
+    runez.move("dangling-symlink", "dangling-symlink2")
+    assert os.path.islink("dangling-symlink2")
+
     runez.write("README.md", "hello")
     runez.copy("README.md", "sample1/README.md")
     runez.copy("sample1", "sample2")
