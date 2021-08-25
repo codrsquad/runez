@@ -34,7 +34,7 @@ def importable_test_py_files(folder):
             yield fpath
 
 
-def test_auto_import_siblings(monkeypatch):
+def test_auto_import_siblings():
     # Check that none of these invocations raise an exception
     assert not _R.is_actual_caller_frame(mock_package(None))
     assert not _R.is_actual_caller_frame(mock_package(""))
@@ -47,33 +47,18 @@ def test_auto_import_siblings(monkeypatch):
     assert _R.is_actual_caller_frame(mock_package("foo"))
     assert _R.is_actual_caller_frame(mock_package("runez.system", name="__main__"))
 
+    caller = runez.system.CallerInfo()  # Caller is __main__ with default depth when called from tests
+    assert caller.is_main
     with pytest.raises(ImportError):
-        with monkeypatch.context() as m:
-            m.setattr(runez.inspector, "find_caller_frame", lambda *_, **__: None)
-            auto_import_siblings()
+        auto_import_siblings(caller=caller)
 
     with pytest.raises(ImportError):
-        with monkeypatch.context() as m:
-            m.setattr(runez.inspector, "find_caller_frame", lambda *_, **__: mock_package("foo", name="__main__"))
-            auto_import_siblings()
-
-    with pytest.raises(ImportError):
-        with monkeypatch.context() as m:
-            m.setattr(runez.inspector, "find_caller_frame", lambda *_, **__: mock_package(None))
-            auto_import_siblings()
-
-    with pytest.raises(ImportError):
-        with monkeypatch.context() as m:
-            m.setattr(runez.inspector, "find_caller_frame", lambda *_, **__: mock_package("foo"))
-            auto_import_siblings()
-
-    with pytest.raises(ImportError):
-        with monkeypatch.context() as m:
-            m.setattr(runez.inspector, "find_caller_frame", lambda *_, **__: mock_package("foo", file="/dev/null/foo"))
-            auto_import_siblings()
+        setattr(caller, "module_name", "foo")
+        assert not caller.is_main
+        auto_import_siblings(caller=caller)
 
     py_file_count = len(list(importable_test_py_files(runez.DEV.tests_folder))) - 1  # Remove one to not count tests/__init__.py itself
-    imported = auto_import_siblings(package="tests")
+    imported = auto_import_siblings()
     assert len(imported) == py_file_count
 
     imported = auto_import_siblings(skip=["tests.secondary"])
@@ -83,7 +68,6 @@ def test_auto_import_siblings(monkeypatch):
     assert "tests.secondary.test_import" not in imported
     assert "tests.test_system" in imported
 
-    monkeypatch.setenv("TOX_WORK_DIR", "some-value")
     imported = auto_import_siblings(skip=["tests.test_system", "tests.test_serialize"])
     assert len(imported) == py_file_count - 2
 

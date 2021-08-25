@@ -7,17 +7,16 @@ Functions from this module must be explicitly imported, for example:
 """
 
 import importlib
-import os
 import sys
 import time
 from functools import wraps
 
 from runez.convert import to_int
 from runez.program import run
-from runez.system import abort, find_caller_frame, py_mimic, SYS_INFO
+from runez.system import abort, CallerInfo, py_mimic, SYS_INFO
 
 
-def auto_import_siblings(package=None, auto_clean="TOX_WORK_DIR", skip=None):
+def auto_import_siblings(skip=None, caller=None):
     """Auto-import all sibling submodules from caller.
 
     This is handy for click command groups for example.
@@ -25,11 +24,13 @@ def auto_import_siblings(package=None, auto_clean="TOX_WORK_DIR", skip=None):
 
     - ./my_cli.py::
 
+        from runez.inspector import auto_import_siblings
+
         @click.group()
         def main(...):
             ...
 
-        runez.auto_import_siblings()
+        auto_import_siblings()
 
     - ./my_sub_command.py::
 
@@ -40,51 +41,25 @@ def auto_import_siblings(package=None, auto_clean="TOX_WORK_DIR", skip=None):
             ...
 
     Args:
-        package (str | None): Name of package to import (default: caller's package)
-        auto_clean (str | bool | None): If provided, auto-clean `.pyc`` files
         skip (list | None): Do not auto-import specified modules
+        package (CallerInfo | None): Caller info (for testing purposes)
 
     Returns:
         (list): List of imported modules, if any
     """
-    if package:
-        given = importlib.import_module(package)
-        folder = getattr(given, "__file__", None)
-        if folder:
-            folder = os.path.dirname(os.path.abspath(folder))
+    if caller is None:
+        caller = CallerInfo()
 
-    else:
-        caller = find_caller_frame()
-        if not caller:
-            raise ImportError("Could not determine caller, can't auto-import")
+    if not caller or caller.is_main:
+        raise ImportError("Calling auto_import_siblings() from __main__ is not supported: %s" % caller)
 
-        if caller.f_globals.get("__name__") == "__main__":
-            raise ImportError("Calling auto_import_siblings() from __main__ is not supported: %s" % caller)
-
-        package = caller.f_globals.get("__package__")
-        if not package:
-            raise ImportError("Could not determine caller's __package__, can't auto-import: %s" % caller)
-
-        caller_path = caller.f_globals.get("__file__")
-        if not caller_path:
-            raise ImportError("Could not determine caller's __file__, can't auto-import: %s" % caller)
-
-        folder = os.path.dirname(caller_path)
-
-    if not folder or not os.path.isdir(folder):
-        raise ImportError("%s.__file__ points to a non-existing directory, can't auto-import: %s" % (package, folder))
-
-    if auto_clean is not None and not isinstance(auto_clean, bool):
-        auto_clean = os.environ.get(auto_clean)
-
-    if auto_clean:
-        # Clean .pyc files so consecutive tox runs with distinct python2 versions don't get confused
-        _clean_files(folder, ".pyc")
+    if not caller.package_name or not caller.folder:
+        raise ImportError("Could not determine caller's __package__ and __file__, can't auto-import: %s" % caller)
 
     import pkgutil
 
     imported = []
-    for loader, module_name, _ in pkgutil.walk_packages([folder], prefix="%s." % package):
+    for loader, module_name, _ in pkgutil.walk_packages([caller.folder], prefix="%s." % caller.package_name):
         if _should_auto_import(module_name, skip):
             importlib.import_module(module_name)
             imported.append(module_name)
@@ -180,18 +155,6 @@ class ImportTime:
                 cumulative = max(cumulative, c)
 
         return cumulative
-
-
-def _clean_files(folder, extension):
-    """Clean all files with `extension` from `folder`"""
-    for root, dirs, files in os.walk(folder):
-        for fname in files:
-            if fname.endswith(extension):  # pragma: no cover, only applicable for local development
-                try:
-                    os.unlink(os.path.join(root, fname))
-
-                except (OSError, IOError):
-                    pass  # Delete is only needed in tox run, no need to fail if delete is not possible
 
 
 def _should_auto_import(module_name, skip):

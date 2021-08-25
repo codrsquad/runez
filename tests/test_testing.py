@@ -136,7 +136,7 @@ def test_script_invocations(cli):
 
     cli.run("--help", main="src/runez/__main__.py")
     assert cli.succeeded
-    assert "usage: runez [-h]" in cli.logged
+    assert "/runez [-h]" in cli.logged
     assert "Set of sample commands" in cli.logged
 
     # Below will properly make test coverage detect properly that we did execute code in __main__.py

@@ -29,7 +29,7 @@ import urllib.parse
 from pathlib import Path
 
 from runez.file import decompress, ensure_folder, TempFolder, to_path
-from runez.system import _R, abort, find_caller_frame, stringified, SYS_INFO, UNSET
+from runez.system import _R, abort, CallerInfo, stringified, SYS_INFO, UNSET
 
 
 def urljoin(base, url):
@@ -333,8 +333,7 @@ class MockWrapper:
 
     def __enter__(self):
         """We're used as a context"""
-        caller = find_caller_frame()
-        self.key = "%s.%s" % (caller.f_globals.get("__name__"), caller.f_code.co_name)
+        self.key = str(CallerInfo())
         self.start()
         return self
 

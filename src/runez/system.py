@@ -256,48 +256,104 @@ def decode(value, strip=None):
     return value
 
 
-def find_caller_frame(validator=None, depth=2, maximum=1000):
-    """
-    Args:
-        validator (callable): Function that will decide whether a frame is suitable, and return value of interest from it
-        depth (int): Depth from top of stack where to start
-        maximum (int | None): Maximum depth to scan
+class CallerInfo:
+    """Information on who called us"""
 
-    Returns:
-        (frame): First frame found
-    """
-    if _R.getframe is not None:
-        if validator is None:
-            validator = _R.is_actual_caller_frame
+    def __init__(self, validator=None, depth=2, maximum=1000):
+        """
+        Args:
+            validator (callable): Function that will decide whether a frame is suitable
+            depth (int): Depth from top of stack where to start
+            maximum (int | None): Maximum depth to scan
+        """
+        self._caller_frame = None
+        self.depth = None
+        if _R.getframe is not None:
+            if validator is None:
+                validator = _R.is_actual_caller_frame
 
-        while not maximum or depth <= maximum:
-            try:
-                f = _R.getframe(depth)
-                value = validator(f)
-                if value is not None:
-                    return value
+            while not maximum or depth <= maximum:
+                try:
+                    f = _R.getframe(depth)
+                    if validator(f):
+                        self._caller_frame = f
+                        self.depth = depth
+                        break
 
-                depth = depth + 1
+                    depth = depth + 1
 
-            except ValueError:
-                return None
+                except ValueError:
+                    return
 
+    def __repr__(self):
+        if not self._caller_frame:
+            return "<no caller info>"
 
-def find_caller_function(validator=None, depth=2, maximum=1000):
-    """
-    Args:
-        validator (callable): Function that will decide whether a frame is suitable, and return value of interest from it
-        depth (int): Depth from top of stack where to start
-        maximum (int | None): Maximum depth to scan
+        return joined(self.module_name or self.package_name, self.function_name, delimiter=".", keep_empty=None)
 
-    Returns:
-        (callable | None): Caller function, if one could be determined
-    """
-    caller = find_caller_frame(validator=validator, depth=depth, maximum=maximum)
-    if caller:
-        info = inspect.getframeinfo(caller)
-        if info and hasattr(info, "function"):
-            return caller.f_globals.get(info.function)
+    def __bool__(self):
+        return bool(self._caller_frame)
+
+    @cached_property
+    def _f_code(self):
+        if self._caller_frame:
+            return self._caller_frame.f_code
+
+    @cached_property
+    def f_globals(self):
+        if self._caller_frame:
+            return self._caller_frame.f_globals
+
+    @cached_property
+    def docstring(self):
+        """Docstring of caller, if any"""
+        if self.function:
+            return self.function.__doc__
+
+    @property
+    def is_main(self):
+        """Is caller coming from a __main__ module?"""
+        return self.module_name == "__main__"
+
+    @cached_property
+    def basename(self):
+        if self.filepath:
+            return os.path.basename(self.filepath)
+
+    @cached_property
+    def filepath(self):
+        """File path of caller, if any"""
+        if self.f_globals:
+            return self.f_globals.get("__file__")
+
+    @cached_property
+    def folder(self):
+        if self.filepath:
+            return os.path.dirname(self.filepath)
+
+    @cached_property
+    def function(self):
+        """Caller function, if any"""
+        if self._f_code and self.f_globals:
+            return self.f_globals.get(self._f_code.co_name)
+
+    @cached_property
+    def function_name(self):
+        """Function name of caller, if any"""
+        if self.function:
+            return self.function.__name__
+
+    @cached_property
+    def module_name(self):
+        """Module name of caller, if any"""
+        if self.f_globals:
+            return self.f_globals.get("__name__")
+
+    @cached_property
+    def package_name(self):
+        """Package name of caller, if any"""
+        if self.f_globals:
+            return self.f_globals.get("__package__")
 
 
 def first_line(text, keep_empty=False, default=None):
@@ -430,7 +486,7 @@ def stringified(value, converter=None, none="None"):
     Args:
         value: Any object to turn into a string
         converter (callable | None): Optional converter to use for non-string objects
-        none (str | bool): Value to use to represent `None` ("" or False represents None as empty string)
+        none: Value to use to represent `None` ("" or False represents None as empty string)
 
     Returns:
         (str): Ensure `text` is a string if necessary
@@ -1205,7 +1261,7 @@ class DevInfo:
     def current_test():
         """
         Returns:
-            (str | None): None if we're currently NOT running from a test invocation (such as: pytest ...)
+            (CallerInfo | None): None if we're currently NOT running from a test invocation (such as: pytest ...)
                           Path to test_<name>.py file if user followed usual conventions, otherwise path to first found test module
         """
         regex = re.compile(r"^(.+\.|)(conftest|(test_|_pytest|unittest).+|.+_test)$")
@@ -1215,7 +1271,7 @@ class DevInfo:
             if name and not name.startswith("runez"):
                 return regex.match(name.lower()) and f.f_globals.get("__file__")
 
-        return find_caller_frame(validator=is_test_frame)
+        return CallerInfo(validator=is_test_frame)
 
     @cached_property
     def project_folder(self):
@@ -1227,8 +1283,8 @@ class DevInfo:
         """(str | None): Path to current development project's tests/ folder, if we're running from a source compilation"""
         if SYS_INFO.venv_bin_folder:
             ct = self.current_test()
-            if ct:
-                return _R.find_parent_folder(ct, {"tests", "test"})
+            if ct.folder:
+                return _R.find_parent_folder(ct.folder, {"tests", "test"})
 
     @cached_property
     def venv_folder(self):
@@ -1280,11 +1336,6 @@ class PlatformInfo:
 
 class SystemInfo:
     """Information on current run"""
-
-    @staticmethod
-    def current_test():
-        """Deprecated: use DEV.current_test() instead"""
-        return DevInfo.current_test()
 
     @cached_property
     def current_process(self):
@@ -1346,10 +1397,9 @@ class SystemInfo:
         """(str): Best effort determination of currently running program name"""
         name = os.path.basename(self.program_path)
         if name and name.endswith(".py"):
-            f = find_caller_frame()
-            package = f.f_globals.get("__package__")
-            if package:
-                name = package.partition(".")[0]
+            caller = CallerInfo()
+            if caller.package_name:
+                name = caller.package_name.partition(".")[0]
 
         return name or os.path.basename(self.program_path)
 
@@ -1361,9 +1411,9 @@ class SystemInfo:
     @cached_property
     def program_version(self):
         """(str): Version of currently running program"""
-        caller = find_caller_frame(validator=_R.frame_has_package)
-        if caller:
-            return get_version(caller, logger=None)
+        caller = CallerInfo(validator=_R.frame_has_package)
+        if caller.module_name:
+            return get_version(caller.module_name, logger=None)
 
     @cached_property
     def terminal(self):

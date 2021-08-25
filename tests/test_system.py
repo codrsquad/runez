@@ -476,10 +476,16 @@ def test_system():
     assert str(runez.system.PlatformInfo("Darwin 20.5.0 x86_64 i386")) == "Darwin/20.5.0; x86_64 i386"
     assert str(runez.system.PlatformInfo("Linux 5.10.25 x86_64 x86_64")) == "Linux/5.10.25; x86_64"
 
-    assert "test_system.py" in runez.DEV.current_test()
+    ct = runez.DEV.current_test()
+    assert ct
+    assert not ct.is_main
+    assert ct.function_name == "test_system"
+    assert str(ct) == "tests.test_system.test_system"
 
     # Ensure we stop once callstack is exhausted
-    assert runez.system.find_caller_frame(lambda f: None, maximum=None) is None
+    caller = runez.system.CallerInfo(lambda f: None, maximum=None)
+    assert not caller
+    assert str(caller) == "<no caller info>"
 
     # Verify that UNSET behaves as expected: evaluates to falsy, has correct representation
     assert not runez.UNSET

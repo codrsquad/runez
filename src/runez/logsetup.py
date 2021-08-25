@@ -822,11 +822,6 @@ class LogManager:
                 LOG.warning(message)
 
     @staticmethod
-    def project_path(*relative_path):
-        """Deprecated, use runez.DEV.project_path()"""
-        return DEV.project_path(*relative_path)
-
-    @staticmethod
     def tests_path(*relative_path):
         """Deprecated, use runez.DEV.tests_path()"""
         return DEV.tests_path(*relative_path)
@@ -980,16 +975,6 @@ class LogManager:
             (bool): True if we were indeed in dryrun mode, and we logged the message
         """
         return _R.hdry(dryrun, logger, message)
-
-    @staticmethod
-    def current_test():
-        """Deprecated, use runez.DEV.current_test()"""
-        return DEV.current_test()
-
-    @staticmethod
-    def dev_folder(*relative_path):
-        """Deprecated, use runez.DEV.venv_path()"""
-        return DEV.venv_path(*relative_path)
 
     @classmethod
     def _props(cls):

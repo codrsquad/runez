@@ -26,7 +26,7 @@ from runez.colors import ColorManager
 from runez.convert import affixed
 from runez.file import basename
 from runez.logsetup import LogManager
-from runez.system import _R, find_caller_frame, find_caller_function, first_line, flattened, get_version, stringified, TempArgv, UNSET
+from runez.system import _R, CallerInfo, first_line, flattened, get_version, short, stringified, TempArgv, UNSET
 
 
 class Cli:
@@ -77,13 +77,13 @@ class Cli:
         """
         caller = None
         if not help or not prog:
-            caller = find_caller_function()
+            caller = CallerInfo()
 
         if not help:
-            help = caller and caller.__doc__
+            help = caller and caller.docstring
 
         if not prog:
-            prog = caller and caller.__name__
+            prog = caller and caller.function_name
             if prog and prog.startswith("cmd_"):
                 prog = prog[4:]
 
@@ -112,26 +112,20 @@ class Cli:
         """
         from runez.render import PrettyTable
 
-        caller = find_caller_frame()
-        f_globals = caller.f_globals
-        package = f_globals.get("__package__")
+        caller = CallerInfo()
+        package = caller.package_name
         available_commands = {}
-        for name, func in f_globals.items():
+        for name, func in caller.f_globals.items():
             if len(name) > 4 and name.startswith("cmd_"):
                 name = name[4:].replace("_", "-")
                 available_commands[name] = func
 
         if not prog:
-            if f_globals.get("__name__") == "__main__" and package:
-                prog = "python -m%s" % package
+            if package:
+                prog = "python -m%s" % package if caller.is_main else package
 
-            elif package:
-                prog = package
-
-            else:
-                fname = f_globals.get("__file__")
-                if fname and os.path.basename(fname) in ("__init__.py", "__main__.py"):
-                    prog = os.path.basename(os.path.dirname(fname))
+            elif caller.basename in ("__init__.py", "__main__.py"):
+                prog = short(caller.folder)
 
         epilog = PrettyTable(2)
         epilog.header[0].style = "bold"
@@ -140,7 +134,7 @@ class Cli:
 
         epilog = "Available commands:\n%s" % epilog
         cls._prog = prog or package
-        parser = cls.parser(epilog=epilog, help=f_globals.get("__doc__"), prog=prog)
+        parser = cls.parser(epilog=epilog, help=caller.docstring or caller.f_globals.get("__doc__"), prog=prog)
         if cls.version and package:
             parser.add_argument(*cls.version, action="version", version=get_version(package), help="Show version and exit")
 
@@ -247,8 +241,8 @@ def version(*args, **attrs):
     """Show the version and exit"""
     if "version" not in attrs:
         # Ensure 'version' is not None here, otherwise click gets runez version (instead of caller package's version)
-        caller = find_caller_frame(validator=_R.frame_has_package)
-        attrs["version"] = get_version(caller, default="")
+        caller = CallerInfo(validator=_R.frame_has_package)
+        attrs["version"] = get_version(caller.module_name, default="")
 
     return click.version_option(*args, **attrs)
 
