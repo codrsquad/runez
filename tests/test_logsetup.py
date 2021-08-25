@@ -639,3 +639,79 @@ def test_progress_operation(isolated_log_setup, logged):
         runez.log.progress.stop()
         time.sleep(0.1)
         assert not runez.log.progress.is_running
+
+
+class SampleClass:
+
+    @runez.log.timeit  # Without args
+    def instance_func1(self, message):
+        print("%s: %s" % (self, message))
+
+    @runez.log.timeit()  # With args
+    def instance_func2(self, message):
+        print("%s: %s" % (self, message))
+
+    @classmethod
+    @runez.log.timeit
+    def class_func1(cls, message):
+        print("%s: %s" % (cls, message))
+
+    @classmethod
+    @runez.log.timeit()
+    def class_func2(cls, message):
+        print("%s: %s" % (cls, message))
+
+    @staticmethod
+    @runez.log.timeit()
+    def static_func1(message):
+        print(message)
+
+    @staticmethod
+    @runez.log.timeit()
+    def static_func2(message):
+        print(message)
+
+
+@runez.log.timeit
+def sample_function1(message):
+    print(message)
+
+
+@runez.log.timeit("sample2", color=True, logger=print)
+def sample_function2(message):
+    print(message)
+
+
+def test_timeit(logged):
+    sample = SampleClass()
+    sample.instance_func1("hello")
+    assert "SampleClass.instance_func1 took " in logged.pop()
+
+    sample.instance_func2("hello")
+    assert "SampleClass.instance_func2 took " in logged.pop()
+
+    sample.class_func1("hello")
+    assert "SampleClass.class_func1 took " in logged.pop()
+
+    sample.class_func2("hello")
+    assert "SampleClass.class_func2 took " in logged.pop()
+
+    sample.static_func1("hello")
+    assert "SampleClass.static_func1 took " in logged.pop()
+
+    sample.static_func2("hello")
+    assert "SampleClass.static_func2 took " in logged.pop()
+
+    sample_function1("sample1")
+    assert "sample_function1 took " in logged.pop()
+
+    sample_function2("sample2")
+    assert "sample2 took " in logged.pop()
+
+    with runez.log.timeit():
+        print("hello")
+    assert "tests.test_logsetup.test_timeit took " in logged.pop()
+
+    with runez.log.timeit("ad-hoc context"):
+        print("hello")
+    assert "ad-hoc context took " in logged.pop()

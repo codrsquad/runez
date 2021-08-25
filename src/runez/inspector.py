@@ -50,7 +50,7 @@ def auto_import_siblings(skip=None, caller=None):
     if caller is None:
         caller = CallerInfo()
 
-    if not caller or caller.is_main:
+    if caller.is_main:
         raise ImportError("Calling auto_import_siblings() from __main__ is not supported: %s" % caller)
 
     if not caller.package_name or not caller.folder:

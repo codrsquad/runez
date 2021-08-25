@@ -15,9 +15,9 @@ from typing import List, Optional
 
 from runez.ascii import AsciiAnimation
 from runez.convert import to_bytesize, to_int
-from runez.date import local_timezone
+from runez.date import local_timezone, represented_duration
 from runez.file import parent_folder
-from runez.system import _R, abort, cached_property, decode, DEV, flattened, quoted, short, stringified, uncolored
+from runez.system import _R, abort, cached_property, CallerInfo, decode, DEV, flattened, quoted, short, stringified, uncolored
 from runez.system import LOG, py_mimic, Slotted, SYS_INFO, ThreadGlobalContext, UNSET, WINDOWS
 
 
@@ -617,6 +617,81 @@ def default_log_locations():
     return ["{dev}/log/{basename}", "/logs/{appname}/{basename}", "/var/log/{basename}"]
 
 
+class Timeit:
+    """Measure how long a decorated function, or context, took took to run"""
+
+    # It's OK to modify these globally, right after importing runez
+    color = UNSET
+    delimiter = " "
+    fmt = "{function} took {elapsed}"
+    logger = UNSET
+    span = UNSET
+
+    def __init__(self, function=None, color=UNSET, logger=UNSET):
+        self._func = None
+        self.function = None
+        self.start_time = None
+        self.color = _R.rdefault(color, self.color)
+        self.logger = _R.rdefault(logger, self.logger)
+        if callable(function):
+            # We're being used as a decorator without args
+            self._func = function
+            self.function = function.__qualname__
+
+        else:
+            self.function = function
+
+    def __get__(self, instance, owner):
+        return _WrappedInstanceFunction(self, instance)
+
+    def __call__(self, *args, **kwargs):
+        """
+        Args:
+            func (callable): We're used as a decorator of a function
+
+        Returns:
+            (callable): Decorated function
+        """
+        if self._func:
+            self.__enter__()
+            try:
+                return self._func(*args, **kwargs)
+
+            finally:
+                self.__exit__()
+
+        # We've been used as a decorator with args, and now we're called with the decorated function as argument
+        self._func = args[0]
+        if not self.function:
+            self.function = self._func.__qualname__
+
+        return self
+
+    def __enter__(self):
+        self.start_time = time.time()
+        return self
+
+    def __exit__(self, *_):
+        msg = self.function
+        if not msg:
+            msg = str(CallerInfo())
+
+        logger = _R.rdefault(self.logger, LogManager.spec.default_logger)
+        if callable(logger):
+            elapsed = time.time() - self.start_time
+            elapsed = represented_duration(elapsed, span=self.span, delimiter=self.delimiter)
+            color = self.color
+            if logger is print and (color is UNSET or color is True):
+                color = _R._runez_module().bold
+
+            if callable(color):
+                msg = color(msg)
+                elapsed = color(elapsed)
+
+            msg = self.fmt.format(function=msg, elapsed=elapsed)
+            logger(msg)
+
+
 class LogManager:
     """
     Global logging context managed by runez.
@@ -668,6 +743,9 @@ class LogManager:
     used_formats = None  # type: Optional[str]
     faulthandler_signum = None  # type: Optional[int]
     trace_env_var = "TRACE_DEBUG"
+
+    # Convenience decorator/context logging how long a function or section of code took to run
+    timeit = Timeit
 
     _lock = threading.RLock()
     _logging_snapshot = LoggingSnapshot()
@@ -1285,3 +1363,13 @@ def _get_file_handler(location, rotate, rotate_count):
         return RotatingFileHandler(location, maxBytes=size, backupCount=rotate_count)
 
     raise ValueError("Invalid 'rotate' (unknown type): %s" % rotate)
+
+
+class _WrappedInstanceFunction:
+
+    def __init__(self, function, instance):
+        self.function = function
+        self.instance = instance
+
+    def __call__(self, *args, **kwargs):
+        self.function(self.instance, *args, **kwargs)

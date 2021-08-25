@@ -154,12 +154,12 @@ def represented_duration(seconds, span=UNSET, delimiter=" "):
     """
     Args:
         seconds (int | float | None): Duration in seconds
-        span (int | None): If specified, return `span` most significant parts of the duration, specify <= 0 for short form
-                           > 0: N most significant long parts, example: 1 hour 5 seconds
-                           None: all parts, example: 1 hour 2 minutes 5 seconds 20 ms
-                           0: all parts, short form, example: 1h 2m 5s 20ms
-                           < 0: N most significant parts, short form, example: 1h 5s
-                           UNSET: use `DEFAULT_DURATION_SPAN` (which can set globally per app, for convenience)
+        span (int | Unset | None): If specified, return `span` most significant parts of the duration, specify <= 0 for short form
+                                   > 0: N most significant long parts, example: 1 hour 5 seconds
+                                   None: all parts, example: 1 hour 2 minutes 5 seconds 20 ms
+                                   0: all parts, short form, example: 1h 2m 5s 20ms
+                                   < 0: N most significant parts, short form, example: 1h 5s
+                                   UNSET: use `DEFAULT_DURATION_SPAN` (which can set globally per app, for convenience)
         delimiter (str): Delimiter to use between parts
 
     Returns:

@@ -286,20 +286,9 @@ class CallerInfo:
                     return
 
     def __repr__(self):
-        if not self._caller_frame:
-            return "<no caller info>"
-
         return joined(self.module_name or self.package_name, self.function_name, delimiter=".", keep_empty=None)
 
-    def __bool__(self):
-        return bool(self._caller_frame)
-
-    @cached_property
-    def _f_code(self):
-        if self._caller_frame:
-            return self._caller_frame.f_code
-
-    @cached_property
+    @property
     def f_globals(self):
         if self._caller_frame:
             return self._caller_frame.f_globals
@@ -323,8 +312,8 @@ class CallerInfo:
     @cached_property
     def filepath(self):
         """File path of caller, if any"""
-        if self.f_globals:
-            return self.f_globals.get("__file__")
+        if self._caller_frame:
+            return self._caller_frame.f_globals.get("__file__")
 
     @cached_property
     def folder(self):
@@ -334,26 +323,26 @@ class CallerInfo:
     @cached_property
     def function(self):
         """Caller function, if any"""
-        if self._f_code and self.f_globals:
-            return self.f_globals.get(self._f_code.co_name)
+        if self.function_name:
+            return self._caller_frame.f_globals.get(self.function_name)
 
     @cached_property
     def function_name(self):
         """Function name of caller, if any"""
-        if self.function:
-            return self.function.__name__
+        if self._caller_frame:
+            return self._caller_frame.f_code.co_name
 
     @cached_property
     def module_name(self):
         """Module name of caller, if any"""
-        if self.f_globals:
-            return self.f_globals.get("__name__")
+        if self._caller_frame:
+            return self._caller_frame.f_globals.get("__name__")
 
     @cached_property
     def package_name(self):
         """Package name of caller, if any"""
-        if self.f_globals:
-            return self.f_globals.get("__package__")
+        if self._caller_frame:
+            return self._caller_frame.f_globals.get("__package__")
 
 
 def first_line(text, keep_empty=False, default=None):
@@ -1269,7 +1258,7 @@ class DevInfo:
         def is_test_frame(f):
             name = f.f_globals.get("__name__")
             if name and not name.startswith("runez"):
-                return regex.match(name.lower()) and f.f_globals.get("__file__")
+                return regex.match(name) and f.f_globals.get("__file__")
 
         return CallerInfo(validator=is_test_frame)
 
@@ -1945,11 +1934,12 @@ class _R:
             return _R.find_parent_folder(dirpath, basenames)
 
     @staticmethod
-    def is_actual_caller_frame(f):
+    def is_actual_caller_frame(f, main_ok=True):
         """Return `f` if it's a frame that looks like coming from actual caller (not runez itself, or an internal library package)"""
-        name = f.f_globals.get("__name__")
-        if name and "__main__" in name:
-            return f
+        if main_ok:
+            name = f.f_globals.get("__name__")
+            if name and "__main__" in name:
+                return f
 
         package = f.f_globals.get("__package__")
         if package and not package.startswith("_") and package.partition(".")[0] not in ("importlib", "pluggy", "runez"):
@@ -1958,11 +1948,7 @@ class _R:
     @staticmethod
     def frame_has_package(f):
         """Return package of frame `f`, if it has one"""
-        caller = _R.is_actual_caller_frame(f)
-        if caller:
-            package = caller.f_globals.get("__package__")
-            if package:
-                return package
+        return _R.is_actual_caller_frame(f, main_ok=False)
 
 
 def _flatten(result, value, keep_empty, split, shellify, transform, unique):
