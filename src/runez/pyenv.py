@@ -4,7 +4,7 @@ import re
 import sys
 from collections import defaultdict
 
-from runez.file import parent_folder, to_path
+from runez.file import ls_dir, parent_folder, to_path
 from runez.http import RestClient, urljoin
 from runez.program import is_executable, run
 from runez.system import _R, abort, flattened, joined, resolved_path, short, stringified, UNSET
@@ -460,11 +460,9 @@ class PythonInstallationScanner:
         Yields:
             (PythonInstallation): Found python installations
         """
-        location = self.resolved_location()
-        if location:
-            for child in location.iterdir():
-                if child.is_dir() and not child.is_symlink():
-                    yield self.python_from_path(child)
+        for child in ls_dir(self.resolved_location()):
+            if child.is_dir() and not child.is_symlink():
+                yield self.python_from_path(child)
 
     def unknown_python(self, spec):
         """

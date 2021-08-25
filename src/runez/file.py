@@ -216,6 +216,20 @@ def is_younger(path, age, default=False):
         return default
 
 
+def ls_dir(path):
+    """A --dryrun friendly version of Path.iterdir
+
+    Args:
+        path (str | Path | None): Path to folder
+
+    Yields:
+        (Path): Sub-folders / files, if any
+    """
+    path = to_path(path)
+    if path and path.is_dir():
+        yield from path.iterdir()
+
+
 def parent_folder(path, base=None):
     """Parent folder of `path`, relative to `base`
 
@@ -545,11 +559,10 @@ def _untar(source, destination):
         with tarfile.open(source) as fh:
             fh.extractall(extracted_source)
 
-        if extracted_source.is_dir():
-            # Tarballs often contain only one sub-folder, auto-unpack that to the destination (similar to how zip files work)
-            subfolders = list(extracted_source.iterdir())
-            if len(subfolders) == 1 and subfolders[0].is_dir():
-                extracted_source = subfolders[0]
+        # Tarballs often contain only one sub-folder, auto-unpack that to the destination (similar to how zip files work)
+        subfolders = list(ls_dir(extracted_source))
+        if len(subfolders) == 1 and subfolders[0].is_dir():
+            extracted_source = subfolders[0]
 
         _move(extracted_source, destination)
 

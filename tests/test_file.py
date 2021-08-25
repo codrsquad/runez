@@ -57,7 +57,7 @@ def test_checksum():
 
 def dir_contents(path=None):
     path = runez.to_path(path or ".")
-    return {f.name: dir_contents(f) if f.is_dir() else runez.readlines(f) for f in path.iterdir()}
+    return {f.name: dir_contents(f) if f.is_dir() else runez.readlines(f) for f in runez.ls_dir(path)}
 
 
 def test_decompress(temp_folder, logged):
