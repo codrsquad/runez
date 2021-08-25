@@ -10,28 +10,28 @@ from runez.convert import plural, represented_bytesize
 from runez.system import _R, abort, Anchored, decode, resolved_path, short, SYMBOLIC_TMP, UNSET
 
 
-def basename(path, extension_marker=os.extsep):
+def basename(path, extension_marker=os.extsep, follow=False):
     """Base name of given `path`, ignoring extension if `extension_marker` is provided
 
     Args:
         path (str | Path | None): Path to consider
-        extension_marker (str | None): Also trim file extension, if marker provided
+        extension_marker (str | None): If provided: trim file extension
+        follow (bool): If True, follow symlink
 
     Returns:
-        (str): Basename part of path, without extension (if 'extension_marker' provided)
+        (str): Basename part of path, without extension if 'extension_marker' provided
     """
-    result = os.path.basename(path or "")
-    if extension_marker:
-        if extension_marker not in result:
-            return result
+    if path:
+        if follow:
+            path = os.path.realpath(path)
 
-        pre, _, post = result.rpartition(extension_marker)
-        if pre:
-            return pre
+        path = os.path.basename(path)
+        if extension_marker and extension_marker in path:
+            pre, _, post = path.rpartition(extension_marker)
+            if pre:
+                return pre
 
-        return result  # We have a basename starting with '.'
-
-    return result
+    return path
 
 
 def checksum(path, hash=hashlib.sha256, blocksize=65536):

@@ -36,8 +36,9 @@ k2 =
 
 
 def test_basename():
-    assert runez.basename(None) == ""
-    assert runez.basename("/some-folder/bar") == "bar"
+    assert runez.basename(None) is None
+    assert runez.basename("") == ""
+    assert runez.basename("/some-folder/bar", follow=True) == "bar"
     assert runez.basename("/some-folder/.bar") == ".bar"
     assert runez.basename("/some-folder/.bar.py") == ".bar"
     assert runez.basename("/some-folder/.bar.baz.py") == ".bar.baz"
