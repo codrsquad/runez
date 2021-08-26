@@ -26,7 +26,7 @@ from runez.colors import ColorManager
 from runez.convert import affixed
 from runez.file import basename
 from runez.logsetup import LogManager
-from runez.system import _R, CallerInfo, first_line, flattened, get_version, short, stringified, TempArgv, UNSET
+from runez.system import _R, find_caller, first_line, flattened, get_version, short, stringified, TempArgv, UNSET
 
 
 class Cli:
@@ -75,17 +75,16 @@ class Cli:
         Returns:
             (argparse.ArgumentParser): Parser with help auto-populated and well formatted
         """
-        caller = None
         if not help or not prog:
-            caller = CallerInfo()
+            caller = find_caller()
+            if caller:
+                if not help and caller.function:
+                    help = caller.function.__doc__
 
-        if not help:
-            help = caller and caller.docstring
-
-        if not prog:
-            prog = caller and caller.function_name
-            if prog and prog.startswith("cmd_"):
-                prog = prog[4:]
+                if not prog:
+                    prog = caller.function_name
+                    if prog and prog.startswith("cmd_"):
+                        prog = prog[4:]
 
         if prog and cls._prog and prog != cls._prog:
             prog = "%s %s" % (cls._prog, prog)
@@ -112,13 +111,12 @@ class Cli:
         """
         from runez.render import PrettyTable
 
-        caller = CallerInfo()
-        package = caller.package_name
+        caller = find_caller()
+        package = caller.package_name  # Will fail if no caller could be found (intentional)
         available_commands = {}
-        for name, func in caller.f_globals.items():
-            if len(name) > 4 and name.startswith("cmd_"):
-                name = name[4:].replace("_", "-")
-                available_commands[name] = func
+        for name, func in caller.globals(prefix="cmd_"):
+            name = name[4:].replace("_", "-")
+            available_commands[name] = func
 
         if not prog:
             if package:
@@ -134,7 +132,7 @@ class Cli:
 
         epilog = "Available commands:\n%s" % epilog
         cls._prog = prog or package
-        parser = cls.parser(epilog=epilog, help=caller.docstring or caller.f_globals.get("__doc__"), prog=prog)
+        parser = cls.parser(epilog=epilog, help=caller.module_docstring, prog=prog)
         if cls.version and package:
             parser.add_argument(*cls.version, action="version", version=get_version(package), help="Show version and exit")
 
@@ -241,8 +239,8 @@ def version(*args, **attrs):
     """Show the version and exit"""
     if "version" not in attrs:
         # Ensure 'version' is not None here, otherwise click gets runez version (instead of caller package's version)
-        caller = CallerInfo(validator=_R.frame_has_package)
-        attrs["version"] = get_version(caller.module_name, default="")
+        caller = find_caller(validator=_R.frame_has_package)
+        attrs["version"] = get_version(caller and caller.module_name, default="")
 
     return click.version_option(*args, **attrs)
 

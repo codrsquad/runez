@@ -13,7 +13,7 @@ from functools import wraps
 
 from runez.convert import to_int
 from runez.program import run
-from runez.system import abort, CallerInfo, py_mimic, SYS_INFO
+from runez.system import abort, find_caller, py_mimic, SYS_INFO
 
 
 def auto_import_siblings(skip=None, caller=None):
@@ -42,15 +42,15 @@ def auto_import_siblings(skip=None, caller=None):
 
     Args:
         skip (list | None): Do not auto-import specified modules
-        package (CallerInfo | None): Caller info (for testing purposes)
+        package (runez.system._CallerInfo | None): Caller info (for testing purposes)
 
     Returns:
         (list): List of imported modules, if any
     """
     if caller is None:
-        caller = CallerInfo()
+        caller = find_caller()
 
-    if caller.is_main:
+    if not caller or caller.is_main:
         raise ImportError("Calling auto_import_siblings() from __main__ is not supported: %s" % caller)
 
     if not caller.package_name or not caller.folder:

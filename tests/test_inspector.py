@@ -47,7 +47,7 @@ def test_auto_import_siblings():
     assert _R.is_actual_caller_frame(mock_package("foo"))
     assert _R.is_actual_caller_frame(mock_package("runez.system", name="__main__"))
 
-    caller = runez.system.CallerInfo()  # Caller is __main__ with default depth when called from tests
+    caller = runez.system.find_caller()  # Caller is __main__ with default depth when called from tests
     assert caller.is_main
     with pytest.raises(ImportError):
         auto_import_siblings(caller=caller)

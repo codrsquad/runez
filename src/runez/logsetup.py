@@ -17,7 +17,7 @@ from runez.ascii import AsciiAnimation
 from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone, represented_duration
 from runez.file import parent_folder
-from runez.system import _R, abort, cached_property, CallerInfo, decode, DEV, flattened, quoted, short, stringified, uncolored
+from runez.system import _R, abort, cached_property, decode, DEV, find_caller, flattened, quoted, short, stringified, uncolored
 from runez.system import LOG, py_mimic, Slotted, SYS_INFO, ThreadGlobalContext, UNSET, WINDOWS
 
 
@@ -674,7 +674,7 @@ class Timeit:
     def __exit__(self, *_):
         msg = self.function
         if not msg:
-            msg = str(CallerInfo())
+            msg = str(find_caller())
 
         logger = _R.rdefault(self.logger, LogManager.spec.default_logger)
         if callable(logger):
