@@ -269,6 +269,7 @@ def find_caller(depth=2, maximum=1000, need_file=True, need_package=False, regex
         (_CallerInfo | None): Caller info, if any
     """
     if _R.getframe is not None:
+        ignored = ("importlib", "pluggy", "runez")
         while not maximum or depth <= maximum:
             try:
                 f = _R.getframe(depth)
@@ -276,7 +277,7 @@ def find_caller(depth=2, maximum=1000, need_file=True, need_package=False, regex
                 if package or not need_package:
                     name = f.f_globals.get("__name__")
                     top_level = package and package.partition(".")[0]
-                    if name.endswith("__main__") or top_level not in ("importlib", "pluggy", "runez"):
+                    if name.endswith("__main__") or not top_level or (not top_level.startswith("_") and top_level not in ignored):
                         filepath = f.f_globals.get("__file__")
                         if filepath or not need_file:
                             if regex is None or regex.match(name):
