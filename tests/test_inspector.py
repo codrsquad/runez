@@ -6,20 +6,6 @@ import pytest
 
 import runez
 from runez.inspector import auto_import_siblings, AutoInstall, ImportTime
-from runez.system import _R
-
-
-class MockFrame:
-    f_globals = None
-
-
-def mock_package(package, **kwargs):
-    mf = MockFrame()
-    mf.f_globals = {"__package__": package}
-    for key, value in kwargs.items():
-        mf.f_globals["__%s__" % key] = value
-
-    return mf
 
 
 def importable_test_py_files(folder):
@@ -36,24 +22,18 @@ def importable_test_py_files(folder):
 
 def test_auto_import_siblings():
     # Check that none of these invocations raise an exception
-    assert not _R.is_actual_caller_frame(mock_package(None))
-    assert not _R.is_actual_caller_frame(mock_package(""))
-    assert not _R.is_actual_caller_frame(mock_package("_pydevd"))
-    assert not _R.is_actual_caller_frame(mock_package("_pytest.foo"))
-    assert not _R.is_actual_caller_frame(mock_package("pluggy.hooks"))
-    assert not _R.is_actual_caller_frame(mock_package("runez"))
-    assert not _R.is_actual_caller_frame(mock_package("runez.system"))
-
-    assert _R.is_actual_caller_frame(mock_package("foo"))
-    assert _R.is_actual_caller_frame(mock_package("runez.system", name="__main__"))
-
-    caller = runez.system.find_caller()  # Caller is __main__ with default depth when called from tests
-    assert caller.is_main
+    caller = runez.system.find_caller(depth=1)  # Finds this test as caller
+    assert str(caller) == "tests.test_inspector.test_auto_import_siblings"
     with pytest.raises(ImportError):
+        # Pretend we're calling auto_import_siblings() from a __main__
+        caller.module_name = "__main__"
+        assert caller.is_main
         auto_import_siblings(caller=caller)
 
     with pytest.raises(ImportError):
-        setattr(caller, "module_name", "foo")
+        # Pretend caller doesn't have a __package__
+        caller.package_name = None
+        caller.module_name = "foo"
         assert not caller.is_main
         auto_import_siblings(caller=caller)
 

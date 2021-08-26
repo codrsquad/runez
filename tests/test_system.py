@@ -482,10 +482,6 @@ def test_system():
     assert ct.function_name == "test_system"
     assert str(ct) == "tests.test_system.test_system"
 
-    # Ensure we stop once callstack is exhausted
-    caller = runez.system.find_caller(lambda f: None, maximum=None)
-    assert caller is None
-
     # Verify that UNSET behaves as expected: evaluates to falsy, has correct representation
     assert not runez.UNSET
     assert bool(runez.UNSET) is False

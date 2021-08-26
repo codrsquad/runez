@@ -256,25 +256,31 @@ def decode(value, strip=None):
     return value
 
 
-def find_caller(validator=None, depth=2, maximum=1000):
+def find_caller(depth=2, maximum=1000, need_file=True, need_package=False, regex=None):
     """
     Args:
-        validator (callable): Function that will decide whether a frame is suitable
         depth (int): Depth from top of stack where to start
         maximum (int | None): Maximum depth to scan
+        need_file (bool): If True, consider only callers that have a __file__
+        need_package (bool): If True, consider only callers that have a __package__
+        regex: If provided, __name__ must match given regex
 
     Returns:
         (_CallerInfo | None): Caller info, if any
     """
     if _R.getframe is not None:
-        if validator is None:
-            validator = _R.is_actual_caller_frame
-
         while not maximum or depth <= maximum:
             try:
                 f = _R.getframe(depth)
-                if validator(f):
-                    return _CallerInfo(f, depth)
+                package = f.f_globals.get("__package__")
+                if package or not need_package:
+                    name = f.f_globals.get("__name__")
+                    top_level = package and package.partition(".")[0]
+                    if name.endswith("__main__") or top_level not in ("importlib", "pluggy", "runez"):
+                        filepath = f.f_globals.get("__file__")
+                        if filepath or not need_file:
+                            if regex is None or regex.match(name):
+                                return _CallerInfo(f, depth, package, top_level, name, filepath)
 
                 depth = depth + 1
 
@@ -1183,20 +1189,18 @@ class DevInfo:
             # We're currently running from a dev environment
     """
 
+    __ct_regex = None
+
     @staticmethod
     def current_test():
         """
         Returns:
             (_CallerInfo | None): None if we're currently NOT running from a test invocation (such as: pytest ...)
         """
-        regex = re.compile(r"^(.+\.|)(conftest|(test_|_pytest|unittest).+|.+_test)$")
+        if DevInfo.__ct_regex is None:
+            DevInfo.__ct_regex = re.compile(r"^(.+\.|)(conftest|(test_|_pytest|unittest).+|.+_test)$")
 
-        def is_test_frame(f):
-            name = f.f_globals.get("__name__")
-            if name and not name.startswith("runez"):
-                return regex.match(name) and f.f_globals.get("__file__")
-
-        return find_caller(validator=is_test_frame)
+        return find_caller(regex=DevInfo.__ct_regex)
 
     @cached_property
     def project_folder(self):
@@ -1336,7 +1340,7 @@ class SystemInfo:
     @cached_property
     def program_version(self):
         """(str): Version of currently running program"""
-        caller = find_caller(validator=_R.frame_has_package)
+        caller = find_caller(need_package=True)
         if caller and caller.module_name:
             return get_version(caller.module_name, logger=None)
 
@@ -1869,23 +1873,6 @@ class _R:
 
             return _R.find_parent_folder(dirpath, basenames)
 
-    @staticmethod
-    def is_actual_caller_frame(f, main_ok=True):
-        """Return `f` if it's a frame that looks like coming from actual caller (not runez itself, or an internal library package)"""
-        if main_ok:
-            name = f.f_globals.get("__name__")
-            if name and "__main__" in name:
-                return f
-
-        package = f.f_globals.get("__package__")
-        if package and not package.startswith("_") and package.partition(".")[0] not in ("importlib", "pluggy", "runez"):
-            return f
-
-    @staticmethod
-    def frame_has_package(f):
-        """Return package of frame `f`, if it has one"""
-        return _R.is_actual_caller_frame(f, main_ok=False)
-
 
 def _flatten(result, value, keep_empty, split, shellify, transform, unique):
     """
@@ -1998,16 +1985,20 @@ def _validated_project_path(*paths):
 class _CallerInfo:
     """Information on who called us"""
 
-    def __init__(self, frame, depth):
-        self._caller_frame = frame
+    def __init__(self, frame, depth, package, top_level, name, filepath):
+        self.frame = frame
         self.depth = depth
+        self.package_name = package
+        self.top_level = top_level
+        self.module_name = name
+        self.filepath = filepath
 
     def __repr__(self):
         return joined(self.module_name or self.package_name, self.function_name, delimiter=".", keep_empty=None)
 
     def globals(self, prefix=None, private=False):
         """Iterate over the globals in caller"""
-        for name, value in self._caller_frame.f_globals.items():
+        for name, value in self.frame.f_globals.items():
             if private or not name.startswith("_"):
                 if not prefix or name.startswith(prefix):
                     yield name, value
@@ -2018,11 +2009,6 @@ class _CallerInfo:
             return os.path.basename(self.filepath)
 
     @cached_property
-    def filepath(self):
-        """File path of caller, if any"""
-        return self._caller_frame.f_globals.get("__file__")
-
-    @cached_property
     def folder(self):
         if self.filepath:
             return os.path.dirname(self.filepath)
@@ -2030,13 +2016,12 @@ class _CallerInfo:
     @cached_property
     def function(self):
         """Caller function, if any"""
-        return self._caller_frame.f_globals.get(self.function_name)
+        return self.frame.f_globals.get(self.function_name)
 
     @cached_property
     def function_name(self):
         """Function name of caller, if any"""
-        if self._caller_frame:
-            return self._caller_frame.f_code.co_name
+        return self.frame.f_code.co_name
 
     @property
     def is_main(self):
@@ -2046,14 +2031,4 @@ class _CallerInfo:
     @property
     def module_docstring(self):
         """Docstring of the module where caller is coming from"""
-        return self._caller_frame.f_globals.get("__doc__")
-
-    @cached_property
-    def module_name(self):
-        """Module name of caller, if any"""
-        return self._caller_frame.f_globals.get("__name__")
-
-    @cached_property
-    def package_name(self):
-        """Package name of caller, if any"""
-        return self._caller_frame.f_globals.get("__package__")
+        return self.frame.f_globals.get("__doc__")

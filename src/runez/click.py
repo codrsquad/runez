@@ -26,7 +26,7 @@ from runez.colors import ColorManager
 from runez.convert import affixed
 from runez.file import basename
 from runez.logsetup import LogManager
-from runez.system import _R, find_caller, first_line, flattened, get_version, short, stringified, TempArgv, UNSET
+from runez.system import find_caller, first_line, flattened, get_version, short, stringified, TempArgv, UNSET
 
 
 class Cli:
@@ -239,8 +239,8 @@ def version(*args, **attrs):
     """Show the version and exit"""
     if "version" not in attrs:
         # Ensure 'version' is not None here, otherwise click gets runez version (instead of caller package's version)
-        caller = find_caller(validator=_R.frame_has_package)
-        attrs["version"] = get_version(caller and caller.module_name, default="")
+        caller = find_caller(need_package=True)
+        attrs["version"] = get_version(caller and caller.top_level, default="")
 
     return click.version_option(*args, **attrs)
 
