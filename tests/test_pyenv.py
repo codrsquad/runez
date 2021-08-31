@@ -75,7 +75,7 @@ def test_depot(temp_folder, monkeypatch, logged):
     runez.symlink("8.6.1", ".pyenv/versions/8.6", must_exist=False, logger=None)
 
     # Verify that if invoker is one of the pyenv-installations, it is properly detected
-    depot = mocked_invoker(pyenv=".pyenv", base_prefix=".pyenv/versions/8.6.1")
+    depot = mocked_invoker(pyenv=".pyenv", base_prefix=".pyenv/versions/8.6.1", version_info=(8, 6, 1))
     p8 = depot.find_python("8")
     p86 = depot.find_python("8.6")
     assert str(p8) == ".pyenv/versions/8.7.2 [cpython:8.7.2]"  # Latest version 8 (invoker doesn't take precedence)
@@ -198,9 +198,11 @@ def mocked_invoker(**sysattrs):
     exe_exists = sysattrs.pop("exe_exists", True)
     sysattrs.setdefault("base_prefix", "/usr")
     sysattrs.setdefault("prefix", sysattrs["base_prefix"])
+    sysattrs["base_prefix"] = runez.resolved_path(sysattrs["base_prefix"])
+    sysattrs["prefix"] = runez.resolved_path(sysattrs["prefix"])
     sysattrs.setdefault("executable", "%s/bin/python" % sysattrs["base_prefix"])
-    sysattrs["version_info"] = (major, 7, 1)
-    sysattrs["version"] = ".".join(str(s) for s in sysattrs["version_info"])
+    sysattrs.setdefault("version_info", (major, 7, 1))
+    sysattrs.setdefault("version", ".".join(str(s) for s in sysattrs["version_info"]))
     scanner = None if not pyenv else PythonInstallationScanner(pyenv)
     with patch("runez.pyenv.os.path.realpath", side_effect=lambda x: x):
         with patch("runez.pyenv.sys") as mocked:
@@ -228,13 +230,13 @@ def test_invoker():
 
     # Linux case with py3
     depot = mocked_invoker()
-    assert depot.invoker.executable == "/usr/bin/python3"
+    assert depot.invoker.executable == "/usr/bin/python3.7"
     assert depot.invoker.folder == runez.to_path("/usr/bin")
     assert depot.invoker.major == 3
 
     # Linux case without py3
     depot = mocked_invoker(major=2, base_prefix="/usr/local")
-    assert depot.invoker.executable == "/usr/local/bin/python2"
+    assert depot.invoker.executable == "/usr/local/bin/python2.7"
     assert depot.invoker.major == 2
 
     # Linux case with only /usr/bin/python

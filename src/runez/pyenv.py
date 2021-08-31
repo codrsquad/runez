@@ -16,6 +16,10 @@ R_SPEC = re.compile(r"^\s*((|py?|c?python|(ana|mini)?conda[23]?|pypy)\s*[:-]?)\s
 R_VERSION = re.compile(r"v?((\d+!)?(\d+)((\.(\d+))*)((a|b|c|rc)(\d+))?(\.(dev|post|final)\.?(\d+))?(\+[\w.-]*)?).*")
 
 
+def get_current_version(components=3):
+    return Version(".".join(str(s) for s in sys.version_info[:components]))
+
+
 def guess_family(text):
     """
     Args:
@@ -307,7 +311,7 @@ class PythonSpec:
         if text == "invoker":
             self.canonical = text
             self.family = guess_family(sys.version)
-            self.version = Version(".".join(str(s) for s in sys.version_info[:3]))
+            self.version = get_current_version()
             return
 
         self.family = guess_family(family or text)
@@ -573,7 +577,7 @@ class PythonDepot:
 
         if _is_path(spec.canonical):
             # Path reference: look it up and remember it "/"
-            exe = self.resolved_python_exe(spec.canonical, major=sys.version_info[0])
+            exe = self.resolved_python_exe(spec.canonical, version=get_current_version(components=2))
             if not exe:
                 python = PythonInstallation(spec.canonical, spec, problem="not an executable")
                 return self._checked_pyinstall(python, fatal)
@@ -641,11 +645,11 @@ class PythonDepot:
         return found
 
     @staticmethod
-    def python_exes_in_folder(path, major=None):
+    def python_exes_in_folder(path, version=None):
         """
         Args:
             path (pathlib.Path | str): Path to python exe or folder with a python installation
-            major (int | None): Optional, major version to search for
+            version (Version | None): Optional, major/minor version to search for
 
         Returns:
             Yields all python executable names
@@ -657,7 +661,18 @@ class PythonDepot:
                 if os.path.isdir(bin_folder):
                     path = bin_folder
 
-                for name in ("python%s" % (major or 3), "python"):
+                candidates = []
+                if version and version.given_components:
+                    if len(version.given_components) > 1:
+                        candidates.append("python%s.%s" % (version.major, version.minor))
+
+                    candidates.append("python%s" % version.major)
+
+                else:
+                    candidates.append("python3")
+
+                candidates.append("python")
+                for name in candidates:
                     candidate = os.path.join(path, name)
                     if is_executable(candidate):
                         yield candidate
@@ -665,27 +680,31 @@ class PythonDepot:
             elif is_executable(path):
                 yield path
 
-    def resolved_python_exe(self, path, major=None):
+    def resolved_python_exe(self, path, version=None):
         """Find python executable from 'path'
         Args:
             path (str): Path to a bin/python, or a folder containing bin/python
-            major (int | None): Optional, major version to search for
+            version (Version | None): Optional, major/minor version to search for
 
         Returns:
             (str): Full path to bin/python, if any
         """
-        for exe in self.python_exes_in_folder(path, major=major):
+        for exe in self.python_exes_in_folder(path, version=version):
             return exe
 
     def _find_invoker(self):
-        info = PyInstallInfo(sys.version.partition(" ")[0], sys.prefix, sys.base_prefix)
+        version = get_current_version()
         equivalents = set()
         exe = None
-        for path in self.python_exes_in_folder(info.base_prefix, major=info.version.major):
-            equivalents.add(path)
-            equivalents.add(os.path.realpath(path))
+        for path in self.python_exes_in_folder(sys.base_prefix, version=version):
+            real_path = os.path.realpath(path)
             if exe is None:
-                exe = path
+                exe = real_path
+                equivalents.add(exe)
+                equivalents.add(path)
+
+            elif real_path == exe:
+                equivalents.add(path)
 
         if not exe:
             exe = os.path.realpath(sys.executable)
@@ -695,7 +714,7 @@ class PythonDepot:
             if python and not python.problem:
                 return python
 
-        spec = PythonSpec(info.version.text, exe)
+        spec = PythonSpec(version.text, exe)
         python = PythonInstallation(exe, spec, equivalents=equivalents)
         self._register(python, None)
         return python
@@ -727,13 +746,13 @@ class PythonDepot:
         spec = PythonSpec(info.version.text, path)
         if info.sys_prefix != info.base_prefix:
             # We have a venv, return parent python
-            exe = self.resolved_python_exe(info.base_prefix, major=info.version.major)
+            exe = self.resolved_python_exe(info.base_prefix, version=info.version)
             python = self._cache.get(exe)
             if python:
                 return python
 
             if not equivalents:
-                equivalents = self.python_exes_in_folder(parent_folder(path), major=info.version.major)
+                equivalents = self.python_exes_in_folder(parent_folder(path), version=info.version)
 
             path = exe
 

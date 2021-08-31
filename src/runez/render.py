@@ -107,14 +107,14 @@ class Header:
     def aerated(cls, text, border="--"):
         """
         Args:
-            text (str): Text to turn into a header
+            text: Text (any object will be stringified) to turn into a header
             border (str): Characters to use to decorate header
 
         Returns:
             (str): 'text' decorated with simple border
         """
         if not text or not border:
-            return text
+            return "%s" % text
 
         if border.endswith(" "):
             decorated = "%s%s" % (border, text)

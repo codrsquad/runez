@@ -13,6 +13,7 @@ from functools import wraps
 
 from runez.convert import to_int
 from runez.program import run
+from runez.pyenv import get_current_version
 from runez.system import abort, find_caller, py_mimic, SYS_INFO
 
 
@@ -116,9 +117,8 @@ class ImportTime:
         self.elapsed = None
         self.cumulative = None
         self.problem = None
-        v = sys.version_info[:2]
-        if v < (3, 7):
-            v = "%s.%s" % (v[0], v[1])
+        v = get_current_version()
+        if v < 3.7:
             self.problem = "-Ximporttime is not available in python %s, can't measure import-time speed" % v
             return
 
