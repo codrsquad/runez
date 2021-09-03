@@ -2,8 +2,9 @@
 Simple coloring capabilities, without the need of bringing in further dependencies
 
 Example usage:
-    >>> from runez import blue
-    >>> print(blue("hello"))
+    >>> import runez
+    >>> runez.blue("hello")
+    'hello'
 """
 
 from runez.system import DEV, short, Slotted, stringified, SYS_INFO, uncolored
@@ -119,7 +120,8 @@ class Renderable:
         Allows for convenient call of the form:
 
         >>> import runez
-        >>> print(runez.blue("foo"))
+        >>> runez.blue("foo")
+        'foo'
         """
         if size:
             text = short(text, size=size)

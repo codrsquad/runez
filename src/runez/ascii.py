@@ -144,7 +144,7 @@ class AsciiFrames:
             frames: Frames composing the ascii animation
             fps (int): Desired frames per second
         """
-        self.frames = flattened(frames, keep_empty=None) or None
+        self.frames = flattened(frames) or None
         self.fps = fps
         self.index = 0
 

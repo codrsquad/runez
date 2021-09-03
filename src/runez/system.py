@@ -50,19 +50,22 @@ def abort(message, code=1, exc_info=None, return_value=None, fatal=True, logger=
 
     >>> from runez import abort
     >>> abort("foo")  # Raises AbortException
-    foo
-    runez.system.AbortException: 1
+    Traceback (most recent call last):
+        ...
+    runez.system.AbortException: foo
     >>> abort("foo", fatal=True) # Raises AbortException
-    foo
-    runez.system.AbortException: 1
+    Traceback (most recent call last):
+        ...
+    runez.system.AbortException: foo
+    >>> abort("foo", fatal=Exception) # Raises given Exception
+    Traceback (most recent call last):
+        ...
+    Exception: foo
     >>> # Not fatal, but will log/print message:
     >>> abort("foo", return_value=False, fatal=False)  # Returns False
-    foo
     False
     >>> abort("foo", fatal=False)  # Returns None
-    foo
     >>> abort("foo", return_value=-1, fatal=False)  # Returns -1
-    foo
     -1
     >>> # Not fatal, will not log/print any message:
     >>> abort("foo", fatal=None)  # Returns None
@@ -317,16 +320,17 @@ def first_line(text, keep_empty=False, default=None):
     return default
 
 
-def flattened(*value, keep_empty=True, split=None, shellify=False, transform=None, unique=False):
+def flattened(*value, keep_empty=False, split=None, shellify=False, strip=None, transform=None, unique=False):
     """
     Args:
         value: Possibly nested arguments (sequence of lists, nested lists, ...)
         keep_empty (str | bool | None): States how to filter 'None' and/or False-ish values
-                                        - string: Replace `None` with given string, keep False-ish values as-is
-                                        - None: Filter out all False-ish values (including `None`)
-                                        - False: Filter out `None` values only (keep False-ish values as-is)
+                                        - None: Filter out False-ish values (including `None` and 0)
+                                        - False: Filter out False-ish values, except int/float 0
                                         - True (default): No filtering, keep all values as-is
-        split (str | None): If provided, split strings by given character
+                                        - string: Replace `None` with given string, keep False-ish values as-is
+        split (str | bool | None): If provided, split strings by given character
+        strip (str | bool | None): If provided, strip strings with given character (or whitespace if True)
         shellify (bool): If True, filter out sequences of the form ["-f", None] (handy for simplified cmd line specification)
         transform (callable | None): If given, transform all values via the given callable
         unique (bool): If True, ensure every value appears only once
@@ -335,7 +339,22 @@ def flattened(*value, keep_empty=True, split=None, shellify=False, transform=Non
         (list): Flattened list from 'value'
     """
     result = []
-    _flatten(result, value, keep_empty, split, shellify, transform, unique)
+    if isinstance(keep_empty, str):
+        none = keep_empty
+        keep_empty = True
+
+    else:
+        none = None
+
+    if split is not None and strip is None:
+        strip = True  # Automatically strip() when split is specified, can be overridden with strip=False
+
+    if shellify and keep_empty is False:
+        keep_empty = True  # shellify forces keep_empty to True, can be overridden with keep_empty=""
+
+    for item in value:
+        _flatten(result, item, keep_empty, split, shellify, strip, transform, unique, none)
+
     return result
 
 
@@ -453,38 +472,33 @@ def stringified(value, converter=None, none="None"):
     return "{}".format(value)
 
 
-def joined(*args, delimiter=" ", keep_empty=True, stringify=stringified, strip=None):
+def joined(*args, delimiter=" ", keep_empty=False, strip=None, stringify=stringified, unique=False):
     """
-    >>> joined(1, None, 2)
-    '1 None 2'
-    >>> joined(1, None, 2, keep_empty=False)
-    '1 2'
+    >>> joined(1, " foo ", None, 2)
+    '1  foo  2'
+    >>> joined(1, " foo ", None, 2, keep_empty=True, strip=True)
+    '1 foo None 2'
 
     Args:
         *args: Things to join
         delimiter (str): Delimiter to use (default: space character)
         keep_empty (str | bool | None): States how to filter 'None' and/or False-ish values
-                                        - string: Replace `None` with given string, keep False-ish values as-is
-                                        - None: Filter out all False-ish values (including `None`)
-                                        - False: Filter out `None` values only (keep False-ish values as-is)
+                                        - None: Filter out False-ish values (including `None` and 0)
+                                        - False: Filter out False-ish values, except int/float 0
                                         - True (default): No filtering, keep all values as-is
-        stringify (callable): Function to use to stringify args (default: `stringified`)
+                                        - string: Replace `None` with given string, keep False-ish values as-is
         strip (str | bool | None): If provided, `strip()` string representation of args
+        stringify (callable): Function to use to stringify args (default: `stringified`)
+        unique (bool): If True, ensure every value appears only once
 
     Returns:
         (str): Joined string
     """
-    args = [stringify(x) for x in flattened(args, keep_empty=keep_empty)]
-    if strip is True:
-        args = [x.strip() for x in args]
-
-    elif strip:
-        args = [x.strip(strip) for x in args]
-
-    return delimiter.join(flattened(args, keep_empty=keep_empty))
+    args = flattened(args, keep_empty=keep_empty, strip=strip, transform=stringify, unique=unique)
+    return delimiter.join(args)
 
 
-def quoted(*items, delimiter=" ", adapter=UNSET, keep_empty=True):
+def quoted(*items, delimiter=" ", adapter=UNSET, keep_empty=True, strip=None, stringify=stringified, unique=False):
     """Quoted `items`, for those that contain whitespaces
 
     >>> quoted("foo")
@@ -498,22 +512,25 @@ def quoted(*items, delimiter=" ", adapter=UNSET, keep_empty=True):
         items (str | list | tuple | None): Text, or list of text to optionally quote
         delimiter (str): Delimiter to use to join args back
         adapter (callable | None): Called for every item if provided, it should return a string
-        keep_empty (str | bool): States how to filter 'None' and/or False-ish values
-                               - string: Replace `None` with given string, keep False-ish values as-is
-                               - None: Filter out all False-ish values (including `None`)
-                               - False: Filter out `None` values only (keep False-ish values as-is)
-                               - True (default): No filtering, keep all values as-is
+        keep_empty (str | bool | None): States how to filter 'None' and/or False-ish values
+                                        - None: Filter out False-ish values (including `None` and 0)
+                                        - False: Filter out False-ish values, except int/float 0
+                                        - True (default): No filtering, keep all values as-is
+                                        - string: Replace `None` with given string, keep False-ish values as-is
+        strip (str | bool | None): If provided, `strip()` string representation of args
+        stringify (callable): Function to apply to each item (default: short())
+        unique (bool): If True, ensure every value appears only once
 
     Returns:
         (str): Quoted if 'text' contains spaces
     """
-    items = flattened(items, keep_empty=keep_empty)
+    items = flattened(items, keep_empty=keep_empty, strip=strip, transform=stringify, unique=unique)
     result = []
-    for text in items:
-        if adapter is UNSET:
-            text = Anchored.short(stringified(text))
+    if adapter is UNSET:
+        adapter = Anchored.short
 
-        elif callable(adapter):
+    for text in items:
+        if adapter:
             text = adapter(text)
 
         if text and " " in text:
@@ -622,7 +639,13 @@ class AbortException(Exception):
     You can replace this with your preferred exception, for example:
 
     >>> import runez
+    >>> saved = runez.system.AbortException
     >>> runez.system.AbortException = SystemExit
+    >>> abort("foo")
+    Traceback (most recent call last):
+       ...
+    SystemExit: 1
+    >>> runez.system.AbortException = saved  # Restoring to avoid confusing other tests
     """
 
 
@@ -732,7 +755,7 @@ class Anchored:
         Args:
             *anchors (str | pathlib.Path | list | tuple): Optional paths to use as anchors for short()
         """
-        cls._paths = sorted((resolved_path(p) for p in flattened(anchors, keep_empty=False, unique=True)), reverse=True)
+        cls._paths = sorted((resolved_path(p) for p in flattened(anchors, unique=True)), reverse=True)
 
     @classmethod
     def add(cls, anchors):
@@ -748,7 +771,7 @@ class Anchored:
         Args:
             anchors (str | pathlib.Path | list | tuple): Optional paths to use as anchors for short()
         """
-        for anchor in flattened(anchors, keep_empty=False, unique=True):
+        for anchor in flattened(anchors, unique=True):
             anchor = resolved_path(anchor)
             if anchor in cls._paths:
                 cls._paths.remove(anchor)
@@ -842,10 +865,12 @@ class CaptureOutput:
     Sample usage:
 
     >>> with CaptureOutput() as logged:
-    >>>     print("foo bar")
-    >>>     # output has been captured in `logged`, see `logged.stdout` etc
-    >>>     assert "foo" in logged
-    >>>     assert "bar" in logged.stdout
+    ...     print("foo bar")
+    ...     # output has been captured in `logged`, see `logged.stdout` etc
+    ...     assert "foo" in logged
+    ...     assert "bar" in logged.stdout
+    >>> logged.pop()
+    'foo bar'
     """
 
     _capture_stack = []  # Shared across all objects, tracks possibly nested CaptureOutput buffers
@@ -1291,7 +1316,7 @@ class SystemInfo:
         if via:
             process_list = self.current_process.parent_list()
             if process_list:
-                yield "via", joined([p.cmd_basename for p in process_list], keep_empty=False, delimiter=via)
+                yield "via", joined([p.cmd_basename for p in process_list], delimiter=via)
 
         if "diagnostics" not in sys.argv:
             yield "sys.argv", quoted(sys.argv)
@@ -1499,7 +1524,7 @@ class TerminalProgram:
 
     def representation(self, colored=True):
         """(str): Colored textual representation of this python installation"""
-        return joined(_R.bold(self.name, colored), self.extra_info, os.environ.get("TERM"), keep_empty=None)
+        return joined(_R.bold(self.name, colored), self.extra_info, os.environ.get("TERM"))
 
     @staticmethod
     def known_terminal(text):
@@ -1875,60 +1900,76 @@ class _R:
             return _R.find_parent_folder(dirpath, basenames)
 
 
-def _flatten(result, value, keep_empty, split, shellify, transform, unique):
-    """
-    keep_empty: string: replace None, None: filter out all False-ish, False: filter out `None` only, True (default): no filtering
-    """
-    if value is None or value is UNSET or (keep_empty is None and not value):
-        if shellify:
-            # Convenience: allow to filter out ["--switch", None] easily
-            if result and result[-1].startswith("-"):
-                result.pop(-1)
+def _flatten(result, value, keep_empty, split, shellify, strip, transform, unique, none):
+    if value and isinstance(value, str):
+        if split:
+            if "\n" in value:
+                value = [s for s in (line.strip() for line in value.splitlines()) if s]
+                if value:
+                    _flatten(result, value, keep_empty, split, shellify, strip, transform, unique, none)
 
-            return
-
-        if keep_empty is None or (keep_empty is False and (value is None or value is UNSET)):
-            return
-
-        if isinstance(keep_empty, str):
-            value = keep_empty
-
-        if not unique or value not in result:
-            result.append(value)
-
-        return
-
-    if is_iterable(value):
-        for item in value:
-            _flatten(result, item, keep_empty, split, shellify, transform, unique)
-
-        return
-
-    if split and isinstance(value, str) and split in value:
-        if "\n" in value:
-            value = [line.strip() for line in value.splitlines()]
-            value = [s for s in value if s]
-
-        else:
-            value = value.split(split)
-
-        _flatten(result, value, keep_empty, split, shellify, transform, unique)
-        return
-
-    if shellify:
-        value = stringified(value)
-
-    if transform is not None:
-        value = transform(value)
-        if value is None or value is UNSET or (keep_empty is None and not value):
-            if keep_empty is None or (keep_empty is False and (value is None or value is UNSET)):
                 return
 
-            if isinstance(keep_empty, str):
-                value = keep_empty
+            if isinstance(split, str):
+                value = value.split(split)
+
+            else:
+                value = value.split()
+
+            if value:
+                _flatten(result, value, keep_empty, None, shellify, strip, transform, unique, none)
+
+            return
+
+        if strip is True:
+            value = value.strip()
+
+        elif strip:
+            value = value.strip(strip)
+
+    elif is_iterable(value):
+        for item in value:
+            _flatten(result, item, keep_empty, split, shellify, strip, transform, unique, none)
+
+        return
+
+    value = _keep_transform(value, keep_empty, shellify, transform, none)
+    if value is UNSET:
+        if shellify and result and result[-1].startswith("-"):
+            # Convenience: allow to filter out ["--switch", None] easily
+            result.pop(-1)
+
+        return
 
     if not unique or value not in result:
         result.append(value)
+
+
+def _keep_transform(value, keep_empty, shellify, transform, none):
+    if keep_empty is False:
+        if not value and (value is False or not isinstance(value, (int, float))):  # note: isinstance(False, int) is True
+            return UNSET
+
+    elif keep_empty is None:
+        if not value:
+            return UNSET
+
+    elif value is None:
+        if shellify and none is None:
+            return UNSET
+
+        value = none
+
+    elif value is UNSET:
+        return value
+
+    if transform:
+        return _keep_transform(transform(value), keep_empty, shellify, None, none)
+
+    if shellify and not isinstance(value, str):
+        value = stringified(value)
+
+    return value
 
 
 def _prettified(value):

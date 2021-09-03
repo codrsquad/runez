@@ -131,8 +131,8 @@ def test_pretty_table():
     assert len(t.header) == 2
     t.header[0].style = "bold"
 
-    t = PrettyTable("1,2,3", border="pad:0")
-    assert len(t.header.columns) == 3
+    t = PrettyTable("1,2,,3", border="pad:0")
+    assert len(t.header.columns) == 4
     t.add_rows("a b c".split(), "d e foo".split())
 
     t.header = 3  # Interpreted as 3 columns (but no header text)

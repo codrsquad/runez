@@ -67,17 +67,14 @@ def cmd_import_speed():
     parser.add_argument("--iterations", "-i", type=int, default=3, help="Number of measurements to average.")
     parser.add_argument("name", nargs="*", help="Names of modules to show (by default: all).")
     args = parser.parse_args()
-    names = []
-    if args.name:
-        names.extend(runez.flattened(args.name, split=","))
-
+    names = runez.flattened(args.name, split=",")
     if args.all:
         names.extend(_all_deps())
 
     if not names:
         sys.exit("Please specify module names, or use --all")
 
-    names = sorted(runez.flattened(names, unique=True))
+    names = sorted(set(names))
     times = []
     fastest = None
     slowest = None
@@ -252,7 +249,7 @@ DEV_LIBS = """
 attrs coverage more-itertools packaging pip pluggy py pyparsing python-dateutil setuptools six wcwidth wheel zipp
 binaryornot cookiecutter click future
 """
-DEV_LIBS = set(runez.flattened(DEV_LIBS.splitlines(), split=" "))
+DEV_LIBS = set(runez.flattened(DEV_LIBS, split=" "))
 
 
 def _is_interesting_dist(key):

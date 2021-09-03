@@ -263,12 +263,6 @@ def test_invoker():
     assert depot.invoker.major == 3
 
 
-def test_pv(logged):
-    import runez._pv
-    assert runez._pv
-    assert logged
-
-
 def test_pypi_standardized_naming():
     assert not PypiStd.is_acceptable(None)
     assert not PypiStd.is_acceptable(1)

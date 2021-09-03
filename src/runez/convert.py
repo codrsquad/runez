@@ -340,8 +340,8 @@ def words(text, normalize=None, split="_", decamel=False):
 
         return result
 
-    strings = [s.strip() for s in RE_WORDS.split(stringified(text))]
-    strings = [s for s in flattened(strings, split=split) if s]
+    strings = RE_WORDS.split(stringified(text))
+    strings = flattened(strings, split=split, strip=True)
     if decamel:
         strings = flattened(RE_CAMEL_CASE_WORDS.findall(s) for s in strings)
 

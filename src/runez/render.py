@@ -226,7 +226,7 @@ class PrettyHeader(PrettyCustomizable):
             return
 
         if isinstance(value, str):
-            for t in flattened(value, split=","):
+            for t in flattened(value, split=",", keep_empty=True):
                 self.add_column(t)
 
         elif isinstance(value, int):
@@ -328,7 +328,7 @@ class PrettyTable(PrettyCustomizable):
 
     def add_row(self, *values):
         """Add one row with given 'values'"""
-        row = flattened(values)
+        row = flattened(values, keep_empty=True)
         self.header.accommodate(len(row))
         self._rows.append(row)
 

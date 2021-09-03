@@ -854,7 +854,7 @@ class LogManager:
                 cls.spec.console_level = level
                 cls.spec.file_level = level
 
-            root_level = min(flattened([cls.spec.console_level, cls.spec.file_level], keep_empty=None))
+            root_level = min(flattened(cls.spec.console_level, cls.spec.file_level))
             if root_level and root_level != logging.root.level:
                 logging.root.setLevel(root_level)
 
@@ -990,8 +990,8 @@ class LogManager:
 
             cls.faulthandler_signum = signum
             dump_file = cls.file_handler.stream
-            faulthandler.enable(file=dump_file, all_threads=True)
-            faulthandler.register(signum, file=dump_file, all_threads=True, chain=False)
+            faulthandler.enable(file=dump_file, all_threads=True)  # noqa
+            faulthandler.register(signum, file=dump_file, all_threads=True, chain=False)  # noqa
 
     @classmethod
     def override_spec(cls, **settings):
@@ -1368,8 +1368,8 @@ def _get_file_handler(location, rotate, rotate_count):
 class _WrappedInstanceFunction:
 
     def __init__(self, function, instance):
-        self.function = function
+        self.__func__ = function
         self.instance = instance
 
     def __call__(self, *args, **kwargs):
-        self.function(self.instance, *args, **kwargs)
+        self.__func__(self.instance, *args, **kwargs)

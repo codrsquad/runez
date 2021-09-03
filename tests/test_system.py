@@ -238,49 +238,52 @@ def test_first_line():
 
 
 def test_flattened():
-    assert runez.flattened(None) == [None]
-    assert runez.flattened([None]) == [None]
+    assert runez.flattened(None) == []
+    assert runez.flattened([None]) == []
+    assert runez.flattened([None], keep_empty=True) == [None]
 
     assert runez.flattened(["1"], "2", transform=int) == [1, 2]
 
-    assert runez.flattened(None, [runez.UNSET, 0]) == [None, runez.UNSET, 0]
+    assert runez.flattened(None, [runez.UNSET, 0]) == [0]
     assert runez.flattened(None, [runez.UNSET, 0], shellify=True) == ["0"]
     assert runez.flattened(None, [runez.UNSET, 0], keep_empty=None) == []
     assert runez.flattened(None, [runez.UNSET, 0], keep_empty=False) == [0]
-    assert runez.flattened(None, [runez.UNSET, 0], keep_empty=True) == [None, runez.UNSET, 0]
-    assert runez.flattened(None, [runez.UNSET, 0], keep_empty="") == ["", "", 0]
-    assert runez.flattened(None, [runez.UNSET, 0], keep_empty="null") == ["null", "null", 0]
-    assert runez.flattened(None, [runez.UNSET, 0], keep_empty="null", unique=False) == ["null", "null", 0]
-    assert runez.flattened(None, [runez.UNSET, 0], keep_empty="null", unique=True) == ["null", 0]
-    assert runez.flattened(None, [runez.UNSET, 0], keep_empty="", shellify=True) == ["0"]
+    assert runez.flattened(None, [runez.UNSET, 0], keep_empty=True) == [None, 0]
+    assert runez.flattened(None, [runez.UNSET, 0], keep_empty="") == ["", 0]
+    assert runez.flattened(None, [runez.UNSET, 0], keep_empty="null") == ["null", 0]
+    assert runez.flattened(None, [runez.UNSET, 0], None, keep_empty="null", unique=False) == ["null", 0, "null"]
+    assert runez.flattened(None, [runez.UNSET, 0], None, keep_empty="null", unique=True) == ["null", 0]
+    assert runez.flattened(None, [runez.UNSET, 0], keep_empty="", shellify=True) == ["", "0"]
 
     assert runez.flattened(None, None, keep_empty=False, unique=True) == []
     assert runez.flattened(None, None, shellify=True) == []
-    assert runez.flattened(None, None, runez.UNSET, None, runez.UNSET, unique=True) == [None, runez.UNSET]
+    assert runez.flattened(None, None, runez.UNSET, None, runez.UNSET, unique=True) == []
+    assert runez.flattened(None, None, runez.UNSET, None, runez.UNSET, keep_empty=True, unique=True) == [None]
 
     assert runez.flattened(None, None, keep_empty=None) == []
     assert runez.flattened(None, None, keep_empty="") == ["", ""]
     assert runez.flattened(None, None, keep_empty="null") == ["null", "null"]
     assert runez.flattened(None, None, keep_empty="null", unique=True) == ["null"]
 
-    assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET]) == ["-a", None, "b", runez.UNSET, runez.UNSET]
-    assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET], unique=True) == ["-a", None, "b", runez.UNSET]
-    assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET], keep_empty=False) == ["-a", "b"]
+    assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET]) == ["-a", "b"]
+    assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET], unique=True) == ["-a", "b"]
+    assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET], keep_empty=True) == ["-a", None, "b"]
+    assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET], keep_empty="") == ["-a", "", "b"]
     assert runez.flattened(["-a", [None, "b", runez.UNSET], runez.UNSET], shellify=True) == ["b"]
     assert runez.flattened(["-a", [runez.UNSET, "b", runez.UNSET], runez.UNSET], shellify=True) == ["b"]
 
     assert runez.flattened(["a b"]) == ["a b"]
     assert runez.flattened([["a b"]]) == ["a b"]
 
-    assert runez.flattened(["-r", None, "foo"]) == ["-r", None, "foo"]
-    assert runez.flattened(["-r", None, "foo"], keep_empty=False) == ["-r", "foo"]
+    assert runez.flattened(["-r", None, "foo"]) == ["-r", "foo"]
+    assert runez.flattened(["-r", None, "foo"], keep_empty=True) == ["-r", None, "foo"]
     assert runez.flattened(["foo", "-r", None, "bar"], shellify=True) == ["foo", "bar"]
-    assert runez.flattened(["-r", None, "foo"], unique=True) == ["-r", None, "foo"]
-    assert runez.flattened(["-r", None, "foo"], keep_empty=False, unique=True) == ["-r", "foo"]
+    assert runez.flattened(["-r", None, "foo"], unique=True) == ["-r", "foo"]
+    assert runez.flattened(["-r", None, "foo"], keep_empty=True, unique=True) == ["-r", None, "foo"]
 
     # Sanitized
-    assert runez.flattened(("a", None, ["b", None]), unique=True) == ["a", None, "b"]
-    assert runez.flattened(("a", None, ["b", None]), keep_empty=False, unique=True) == ["a", "b"]
+    assert runez.flattened(("a", None, ["b", None]), unique=True) == ["a", "b"]
+    assert runez.flattened(("a", None, ["b", None]), keep_empty=True, unique=True) == ["a", None, "b"]
 
     # Shell cases
     assert runez.flattened([None, "a", "-f", "b", "c", None], shellify=True) == ["a", "-f", "b", "c"]
@@ -288,19 +291,24 @@ def test_flattened():
     assert runez.flattened([None, "-f", "b", None], shellify=True) == ["-f", "b"]
     assert runez.flattened(["a", "-f", None, "c"], shellify=True) == ["a", "c"]
 
-    assert runez.flattened(["a", "-f", None, "c"], keep_empty=None, shellify=True) == ["a", "c"]
+    # Verify -flag gets removed with shellify
+    assert runez.flattened(["a", "-f", None, "c"], shellify=True) == ["a", "c"]
     assert runez.flattened(["a", "-f", None, "c"], keep_empty=False, shellify=True) == ["a", "c"]
     assert runez.flattened(["a", "-f", None, "c"], keep_empty=True, shellify=True) == ["a", "c"]
-    assert runez.flattened(["a", "-f", None, "c"], keep_empty="", shellify=True) == ["a", "c"]
-    assert runez.flattened(["a", "-f", None, "c"], keep_empty="null", shellify=True) == ["a", "c"]
 
-    # In shellify mode, empty strings are only filtered out with keep_empty=None
-    assert runez.flattened(["a", "-f", "", "c"], shellify=True) == ["a", "-f", "", "c"]
-    assert runez.flattened(["a", "-f", "", "c"], keep_empty=None, shellify=True) == ["a", "c"]
-    assert runez.flattened(["a", "-f", "", "c"], keep_empty=False, shellify=True) == ["a", "-f", "", "c"]
-    assert runez.flattened(["a", "-f", "", "c"], keep_empty=True, shellify=True) == ["a", "-f", "", "c"]
-    assert runez.flattened(["a", "-f", "", "c"], keep_empty="", shellify=True) == ["a", "-f", "", "c"]
-    assert runez.flattened(["a", "-f", "", "c"], keep_empty="null", shellify=True) == ["a", "-f", "", "c"]
+    # shellify influences keep_empty
+    expected = ["a", "-f", "", "c", "0", ""]
+    assert runez.flattened(["a", "-f", "", "c", None, 0, ""], shellify=True) == expected
+    assert runez.flattened(["a", "-f", "", "c", None, 0, ""], keep_empty=False, shellify=True) == expected
+    assert runez.flattened(["a", "-f", "", "c", None, 0, ""], keep_empty=True, shellify=True) == expected
+
+    # Override keep_empty
+    assert runez.flattened(["a", "-f", None, "c"], keep_empty=None, shellify=True) == ["a", "c"]
+    assert runez.flattened(["a", "-f", None, "c"], keep_empty="", shellify=True) == ["a", "-f", "", "c"]
+    assert runez.flattened(["a", "-f", None, "c"], keep_empty="null", shellify=True) == ["a", "-f", "null", "c"]
+    assert runez.flattened(["a", "-f", "", "c", None, 0, ""], keep_empty=None, shellify=True) == ["a", "c"]
+    assert runez.flattened(["a", "-f", "", "c", None, 0, ""], keep_empty="", shellify=True) == ["a", "-f", "", "c", "", "0", ""]
+    assert runez.flattened(["a", "-f", "", "c", None, 0, ""], keep_empty="null", shellify=True) == ["a", "-f", "", "c", "null", "0", ""]
 
     # keep_empty with transform
     def keep_odds(i):
@@ -320,17 +328,20 @@ def test_flattened_split():
     # Splitting on a given char
     assert runez.flattened("a b b") == ["a b b"]
     assert runez.flattened("a b\n b", split=" ") == ["a", "b", "b"]
+    assert runez.flattened("a b\n b", split=True) == ["a", "b", "b"]
     assert runez.flattened("a b\n \n \n b", split=" ", unique=True) == ["a", "b"]
     assert runez.flattened("a b b", unique=True) == ["a b b"]
     assert runez.flattened("a b b", split="", unique=True) == ["a b b"]
     assert runez.flattened("a b b", split="+", unique=True) == ["a b b"]
+    assert runez.flattened("a,,b", "c", split=",") == ["a", "b", "c"]
 
     # Unique
     assert runez.flattened(["a", ["a", ["b", ["b", "c"]]]]) == ["a", "a", "b", "b", "c"]
     assert runez.flattened(["a", ["a", ["b", ["b", "c"]]]], unique=True) == ["a", "b", "c"]
 
-    assert runez.flattened(["a b", None, ["a b c"], "a"], unique=True) == ["a b", None, "a b c", "a"]
-    assert runez.flattened(["a b", None, ["a b c"], "a"], split=" ", unique=True) == ["a", "b", None, "c"]
+    assert runez.flattened(["a b", None, ["a b c"], "a"], unique=True) == ["a b", "a b c", "a"]
+    assert runez.flattened(["a b", None, ["a b c"], "a"], keep_empty=True, unique=True) == ["a b", None, "a b c", "a"]
+    assert runez.flattened(["a b", None, ["a b c"], "a"], split=" ", unique=True) == ["a", "b", "c"]
     assert runez.flattened(["a b", None, ["a b c"], "a"], split=" ", keep_empty=False, unique=True) == ["a", "b", "c"]
 
 
@@ -363,29 +374,32 @@ def test_joined():
     def gen():
         yield "foo"
         yield None
+        yield runez.UNSET
         yield "bar"
 
     assert runez.joined() == ""
-    assert runez.joined(None) == "None"
-    assert runez.joined(None, keep_empty=False) == ""
+    assert runez.joined(None) == ""
+    assert runez.joined(None, keep_empty=True) == "None"
 
     assert runez.joined("") == ""
-    assert runez.joined("", "") == " "
+    assert runez.joined("", "") == ""
     assert runez.joined("", "", keep_empty=None) == ""
+    assert runez.joined("", "", keep_empty=True) == " "
 
     assert runez.joined(" a ", " b ", keep_empty=None) == " a   b "
     assert runez.joined(" a ", " b ", keep_empty=None, strip=True) == "a b"
     assert runez.joined(" a ", " b ", keep_empty=None, strip=" ") == "a b"
+    assert runez.joined(" a ", " b ", keep_empty=None, strip="/") == " a   b "
 
-    assert runez.joined("", runez.UNSET, None, "foo", 0, "", None) == " UNSET None foo 0  None"
+    assert runez.joined("", runez.UNSET, None, "foo", 0, "", None) == "foo 0"
     assert runez.joined("", runez.UNSET, None, "foo", 0, "", None, keep_empty=None) == "foo"
-    assert runez.joined("", runez.UNSET, None, "foo", 0, "", None, keep_empty=False) == " foo 0 "
-    assert runez.joined("", runez.UNSET, None, "foo", 0, "", None, keep_empty=True) == " UNSET None foo 0  None"
-    assert runez.joined("", runez.UNSET, None, "foo", 0, "", None, keep_empty="") == "   foo 0  "
-    assert runez.joined("", runez.UNSET, None, "foo", 0, "", None, keep_empty="null") == " null null foo 0  null"
+    assert runez.joined("", runez.UNSET, None, "foo", 0, "", None, keep_empty=False) == "foo 0"
+    assert runez.joined("", runez.UNSET, None, "foo", 0, "", None, keep_empty=True) == " None foo 0  None"
+    assert runez.joined("", runez.UNSET, None, "foo", 0, "", None, keep_empty="") == "  foo 0  "
+    assert runez.joined("", runez.UNSET, None, "foo", 0, "", None, keep_empty="null") == " null foo 0  null"
 
-    assert runez.joined(1, gen(), "hello", [True, runez.UNSET, 5]) == "1 foo None bar hello True UNSET 5"
-    assert runez.joined(1, gen(), "hello", [True, runez.UNSET, 5], keep_empty=False) == "1 foo bar hello True 5"
+    assert runez.joined(1, gen(), "hello", [True, runez.UNSET, 5]) == "1 foo bar hello True 5"
+    assert runez.joined(1, gen(), "hello", [True, runez.UNSET, 5], keep_empty=True) == "1 foo None bar hello True 5"
     assert runez.joined(1, 2, delimiter=",") == "1,2"
     assert runez.joined(1, 2, stringify=lambda x: "foo") == "foo foo"
 
@@ -402,7 +416,7 @@ def test_quoted():
     assert runez.quoted(None) == "None"
     assert runez.quoted("") == ""
     assert runez.quoted(" ") == '" "'
-    assert runez.quoted(" ", adapter=runez.short) == ""
+    assert runez.quoted(" ", stringify=runez.short) == ""
     assert runez.quoted('"') == '"'
     assert runez.quoted("a b") == '"a b"'
     assert runez.quoted('a="b"') == 'a="b"'

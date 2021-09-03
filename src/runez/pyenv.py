@@ -391,7 +391,7 @@ class PythonSpec:
         Returns:
             (list[PythonSpec]): Corresponding list of PythonSpec-s
         """
-        values = flattened(values, keep_empty=None, split=",", transform=PythonSpec.to_spec)
+        values = flattened(values, split=",", transform=PythonSpec.to_spec)
         if strict:
             values = [x for x in values if x.version]
 
@@ -624,7 +624,7 @@ class PythonDepot:
         self.from_path = []
         found = []
         real_paths = defaultdict(list)
-        for folder in flattened(os.environ.get("PATH"), split=os.pathsep, keep_empty=None):
+        for folder in flattened(os.environ.get("PATH"), split=os.pathsep):
             for path in self.python_exes_in_folder(folder):
                 real_path = os.path.realpath(path)
                 if real_path not in self._cache:

@@ -7,8 +7,13 @@ Example:
 >>> from runez.schema import Dict, Integer, String
 
 >>> class MyClass(runez.Serializable):
->>>     name = String(default="joe")  # All instances will get "joe" by default, and deserialization will ensure string
->>>     map = Dict(String, Integer)  # No default value (ie: None), deserialization will ensure proper type is used
+...     name = String(default="joe")  # All instances will get "joe" by default, and deserialization will ensure string
+...     map = Dict(String, Integer)  # No default value (ie: None), deserialization will ensure proper type is used
+
+>>> MyClass.name.default
+'joe'
+>>> MyClass.from_dict({}).name
+'joe'
 """
 
 import inspect
