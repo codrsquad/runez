@@ -63,7 +63,8 @@ def test_empty_depot():
     assert depot.representation() == ""
 
     p = depot.find_python("foo")
-    assert p.representation() == "foo [not available]"
+    assert str(p) == "foo [not available]"
+    assert repr(p) == "foo [not available]"
     assert p.problem == "not available"
     assert str(depot) == "0 scanned"
 
@@ -101,11 +102,11 @@ def test_depot(temp_folder, monkeypatch, logged):
 
     monkeypatch.setenv("PATH", "bar:path1/bin:path2/bin:path3/bin")
     scanner = PythonInstallationScanner(".pyenv")
-    assert str(scanner) == ".pyenv"
+    assert str(scanner) == "portable python [.pyenv]"
     depot = PythonDepot(scanner=scanner, use_path=True)
     assert str(depot) == "4 scanned, 2 from PATH"
     r = depot.representation()
-    assert "Available pythons:" in r
+    assert "Installed portable python:" in r
     assert "Available pythons from PATH:" in r
 
     assert len(depot.from_path) == 2
@@ -227,6 +228,7 @@ def test_invoker():
     assert depot.find_python("invoker") is depot.invoker
     assert depot.find_python("%s" % sys.version_info[0]) is depot.invoker
     assert "invoker" in str(depot.invoker)
+    assert str(depot.invoker) == repr(depot.invoker)  # Identical when coloring is off
 
     # Linux case with py3
     depot = mocked_invoker()

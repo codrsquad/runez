@@ -350,7 +350,7 @@ def flattened(*value, keep_empty=False, split=None, shellify=False, strip=None, 
         strip = True  # Automatically strip() when split is specified, can be overridden with strip=False
 
     if shellify and keep_empty is False:
-        keep_empty = True  # shellify forces keep_empty to True, can be overridden with keep_empty=""
+        keep_empty = True  # shellify forces keep_empty to True, can be overridden with an explicit keep_empty=""
 
     for item in value:
         _flatten(result, item, keep_empty, split, shellify, strip, transform, unique, none)
@@ -438,7 +438,7 @@ def stringified(value, converter=None, none="None"):
     Args:
         value: Any object to turn into a string
         converter (callable | None): Optional converter to use for non-string objects
-        none: Value to use to represent `None` ("" or False represents None as empty string)
+        none (str | bool | None): Value to use to represent `None` ("" or False represents None as empty string)
 
     Returns:
         (str): Ensure `text` is a string if necessary
@@ -1301,7 +1301,7 @@ class SystemInfo:
         """Usable by runez.render.PrettyTable.two_column_diagnostics()"""
         yield "platform", self.platform_info
         if self.terminal.term_program:
-            yield "terminal", self.terminal.term_program.representation()
+            yield "terminal", self.terminal.term_program
 
         if userid is UNSET:
             userid = self.userid
@@ -1520,11 +1520,10 @@ class TerminalProgram:
                 return
 
     def __repr__(self):
-        return self.representation(colored=False)
+        return joined(self.name, self.extra_info, os.environ.get("TERM"))
 
-    def representation(self, colored=True):
-        """(str): Colored textual representation of this python installation"""
-        return joined(_R.bold(self.name, colored), self.extra_info, os.environ.get("TERM"))
+    def __str__(self):
+        return joined(_R.colored(self.name, "bold"), self.extra_info, os.environ.get("TERM"))
 
     @staticmethod
     def known_terminal(text):
@@ -1700,16 +1699,9 @@ class _R:
         return message
 
     @classmethod
-    def bold(cls, text, colored=True):
-        return cls._runez_module().bold(text) if colored else text
-
-    @classmethod
-    def green(cls, text, colored=True):
-        return cls._runez_module().green(text) if colored else text
-
-    @classmethod
-    def red(cls, text, colored=True):
-        return cls._runez_module().red(text) if colored else text
+    def colored(cls, text, color, is_coloring=UNSET):
+        """Colored 'text' with 'color', 'is_coloring' can be used to override current coloring setting"""
+        return cls._runez_module().color.colored(text, color, is_coloring=is_coloring)
 
     @classmethod
     def shell_output(cls, program, *args):
@@ -2036,7 +2028,7 @@ class _CallerInfo:
         self.filepath = filepath
 
     def __repr__(self):
-        return joined(self.module_name or self.package_name, self.function_name, delimiter=".", keep_empty=None)
+        return joined(self.module_name or self.package_name, self.function_name, delimiter=".")
 
     def globals(self, prefix=None, private=False):
         """Iterate over the globals in caller"""

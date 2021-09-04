@@ -10,18 +10,29 @@ from runez.conftest import patch_env
 
 def test_colors():
     dim = runez.color.style.dim
-    assert runez.colors.cast_style(dim) is dim
-    assert runez.colors.cast_style(runez.dim) is dim
-    assert runez.colors.cast_style("dim") is dim
+    assert runez.color.cast_style(dim) is dim
+    assert runez.color.cast_style(runez.dim) is runez.dim
+    assert runez.color.cast_style("dim") is dim
+    assert runez.color.cast_color(dim) is dim
+    assert runez.color.cast_color("dim") is dim
+    assert runez.color.cast_color("blue") is runez.color.fg.blue
+
+    msg1 = dim("hi")
+    msg2 = runez.colored("hi", "dim")
+    assert msg1 == msg2
 
     with pytest.raises(ValueError):
-        runez.colors.cast_style("foo")
+        runez.color.cast_style("foo")
 
     assert not runez.color.is_coloring()
     with runez.ActivateColors(terminal.Ansi16Backend):
         # Check that backend can be passed as class (flavor auto-determined in that case)
         assert runez.color.is_coloring()
         assert "ansi16" in runez.color.backend.name
+
+        msg1 = runez.dim("hi")
+        msg2 = runez.colored("hi", "dim")
+        assert msg1 == msg2
 
     assert not runez.color.is_coloring()
     with runez.ActivateColors(terminal.Ansi16Backend(flavor="neutral")):

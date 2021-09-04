@@ -1,6 +1,6 @@
 import os
 
-from runez.colors import cast_style
+from runez.colors import ColorManager
 from runez.convert import to_int
 from runez.system import _R, AdaptedProperty, flattened, is_iterable, joined, short, Slotted, stringified
 from runez.system import SYS_INFO, UNSET, wcswidth
@@ -171,7 +171,7 @@ class PrettyCustomizable:
     """
 
     align = AdaptedProperty("align", caster=Align.cast, doc="Horizontal alignment to use (left, center or right)")
-    style = AdaptedProperty("style", caster=cast_style, doc="Style")
+    style = AdaptedProperty("style", caster=ColorManager.cast_style, doc="Style")
     width = AdaptedProperty("width", caster=int, doc="Desired width")
 
     def to_dict(self):

@@ -418,6 +418,8 @@ class PythonInstallationScanner:
     Default implementation scans a pyenv-like location, descendants of this class can redefine this
     """
 
+    scanner_name = "portable python"
+
     def __init__(self, location, regex=None, version_group=1):
         """
         Args:
@@ -430,7 +432,7 @@ class PythonInstallationScanner:
         self.version_group = version_group
 
     def __repr__(self):
-        return short(self.location)
+        return "%s [%s]" % (self.scanner_name, short(self.location))
 
     def spec_from_path(self, path, family=None):
         if path.is_dir():
@@ -719,16 +721,18 @@ class PythonDepot:
         self._register(python, None)
         return python
 
-    def representation(self, colored=True, no_scanned_note=None):
+    def representation(self):
         """(str): Textual representation of available pythons"""
-        scanned = [p.representation(colored=colored) for p in self.scanned]
-        from_path = self.from_path and [p.representation(colored=colored) for p in self.from_path]
-        return joined(
-            ("\nAvailable pythons:", scanned) if scanned else no_scanned_note,
-            from_path and ("\nAvailable pythons from PATH:", "\n".join(from_path)),
-            delimiter="\n",
-            keep_empty=False
-        ).strip()
+        header = None
+        if self.py_scanner and self.py_scanner.scanner_name:
+            header = "Installed %s:" if self.scanned else _R.colored("No %s installed", "orange")
+            header = header % self.py_scanner.scanner_name
+
+        from_path = self.from_path
+        if from_path:
+            from_path = joined("\nAvailable pythons from PATH:", from_path, delimiter="\n")
+
+        return joined(header, self.scanned, from_path, delimiter="\n")
 
     def _python_from_path(self, path, equivalents=None):
         """
@@ -975,7 +979,13 @@ class PythonInstallation:
             self._equivalents.update(equivalents)
 
     def __repr__(self):
-        return self.representation(colored=False)
+        text = joined(self.problem or self.spec, self.is_invoker and "invoker", delimiter=", ")
+        return "%s [%s]" % (short(self.short_name), text)
+
+    def __str__(self):
+        text = _R.colored(self.problem, "red") or self.spec
+        text = joined(text, self.is_invoker and _R.colored("invoker", "green"), delimiter=", ")
+        return "%s [%s]" % (_R.colored(short(self.short_name), "bold"), text)
 
     def __hash__(self):
         return hash(self.executable)
@@ -1002,12 +1012,6 @@ class PythonInstallation:
     def version(self):
         """(Version | None): Python version, if any"""
         return self.spec and self.spec.version
-
-    def representation(self, colored=True):
-        """(str): Colored textual representation of this python installation"""
-        text = _R.red(self.problem, colored) if self.problem else self.spec
-        text = joined(text, self.is_invoker and _R.green("invoker", colored), delimiter=", ", keep_empty=None)
-        return "%s [%s]" % (_R.bold(short(self.short_name), colored), text)
 
     def satisfies(self, spec):
         """

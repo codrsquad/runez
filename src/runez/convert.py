@@ -233,9 +233,9 @@ def identifiers(text):
 class Pluralizer:
     """Quick heuristic to pluralize most common english words"""
 
-    letter_based = {"s": "ses", "x": "ces", "y": "ies"}
-    suffix_based = {"ch": "ches", "man": "men", "sh": "shes"}
-    word_based = {"person": "people"}
+    letter_based = {"s": "ses", "x": "xes", "y": "ies"}
+    suffix_based = {"ch": "ches", "fe": "ves", "man": "men", "sh": "shes"}
+    word_based = {"child": "children", "person": "people"}
 
     @classmethod
     def find_letter_based(cls, singular):

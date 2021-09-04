@@ -7,7 +7,7 @@ Example usage:
     'hello'
 """
 
-from runez.system import DEV, short, Slotted, stringified, SYS_INFO, uncolored
+from runez.system import DEV, short, Slotted, stringified, SYS_INFO, uncolored, UNSET
 
 
 class ActivateColors:
@@ -64,6 +64,60 @@ class ColorManager:
     bg = None  # type: NamedColors
     fg = None  # type: NamedColors
     style = None  # type: NamedStyles
+
+    @classmethod
+    def cast_color(cls, name, source=None, strict=True):
+        """
+        Args:
+            name (str | callable): Color name to find (returned as-is if already a callable)
+            source (NamedRenderables | None): Restrict to given source (otherwise searched in fg and style)
+            strict (bool): If True, raise ValueError if color could not be found
+
+        Returns:
+            (callable): Callable function that enacts the color
+        """
+        if callable(name):
+            return name
+
+        if source is not None:
+            color = source.get(name)
+
+        else:
+            color = cls.fg.get(name)
+            if color is None:
+                color = cls.style.get(name)
+
+        if color is None and strict:
+            raise ValueError("Unknown color '%s'" % name)
+
+        return color
+
+    @classmethod
+    def cast_style(cls, name, strict=True):
+        """Cast 'obj' to a style, raise exception if that's not possible"""
+        return cls.cast_color(name, source=cls.style, strict=strict)
+
+    @classmethod
+    def colored(cls, text, color, is_coloring=UNSET):
+        """
+        Args:
+            text: Text to color
+            color (str | callable | None): Color to use
+            is_coloring (bool | runez.Undefined): If provided, overrides current coloring state
+
+        Returns:
+            (str): Colored text
+        """
+        if text:
+            if is_coloring is UNSET:
+                is_coloring = cls.is_coloring()
+
+            if is_coloring:
+                color = cls.cast_color(color, strict=False)
+                if color is not None:
+                    text = color(text)
+
+        return text
 
     @classmethod
     def is_coloring(cls):
@@ -169,21 +223,6 @@ class NamedStyles(NamedRenderables):
     """Set of registered named styles"""
 
     __slots__ = ["blink", "bold", "dim", "invert", "italic", "strikethrough", "underline"]
-
-
-def cast_style(obj):
-    """Cast 'obj' to a style, raise exception if that's not possible"""
-    if isinstance(obj, Renderable):
-        return obj
-
-    if hasattr(obj, "__name__"):
-        obj = obj.__name__
-
-    result = ColorManager.style.get(obj)
-    if result:
-        return result
-
-    raise ValueError("Unknown style '%s'" % obj)
 
 
 def _detect_backend(enable, flavor=None):

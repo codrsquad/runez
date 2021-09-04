@@ -54,8 +54,7 @@ def cmd_diagnostics():
 
     scanner = PythonInstallationScanner(args.pyenv) if args.pyenv else None
     depot = PythonDepot(scanner=scanner, use_path=True)
-    note = "No python installed in '%s'" % args.pyenv if args.pyenv else None
-    available = depot.representation(no_scanned_note=note)
+    available = depot.representation()
     print(PrettyTable.two_column_diagnostics(runez.SYS_INFO.diagnostics(), available, border=args.border))
 
 

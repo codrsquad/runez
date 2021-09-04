@@ -584,6 +584,7 @@ def test_terminal():
         ps.followed_parent.cmd_basename = "tilix"
         p = TerminalProgram(ps=ps)
         assert str(p) == "tilix /dev/null/tilix"
+        assert str(p) == repr(p)  # Identical when coloring is off
 
     with patch.dict(os.environ, {"COLUMNS": "foo", "LINES": "bar", "PYCHARM_HOSTED": "true"}, clear=True):
         t = TerminalInfo()
