@@ -1283,13 +1283,14 @@ class PlatformId:
     platform: str = None  # Example: linux, macos
     subsystem: str = None  # Example: libc, musl (empty for macos/windows for now)
 
-    default_archive_type = ".tar.gz"
     default_subsystem = None  # Can this be auto-detected? (currently: users can optionally provide this, by setting this class field)
-    archive_type = dict(linux=default_archive_type, macos=default_archive_type, windows=".zip")
+    platform_archive_type = dict(linux="tar.gz", macos="tar.gz", windows="zip")
     sys_include = None  # Most standard system include dirs, if any
 
     rx_base_path = None  # Regex identifying "base" libraries (present on any declination of this system)
     rx_sys_lib = None  # Regex identifying a "system" library (ie: installed in a system folder, not /usr/local and such)
+
+    supported_compression = ("tar", "bz2", "gz", "xz", "zip")
 
     def __init__(self, given=None, arch=None, platform=None, subsystem=None):
         """
@@ -1350,6 +1351,32 @@ class PlatformId:
     def __lt__(self, other):
         return str(self) < str(other)
 
+    def canonical_compress_extension(self, extension=None, short_form=False):
+        """
+        Args:
+            extension (str | None): File extension to validate and make canonical
+            short_form (bool): If True, return the short form (ie: no "tar.")
+
+        Returns:
+            (str): Canonical form of 'extension', or default extension for self.platform
+        """
+        if not extension:
+            extension = self.platform_archive_type.get(self.platform) or "tar.gz"
+
+        extension = extension.lower().strip(".")
+        if short_form:
+            extension = extension.rpartition(".")[2]
+            if extension in self.supported_compression:
+                return extension
+
+            return None
+
+        if extension in ("tar", "tar.bz2", "tar.gz", "tar.xz", "zip"):
+            return extension
+
+        if extension in self.supported_compression:
+            return "tar.%s" % extension
+
     def composed_basename(self, prefix, version=None, delimiter="-", extension=None):
         """
         Args:
@@ -1361,11 +1388,12 @@ class PlatformId:
         Returns:
             (str): Composed file base name to use
         """
-        if not extension:
-            extension = self.archive_type.get(self.platform) or self.default_archive_type
+        canonical_ext = self.canonical_compress_extension(extension)
+        if not canonical_ext:
+            raise ValueError("Invalid compression extension '%s'" % extension)
 
         basename = joined(prefix, version, self.get_identifier(delimiter), delimiter=delimiter)
-        return joined(basename, extension.strip("."), delimiter=".")
+        return joined(basename, canonical_ext, delimiter=".")
 
     def get_identifier(self, delimiter="-"):
         """String identifying this platform, of the form: linux-arm64-libc"""

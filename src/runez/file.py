@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 
 from runez.convert import plural, represented_bytesize
-from runez.system import _R, abort, Anchored, decode, resolved_path, short, SYMBOLIC_TMP, UNSET
+from runez.system import _R, abort, Anchored, decode, resolved_path, short, SYMBOLIC_TMP, SYS_INFO, UNSET
 
 
 def basename(path, extension_marker=os.extsep, follow=False):
@@ -352,16 +352,17 @@ def compress(source, destination, ext=None, overwrite=True, fatal=True, logger=U
         _, _, ext = str(destination).lower().rpartition(".")
 
     kwargs = {}
+    ext = SYS_INFO.platform_id.canonical_compress_extension(ext, short_form=True)
+    if not ext:
+        message = "Unknown extension '%s': can't compress file" % os.path.basename(destination)
+        return abort(message, return_value=-1, fatal=fatal, logger=logger)
+
     if ext == "zip":
         func = _zip
 
-    elif ext in ("tar", "bz2", "gz", "xz"):
+    else:
         func = _tar
         kwargs["mode"] = "w:" if ext == "tar" else "w:%s" % ext
-
-    else:
-        message = "Unknown extension '%s': can't compress file" % os.path.basename(destination)
-        return abort(message, return_value=-1, fatal=fatal, logger=logger)
 
     return _file_op(source, destination, func, overwrite, fatal, logger, dryrun, **kwargs)
 
@@ -383,16 +384,12 @@ def decompress(source, destination, ext=None, overwrite=True, fatal=True, logger
     if not ext:
         _, _, ext = str(source).lower().rpartition(".")
 
-    if ext == "zip":
-        func = _unzip
-
-    elif ext in ("tar", "bz2", "gz", "xz"):
-        func = _untar
-
-    else:
+    ext = SYS_INFO.platform_id.canonical_compress_extension(ext, short_form=True)
+    if not ext:
         message = "Unknown extension '%s': can't decompress file" % os.path.basename(source)
         return abort(message, return_value=-1, fatal=fatal, logger=logger)
 
+    func = _unzip if ext == "zip" else _untar
     return _file_op(source, destination, func, overwrite, fatal, logger, dryrun)
 
 

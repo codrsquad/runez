@@ -417,9 +417,25 @@ def test_platform_identification(monkeypatch):
     assert str(current)
     assert current.arch  # Will depend on where we're running this
     assert current.platform
+    assert current.canonical_compress_extension("foo") is None
+    assert current.canonical_compress_extension("foo.zip") is None
+    assert current.canonical_compress_extension(".tar") == "tar"
+    assert current.canonical_compress_extension(".zip") == "zip"
+    assert current.canonical_compress_extension(".bz2") == "tar.bz2"
+    assert current.canonical_compress_extension(".gz") == "tar.gz"
+    assert current.canonical_compress_extension(".tar.bz2") == "tar.bz2"
+    assert current.canonical_compress_extension(".tar.gz") == "tar.gz"
+    assert current.canonical_compress_extension("tar.gz") == "tar.gz"
+    assert current.canonical_compress_extension(".bz2", short_form=True) == "bz2"
+    assert current.canonical_compress_extension("tar.bz2", short_form=True) == "bz2"
+    assert current.canonical_compress_extension(".tar.gz", short_form=True) == "gz"
+    assert current.canonical_compress_extension("tar.xz", short_form=True) == "xz"
+    with pytest.raises(ValueError):
+        current.composed_basename("foo", extension="bar.zip")
 
     linux_arm = PlatformId("linux-arm64")
     assert str(linux_arm) == "linux-arm64"
+    assert linux_arm.canonical_compress_extension() == "tar.gz"
 
     assert linux_arm == PlatformId("linux-arm64-")
     assert linux_arm == PlatformId("linux-arm64", subsystem="")
@@ -434,8 +450,8 @@ def test_platform_identification(monkeypatch):
     assert linux_musl.is_system_lib("/usr/lib/foo.so")
     assert not linux_musl.is_system_lib("/System/Library/foo.so")
     assert linux_musl.composed_basename("foo", "1.2.3") == "foo-1.2.3-linux-arm64-musl.tar.gz"
-    assert linux_musl.composed_basename("foo", "1.2.3", extension="bz2") == "foo-1.2.3-linux-arm64-musl.bz2"
-    assert linux_musl.composed_basename("foo", "1.2.3", extension=".bz2") == "foo-1.2.3-linux-arm64-musl.bz2"
+    assert linux_musl.composed_basename("foo", "1.2.3", extension="bz2") == "foo-1.2.3-linux-arm64-musl.tar.bz2"
+    assert linux_musl.composed_basename("foo", "1.2.3", extension=".bz2") == "foo-1.2.3-linux-arm64-musl.tar.bz2"
     assert linux_musl != linux_arm
     assert linux_arm < linux_musl  # Alphabetical order
 
@@ -446,6 +462,7 @@ def test_platform_identification(monkeypatch):
 
     m1 = PlatformId("macos-arm64")
     assert str(m1) == "macos-arm64"
+    assert m1.canonical_compress_extension() == "tar.gz"
     assert not m1.is_base_lib("linux-vdso.so.1")
     assert not m1.is_base_lib("libc.so.6")
     assert m1.is_base_lib("/usr/lib/libSystem.B.dylib")
@@ -455,8 +472,12 @@ def test_platform_identification(monkeypatch):
 
     win = PlatformId("windows-x86_64")
     assert str(win) == "windows-x86_64"
+    assert win.canonical_compress_extension() == "zip"
     assert win.is_windows
     assert win.composed_basename("cpython", "1.2.3") == "cpython-1.2.3-windows-x86_64.zip"
+    assert win.composed_basename("foo", extension="gz") == "foo-windows-x86_64.tar.gz"
+    assert win.composed_basename("foo", extension="tar.gz") == "foo-windows-x86_64.tar.gz"
+    assert win.composed_basename("foo", extension="zip") == "foo-windows-x86_64.zip"
 
 
 def test_quoted():
