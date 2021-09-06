@@ -628,18 +628,18 @@ class Timeit:
     span = UNSET
 
     def __init__(self, function=None, color=UNSET, logger=UNSET):
-        self._func = None
-        self.function = None
+        self.__func__ = None
+        self.function_name = None
         self.start_time = None
         self.color = _R.rdefault(color, self.color)
         self.logger = _R.rdefault(logger, self.logger)
         if callable(function):
             # We're being used as a decorator without args
-            self._func = function
-            self.function = function.__qualname__
+            self.__func__ = function
+            self.function_name = function.__qualname__
 
         else:
-            self.function = function
+            self.function_name = function
 
     def __get__(self, instance, owner):
         return _WrappedInstanceFunction(self, instance)
@@ -652,18 +652,18 @@ class Timeit:
         Returns:
             (callable): Decorated function
         """
-        if self._func:
+        if self.__func__:
             self.__enter__()
             try:
-                return self._func(*args, **kwargs)
+                return self.__func__(*args, **kwargs)
 
             finally:
                 self.__exit__()
 
         # We've been used as a decorator with args, and now we're called with the decorated function as argument
-        self._func = args[0]
-        if not self.function:
-            self.function = self._func.__qualname__
+        self.__func__ = args[0]
+        if not self.function_name:
+            self.function_name = self.__func__.__qualname__
 
         return self
 
@@ -672,7 +672,7 @@ class Timeit:
         return self
 
     def __exit__(self, *_):
-        msg = self.function
+        msg = self.function_name
         if not msg:
             msg = str(find_caller())
 

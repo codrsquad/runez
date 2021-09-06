@@ -10,14 +10,11 @@ The version below was tested with both thread locks and asyncio, if supporting t
 - In `system.py`:
 
 ```python
+import asyncio
 import threading
 from functools import wraps
 
-try:
-    import asyncio
-
-except (ImportError, SyntaxError):
-    asyncio = None
+from runez.system import py_mimic
 
 
 class cached_property:
@@ -30,12 +27,9 @@ class cached_property:
     """
 
     def __init__(self, func):
-        self.func = func
-        self.__annotations__ = getattr(func, "__annotations__", None)
-        self.__doc__ = func.__doc__
-        self.__module__ = func.__module__
-        self.__name__ = func.__name__
-        self.is_async = asyncio and asyncio.iscoroutinefunction(self.func)
+        self.__func__ = func
+        py_mimic(self, self.__func__)
+        self.is_async = asyncio.iscoroutinefunction(self.__func__)
         if self.is_async:
             self._compute_value = self._future_value
 
@@ -82,11 +76,11 @@ class cached_property:
 
     def _compute_value(self, instance):
         # Default case: no asyncio is involved
-        return self.func(instance)
+        return self.__func__(instance)
 
     def _future_value(self, instance):
         # Replacement for _compute_value() in asyncio case
-        return asyncio.ensure_future(self.func(instance))
+        return asyncio.ensure_future(self.__func__(instance))
 
 ```
 

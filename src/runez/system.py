@@ -130,14 +130,14 @@ class cached_property:
     """
 
     def __init__(self, func):
-        self.func = func
-        py_mimic(self, func)
+        self.__func__ = func
+        py_mimic(self, self.__func__)
 
     def __get__(self, instance, owner):
         if instance is None:
             return self
 
-        value = instance.__dict__[self.__name__] = self.func(instance)
+        value = instance.__dict__[self.__name__] = self.__func__(instance)
         return value
 
     @staticmethod

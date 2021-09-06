@@ -10,7 +10,7 @@ class thread_local_property:
     """
 
     def __init__(self, func):
-        self.func = func
+        self.__func__ = func
         self.key = "_tp%s" % func.__qualname__
         py_mimic(self, func)
 
@@ -19,7 +19,7 @@ class thread_local_property:
             return self
 
         if not hasattr(THREAD_LOCAL, self.key):
-            setattr(THREAD_LOCAL, self.key, self.func(instance))
+            setattr(THREAD_LOCAL, self.key, self.__func__(instance))
 
         return getattr(THREAD_LOCAL, self.key)
 
