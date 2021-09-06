@@ -39,8 +39,6 @@ def test_decorator_forbidden():
 
 @EXAMPLE.mock({
     "test/README.txt": "Hello",
-    "test/README.txt#sha256=a123": "Hello",
-    "test/README.txt#sha256=185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969": "Hello",
 })
 def test_download(temp_folder, logged):
     assert str(EXAMPLE) == "https://example.com"
@@ -73,6 +71,14 @@ def test_download(temp_folder, logged):
 
     r = client.download("README.txt#sha256=185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969", "README.txt", fatal=False)
     assert r.ok
+
+    assert client.download("README.txt#md5=8b1a9953c4611296a827abf8c47804d7", "README.txt", fatal=False).ok
+    assert client.download("README.txt#sha1=f7ff9e8b7bb2e09b70935a5d785e0cc5d9d0abf0", "README.txt", fatal=False).ok
+    c = "3615f80c9d293ed7402687f94b22d58e529b8cc7916f8fac7fddf7fbd5af4cf777d3d795a7a00a16bf7e7f3fb9561ee9baae480da9fe7a18769e71886b03f315"
+    assert client.download(f"README.txt#sha512={c}", "README.txt", fatal=False).ok
+
+    # Not considered checksum, url fragment left as-is
+    assert client.download("README.txt#sha2=bar", "README.txt", fatal=False).status_code == 404
 
     client.decompress("foo/test.tar.gz", "my-folder", dryrun=True)
     assert "Would untar test.tar.gz -> my-folder" in logged.pop()

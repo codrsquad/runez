@@ -673,6 +673,7 @@ class RestClient:
         """
         Args:
             url (str): URL of resource to download (may be absolute, or relative to self.base_url)
+                       Use #sha256=... or #sha512=... at the end of the url to ensure content is validated against given checksum
             destination (str | Path): Path to local file where to store the download
             fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
@@ -685,10 +686,11 @@ class RestClient:
         """
         hash_algo = None
         hash_checksum = None
-        m = re.search(r"#(sha(256|512))=([a-f0-9]+)", url)
-        if m:
+        m = re.search(r"#(md5|sha(1|256|512))=([a-f0-9]+)", url)
+        if m and m.end(0) == len(url):
             hash_algo = m.group(1)
             hash_checksum = m.group(3)
+            url = url[:m.start(0)]
 
         response = self._get_response("GET", url, fatal, logger, dryrun=dryrun, params=params, headers=headers, action="download")
         if response.ok and not _R.resolved_dryrun(dryrun):
