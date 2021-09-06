@@ -1263,6 +1263,159 @@ class DevInfo:
 DEV = DevInfo()
 
 
+class PlatformId:
+    """
+    Models identification of a target platform/architecture/system, designed for identifying binaries across 3 dimensions:
+    - platform (such as linux, macos, windows)
+    - arch (such as arm64, x86_64)
+    - subsystem (such as libc, musl) - this can be empty for platform where it's not useful (ie: macos, windows)
+
+    This is a simpler alternative to other schemes like 'pc-unknown-linux-gnu' and the like.
+    It is intended originally to provide a simple way of identifying portable pythons https://pypi.org/project/portable-python/
+    The 3 dimensions (3rd one being optional) identifies where a truly "portable" binary can run
+    A binary is "portable" if:
+    - It uses only the most common "base" shared libs (on linux: typically libc.so.6, librt.so.1 etc)
+    - Does not use any library (system lib or otherwise), everything else is statically linked into the executable
+    - Additionally, the binary also should be able to run from whatever folder it has been unpacked in (no global system settings needed)
+    """
+
+    arch: str = None  # Example: arm64, x86_64
+    platform: str = None  # Example: linux, macos
+    subsystem: str = None  # Example: libc, musl (empty for macos/windows for now)
+
+    default_archive_type = ".tar.gz"
+    default_subsystem = None  # Can this be auto-detected? (currently: users can optionally provide this, by setting this class field)
+    archive_type = dict(linux=default_archive_type, macos=default_archive_type, windows=".zip")
+    sys_include = None  # Most standard system include dirs, if any
+
+    rx_base_path = None  # Regex identifying "base" libraries (present on any declination of this system)
+    rx_sys_lib = None  # Regex identifying a "system" library (ie: installed in a system folder, not /usr/local and such)
+
+    def __init__(self, given=None, arch=None, platform=None, subsystem=None):
+        """
+        Args:
+            given (str | None): Given platform identification (used if given, no auto-detection performed)
+            arch (str | None): Convenience way of specifying the architecture
+            platform (str | None): Convenience way of specifying the platform
+            subsystem (str | None): Convenience way of specifying the subsystem
+        """
+        if given:
+            given = flattened(given, split="-", keep_empty=True)
+            platform = platform or (given and given[0])
+            arch = arch or (len(given) > 1 and given[1])
+            if subsystem is None and len(given) > 2:
+                subsystem = given[2]
+
+        self.platform = platform or self.determine_current_platform()
+        self.arch = arch or self.determine_current_architecture()
+        if subsystem is None:
+            subsystem = self.determine_current_subsystem()
+
+        self.subsystem = subsystem
+        base_paths = ["@rpath/.+"]
+        if self.is_using_libc:
+            # Similar to https://github.com/pypa/auditwheel/blob/master/auditwheel/policy/manylinux-policy.json
+            base_paths.append("libc.so.6")
+            base_paths.append("libcrypt.so.1")
+            base_paths.append("libdl.so.2")
+            base_paths.append("libm.so.6")
+            base_paths.append("libnsl.so.1")
+            base_paths.append("libpthread.so.0")
+            base_paths.append("librt.so.1")
+            base_paths.append("libutil.so.1")
+
+        if self.is_linux:
+            self.sys_include = ["/usr/include", f"/usr/include/{self.arch}-{self.platform}-gnu"]
+            self.rx_sys_lib = re.compile(r"^(/usr)?/lib\d*/.+$")
+            base_paths.append(r"linux-vdso\.so.*")  # Special linux virtual dynamic shared object
+            base_paths.append(r"/lib\d*/ld-linux-.+")
+
+        elif self.is_macos:
+            self.sys_include = ["/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include"]
+            self.rx_sys_lib = re.compile(r"^/(usr/lib\d*|System/Library)/.+$")
+            base_paths.append(r"/usr/lib/libSystem\.B\.dylib")
+
+        elif self.is_windows:
+            # TODO: add windows support
+            base_paths.append(r"C:/Windows/System32/.*")
+
+        self.rx_base_path = re.compile(r"^(%s)$" % joined(base_paths, delimiter="|"))
+
+    def __repr__(self):
+        return self.get_identifier()
+
+    def __eq__(self, other):
+        return str(self) == str(other)
+
+    def __lt__(self, other):
+        return str(self) < str(other)
+
+    def composed_basename(self, prefix, version=None, delimiter="-", extension=None):
+        """
+        Args:
+            prefix (str | None): Prefix of artifact
+            version (str | runez.pyenv.Version | None): Version of artifact
+            delimiter (str): Delimiter to use
+            extension (str | None): File extension to use
+
+        Returns:
+            (str): Composed file base name to use
+        """
+        if not extension:
+            extension = self.archive_type.get(self.platform) or self.default_archive_type
+
+        basename = joined(prefix, version, self.get_identifier(delimiter), delimiter=delimiter)
+        return joined(basename, extension.strip("."), delimiter=".")
+
+    def get_identifier(self, delimiter="-"):
+        """String identifying this platform, of the form: linux-arm64-libc"""
+        return joined(self.platform, self.arch, self.subsystem, delimiter=delimiter)
+
+    def is_base_lib(self, *paths):
+        """Does one of the given 'paths' match a base library? (present on any declination of this system)"""
+        for path in paths:
+            if path:
+                if self.rx_base_path.match(str(path)):
+                    return True
+
+    def is_system_lib(self, *paths):
+        """Does one of the given 'paths' match a system library? (ie: installed in a system folder, not /usr/local and such)"""
+        for path in paths:
+            if path and self.rx_sys_lib and self.rx_sys_lib.match(str(path)):
+                return True
+
+    @property
+    def is_using_libc(self):
+        """Subsystem either explictly libs, or empty value on linux (making 3rd dimension optional there, implying libc)"""
+        return self.subsystem == "libc" or (not self.subsystem and self.is_linux)
+
+    @property
+    def is_linux(self):
+        return self.platform == "linux"
+
+    @property
+    def is_macos(self):
+        return self.platform == "macos"
+
+    @property
+    def is_windows(self):
+        return self.platform == "windows"
+
+    def determine_current_architecture(self):
+        import platform
+
+        return platform.machine()
+
+    def determine_current_platform(self):
+        import platform
+
+        p = platform.system().lower()
+        return "macos" if p == "darwin" else p
+
+    def determine_current_subsystem(self):
+        return self.default_subsystem and self.default_subsystem.get(self.platform)
+
+
 class PlatformInfo:
     """Info on the platform we're currently running on"""
 
@@ -1297,31 +1450,33 @@ class SystemInfo:
         """Info on currently running process"""
         return _R._runez_module().PsInfo()
 
-    def diagnostics(self, via=" ⚡ ", userid=UNSET):
+    def diagnostics(self, argv=UNSET, exe=True, platform=True, prefix=UNSET, term=UNSET, userid=UNSET, version=UNSET, via=" ⚡ "):
         """Usable by runez.render.PrettyTable.two_column_diagnostics()"""
-        yield "platform", self.platform_info
-        if self.terminal.term_program:
+        if platform:
+            yield "platform", "%s [%s]" % (_R.colored(self.platform_id, "bold"), self.platform_info)
+
+        if _R.rdefault(term, self.terminal.term_program):
             yield "terminal", self.terminal.term_program
 
-        if userid is UNSET:
-            userid = self.userid
-
+        userid = _R.rdefault(userid, self.userid)
         if userid:
             yield "userid", userid
 
-        if self.program_version:
+        if _R.rdefault(version, self.program_version):
             yield "version", "%s v%s" % (self.program_name, self.program_version)
 
-        yield "sys.executable", sys.executable
+        if exe:
+            yield "sys.executable", sys.executable
+
         if via:
             process_list = self.current_process.parent_list()
             if process_list:
-                yield "via", joined([p.cmd_basename for p in process_list], delimiter=via)
+                yield "via", joined((p.cmd_basename for p in process_list), delimiter=via)
 
-        if "diagnostics" not in sys.argv:
+        if _R.rdefault(argv, "diagnostics" not in sys.argv):
             yield "sys.argv", quoted(sys.argv)
 
-        if SYS_INFO.venv_bin_folder:
+        if _R.rdefault(prefix, SYS_INFO.venv_bin_folder):
             yield "sys.prefix", sys.prefix
 
     @cached_property
@@ -1341,6 +1496,11 @@ class SystemInfo:
             pass
 
         return False
+
+    @cached_property
+    def platform_id(self):
+        """Simplified platform identification for portable programs, example: linux-x86_64, or macos-arm64"""
+        return PlatformId()
 
     @cached_property
     def platform_info(self):

@@ -8,7 +8,7 @@ import pytest
 
 import runez
 from runez.program import RunResult
-from runez.system import _R, SystemInfo, TerminalInfo, TerminalProgram
+from runez.system import _R, PlatformId, SystemInfo, TerminalInfo, TerminalProgram
 
 VERSION = "1.2.3.dev4"
 
@@ -410,6 +410,53 @@ def test_path_resolution(temp_folder):
     assert runez.resolved_path("some-file", base="bar") == os.path.join(temp_folder, "bar", "some-file")
 
     assert runez.quoted(["ls", os.path.join(temp_folder, "some-file") + " bar", "-a", " foo "]) == 'ls "some-file bar" -a " foo "'
+
+
+def test_platform_identification(monkeypatch):
+    current = PlatformId()
+    assert str(current)
+    assert current.arch  # Will depend on where we're running this
+    assert current.platform
+
+    linux_arm = PlatformId("linux-arm64")
+    assert str(linux_arm) == "linux-arm64"
+
+    assert linux_arm == PlatformId("linux-arm64-")
+    assert linux_arm == PlatformId("linux-arm64", subsystem="")
+    assert linux_arm == PlatformId(platform="linux", arch="arm64", subsystem="")
+
+    linux_musl = PlatformId("linux-arm64-musl")
+    assert str(linux_musl) == "linux-arm64-musl"
+    assert linux_musl == PlatformId(platform="linux", arch="arm64", subsystem="musl")
+    assert linux_musl.is_base_lib("linux-vdso.so.1")
+    assert not linux_musl.is_base_lib("libc.so.6")
+    assert linux_musl.is_system_lib("/lib/foo.so")
+    assert linux_musl.is_system_lib("/usr/lib/foo.so")
+    assert not linux_musl.is_system_lib("/System/Library/foo.so")
+    assert linux_musl.composed_basename("foo", "1.2.3") == "foo-1.2.3-linux-arm64-musl.tar.gz"
+    assert linux_musl.composed_basename("foo", "1.2.3", extension="bz2") == "foo-1.2.3-linux-arm64-musl.bz2"
+    assert linux_musl.composed_basename("foo", "1.2.3", extension=".bz2") == "foo-1.2.3-linux-arm64-musl.bz2"
+    assert linux_musl != linux_arm
+    assert linux_arm < linux_musl  # Alphabetical order
+
+    linux_arm_libc = PlatformId("linux-arm64-libc")
+    assert str(linux_arm_libc) == "linux-arm64-libc"
+    assert linux_arm_libc.is_base_lib("linux-vdso.so.1")
+    assert linux_arm_libc.is_base_lib("libc.so.6")
+
+    m1 = PlatformId("macos-arm64")
+    assert str(m1) == "macos-arm64"
+    assert not m1.is_base_lib("linux-vdso.so.1")
+    assert not m1.is_base_lib("libc.so.6")
+    assert m1.is_base_lib("/usr/lib/libSystem.B.dylib")
+    assert not m1.is_system_lib("/lib/foo.so")
+    assert m1.is_system_lib("/usr/lib/foo.so")
+    assert m1.is_system_lib("/System/Library/foo.so")
+
+    win = PlatformId("windows-x86_64")
+    assert str(win) == "windows-x86_64"
+    assert win.is_windows
+    assert win.composed_basename("cpython", "1.2.3") == "cpython-1.2.3-windows-x86_64.zip"
 
 
 def test_quoted():
