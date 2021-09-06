@@ -25,11 +25,12 @@ Usage pattern:
 import functools
 import json
 import os
+import re
 import urllib.parse
 from pathlib import Path
 
-from runez.file import decompress, ensure_folder, TempFolder, to_path
-from runez.system import _R, abort, find_caller, stringified, SYS_INFO, UNSET
+from runez.file import checksum, decompress, delete, ensure_folder, TempFolder, to_path
+from runez.system import _R, abort, find_caller, short, stringified, SYS_INFO, UNSET
 
 
 def urljoin(base, url):
@@ -682,12 +683,26 @@ class RestClient:
         Returns:
             (RestResponse): Response from underlying call
         """
+        hash_algo = None
+        hash_checksum = None
+        m = re.search(r"#(sha(256|512))=([a-f0-9]+)", url)
+        if m:
+            hash_algo = m.group(1)
+            hash_checksum = m.group(3)
+
         response = self._get_response("GET", url, fatal, logger, dryrun=dryrun, params=params, headers=headers, action="download")
         if response.ok and not _R.resolved_dryrun(dryrun):
             destination = to_path(destination)
             ensure_folder(destination.parent, fatal=fatal, logger=None)
             with open(destination, "wb") as fh:
                 fh.write(response.content)
+
+            if hash_checksum:
+                downloaded_checksum = checksum(destination, hash=hash_algo)
+                if downloaded_checksum != hash_checksum:
+                    delete(destination, fatal=False, logger=logger)
+                    msg = "%s differs for %s: expecting %s, got %s" % (hash_algo, short(destination), hash_checksum, downloaded_checksum)
+                    return abort(msg, fatal=fatal, logger=logger)
 
         return response
 

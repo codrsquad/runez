@@ -44,6 +44,9 @@ def checksum(path, hash=hashlib.sha256, blocksize=65536):
     Returns:
         (str): Hex-digest
     """
+    if isinstance(hash, str):
+        hash = getattr(hashlib, hash)
+
     if callable(hash):
         hash = hash()
 

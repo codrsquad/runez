@@ -39,6 +39,8 @@ def test_decorator_forbidden():
 
 @EXAMPLE.mock({
     "test/README.txt": "Hello",
+    "test/README.txt#sha256=a123": "Hello",
+    "test/README.txt#sha256=185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969": "Hello",
 })
 def test_download(temp_folder, logged):
     assert str(EXAMPLE) == "https://example.com"
@@ -63,6 +65,14 @@ def test_download(temp_folder, logged):
     assert client.download("README.txt", "README.txt", fatal=False).ok
     assert "GET https://example.com/test/README.txt [200]" in logged.pop()
     assert runez.readlines("README.txt") == ["Hello"]
+
+    # With checksum validation
+    assert client.download("README.txt#sha256=a123", "README.txt", fatal=False) is None
+    assert "Deleted README.txt" in logged
+    assert "sha256 differs for README.txt: expecting a123, got " in logged.pop()
+
+    r = client.download("README.txt#sha256=185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969", "README.txt", fatal=False)
+    assert r.ok
 
     client.decompress("foo/test.tar.gz", "my-folder", dryrun=True)
     assert "Would untar test.tar.gz -> my-folder" in logged.pop()
