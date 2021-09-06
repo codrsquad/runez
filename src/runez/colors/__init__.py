@@ -79,13 +79,15 @@ class ColorManager:
         if callable(name):
             return name
 
-        if source is not None:
-            color = source.get(name)
+        color = None
+        if isinstance(name, str):
+            if source is not None:
+                color = source.get(name)
 
-        else:
-            color = cls.fg.get(name)
-            if color is None:
-                color = cls.style.get(name)
+            else:
+                color = cls.fg.get(name)
+                if color is None:
+                    color = cls.style.get(name)
 
         if color is None and strict:
             raise ValueError("Unknown color '%s'" % name)

@@ -379,8 +379,7 @@ class PythonSpec:
         if compact and self.version and (compact is True or self.family in compact):
             value = self.version
 
-        value = str(value)
-        return color(value) if callable(color) else value
+        return _R.colored(str(value), color)
 
     @classmethod
     def speccified(cls, values, strict=False):

@@ -685,32 +685,32 @@ def sample_function2(message):
 def test_timeit(logged):
     sample = SampleClass()
     sample.instance_func1("hello")
-    assert "SampleClass.instance_func1 took " in logged.pop()
+    assert "SampleClass.instance_func1() took " in logged.pop()
 
     sample.instance_func2("hello")
-    assert "SampleClass.instance_func2 took " in logged.pop()
+    assert "SampleClass.instance_func2() took " in logged.pop()
 
     sample.class_func1("hello")
-    assert "SampleClass.class_func1 took " in logged.pop()
+    assert "SampleClass.class_func1() took " in logged.pop()
 
     sample.class_func2("hello")
-    assert "SampleClass.class_func2 took " in logged.pop()
+    assert "SampleClass.class_func2() took " in logged.pop()
 
     sample.static_func1("hello")
-    assert "SampleClass.static_func1 took " in logged.pop()
+    assert "SampleClass.static_func1() took " in logged.pop()
 
     sample.static_func2("hello")
-    assert "SampleClass.static_func2 took " in logged.pop()
+    assert "SampleClass.static_func2() took " in logged.pop()
 
     sample_function1("sample1")
-    assert "sample_function1 took " in logged.pop()
+    assert "sample_function1() took " in logged.pop()
 
     sample_function2("sample2")
     assert "sample2 took " in logged.pop()
 
     with runez.log.timeit():
         print("hello")
-    assert "tests.test_logsetup.test_timeit took " in logged.pop()
+    assert "tests.test_logsetup.test_timeit() took " in logged.pop()
 
     with runez.log.timeit("ad-hoc context"):
         print("hello")

@@ -2,10 +2,11 @@
 This is module should not import any other runez module, it's the lowest on the import chain
 """
 
+import pathlib
 import re
 from collections import defaultdict
 
-from runez.system import flattened, joined, stringified
+from runez.system import _R, flattened, joined, stringified
 
 
 DEFAULT_BASE = 1000
@@ -40,7 +41,7 @@ def represented_bytesize(size, unit="B", base=1024, delimiter=" ", prefixes=DEFA
     '10Gb'
 
     Args:
-        size (int | float): Size to represent
+        size (int | float | pathlib.Path): Size to represent
         unit (str): Unit symbol
         base (int): Base to represent it in (example: 1024 for bytes, 1000 for bits)
         delimiter (str): Delimiter to use between number and units
@@ -49,6 +50,9 @@ def represented_bytesize(size, unit="B", base=1024, delimiter=" ", prefixes=DEFA
     Returns:
         (str): Human friendly byte size representation
     """
+    if isinstance(size, pathlib.Path):
+        size = _R.filesize(size)
+
     return _represented_with_units(size, unit, base, delimiter, prefixes)
 
 

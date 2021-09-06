@@ -1892,6 +1892,18 @@ class _R:
         return cls._runez_module().color.colored(text, color, is_coloring=is_coloring)
 
     @classmethod
+    def filesize(cls, path):
+        return cls._runez_module().filesize(path)
+
+    @classmethod
+    def plural(cls, countable, singular=None):
+        return cls._runez_module().plural(countable, singular=singular)
+
+    @classmethod
+    def represented_bytesize(cls, size, unit="bytes"):
+        return cls._runez_module().represented_bytesize(size, unit=unit)
+
+    @classmethod
     def shell_output(cls, program, *args):
         return cls._runez_module().shell(program, *args)
 

@@ -13,7 +13,7 @@ from runez.convert import plural, represented_bytesize, represented_with_units
 from runez.date import date_from_epoch, datetime_from_epoch, elapsed, local_timezone, represented_duration, \
     timezone, timezone_from_text, to_date, to_datetime, to_epoch, to_epoch_ms, to_seconds, UTC
 from runez.file import basename, checksum, ensure_folder, parent_folder, readlines, TempFolder, to_path, touch, write
-from runez.file import compress, copy, decompress, delete, ls_dir, move, symlink
+from runez.file import compress, copy, decompress, delete, filesize, ls_dir, move, symlink
 from runez.logsetup import LogManager as log, ProgressBar
 from runez.program import check_pid, is_executable, make_executable, PsInfo, run, shell, which
 from runez.serialize import read_json, represented_json, save_json, Serializable
@@ -35,7 +35,7 @@ __all__ = [
     "date_from_epoch", "datetime_from_epoch", "elapsed", "local_timezone", "represented_duration",
     "timezone", "timezone_from_text", "to_date", "to_datetime", "to_epoch", "to_epoch_ms", "to_seconds", "UTC",
     "basename", "checksum", "ensure_folder", "parent_folder", "readlines", "TempFolder", "to_path", "touch", "write",
-    "compress", "copy", "decompress", "delete", "ls_dir", "move", "symlink",
+    "compress", "copy", "decompress", "delete", "filesize", "ls_dir", "move", "symlink",
     "log", "ProgressBar",
     "check_pid", "is_executable", "make_executable", "PsInfo", "run", "shell", "which",
     "read_json", "represented_json", "save_json", "Serializable",

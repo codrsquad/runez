@@ -379,7 +379,7 @@ class PrettyTable(PrettyCustomizable):
 
     @staticmethod
     def two_column_diagnostics(
-        *sources, align="right", border=UNSET, columns=UNSET, delimiter="\n\n", missing=UNSET, style=UNSET, title_color=UNSET
+        *sources, align="right", border=UNSET, columns=UNSET, delimiter="\n\n", missing="orange", style="bold", title_color="blue"
     ):
         """
         Args:
@@ -388,18 +388,15 @@ class PrettyTable(PrettyCustomizable):
             border (str): Border for the PrettyTable used to render the two-column diagnostics
             columns (int | None): Optional max number of columns in output (default: terminal width)
             delimiter (str): Delimiter to use between sub-diagnostics sections
-            missing (callable | None): Color to use to represent missing values (default: orange)
-            style (callable | None): Style for 2nd column (default: bold)
-            title_color (callable | None): Color to use for titles of sub-diagnostics sections (default: blue)
+            missing (str | callable | None): Color to use to represent missing values
+            style (callable | None): Style for 2nd column
+            title_color (str | callable | None): Color to use for titles of sub-diagnostics sections
 
         Returns:
             (PrettyTable): Rendered PrettyTable showing diagnostics info
         """
         border = _R.rdefault(border, os.environ.get("DIAGNOSTICS_BORDER") or "colon")
         columns = _R.rdefault(columns, SYS_INFO.terminal.columns)
-        missing = _R.rdefault(missing, _R._runez_module().orange)
-        style = _R.rdefault(style, _R._runez_module().bold)
-        title_color = _R.rdefault(title_color, _R._runez_module().blue)
         additional = []
         named_sources = {}
         regular_sources = []
@@ -418,9 +415,7 @@ class PrettyTable(PrettyCustomizable):
             report.append(PrettyTable._single_diag(regular_sources, border, align, style, missing, columns))
 
         for title, source in sorted(named_sources.items()):
-            if title_color:
-                title = title_color(title)
-
+            title = _R.colored(title, title_color)
             if not isinstance(source, list):
                 source = [source]
 
@@ -591,11 +586,5 @@ class _PTCell:
         return "%s%s%s" % (padding, text, padding)
 
 
-def _represented_cell(text, missing):
-    if text is None:
-        return missing("-missing-")
-
-    if text is UNSET:
-        return missing("UNSET")
-
-    return stringified(text)
+def _represented_cell(text, missing_color):
+    return _R.colored("-missing-" if text is None else stringified(text), missing_color)

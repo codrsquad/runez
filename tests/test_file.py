@@ -65,6 +65,10 @@ def test_decompress(temp_folder, logged):
     runez.write("test/README.md", "hello", logger=None)
     runez.write("test/a/b", "c", logger=None)
     expected = dir_contents("test")
+    test_folder = runez.to_path("test/")
+    assert runez.filesize(test_folder) == 6
+    assert runez.represented_bytesize(test_folder) == "6 B"
+    assert runez.represented_bytesize(runez.to_path("no-such-file")) == "0 B"
 
     # Unknown extension
     assert runez.compress("test", "test.foo", overwrite=False, fatal=False) == -1
@@ -80,10 +84,10 @@ def test_decompress(temp_folder, logged):
     assert runez.compress("test", "test.tar.xz") == 1
     assert runez.compress("test", "test.zip") == 1
     assert "Tar test -> test.tar.gz" in logged.pop()
-    size_raw = runez.to_path("test.tar").stat().st_size
-    size_gz = runez.to_path("test.tar.gz").stat().st_size
-    size_xz = runez.to_path("test.tar.xz").stat().st_size
-    size_zip = runez.to_path("test.zip").stat().st_size
+    size_raw = runez.filesize("test.tar")
+    size_gz = runez.filesize("test.tar.gz")
+    size_xz = runez.filesize("test.tar.xz")
+    size_zip = runez.filesize("test.zip")
     assert size_raw > size_gz
     assert size_gz != size_xz
     if sys.version_info[:2] > (3, 8):
@@ -117,6 +121,9 @@ def test_decompress(temp_folder, logged):
     assert runez.decompress("test.zip", "unpacked", logger=None) == 1
     assert dir_contents("unpacked") == expected
     assert not logged
+
+    assert runez.decompress("test.zip", "unpacked2", simplify=False, logger=None) == 1
+    assert dir_contents("unpacked2") == {"test": expected}
 
 
 def test_edge_cases():

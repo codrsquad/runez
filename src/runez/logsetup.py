@@ -159,7 +159,7 @@ class _SpinnerComponent:
     def __init__(self, fps, source, color, adapter=None):
         self.adapter = adapter
         self.source = source  # type: callable
-        self.color = color  # type: Optional[callable]
+        self.color = color
         self.update_delay = 1.0 / fps
         self.next_update = 0
         self.current_text = None  # type: Optional[str]
@@ -177,9 +177,7 @@ class _SpinnerComponent:
         if self.adapter is not None or size > columns:
             text = short(text, size=columns)
 
-        if self.color:
-            text = self.color(text)
-
+        text = _R.colored(text, self.color)
         line.append(text)
         return size
 
@@ -203,7 +201,7 @@ class _SpinnerState:
             parent (ProgressSpinner): Parent object
             frames (AsciiFrames): Frames to use for spinner
             max_columns (int | None): Optional max number of columns to use
-            message_color (callable | None): Optional color to use for the message
+            message_color (str | callable | None): Optional color to use for the message
             progress_color (callable | None): Optional color to use for the spinner
             spinner_color (callable | None): Optional color to use for the spinner
         """
@@ -261,13 +259,13 @@ class ProgressSpinner:
         with self._lock:
             self._msg_show = message
 
-    def start(self, frames=UNSET, max_columns=140, message_color=UNSET, progress_color=UNSET, spinner_color=None):
+    def start(self, frames=UNSET, max_columns=140, message_color="dim", progress_color="teal", spinner_color=None):
         """Start a background thread to handle spinner, if stderr is a tty
 
         Args:
             frames (AsciiFrames | callable | str | None): Frames to use for spinner animation
             max_columns (int | None): Maximum number of terminal columns to use for progress line
-            message_color (callable | None): Optional color to use for the message part
+            message_color (str | callable | None): Optional color to use for the message part
             progress_color (callable | None): Optional color to use for the progress bar
             spinner_color (callable | None): Optional color to use for the animated spinner
         """
@@ -275,12 +273,6 @@ class ProgressSpinner:
             if self._thread is None:
                 self._stderr_write = self._original_write(sys.stderr)
                 if self._stderr_write is not None:
-                    if message_color is UNSET:
-                        message_color = _R._runez_module().dim
-
-                    if progress_color is UNSET:
-                        progress_color = _R._runez_module().teal
-
                     frames = AsciiAnimation.get_frames(frames)
                     self._state = _SpinnerState(self, frames, max_columns, message_color, progress_color, spinner_color)
                     sys.stderr.write = self._on_stderr
@@ -620,23 +612,17 @@ def default_log_locations():
 class Timeit:
     """Measure how long a decorated function, or context, took took to run"""
 
-    # It's OK to modify these globally, right after importing runez
-    color = UNSET
-    delimiter = " "
-    fmt = "{function} took {elapsed}"
-    logger = UNSET
-    span = UNSET
-
-    def __init__(self, function=None, color=UNSET, logger=UNSET):
+    def __init__(self, function=None, color="bold", logger=UNSET, fmt="{function} took {elapsed}"):
         self.__func__ = None
         self.function_name = None
         self.start_time = None
-        self.color = _R.rdefault(color, self.color)
-        self.logger = _R.rdefault(logger, self.logger)
+        self.color = color
+        self.logger = logger
+        self.fmt = fmt
         if callable(function):
             # We're being used as a decorator without args
             self.__func__ = function
-            self.function_name = function.__qualname__
+            self.function_name = "%s()" % function.__qualname__
 
         else:
             self.function_name = function
@@ -663,7 +649,7 @@ class Timeit:
         # We've been used as a decorator with args, and now we're called with the decorated function as argument
         self.__func__ = args[0]
         if not self.function_name:
-            self.function_name = self.__func__.__qualname__
+            self.function_name = "%s()" % self.__func__.__qualname__
 
         return self
 
@@ -674,20 +660,14 @@ class Timeit:
     def __exit__(self, *_):
         msg = self.function_name
         if not msg:
-            msg = str(find_caller())
+            msg = "%s()" % find_caller()
 
         logger = _R.rdefault(self.logger, LogManager.spec.default_logger)
         if callable(logger):
             elapsed = time.time() - self.start_time
-            elapsed = represented_duration(elapsed, span=self.span, delimiter=self.delimiter)
-            color = self.color
-            if logger is print and (color is UNSET or color is True):
-                color = _R._runez_module().bold
-
-            if callable(color):
-                msg = color(msg)
-                elapsed = color(elapsed)
-
+            elapsed = represented_duration(elapsed)
+            msg = _R.colored(msg, self.color)
+            elapsed = _R.colored(elapsed, self.color)
             msg = self.fmt.format(function=msg, elapsed=elapsed)
             logger(msg)
 
@@ -893,7 +873,7 @@ class LogManager:
                     bars = "=" * len(message)
                     message = "\n%s\n%s\n%s\n\n" % (bars, message, bars)
 
-                message = _R._runez_module().red(message)
+                message = _R.colored(message, "red")
                 if allow_root is None:
                     abort(message)
 

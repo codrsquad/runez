@@ -305,7 +305,7 @@ def run(
     abort_logger = None if logger is None else UNSET
     if logger is True or logger is print:
         # When logger is True, we just print() the message, so we may as well color it nicely
-        description = _R._runez_module().bold(description)
+        description = _R.colored(description, "bold")
 
     if _R.hdry(dryrun, logger, "run: %s" % description):
         result.audit.dryrun = True

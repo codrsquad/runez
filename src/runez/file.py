@@ -6,7 +6,6 @@ import tempfile
 import time
 from pathlib import Path
 
-from runez.convert import plural, represented_bytesize
 from runez.system import _R, abort, Anchored, decode, resolved_path, short, SYMBOLIC_TMP, SYS_INFO, UNSET
 
 
@@ -131,7 +130,7 @@ def ensure_folder(path, clean=False, fatal=True, logger=UNSET, dryrun=UNSET):
             cleaned += delete(os.path.join(path, fname), fatal=fatal, logger=None, dryrun=dryrun)
 
         if cleaned:
-            msg = "%s from %s" % (plural(cleaned, "file"), short(path))
+            msg = "%s from %s" % (_R.plural(cleaned, "file"), short(path))
             if not _R.hdry(dryrun, logger, "clean %s" % msg):
                 _R.hlog(logger, "Cleaned %s" % msg)
 
@@ -148,6 +147,34 @@ def ensure_folder(path, clean=False, fatal=True, logger=UNSET, dryrun=UNSET):
 
     except Exception as e:
         return abort("Can't create folder %s" % short(path), exc_info=e, return_value=-1, fatal=fatal, logger=logger)
+
+
+def filesize(path, _seen=None):
+    """
+    Args:
+        path (str | Path | None): Path to file or folder
+        _seen: Internal, used to avoid being fooled by circular symlinks
+
+    Returns:
+        (int | None): File size in bytes, if path provided (None otherwise)
+    """
+    if path:
+        path = to_path(path)
+        if not path.exists():
+            return 0
+
+        if path.is_dir():
+            if _seen is None:
+                _seen = set()
+
+            size = 0
+            if path not in _seen:
+                for sf in path.iterdir():
+                    size += filesize(sf, _seen=_seen)
+
+            return size
+
+        return path.stat().st_size
 
 
 def ini_to_dict(path, default=UNSET, logger=None, keep_empty=False):
@@ -367,13 +394,14 @@ def compress(source, destination, ext=None, overwrite=True, fatal=True, logger=U
     return _file_op(source, destination, func, overwrite, fatal, logger, dryrun, **kwargs)
 
 
-def decompress(source, destination, ext=None, overwrite=True, fatal=True, logger=UNSET, dryrun=UNSET):
+def decompress(source, destination, ext=None, overwrite=True, simplify=True, fatal=True, logger=UNSET, dryrun=UNSET):
     """
     Args:
         source (str | Path | None): Source file to decompress
         destination (str | Path | None): Destination folder
         ext (str | None): Extension determining compression (default: extension of given 'source' file)
         overwrite (bool | None): True: replace existing, False: fail if destination exists, None: no destination check
+        simplify (bool): If True and source has only one sub-folder, make that one sub-folder root of compressed archive
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
@@ -390,7 +418,7 @@ def decompress(source, destination, ext=None, overwrite=True, fatal=True, logger
         return abort(message, return_value=-1, fatal=fatal, logger=logger)
 
     func = _unzip if ext == "zip" else _untar
-    return _file_op(source, destination, func, overwrite, fatal, logger, dryrun)
+    return _file_op(source, destination, func, overwrite, fatal, logger, dryrun, simplify=simplify)
 
 
 class TempFolder:
@@ -468,7 +496,7 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
         return 0
 
     path = resolved_path(path)
-    byte_size = represented_bytesize(len(contents), unit="bytes") if contents else ""
+    byte_size = _R.represented_bytesize(len(contents)) if contents else ""
 
     def dryrun_msg():
         return "%s %s" % ("write %s to" % byte_size if byte_size else "touch", short(path))
@@ -548,7 +576,18 @@ def _tar(source, destination, mode):
         fh.add(source, arcname=source.name, recursive=True)
 
 
-def _untar(source, destination):
+def _move_extracted(extracted_source, destination, simplify):
+    # Tarballs often contain only one sub-folder, auto-unpack that to the destination (similar to how zip files work)
+    if simplify:
+        subfolders = list(ls_dir(extracted_source))
+        if len(subfolders) == 1 and subfolders[0].is_dir():
+            extracted_source = subfolders[0]
+
+    delete(destination, fatal=False, logger=None, dryrun=False)
+    _move(extracted_source, destination)
+
+
+def _untar(source, destination, simplify):
     """Effective untar"""
     import tarfile
 
@@ -559,32 +598,32 @@ def _untar(source, destination):
         with tarfile.open(source) as fh:
             fh.extractall(extracted_source)
 
-        # Tarballs often contain only one sub-folder, auto-unpack that to the destination (similar to how zip files work)
-        subfolders = list(ls_dir(extracted_source))
-        if len(subfolders) == 1 and subfolders[0].is_dir():
-            extracted_source = subfolders[0]
-
-        _move(extracted_source, destination)
+        _move_extracted(extracted_source, destination, simplify)
 
 
-def _unzip(source, destination):
+def _unzip(source, destination, simplify):
     """Effective unzip"""
     from zipfile import ZipFile
 
-    delete(destination, fatal=False, logger=None, dryrun=False)
-    with ZipFile(source) as fh:
-        fh.extractall(destination)
+    source = to_path(source).absolute()
+    destination = to_path(destination).absolute()
+    with TempFolder():
+        extracted_source = to_path(source.name)
+        with ZipFile(source) as fh:
+            fh.extractall(extracted_source)
+
+        _move_extracted(extracted_source, destination, simplify)
 
 
 def _zip(source, destination, fh=None):
-    """Effective zip"""
+    """Effective zip, behaving like tar+gzip for consistency"""
     if fh is None:
         from zipfile import ZipFile, ZIP_DEFLATED
 
-        source = to_path(source)
-        destination = to_path(destination)
+        source = to_path(source).absolute()
+        destination = to_path(destination).absolute()
         with ZipFile(destination, mode="w", compression=ZIP_DEFLATED) as fh:
-            _zip(source, source, fh=fh)
+            _zip(source, source.parent, fh=fh)
 
     elif source.is_dir():
         for f in source.iterdir():

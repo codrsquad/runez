@@ -30,6 +30,7 @@ import urllib.parse
 from pathlib import Path
 
 from runez.file import checksum, decompress, delete, ensure_folder, TempFolder, to_path
+from runez.logsetup import LogManager
 from runez.system import _R, abort, find_caller, short, stringified, SYS_INFO, UNSET
 
 
@@ -511,7 +512,7 @@ class RequestsHandler(RestHandler):
                 import urllib3
 
                 # Silence logs, we use runez' more sophisticated logging setup
-                _R._runez_module().log.silence(requests, urllib3)
+                LogManager.silence(requests, urllib3)
                 cls._is_usable = True
 
             except ImportError:  # pragma: no cover
