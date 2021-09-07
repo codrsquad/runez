@@ -647,11 +647,12 @@ class RestClient:
         """
         return urljoin(self.base_url, url)
 
-    def decompress(self, url, destination, fatal=True, logger=UNSET, dryrun=UNSET, params=None, headers=None):
+    def decompress(self, url, destination, simplify=False, fatal=True, logger=UNSET, dryrun=UNSET, params=None, headers=None):
         """
         Args:
             url (str): URL of .tar.gz to unpack (may be absolute, or relative to self.base_url)
             destination (str | Path): Path to local folder where to untar url
+            simplify (bool): If True and source has only one sub-folder, extract that one sub-folder to destination
             fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
             dryrun (bool): Optionally override current dryrun setting
@@ -666,7 +667,7 @@ class RestClient:
             tarball_path = to_path(os.path.basename(url)).absolute()
             response = self.download(url, tarball_path, fatal=fatal, logger=logger, dryrun=dryrun, params=params, headers=headers)
             if response.ok:
-                decompress(tarball_path, destination, fatal=fatal, logger=logger, dryrun=dryrun)
+                decompress(tarball_path, destination, simplify=simplify, fatal=fatal, logger=logger, dryrun=dryrun)
 
             return response
 

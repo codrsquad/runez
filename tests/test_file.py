@@ -101,7 +101,7 @@ def test_decompress(temp_folder, logged):
     assert runez.decompress("test.tar.gz", "unpacked", dryrun=True) == 1
     assert "Would untar test.tar.gz -> unpacked" in logged.pop()
 
-    assert runez.decompress("test.tar.gz", "unpacked") == 1
+    assert runez.decompress("test.tar.gz", "unpacked", simplify=True) == 1
     assert "Untar test.tar.gz -> unpacked" in logged.pop()
     assert dir_contents("unpacked") == expected
 
@@ -110,20 +110,28 @@ def test_decompress(temp_folder, logged):
     assert "unpacked exists, can't untar" in logged.pop()
 
     # Second attempt succeeds with overwrite
-    assert runez.decompress("test.tar.gz", "unpacked", logger=None) == 1
+    assert runez.decompress("test.tar.gz", "unpacked", simplify=True, logger=None) == 1
     assert dir_contents("unpacked") == expected
 
     # Check .xz file
-    assert runez.decompress("test.tar.gz", "unpacked", logger=None) == 1
+    assert runez.decompress("test.tar.gz", "unpacked", simplify=True, logger=None) == 1
     assert dir_contents("unpacked") == expected
 
     # Check .zip file
-    assert runez.decompress("test.zip", "unpacked", logger=None) == 1
+    assert runez.decompress("test.zip", "unpacked", simplify=True, logger=None) == 1
     assert dir_contents("unpacked") == expected
     assert not logged
 
-    assert runez.decompress("test.zip", "unpacked2", simplify=False, logger=None) == 1
+    assert runez.decompress("test.zip", "unpacked2", logger=None) == 1
     assert dir_contents("unpacked2") == {"test": expected}
+
+    # Verify that arcname=None works correctly
+    assert runez.compress("test", "test-flat.tar.gz", arcname=None) == 1
+    assert runez.compress("test", "test-flat.zip", arcname=None) == 1
+    assert runez.decompress("test-flat.tar.gz", "unpacked-flat-gz", logger=None) == 1
+    assert runez.decompress("test-flat.zip", "unpacked-flat-zip", logger=None) == 1
+    assert dir_contents("unpacked-flat-gz") == expected
+    assert dir_contents("unpacked-flat-zip") == expected
 
 
 def test_edge_cases():

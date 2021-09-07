@@ -323,7 +323,11 @@ def to_path(path, no_spaces=False):
     if isinstance(path, Path):
         return path
 
-    return Path(os.path.expanduser(path)) if path else None
+    if path is not None:
+        if path:
+            path = os.path.expanduser(path)
+
+        return Path(path)
 
 
 def move(source, destination, overwrite=True, fatal=True, logger=UNSET, dryrun=UNSET):
@@ -361,11 +365,12 @@ def symlink(source, destination, must_exist=True, overwrite=True, fatal=True, lo
     return _file_op(source, destination, _symlink, overwrite, fatal, logger, dryrun, must_exist=must_exist)
 
 
-def compress(source, destination, ext=None, overwrite=True, fatal=True, logger=UNSET, dryrun=UNSET):
+def compress(source, destination, arcname=UNSET, ext=None, overwrite=True, fatal=True, logger=UNSET, dryrun=UNSET):
     """
     Args:
         source (str | Path | None): Source folder to compress
         destination (str | Path | None): Destination folder
+        arcname (str | None): Name of subfolder in archive (default: source basename)
         ext (str | None): Extension determining compression (default: extension of given 'source' file)
         overwrite (bool | None): True: replace existing, False: fail if destination exists, None: no destination check
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
@@ -384,6 +389,10 @@ def compress(source, destination, ext=None, overwrite=True, fatal=True, logger=U
         message = "Unknown extension '%s': can't compress file" % os.path.basename(destination)
         return abort(message, return_value=-1, fatal=fatal, logger=logger)
 
+    if arcname is UNSET:
+        arcname = os.path.basename(source)
+
+    arcname = to_path(arcname or "")
     if ext == "zip":
         func = _zip
 
@@ -391,17 +400,17 @@ def compress(source, destination, ext=None, overwrite=True, fatal=True, logger=U
         func = _tar
         kwargs["mode"] = "w:" if ext == "tar" else "w:%s" % ext
 
-    return _file_op(source, destination, func, overwrite, fatal, logger, dryrun, **kwargs)
+    return _file_op(source, destination, func, overwrite, fatal, logger, dryrun, arcname=arcname, **kwargs)
 
 
-def decompress(source, destination, ext=None, overwrite=True, simplify=True, fatal=True, logger=UNSET, dryrun=UNSET):
+def decompress(source, destination, ext=None, overwrite=True, simplify=False, fatal=True, logger=UNSET, dryrun=UNSET):
     """
     Args:
         source (str | Path | None): Source file to decompress
         destination (str | Path | None): Destination folder
         ext (str | None): Extension determining compression (default: extension of given 'source' file)
         overwrite (bool | None): True: replace existing, False: fail if destination exists, None: no destination check
-        simplify (bool): If True and source has only one sub-folder, make that one sub-folder root of compressed archive
+        simplify (bool): If True and source has only one sub-folder, extract that one sub-folder to destination
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
@@ -566,14 +575,14 @@ def _symlink(source, destination):
     os.symlink(source, destination)
 
 
-def _tar(source, destination, mode):
+def _tar(source, destination, arcname, mode):
     """Effective tar"""
     import tarfile
 
     source = to_path(source)
     delete(destination, fatal=False, logger=None, dryrun=False)
     with tarfile.open(destination, mode=mode) as fh:
-        fh.add(source, arcname=source.name, recursive=True)
+        fh.add(source, arcname=arcname, recursive=True)
 
 
 def _move_extracted(extracted_source, destination, simplify):
@@ -615,7 +624,7 @@ def _unzip(source, destination, simplify):
         _move_extracted(extracted_source, destination, simplify)
 
 
-def _zip(source, destination, fh=None):
+def _zip(source, destination, arcname, fh=None):
     """Effective zip, behaving like tar+gzip for consistency"""
     if fh is None:
         from zipfile import ZipFile, ZIP_DEFLATED
@@ -623,14 +632,14 @@ def _zip(source, destination, fh=None):
         source = to_path(source).absolute()
         destination = to_path(destination).absolute()
         with ZipFile(destination, mode="w", compression=ZIP_DEFLATED) as fh:
-            _zip(source, source.parent, fh=fh)
+            _zip(source, destination, arcname, fh=fh)
 
     elif source.is_dir():
         for f in source.iterdir():
-            _zip(f, destination, fh=fh)
+            _zip(f, destination, arcname / f.name, fh=fh)
 
     else:
-        fh.write(source, arcname=source.relative_to(destination))
+        fh.write(source, arcname=arcname)
 
 
 def _file_op(source, destination, func, overwrite, fatal, logger, dryrun, must_exist=True, ignore=None, **extra):
