@@ -40,6 +40,9 @@ def echo(text):
     This part will be an {placeholder}
     """
     text = " ".join(text)
+    if text == "AssertionError":
+        assert False, "oops"
+
     msg = "%s, color: %s, %s values, g.a=%s" % (text, runez.color.is_coloring(), len(runez.config.CONFIG), runez.config.get("g.a"))
     msg += ", debug: %s, dryrun: %s, log: %s" % (runez.log.debug, runez.DRYRUN, runez.log.spec.file_location)
     print(msg)
@@ -203,6 +206,9 @@ def test_group(cli):
     cli.run("--no-color --dryrun -ca=b --config c=d --log foo echo hello")
     assert cli.succeeded
     cli.assert_printed("hello, color: False, 2 values, g.a=b, debug: False, dryrun: True, log: foo")
+
+    with pytest.raises(AssertionError):
+        cli.run("echo", "AssertionError")
 
 
 def check_protected_main(exit_code, exception, *messages, **kwargs):

@@ -323,6 +323,9 @@ class ClickRunner:
                 self.logged = logged
                 with TempArgv(self.args, exe=exe):
                     result = self._run_main(main, self.args)
+                    if isinstance(result.exception, AssertionError):
+                        raise result.exception
+
                     if result.stdout:
                         logged.stdout.buffer.write(result.stdout)
 
@@ -333,7 +336,7 @@ class ClickRunner:
                         try:
                             raise result.exception
 
-                        except BaseException:
+                        except Exception:
                             LOG.exception("Exited with stacktrace:")
 
                     self.exit_code = result.exit_code
@@ -464,6 +467,9 @@ class ClickRunner:
             try:
                 result.stdout = main()
                 result.exit_code = 0
+
+            except AssertionError:
+                raise
 
             except SystemExit as e:
                 if isinstance(e.code, int):

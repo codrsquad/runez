@@ -21,11 +21,15 @@ def sample_main():
             # When first arg is a number, call sys.exit() with that number
             if len(args) > 1:
                 print(" ".join(args[1:]))
+
             sys.exit(exit_code)
 
         if args[0] == "Exception":
             # Raise a generic exception
             raise Exception("crashed: %s" % args[1:])
+
+        if args[0] == "AssertionError":
+            assert False, "oops, something went wrong"
 
         if args[0] == "exit":
             # exit without explicit code
@@ -54,6 +58,9 @@ def test_crash(cli):
     assert cli.failed
     assert cli.match("crashed...hello")
     assert cli.match("Exited with stacktrace:")
+
+    with pytest.raises(AssertionError):
+        cli.run(["AssertionError"])
 
     cli.run("TypeError")
     assert cli.failed

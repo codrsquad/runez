@@ -49,6 +49,10 @@ def urljoin(base, url):
     return urllib.parse.urljoin(base, url, allow_fragments=False)
 
 
+class ForbiddenHttpError(Exception):
+    """Raised to signify test setup prevented a remote call"""
+
+
 class GlobalHttpCalls:
     """Allows to forbid/allow outgoing http(s) call during test runs"""
 
@@ -72,7 +76,7 @@ class GlobalHttpCalls:
     @staticmethod
     def intentionally_disabled(*_, **kwargs):
         """Used as replacement of urlopen(), when external http calls are forbidden"""
-        assert False, "Outgoing requests intentionally forbidden %s" % kwargs.get("url")
+        raise ForbiddenHttpError(kwargs.get("url"))
 
     @classmethod
     def is_forbidden(cls):
@@ -866,6 +870,15 @@ class RestClient:
 
         return MockWrapper(self.handler, self.base_url, specs)
 
+    def _protected_get(self, method, absolute_url, keyword_args):
+        try:
+            return self.handler.raw_response(self.session, method, absolute_url, **keyword_args)
+
+        except ForbiddenHttpError:
+            pass
+
+        assert False, "Outgoing requests intentionally forbidden: %s" % absolute_url
+
     def _get_response(self, method, url, fatal, logger, dryrun=False, params=None, headers=None, state=None, action=None):
         """
         Args:
@@ -897,7 +910,7 @@ class RestClient:
             state.complete(keyword_args)
 
         try:
-            raw_response = self.handler.raw_response(self.session, method, absolute_url, **keyword_args)
+            raw_response = self._protected_get(method, absolute_url, keyword_args)
             response = self.handler.to_rest_response(method, absolute_url, raw_response)
             if fatal or logger is not None:
                 msg = response.description()
