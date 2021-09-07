@@ -587,4 +587,10 @@ class _PTCell:
 
 
 def _represented_cell(text, missing_color):
-    return _R.colored("-missing-" if text is None else stringified(text), missing_color)
+    if text is None:
+        return _R.colored("-missing-", missing_color)
+
+    if text is UNSET:
+        return _R.colored("UNSET", missing_color)
+
+    return stringified(text)
