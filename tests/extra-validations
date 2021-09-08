@@ -17,23 +17,18 @@ API_EXCEPTIONS = {
     "http.get_response": collections.OrderedDict(fatal=True, logger="UNSET"),
     "http.get": collections.OrderedDict(fatal=True, logger="UNSET"),
     "http.head": collections.OrderedDict(fatal=True, logger="UNSET"),
-    "http.url_exists": collections.OrderedDict(logger=False),
     "logsetup.hdry": collections.OrderedDict(dryrun="UNSET", logger="UNSET"),
-    "logsetup.setup": {},
-    "pyenv.find_python": collections.OrderedDict(fatal="UNSET"),
     "pyenv.latest_pypi_version": collections.OrderedDict(fatal=True, logger="UNSET"),
     "pyenv.ls_pypi": collections.OrderedDict(fatal=True, logger="UNSET"),
     "pyenv.pypi_response": collections.OrderedDict(fatal=True, logger="UNSET"),
     "system.abort": {},
-    "system.get_version": {},
 }
-IO_API_NO_CONTENT = collections.OrderedDict(fatal=True, logger="UNSET", dryrun="UNSET")
-EXPECTED_DRYRUN_UNSET = collections.OrderedDict(dryrun="UNSET")
 IO_API_DOCSTRINGS = dict(
     fatal="fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log",
     logger="logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter",
     dryrun="dryrun (bool): Optionally override current dryrun setting",
 )
+IO_API_CATEGORIZED = collections.defaultdict(list)
 
 
 def get_names(line):
@@ -182,28 +177,40 @@ def get_docstring(node: ast.FunctionDef):
 
 
 def expected_sig(path, node, sig):
-    if node.name == "__init__":
-        return EXPECTED_DRYRUN_UNSET if "dryrun" in sig else None
-
-    if "default" in sig and sig.get("default") is None and sig.get("logger") == "UNSET":
-        return None
-
     module_name = os.path.basename(path)[:-3]
     func_name = "%s.%s" % (module_name, node.name)
     exception = API_EXCEPTIONS.get(func_name)
     if exception is not None:
-        return exception
+        return None, func_name, exception
 
-    if "fatal" in sig or "logger" in sig or "dryrun" in sig:
-        return IO_API_NO_CONTENT
+    if "fatal" in sig:
+        if sig["fatal"] is False:
+            return "getter", func_name, collections.OrderedDict(fatal=False, logger=None)
+
+        if sig["fatal"] is True:
+            return "io op ", func_name, collections.OrderedDict(fatal=True, logger="UNSET", dryrun="UNSET")
+
+        assert False, "Check new case"
+
+    if "logger" in sig:
+        return "logger", func_name, collections.OrderedDict(logger=None)
+
+    if "dryrun" in sig:
+        return "dryrun", func_name, collections.OrderedDict(dryrun="UNSET")
+
+    return None, func_name, None
 
 
 def FunctionDef_problem(path: str, node: ast.FunctionDef):
     """Visitor for ast.FunctionDef nodes"""
     if node.args.defaults and not node.name.startswith("_"):
         sig = named_arg_defaults(node)
-        expected = expected_sig(path, node, sig)
+        sig_category, func_name, expected = expected_sig(path, node, sig)
+        assert func_name
         if expected:
+            if sig_category:
+                IO_API_CATEGORIZED[sig_category].append(func_name)
+
             docstring = get_docstring(node)
             subset = collections.OrderedDict((k, v) for k, v in sig.items() if k in expected)
             problem = io_api_problem(subset, expected, docstring)
@@ -273,6 +280,9 @@ def main():
     if errors:
         print("\nFound %s errors" % errors)
         sys.exit(1)
+
+    for k, v in sorted(IO_API_CATEGORIZED.items()):
+        print("%s: %s" % (k, " ".join(sorted(v))))
 
 
 if __name__ == "__main__":

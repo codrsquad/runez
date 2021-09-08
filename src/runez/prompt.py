@@ -1,8 +1,8 @@
 from runez.serialize import read_json, save_json
-from runez.system import _R, resolved_path, stringified, SYS_INFO, UNSET
+from runez.system import _R, resolved_path, stringified, SYS_INFO
 
 
-def ask_once(name, instructions, default=None, base="~/.config", serializer=stringified, fatal=False, logger=UNSET):
+def ask_once(name, instructions, default=None, base="~/.config", serializer=stringified, fatal=False, logger=None):
     """
     Args:
         name (str): Name under which to store provided answer (will be stored in ~/.config/<name>.json)

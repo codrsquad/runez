@@ -177,7 +177,7 @@ def filesize(path, _seen=None):
         return path.stat().st_size
 
 
-def ini_to_dict(path, default=None, keep_empty=False, fatal=False, logger=UNSET):
+def ini_to_dict(path, default=None, keep_empty=False, fatal=False, logger=None):
     """Contents of an INI-style config file as a dict of dicts: section -> key -> value
 
     Args:
@@ -274,7 +274,7 @@ def parent_folder(path, base=None):
     return path and os.path.dirname(resolved_path(path, base=base))
 
 
-def readlines(path, default=None, first=None, errors=None, fatal=False, logger=UNSET):
+def readlines(path, default=None, first=None, errors=None, fatal=False, logger=None):
     """
     Args:
         path (str | Path | None): Path to file to read lines from
@@ -303,7 +303,7 @@ def readlines(path, default=None, first=None, errors=None, fatal=False, logger=U
             return result
 
     except Exception as e:
-        return _R.habort(default, fatal, logger, "Can't read %s: %s" % (short(path), e), exc_info=e)
+        return _R.habort(default, fatal, logger, "Can't read %s" % short(path), exc_info=e)
 
 
 def to_path(path, no_spaces=False):
@@ -703,5 +703,4 @@ def _file_op(source, destination, func, overwrite, fatal, logger, dryrun, must_e
         return 1
 
     except Exception as e:
-        message = "Can't %s" % description
-        return abort(message, exc_info=e, return_value=-1, fatal=fatal, logger=logger)
+        return abort("Can't %s" % description, exc_info=e, return_value=-1, fatal=fatal, logger=logger)

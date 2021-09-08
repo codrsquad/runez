@@ -556,18 +556,19 @@ class Serializable:
         return self.__class__.from_dict(self.to_dict())
 
     @classmethod
-    def from_json(cls, path, default=None, logger=UNSET):
+    def from_json(cls, path, default=None, fatal=False, logger=None):
         """
         Args:
             path (str): Path to json file
             default (dict | list | str | None): Default if file is not present, or can't be deserialized
+            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
 
         Returns:
             (cls): Deserialized object
         """
         result = cls()
-        data = read_json(path, default=default, fatal=default is None and cls._meta.behavior.strict, logger=logger)
+        data = read_json(path, default=default, fatal=fatal or (default is None and cls._meta.behavior.strict), logger=logger)
         result.set_from_dict(data, source=short(path))
         return result
 
@@ -622,7 +623,7 @@ class Serializable:
         return json_sanitized(raw, stringify=stringify, dt=dt, none=none)
 
 
-def from_json(value, default=None, fatal=False, logger=UNSET):
+def from_json(value, default=None, fatal=False, logger=None):
     """
     Args:
         value (str): Value to deserialize
@@ -634,20 +635,20 @@ def from_json(value, default=None, fatal=False, logger=UNSET):
         (dict | list | str): Deserialized data from file
     """
     if not value or not isinstance(value, str):
-        return _R.habort(default, fatal, logger, "Can't deserialize %s: not a string" % short(value))
+        return _R.habort(default, fatal, logger, "Can't deserialize '%s': not a string" % short(value))
 
     value = value.strip()
     if "%s%s" % (value[0], value[-1]) not in ("{}", "[]", '""'):
-        return _R.habort(default, fatal, logger, "Can't deserialize %s: does not contain json" % short(value))
+        return _R.habort(default, fatal, logger, "Can't deserialize '%s': does not contain json" % short(value))
 
     try:
         return json.loads(value)
 
     except Exception as e:
-        return _R.habort(default, fatal, logger, "Can't deserialize %s: %s" % (short(value), e), exc_info=e)
+        return _R.habort(default, fatal, logger, "Can't deserialize json '%s'" % short(value), exc_info=e)
 
 
-def read_json(path, default=None, fatal=False, logger=UNSET):
+def read_json(path, default=None, fatal=False, logger=None):
     """
     Args:
         path (str | pathlib.Path | None): Path to file to deserialize
@@ -663,7 +664,7 @@ def read_json(path, default=None, fatal=False, logger=UNSET):
             return json.load(fh)
 
     except Exception as e:
-        return _R.habort(default, fatal, logger, "Can't read %s: %s" % (short(path), e), exc_info=e)
+        return _R.habort(default, fatal, logger, "Can't read %s" % short(path), exc_info=e)
 
 
 def represented_json(data, stringify=stringified, dt=str, none=False, indent=2, sort_keys=True):

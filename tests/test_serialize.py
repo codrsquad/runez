@@ -137,9 +137,10 @@ def test_json(temp_folder, monkeypatch):
     assert not runez.DRYRUN
 
     with runez.CaptureOutput() as logged:
-        with pytest.raises(runez.system.AbortException):
+        with pytest.raises(runez.system.AbortException) as exc:
             runez.read_json(None, fatal=True)
-        assert "Can't read None" in logged.pop()
+        assert "Can't read None" in str(exc)
+        assert not logged
 
         assert runez.read_json("sample.json") is None
         assert not logged
@@ -157,9 +158,9 @@ def test_json(temp_folder, monkeypatch):
 
         with monkeypatch.context() as m:
             m.setattr(io, "open", runez.conftest.exception_raiser())
-            with pytest.raises(runez.system.AbortException):
+            with pytest.raises(runez.system.AbortException) as exc:
                 runez.read_json("sample.json", fatal=True)
-            assert "Can't read sample.json" in logged.pop()
+            assert "Can't read sample.json" in str(exc)
 
             assert runez.read_json("sample.json") is None
             assert not logged

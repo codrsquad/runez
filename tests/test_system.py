@@ -356,18 +356,13 @@ def test_get_version():
         assert not logged
 
     with runez.CaptureOutput() as logged:
-        assert runez.get_version(None) == "0.0.0"
+        assert runez.get_version(None) is None
+        assert runez.get_version(["foo"], default="0.0.0", logger=logging.debug) is None  # Ignore if given name is not a string or module
         assert runez.get_version(__name__) == VERSION
         assert not logged
 
-        assert runez.get_version("foo") == "0.0.0"
+        assert runez.get_version("foo", logger=logging.debug) == "0.0.0"
         assert "Can't determine version" in logged.pop()
-
-        assert runez.get_version(["foo"]) == "0.0.0"
-        assert "TypeError: unhashable type" in logged.pop()
-
-        assert runez.get_version(["foo"], logger=None) == "0.0.0"
-        assert not logged
 
 
 def test_joined():

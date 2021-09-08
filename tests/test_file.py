@@ -227,9 +227,10 @@ def test_failure(monkeypatch):
         assert "Can't delete" in logged
         assert "bad unlink" in logged.pop()
 
-        with pytest.raises(runez.system.AbortException):
+        with pytest.raises(runez.system.AbortException) as exc:
             runez.file.ini_to_dict("bar", fatal=True)
-        assert "Can't read bar" in logged.pop()
+        assert "Can't read bar" in str(exc)
+        assert not logged
 
         assert runez.write("bar", "some content", fatal=False)
         assert "Can't write" in logged.pop()

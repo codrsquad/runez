@@ -496,7 +496,6 @@ class PythonDepot:
     invoker = None  # type: PythonInstallation  # The python installation (parent python, non-venv) that we're currently running under
     scanned = None  # type: list[PythonInstallation]  # Installations found by scanner
 
-    fatal = False  # abort() by default when a python could not be found?
     use_path = True  # Scan $PATH env var for python installations as well?
     _cache = None  # type: dict[str, PythonInstallation]
 
@@ -553,11 +552,12 @@ class PythonDepot:
         """
         return PythonSpec.to_spec(text)
 
-    def find_python(self, spec, fatal=UNSET):
+    def find_python(self, spec, fatal=False, logger=None):
         """
         Args:
             spec (str | PythonSpec | PythonInstallation | None): Example: 3.7, py37, pypy3.7, conda3.7, /usr/bin/python
             fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
 
         Returns:
             (PythonInstallation): Object representing python installation (may not be usable, see reported .problem)
@@ -568,27 +568,27 @@ class PythonDepot:
         if not isinstance(spec, PythonSpec):
             python = self._cache.get(spec)
             if python:
-                return self._checked_pyinstall(python, fatal)
+                return self._checked_pyinstall(python, fatal, logger)
 
             spec = PythonSpec(spec)
 
         python = self._cache.get(spec.canonical)
         if python:
-            return self._checked_pyinstall(python, fatal)
+            return self._checked_pyinstall(python, fatal, logger)
 
         if _is_path(spec.canonical):
             # Path reference: look it up and remember it "/"
             exe = self.resolved_python_exe(spec.canonical, version=get_current_version(components=2))
             if not exe:
                 python = PythonInstallation(spec.canonical, spec, problem="not an executable")
-                return self._checked_pyinstall(python, fatal)
+                return self._checked_pyinstall(python, fatal, logger)
 
             python = self._cache.get(exe) or self._cache.get(os.path.realpath(exe))
             if python:
-                return self._checked_pyinstall(python, fatal)
+                return self._checked_pyinstall(python, fatal, logger)
 
             python = self._python_from_path(exe)
-            return self._checked_pyinstall(python, fatal)
+            return self._checked_pyinstall(python, fatal, logger)
 
         for python in self.scanned:
             if python.satisfies(spec):
@@ -612,7 +612,7 @@ class PythonDepot:
         if python is None:
             python = PythonInstallation(spec.text, spec, problem="not available")
 
-        return self._checked_pyinstall(python, fatal)
+        return self._checked_pyinstall(python, fatal, logger)
 
     def scan_path_env_var(self):
         """Ensure env vars locations are scanned
@@ -782,14 +782,10 @@ class PythonDepot:
 
         return 0
 
-    def _checked_pyinstall(self, python, fatal):
+    def _checked_pyinstall(self, python, fatal, logger):
         """Optionally abort if 'python' installation is not valid"""
-        if python.problem:
-            if fatal is UNSET:
-                fatal = self.fatal
-
-            if fatal:
-                abort("Invalid python installation: %s" % python)
+        if python.problem and fatal:
+            abort("Invalid python installation: %s" % python, fatal=fatal, logger=logger)
 
         return python
 

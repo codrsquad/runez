@@ -358,63 +358,52 @@ def flattened(*value, keep_empty=False, split=None, shellify=False, strip=None, 
     return result
 
 
-def get_version(mod, default="0.0.0", logger=LOG.warning):
+def get_version(mod, default="0.0.0", fatal=False, logger=None):
     """
     Args:
         mod (module | str): Module, or module name to find version for (pass either calling module, or its .__name__)
         default (str): Value to return if version determination fails
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
 
     Returns:
-        (str): Determined version
+        (str | None): Determined version
     """
     name = mod
     if hasattr(mod, "__name__"):
         name = mod.__name__
 
-    if not name:
-        return default
+    if name and isinstance(name, str):
+        top_level = name.partition(".")[0] if isinstance(name, str) else name
+        last_exception = None
 
-    top_level = name.partition(".")[0] if isinstance(name, str) else name
-    last_exception = None
+        try:
+            from importlib import metadata
 
-    try:
-        from importlib import metadata  # noqa
+            version = metadata.version(top_level)
+            if version:
+                return version
 
-        version = metadata.version(top_level)
-        if version:
-            return version
+        except (ImportError, Exception) as e:  # Python < 3.8
+            last_exception = e
 
-    except (ImportError, Exception) as e:  # Python < 3.8
-        last_exception = e
+        try:
+            import pkg_resources
 
-    try:
-        import pkg_resources
+            d = pkg_resources.get_distribution(top_level)
+            if d and d.version:
+                return d.version
 
-        d = pkg_resources.get_distribution(top_level)
-        if d and d.version:
-            return d.version
+        except (ImportError, Exception) as e:
+            last_exception = e
 
-    except (ImportError, Exception) as e:
-        last_exception = e
-
-    try:
         m = sys.modules.get(name)
         if m is not None:
-            v = getattr(m, "__version__", None)
-            if not v:
-                v = getattr(m, "VERSION", None)
-
+            v = getattr(m, "__version__", None) or getattr(m, "VERSION", None)
             if v:
                 return v
 
-    except Exception as e:
-        last_exception = e
-
-    if logger and top_level != "tests":
-        _R.hlog(logger, "Can't determine version for %s: %s" % (name, last_exception), exc_info=last_exception)
-
-    return default
+        return _R.habort(default, fatal and top_level != "tests", logger, "Can't determine version for %s" % name, exc_info=last_exception)
 
 
 def is_basetype(value):
@@ -1944,9 +1933,7 @@ class _R:
         if fatal:
             abort(_R.actual_message(message), exc_info=exc_info, fatal=fatal, logger=logger)
 
-        if logger is not UNSET:
-            _R.hlog(logger, message, exc_info=exc_info)
-
+        _R.hlog(logger, message, exc_info=exc_info)
         return default
 
     @classmethod
