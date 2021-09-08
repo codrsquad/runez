@@ -261,7 +261,7 @@ def _is_interesting_dist(key):
 def _find_top_level(base, dist):
     name = dist.key.replace("-", "_").replace(".", "_")
     top_level = os.path.join(base, "%s-%s.dist-info" % (name, dist.version), "top_level.txt")
-    for line in runez.readlines(top_level, default=[]):
+    for line in runez.readlines(top_level):
         if not line.startswith("_") and line:
             return line
 

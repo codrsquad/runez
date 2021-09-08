@@ -62,7 +62,7 @@ def test_download(temp_folder, logged):
 
     assert client.download("README.txt", "README.txt", fatal=False).ok
     assert "GET https://example.com/test/README.txt [200]" in logged.pop()
-    assert runez.readlines("README.txt") == ["Hello"]
+    assert list(runez.readlines("README.txt")) == ["Hello"]
 
     # With checksum validation
     assert client.download("README.txt#sha256=a123", "README.txt", fatal=False) is None
@@ -117,7 +117,7 @@ def test_files(temp_folder):
         assert str(mm) == "tests.test_http.test_files started, 1 specs"
         assert str(mm.stack) == "RequestsHandler mock active, 1 specs [depth: 5]"
         EXAMPLE.download("README", sample)
-        assert runez.readlines(sample) == ["hello"]
+        assert list(runez.readlines(sample)) == ["hello"]
 
         # Use local README.txt, which should get opened/closed appropriately
         # Exercise data=Path(...) code path, headers are temporarily used

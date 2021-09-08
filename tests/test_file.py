@@ -58,7 +58,7 @@ def test_checksum():
 
 def dir_contents(path=None):
     path = runez.to_path(path or ".")
-    return {f.name: dir_contents(f) if f.is_dir() else runez.readlines(f) for f in runez.ls_dir(path)}
+    return {f.name: dir_contents(f) if f.is_dir() else list(runez.readlines(f)) for f in runez.ls_dir(path)}
 
 
 def test_decompress(temp_folder, logged):
@@ -135,7 +135,7 @@ def test_decompress(temp_folder, logged):
 
 
 def test_edge_cases():
-    assert runez.file.ini_to_dict(None) is None
+    assert runez.file.ini_to_dict(None) == {}
     with pytest.raises(runez.system.AbortException):
         runez.file.ini_to_dict(None, fatal=True)
 
@@ -190,7 +190,7 @@ def test_ensure_folder(temp_folder, logged):
 
 
 def test_ini_to_dict(temp_folder, logged):
-    foo = runez.file.ini_to_dict("foo", default={}, logger=None)
+    foo = runez.file.ini_to_dict("foo")
     assert not logged
     assert foo == {}
 
@@ -250,17 +250,17 @@ def test_file_inspection(temp_folder, logged):
     assert "Deleted sample" in logged.pop()
 
     sample = runez.DEV.tests_path("sample.txt")
-    assert len(runez.readlines(sample)) == 4
-    assert len(runez.readlines(sample, first=1)) == 1
+    assert len(list(runez.readlines(sample))) == 4
+    assert len(list(runez.readlines(sample, first=1))) == 1
     assert not logged
 
-    content = runez.readlines(sample)
-    cc = "%s\n" % "\n".join(content)
+    cc = "%s\n" % "\n".join(runez.readlines(sample))
     assert runez.write("sample", cc, fatal=False, logger=logging.debug) == 1
-    assert runez.readlines("sample") == content
+    cc2 = "%s\n" % "\n".join(runez.readlines("sample"))
+    assert cc2 == cc
     assert "bytes to sample" in logged.pop()  # Wrote 13 bytes on linux... but 14 on windows...
 
-    assert runez.readlines("sample", first=2) == ["", "Fred"]
+    assert list(runez.readlines("sample", first=2)) == ["", "Fred"]
     assert runez.file.is_younger("sample", age=10)
     assert not runez.file.is_younger("sample", age=-1)
 
@@ -268,7 +268,7 @@ def test_file_inspection(temp_folder, logged):
     with io.open("not-a-text-file", "wb") as fh:
         fh.write(b"\x89 hello\nworld")
 
-    assert runez.readlines("not-a-text-file", first=1, errors="ignore") == [" hello"]
+    assert list(runez.readlines("not-a-text-file", first=1)) == [" hello"]
     assert not logged
 
     assert runez.copy("bar", "baz", fatal=False) == -1
@@ -400,7 +400,7 @@ def test_pathlib(temp_folder):
         runez.write(path, '{"a": "b"}')
         runez.symlink(path, foo_json)
         assert runez.read_json(foo_json) == {"a": "b"}
-        assert runez.readlines(foo_json) == ['{"a": "b"}']
+        assert list(runez.readlines(foo_json)) == ['{"a": "b"}']
 
         assert runez.basename(foo_json.absolute()) == "foo"
 

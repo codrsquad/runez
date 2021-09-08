@@ -414,7 +414,7 @@ class PropsfsProvider(ConfigProvider):
         names = os.listdir(self.folder)
         for name in names:
             path = os.path.join(self.folder, name)
-            result[name] = "\n".join(readlines(path, default=[], errors="ignore"))
+            result[name] = "\n".join(readlines(path))
 
         return result
 

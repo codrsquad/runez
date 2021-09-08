@@ -177,12 +177,11 @@ def filesize(path, _seen=None):
         return path.stat().st_size
 
 
-def ini_to_dict(path, default=None, keep_empty=False, fatal=False, logger=None):
+def ini_to_dict(path, keep_empty=False, fatal=False, logger=None):
     """Contents of an INI-style config file as a dict of dicts: section -> key -> value
 
     Args:
         path (str | Path | None): Path to file to parse
-        default (dict | None): Object to return if conf couldn't be read
         keep_empty (bool): If True, keep definitions with empty values
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
@@ -190,38 +189,29 @@ def ini_to_dict(path, default=None, keep_empty=False, fatal=False, logger=None):
     Returns:
         (dict): Dict of section -> key -> value
     """
-    lines = readlines(path, fatal=fatal, logger=logger)
-    if lines is None:
-        return default
-
     result = {}
     section_key = None
     section = None
-    for line in lines:
+    for line in readlines(path, fatal=fatal, logger=logger):
+        line, _, _ = line.partition("#")
         line = line.strip()
-        if "#" in line:
-            i = line.index("#")
-            line = line[:i].strip()
+        if line:
+            if line.startswith("[") and line.endswith("]"):
+                section_key = line.strip("[]").strip()
+                section = result.get(section_key)
+                continue
 
-        if not line:
-            continue
+            if "=" not in line:
+                continue
 
-        if line.startswith("[") and line.endswith("]"):
-            section_key = line.strip("[]").strip()
-            section = result.get(section_key)
-            continue
+            if section is None:
+                section = result[section_key] = {}
 
-        if "=" not in line:
-            continue
-
-        if section is None:
-            section = result[section_key] = {}
-
-        key, _, value = line.partition("=")
-        key = key.strip()
-        value = value.strip()
-        if keep_empty or (key and value):
-            section[key] = value
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip()
+            if keep_empty or (key and value):
+                section[key] = value
 
     if not keep_empty:
         result = dict((k, v) for k, v in result.items() if k and v)
@@ -274,36 +264,36 @@ def parent_folder(path, base=None):
     return path and os.path.dirname(resolved_path(path, base=base))
 
 
-def readlines(path, default=None, first=None, errors=None, fatal=False, logger=None):
+def readlines(path, first=None, errors="ignore", fatal=False, logger=None):
     """
     Args:
         path (str | Path | None): Path to file to read lines from
-        default (list | None): Default if file is not present, or it could not be read
         first (int | None): Return only the 'first' lines when specified
         errors (str | None): Optional string specifying how encoding errors are to be handled
         fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
 
-    Returns:
-        (list): List of lines read, newlines and trailing spaces stripped
+    Yields:
+        (str): Lines read, newlines and trailing spaces stripped
     """
     try:
-        result = []
         with io.open(resolved_path(path), errors=errors) as fh:
             if not first:
                 first = -1
 
             for line in fh:
                 if first == 0:
-                    return result
+                    return
 
-                result.append(decode(line).rstrip())
+                yield decode(line).rstrip()
                 first -= 1
 
-            return result
-
     except Exception as e:
-        return _R.habort(default, fatal, logger, "Can't read %s" % short(path), exc_info=e)
+        message = "Can't read %s" % short(path)
+        if fatal:
+            abort(_R.actual_message(message), exc_info=e, fatal=fatal, logger=logger)
+
+        _R.hlog(logger, message, exc_info=e)
 
 
 def to_path(path, no_spaces=False):
