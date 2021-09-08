@@ -97,7 +97,7 @@ def check_import_order():
     return diffs
 
 
-def get_node_value(node: ast.AST):
+def get_node_value(node):
     """Human friendly short representation"""
     if isinstance(node, ast.NameConstant):
         return node.value
@@ -122,15 +122,24 @@ def get_node_value(node: ast.AST):
 
 def named_arg_defaults(node: ast.FunctionDef):
     """Named arguments from function definition 'node', in a handy ordered dict, values are the stated defaults in source code"""
-    result = collections.OrderedDict()
-    defaults = node.args.defaults
-    args = node.args.args[-len(defaults):]
-    for i, a in enumerate(args):
-        default = defaults[i]
-        v = get_node_value(default)
-        result[a.arg] = v
+    if node.name.startswith("_"):
+        return None
 
-    return result
+    if node.args.defaults:
+        defaults = node.args.defaults
+        named_args = node.args.args[-len(defaults):]
+
+    else:
+        defaults = node.args.kw_defaults
+        named_args = node.args.kwonlyargs
+
+    if defaults:
+        assert len(defaults) == len(named_args)
+        result = collections.OrderedDict()
+        for i, arg in enumerate(named_args):
+            result[arg.arg] = get_node_value(defaults[i])
+
+        return result
 
 
 def signature_representation(sig: dict):
@@ -185,32 +194,31 @@ def expected_sig(path, node, sig):
 
     if "fatal" in sig:
         if sig["fatal"] is False:
-            return "getter", func_name, collections.OrderedDict(fatal=False, logger=None)
+            return "getter", func_name, collections.OrderedDict(fatal=False, logger=False)
 
         if sig["fatal"] is True:
             return "io op ", func_name, collections.OrderedDict(fatal=True, logger="UNSET", dryrun="UNSET")
 
         assert False, "Check new case"
 
-    if "logger" in sig:
-        return "logger", func_name, collections.OrderedDict(logger=None)
-
     if "dryrun" in sig:
         return "dryrun", func_name, collections.OrderedDict(dryrun="UNSET")
+
+    if "logger" in sig:
+        return "tracer" if sig["logger"] is False else "silent", func_name, None
 
     return None, func_name, None
 
 
 def FunctionDef_problem(path: str, node: ast.FunctionDef):
     """Visitor for ast.FunctionDef nodes"""
-    if node.args.defaults and not node.name.startswith("_"):
-        sig = named_arg_defaults(node)
+    sig = named_arg_defaults(node)
+    if sig:
         sig_category, func_name, expected = expected_sig(path, node, sig)
-        assert func_name
-        if expected:
-            if sig_category:
-                IO_API_CATEGORIZED[sig_category].append(func_name)
+        if sig_category and func_name:
+            IO_API_CATEGORIZED[sig_category].append(func_name)
 
+        if expected:
             docstring = get_docstring(node)
             subset = collections.OrderedDict((k, v) for k, v in sig.items() if k in expected)
             problem = io_api_problem(subset, expected, docstring)
@@ -224,7 +232,7 @@ def adhoc_lint_file(path):
     errors = 0
     with open(path) as fh:
         lines = fh.readlines()
-        module_name = path_reference(path, 0)
+        # module_name = path_reference(path, 0)
         for i, line in enumerate(lines, start=1):
             if not line.startswith("def ") and "fatal=fatal" in line:
                 if "logger=None" not in line and "logger=logger" not in line and "logger=abort_logger" not in line:
@@ -232,7 +240,7 @@ def adhoc_lint_file(path):
                     errors += 1
                     continue
 
-            if module_name != "system.py" and "if logger:" in line:
+            if "if logger:" in line:
                 print("%s: should call _R.hlog()" % path_reference(path, i))
                 errors += 1
                 continue
@@ -241,7 +249,8 @@ def adhoc_lint_file(path):
         tree = ast.parse(content, filename=path)
         for node in ast.walk(tree):
             # Quick visitor convention: functions with suffix _problem will count as validators
-            validator = globals().get("%s_problem" % node.__class__.__name__)
+            cname = "%s_problem" % node.__class__.__name__
+            validator = globals().get(cname)
             if validator:
                 problem = validator(path, node)
                 if problem:

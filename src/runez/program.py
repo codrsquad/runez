@@ -277,9 +277,9 @@ def run(
         program (str | pathlib.Path): Program to run (full path, or basename)
         *args: Command line args to call 'program' with
         background (bool): When True, background the spawned process (detach from console and current process)
-        fatal (type | bool | None): If True: abort() on error [default: True]
+        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool): When True, do not really run but call logger("Would run: ...") instead [default: runez.DRYRUN]
+        dryrun (bool): Optionally override current dryrun setting
         short_exe (str | bool | None): Try to log a compact representation of executable
         passthrough (bool | file | None): If True-ish, pass-through stderr/stdout in addition to capturing it
                                           as well as 'passthrough' itself if it has a write() function
@@ -383,8 +383,18 @@ def run(
         return result
 
 
-def shell(*args, fatal=False, logger=None, dryrun=False):
-    """Output of a quick shell command, same as run(), but doesn't log and returns output only (when available)"""
+def shell(*args, fatal=False, logger=False, dryrun=False):
+    """Output of a quick shell command, same as run(), but doesn't log and returns output only (when available)
+
+    Args:
+        *args: Program and arguments to run
+        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+        dryrun (bool): Override current dryrun setting
+
+    Returns:
+        (str | None): Output (stdout) of command, if successful
+    """
     r = run(*auto_shellify(args), fatal=fatal, logger=logger, dryrun=dryrun)
     if r.succeeded:
         return r.output

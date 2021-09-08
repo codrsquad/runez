@@ -36,18 +36,19 @@ def test_with_tty(monkeypatch, logged):
 
             # Verify that if `serializer` returns None, value is not returned/stored
             with pytest.raises(Exception) as exc:
-                ask_once("test-invalid", "invalid", base=tmp, serializer=custom_serializer, fatal=True)
+                ask_once("test-invalid", "invalid", base=tmp, serializer=custom_serializer, fatal=True, logger=None)
             assert "Invalid value provided for test-invalid" in str(exc)
             assert not os.path.exists("test-invalid.json")
 
             # Same, but don't raise exception (returns default)
             assert ask_once("test-invalid", "invalid", base=tmp, serializer=custom_serializer) is None
+            assert not logged  # Traced by default
 
             # Simulate no value provided
             with pytest.raises(Exception) as exc:
                 ask_once("test-invalid", "", base=tmp, serializer=custom_serializer, fatal=True)
             assert "No value provided" in str(exc)
-            assert not logged  # Not logged by default (can be turned on via logger=)
+            assert "No value provided" in logged.pop()  # Logged if fatal=True
 
     with patch("runez.prompt.input", side_effect=KeyboardInterrupt):
         # Simulate CTRL+C

@@ -135,10 +135,6 @@ def test_decompress(temp_folder, logged):
 
 
 def test_edge_cases():
-    assert runez.file.ini_to_dict(None) == {}
-    with pytest.raises(runez.system.AbortException):
-        runez.file.ini_to_dict(None, fatal=True)
-
     # Don't crash for no-ops
     assert runez.copy(None, None) == 0
     assert runez.move(None, None) == 0
@@ -190,15 +186,19 @@ def test_ensure_folder(temp_folder, logged):
 
 
 def test_ini_to_dict(temp_folder, logged):
-    foo = runez.file.ini_to_dict("foo")
+    assert runez.file.ini_to_dict(None) == {}
+    assert runez.file.ini_to_dict("foo") == {}
     assert not logged
-    assert foo == {}
+
+    with pytest.raises(runez.system.AbortException) as exc:
+        runez.file.ini_to_dict("foo", fatal=True)
+    assert "Can't read foo" in str(exc)
+    assert "Can't read foo" in logged.pop()
 
     expected = {None: {"root": "some-value"}, "": {"ek": "ev"}, "s1": {"k1": "v1"}, "s2": {"k2": ""}}
-    runez.write("test.ini", SAMPLE_CONF)
-    logged.pop()
+    runez.write("test.ini", SAMPLE_CONF, logger=None)
 
-    actual = runez.file.ini_to_dict("test.ini", logger=None, keep_empty=True)
+    actual = runez.file.ini_to_dict("test.ini", keep_empty=True, logger=None)
     assert not logged
     assert actual == expected
 
@@ -226,11 +226,6 @@ def test_failure(monkeypatch):
         assert runez.delete("some-file", fatal=False) == -1
         assert "Can't delete" in logged
         assert "bad unlink" in logged.pop()
-
-        with pytest.raises(runez.system.AbortException) as exc:
-            runez.file.ini_to_dict("bar", fatal=True)
-        assert "Can't read bar" in str(exc)
-        assert not logged
 
         assert runez.write("bar", "some content", fatal=False)
         assert "Can't write" in logged.pop()

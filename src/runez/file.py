@@ -177,7 +177,7 @@ def filesize(path, _seen=None):
         return path.stat().st_size
 
 
-def ini_to_dict(path, keep_empty=False, fatal=False, logger=None):
+def ini_to_dict(path, keep_empty=False, fatal=False, logger=False):
     """Contents of an INI-style config file as a dict of dicts: section -> key -> value
 
     Args:
@@ -264,7 +264,7 @@ def parent_folder(path, base=None):
     return path and os.path.dirname(resolved_path(path, base=base))
 
 
-def readlines(path, first=None, errors="ignore", fatal=False, logger=None):
+def readlines(path, first=None, errors="ignore", fatal=False, logger=False):
     """
     Args:
         path (str | Path | None): Path to file to read lines from

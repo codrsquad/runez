@@ -552,7 +552,7 @@ class PythonDepot:
         """
         return PythonSpec.to_spec(text)
 
-    def find_python(self, spec, fatal=False, logger=None):
+    def find_python(self, spec, fatal=False, logger=False):
         """
         Args:
             spec (str | PythonSpec | PythonInstallation | None): Example: 3.7, py37, pypy3.7, conda3.7, /usr/bin/python

@@ -833,7 +833,7 @@ class RestClient:
         state = DataState.wrapped(dryrun, data, json, files, filepaths)
         return self._get_response("PUT", url, fatal, logger, dryrun=dryrun, params=params, headers=headers, state=state)
 
-    def url_exists(self, url, logger=None):
+    def url_exists(self, url, logger=False):
         """
         Args:
             url (str): URL to query (can be absolute, or relative to self.base_url)

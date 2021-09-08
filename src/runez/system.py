@@ -358,7 +358,7 @@ def flattened(*value, keep_empty=False, split=None, shellify=False, strip=None, 
     return result
 
 
-def get_version(mod, default="0.0.0", fatal=False, logger=None):
+def get_version(mod, default="0.0.0", fatal=False, logger=False):
     """
     Args:
         mod (module | str): Module, or module name to find version for (pass either calling module, or its .__name__)

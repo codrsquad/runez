@@ -556,7 +556,7 @@ class Serializable:
         return self.__class__.from_dict(self.to_dict())
 
     @classmethod
-    def from_json(cls, path, default=None, fatal=False, logger=None):
+    def from_json(cls, path, default=None, fatal=False, logger=False):
         """
         Args:
             path (str): Path to json file
@@ -623,7 +623,7 @@ class Serializable:
         return json_sanitized(raw, stringify=stringify, dt=dt, none=none)
 
 
-def from_json(value, default=None, fatal=False, logger=None):
+def from_json(value, default=None, fatal=False, logger=False):
     """
     Args:
         value (str): Value to deserialize
@@ -648,7 +648,7 @@ def from_json(value, default=None, fatal=False, logger=None):
         return _R.habort(default, fatal, logger, "Can't deserialize json '%s'" % short(value), exc_info=e)
 
 
-def read_json(path, default=None, fatal=False, logger=None):
+def read_json(path, default=None, fatal=False, logger=False):
     """
     Args:
         path (str | pathlib.Path | None): Path to file to deserialize
