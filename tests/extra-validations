@@ -14,20 +14,16 @@ PROJECT = os.path.dirname(TESTS)
 SRC = os.path.join(PROJECT, "src", "runez")
 
 API_EXCEPTIONS = {
-    "file.ini_to_dict": collections.OrderedDict(logger=None),
-    "file.readlines": collections.OrderedDict(logger=None),
     "http.get_response": collections.OrderedDict(fatal=True, logger="UNSET"),
     "http.get": collections.OrderedDict(fatal=True, logger="UNSET"),
     "http.head": collections.OrderedDict(fatal=True, logger="UNSET"),
     "http.url_exists": collections.OrderedDict(logger=False),
     "logsetup.hdry": collections.OrderedDict(dryrun="UNSET", logger="UNSET"),
     "logsetup.setup": {},
-    "prompt.ask_once": collections.OrderedDict(logger=None),
     "pyenv.find_python": collections.OrderedDict(fatal="UNSET"),
     "pyenv.latest_pypi_version": collections.OrderedDict(fatal=True, logger="UNSET"),
     "pyenv.ls_pypi": collections.OrderedDict(fatal=True, logger="UNSET"),
     "pyenv.pypi_response": collections.OrderedDict(fatal=True, logger="UNSET"),
-    "serialize.read_json": collections.OrderedDict(logger=None),
     "system.abort": {},
     "system.get_version": {},
 }
@@ -188,6 +184,9 @@ def get_docstring(node: ast.FunctionDef):
 def expected_sig(path, node, sig):
     if node.name == "__init__":
         return EXPECTED_DRYRUN_UNSET if "dryrun" in sig else None
+
+    if "default" in sig and sig.get("default") is None and sig.get("logger") == "UNSET":
+        return None
 
     module_name = os.path.basename(path)[:-3]
     func_name = "%s.%s" % (module_name, node.name)

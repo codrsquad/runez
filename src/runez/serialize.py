@@ -6,7 +6,6 @@ import collections
 import datetime
 import io
 import json
-import os
 
 from runez.file import ensure_folder, parent_folder
 from runez.system import _R, abort, is_basetype, is_iterable, LOG, resolved_path, short, stringified, UNSET
@@ -557,17 +556,18 @@ class Serializable:
         return self.__class__.from_dict(self.to_dict())
 
     @classmethod
-    def from_json(cls, path, default=UNSET):
+    def from_json(cls, path, default=None, logger=UNSET):
         """
         Args:
             path (str): Path to json file
-            default (dict | callable | None): Default if file is not present, or if it's not json
+            default (dict | list | str | None): Default if file is not present, or can't be deserialized
+            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
 
         Returns:
             (cls): Deserialized object
         """
         result = cls()
-        data = read_json(path, default=default)
+        data = read_json(path, default=default, fatal=default is None and cls._meta.behavior.strict, logger=logger)
         result.set_from_dict(data, source=short(path))
         return result
 
@@ -622,26 +622,48 @@ class Serializable:
         return json_sanitized(raw, stringify=stringify, dt=dt, none=none)
 
 
-def read_json(path, default=UNSET, logger=None):
+def from_json(value, default=None, fatal=False, logger=UNSET):
     """
     Args:
-        path (str | pathlib.Path | None): Path to file to deserialize
-        default (dict | list | str | callable | None): Default if file is not present, or if it's not json
+        value (str): Value to deserialize
+        default (dict | list | str | None): Default returned if value can't be deserialized
+        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
 
     Returns:
         (dict | list | str): Deserialized data from file
     """
-    path = resolved_path(path)
-    if not path or not os.path.exists(path):
-        return _R.hdef(default, logger, "No file %s" % short(path))
+    if not value or not isinstance(value, str):
+        return _R.habort(default, fatal, logger, "Can't deserialize %s: not a string" % short(value))
+
+    value = value.strip()
+    if "%s%s" % (value[0], value[-1]) not in ("{}", "[]", '""'):
+        return _R.habort(default, fatal, logger, "Can't deserialize %s: does not contain json" % short(value))
 
     try:
-        with io.open(path) as fh:
+        return json.loads(value)
+
+    except Exception as e:
+        return _R.habort(default, fatal, logger, "Can't deserialize %s: %s" % (short(value), e), exc_info=e)
+
+
+def read_json(path, default=None, fatal=False, logger=UNSET):
+    """
+    Args:
+        path (str | pathlib.Path | None): Path to file to deserialize
+        default (dict | list | str | None): Default returned if file is not present, or can't be deserialized
+        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+
+    Returns:
+        (dict | list | str): Deserialized data from file
+    """
+    try:
+        with io.open(resolved_path(path)) as fh:
             return json.load(fh)
 
     except Exception as e:
-        return _R.hdef(default, logger, "Can't read %s" % short(path), e=e)
+        return _R.habort(default, fatal, logger, "Can't read %s: %s" % (short(path), e), exc_info=e)
 
 
 def represented_json(data, stringify=stringified, dt=str, none=False, indent=2, sort_keys=True):

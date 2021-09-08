@@ -25,6 +25,7 @@ import sys
 from runez.convert import to_boolean, to_bytesize, to_float, to_int
 from runez.file import readlines
 from runez.logsetup import LogManager
+from runez.serialize import from_json
 from runez.system import capped, decode, stringified
 
 
@@ -250,7 +251,7 @@ class Configuration:
         if isinstance(default, (dict, list, int, float)):
             return default
 
-        return from_json(default)
+        return from_json(default, default=default)
 
 
 CONFIG = Configuration()  # Global config object, clients can decide to use this for simplicity
@@ -456,18 +457,3 @@ class DictProvider(ConfigProvider):
 
     def get(self, key):
         return self._values.get(key)
-
-
-def from_json(value):
-    """
-    Args:
-        value: Json to parse
-
-    Returns:
-        (dict | list | str | int | None): Deserialized value, if possible
-    """
-    try:
-        return json.loads(value)
-
-    except (TypeError, ValueError):
-        return None

@@ -1928,25 +1928,25 @@ class _R:
         return cls._runez_module().system.AbortException
 
     @classmethod
-    def hdef(cls, default, logger, message, e=None):
-        """Handle IO default
+    def habort(cls, default, fatal, logger, message, exc_info=None):
+        """Handle optional abort
 
         Args:
-            default (Any): The default value to return, if it is not UNSET
+            default: Default value to return, if 'fatal' is False
+            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
             message (str): Message explaining failure
-            e (Exception): Exception, if this comes from a try/except block
+            exc_info (Exception): Exception, if this comes from a try/except block
 
         Returns:
-            'default', if it is not UNSET
+            'default', if we didn't abort
         """
-        if default is UNSET:
-            abort(_R.actual_message(message), exc_info=e, logger=logger)
+        if fatal:
+            abort(_R.actual_message(message), exc_info=exc_info, fatal=fatal, logger=logger)
 
-        if callable(default):
-            default = default()
+        if logger is not UNSET:
+            _R.hlog(logger, message, exc_info=exc_info)
 
-        cls.hlog(logger, message)
         return default
 
     @classmethod

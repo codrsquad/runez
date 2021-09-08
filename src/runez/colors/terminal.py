@@ -220,7 +220,7 @@ def detect_flavor(bg):
     """
     if bg and ";" in bg:
         _, _, bg = bg.partition(";")
-        bg = to_int(bg, default=None)
+        bg = to_int(bg)
         if bg is not None:
             return "dark" if bg > 6 and bg != 8 else "light"
 

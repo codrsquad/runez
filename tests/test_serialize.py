@@ -92,8 +92,23 @@ def test_determined_schema_type():
     assert "Invalid schema definition" in str(e.value)
 
 
+def test_from_json():
+    assert runez.from_json(None) is None
+    assert runez.from_json("") is None
+    assert runez.from_json("foo") is None
+    assert runez.from_json("{") is None
+    assert runez.from_json('"\xe4\x00"') is None
+
+    assert runez.from_json(' "foo" ') == "foo"
+    assert runez.from_json("5") is None
+    assert runez.from_json('"5"') == "5"
+
+    assert runez.from_json("{}") == {}
+    assert runez.from_json("[5, 6]") == [5, 6]
+
+
 def test_json(temp_folder, monkeypatch):
-    assert runez.read_json(None, default=None) is None
+    assert runez.read_json(None) is None
 
     assert runez.represented_json(None) == "null\n"
     assert runez.represented_json([]) == "[]\n"
@@ -123,10 +138,10 @@ def test_json(temp_folder, monkeypatch):
 
     with runez.CaptureOutput() as logged:
         with pytest.raises(runez.system.AbortException):
-            runez.read_json(None, logger=logging.debug)
-        assert "No file None" in logged.pop()
+            runez.read_json(None, fatal=True)
+        assert "Can't read None" in logged.pop()
 
-        assert runez.read_json("sample.json", default=None, logger=None) is None
+        assert runez.read_json("sample.json") is None
         assert not logged
 
         assert runez.read_json("sample.json", default={}, logger=None) == {}
@@ -143,10 +158,10 @@ def test_json(temp_folder, monkeypatch):
         with monkeypatch.context() as m:
             m.setattr(io, "open", runez.conftest.exception_raiser())
             with pytest.raises(runez.system.AbortException):
-                runez.read_json("sample.json", logger=logging.debug)
+                runez.read_json("sample.json", fatal=True)
             assert "Can't read sample.json" in logged.pop()
 
-            assert runez.read_json("sample.json", default=None) is None
+            assert runez.read_json("sample.json") is None
             assert not logged
 
 
@@ -290,9 +305,7 @@ def test_serialization(logged):
     assert "Extra content given for SomeSerializable: bar, foo" in logged.pop()
 
     obj2 = SomeSerializable.from_json("", default={"sub": {"identifier": "some-id"}})
-    obj3 = SomeSerializable.from_json("", default=lambda: {"sub": {"identifier": "some-id"}})
     assert obj == obj2
-    assert obj == obj3
     assert not logged
 
     obj.some_int = 5
@@ -302,11 +315,6 @@ def test_serialization(logged):
     assert obj.some_int == 7
     assert obj.some_value is None
     assert obj != obj2
-
-    if not runez.WINDOWS:
-        obj3 = SomeSerializable.from_json("/dev/null/not-there", default=None)
-        assert obj == obj3
-
     obj.sub = obj2.sub
     assert obj == obj2
 

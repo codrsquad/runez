@@ -177,21 +177,22 @@ def filesize(path, _seen=None):
         return path.stat().st_size
 
 
-def ini_to_dict(path, default=UNSET, logger=None, keep_empty=False):
+def ini_to_dict(path, default=None, keep_empty=False, fatal=False, logger=UNSET):
     """Contents of an INI-style config file as a dict of dicts: section -> key -> value
 
     Args:
         path (str | Path | None): Path to file to parse
-        default (dict | callable | None): Object to return if conf couldn't be read
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+        default (dict | None): Object to return if conf couldn't be read
         keep_empty (bool): If True, keep definitions with empty values
+        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
 
     Returns:
         (dict): Dict of section -> key -> value
     """
-    lines = readlines(path, default=None, logger=logger)
+    lines = readlines(path, fatal=fatal, logger=logger)
     if lines is None:
-        return _R.hdef(default, logger, "Can't read ini file '%s'" % short(path))
+        return default
 
     result = {}
     section_key = None
@@ -273,25 +274,22 @@ def parent_folder(path, base=None):
     return path and os.path.dirname(resolved_path(path, base=base))
 
 
-def readlines(path, default=UNSET, logger=None, first=None, errors=None):
+def readlines(path, default=None, first=None, errors=None, fatal=False, logger=UNSET):
     """
     Args:
         path (str | Path | None): Path to file to read lines from
-        default (list | callable | None): Default if file is not present, or it could not be read
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+        default (list | None): Default if file is not present, or it could not be read
         first (int | None): Return only the 'first' lines when specified
         errors (str | None): Optional string specifying how encoding errors are to be handled
+        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
 
     Returns:
         (list): List of lines read, newlines and trailing spaces stripped
     """
-    path = resolved_path(path)
-    if not path or not os.path.exists(path):
-        return _R.hdef(default, logger, "No file %s" % short(path))
-
     try:
         result = []
-        with io.open(path, errors=errors) as fh:
+        with io.open(resolved_path(path), errors=errors) as fh:
             if not first:
                 first = -1
 
@@ -305,7 +303,7 @@ def readlines(path, default=UNSET, logger=None, first=None, errors=None):
             return result
 
     except Exception as e:
-        return _R.hdef(default, logger, "Can't read %s" % short(path), e=e)
+        return _R.habort(default, fatal, logger, "Can't read %s: %s" % (short(path), e), exc_info=e)
 
 
 def to_path(path, no_spaces=False):

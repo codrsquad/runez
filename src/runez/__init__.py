@@ -6,7 +6,6 @@ from runez import ascii, click, config, date, file, program, serialize, system
 from runez.colors import ActivateColors, ColorManager as color
 from runez.colors.named import black, blue, brown, gray, green, orange, plain, purple, red, teal, white, yellow
 from runez.colors.named import blink, bold, dim, invert, italic, strikethrough, underline
-from runez.config import from_json
 from runez.convert import affixed, camel_cased, entitled, identifiers, snakified, wordified, words
 from runez.convert import parsed_tabular, to_boolean, to_bytesize, to_float, to_int, unitized
 from runez.convert import plural, represented_bytesize, represented_with_units
@@ -16,7 +15,7 @@ from runez.file import basename, checksum, ensure_folder, parent_folder, readlin
 from runez.file import compress, copy, decompress, delete, filesize, ls_dir, move, symlink
 from runez.logsetup import LogManager as log, ProgressBar
 from runez.program import check_pid, is_executable, make_executable, PsInfo, run, shell, which
-from runez.serialize import read_json, represented_json, save_json, Serializable
+from runez.serialize import from_json, read_json, represented_json, save_json, Serializable
 from runez.system import abort, AdaptedProperty, cached_property, uncolored, Undefined, UNSET, wcswidth, WINDOWS
 from runez.system import Anchored, CaptureOutput, CurrentFolder, Slotted, TempArgv, TrackedOutput
 from runez.system import capped, decode, DEV, flattened, joined, quoted, resolved_path, short, stringified, SYS_INFO
@@ -28,7 +27,6 @@ __all__ = [
     "ActivateColors", "color",
     "black", "blue", "brown", "gray", "green", "orange", "plain", "purple", "red", "teal", "white", "yellow",
     "blink", "bold", "dim", "invert", "italic", "strikethrough", "underline",
-    "from_json",
     "affixed", "camel_cased", "entitled", "identifiers", "snakified", "wordified", "words",
     "parsed_tabular", "to_boolean", "to_bytesize", "to_float", "to_int", "unitized",
     "plural", "represented_bytesize", "represented_with_units",
@@ -38,7 +36,7 @@ __all__ = [
     "compress", "copy", "decompress", "delete", "filesize", "ls_dir", "move", "symlink",
     "log", "ProgressBar",
     "check_pid", "is_executable", "make_executable", "PsInfo", "run", "shell", "which",
-    "read_json", "represented_json", "save_json", "Serializable",
+    "from_json", "read_json", "represented_json", "save_json", "Serializable",
     "abort", "AdaptedProperty", "cached_property", "uncolored", "Undefined", "UNSET", "wcswidth", "WINDOWS",
     "Anchored", "CaptureOutput", "CurrentFolder", "Slotted", "TempArgv", "TrackedOutput",
     "capped", "decode", "DEV", "flattened", "joined", "quoted", "resolved_path", "short", "stringified", "SYS_INFO",

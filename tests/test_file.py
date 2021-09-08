@@ -135,7 +135,9 @@ def test_decompress(temp_folder, logged):
 
 
 def test_edge_cases():
-    assert runez.file.ini_to_dict(None, default=None) is None
+    assert runez.file.ini_to_dict(None) is None
+    with pytest.raises(runez.system.AbortException):
+        runez.file.ini_to_dict(None, fatal=True)
 
     # Don't crash for no-ops
     assert runez.copy(None, None) == 0
@@ -150,10 +152,6 @@ def test_edge_cases():
     assert not runez.file.is_younger("", None)
     assert not runez.file.is_younger("", 1)
     assert not runez.file.is_younger("/dev/null/not-there", 1)
-
-    assert runez.readlines(None, default=None) is None
-    with pytest.raises(runez.system.AbortException):
-        runez.readlines("/dev/null/not-there")
 
 
 def test_ensure_folder(temp_folder, logged):
@@ -230,8 +228,8 @@ def test_failure(monkeypatch):
         assert "bad unlink" in logged.pop()
 
         with pytest.raises(runez.system.AbortException):
-            runez.file.ini_to_dict("bar", logger=logging.debug)
-        assert "Can't read ini file" in logged.pop()
+            runez.file.ini_to_dict("bar", fatal=True)
+        assert "Can't read bar" in logged.pop()
 
         assert runez.write("bar", "some content", fatal=False)
         assert "Can't write" in logged.pop()
