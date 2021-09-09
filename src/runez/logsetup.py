@@ -987,12 +987,15 @@ class LogManager:
             prefix (str | None): Prefix to use for trace messages (default: ":: ")
             stream: Where to trace (by default: current 'console_stream' if configured, otherwise sys.stderr)
         """
+        prior = cls.tracer
         if spec is not UNSET:
             if spec and (not isinstance(spec, str) or spec in os.environ):
                 cls.tracer = TraceHandler(prefix, stream or cls.spec.console_stream or sys.stderr)
 
             else:
                 cls.tracer = None
+
+        return prior
 
     @classmethod
     def resolved_dryrun(cls, dryrun):

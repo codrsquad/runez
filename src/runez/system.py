@@ -864,7 +864,7 @@ class CaptureOutput:
 
     _capture_stack = []  # Shared across all objects, tracks possibly nested CaptureOutput buffers
 
-    def __init__(self, stdout=True, stderr=True, anchors=None, dryrun=UNSET, seed_logging=False):
+    def __init__(self, stdout=True, stderr=True, anchors=None, dryrun=UNSET, seed_logging=False, trace=False):
         """Context manager allowing to temporarily grab stdout/stderr/log output.
 
         Args:
@@ -873,12 +873,14 @@ class CaptureOutput:
             anchors (str | pathlib.Path | list | None): Optional paths to use as anchors for `runez.short()`
             dryrun (bool): Optionally override current dryrun setting
             seed_logging (bool): If True, ensure there is at least one logging handler configured
+            trace (bool): If True, enable tracing
         """
         self.stdout = stdout
         self.stderr = stderr
         self.anchors = anchors
         self.dryrun = dryrun
         self.seed_logging = seed_logging
+        self.trace = trace
         self.handler = None
 
     @classmethod
@@ -913,6 +915,9 @@ class CaptureOutput:
             self.handler.setLevel(logging.DEBUG)
             logging.root.addHandler(self.handler)
 
+        if self.trace:
+            self.prior_trace = _R._runez_module().log.enable_trace(True)
+
         return self.tracked
 
     def __exit__(self, *_):
@@ -928,6 +933,9 @@ class CaptureOutput:
 
         if self.anchors:
             Anchored.pop(self.anchors)
+
+        if self.trace:
+            _R._runez_module().log.enable_trace(self.prior_trace)
 
 
 class CurrentFolder:

@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 import runez
-from runez.http import GlobalHttpCalls, MockResponse, RestClient, RestHandler, RestResponse, urljoin
+from runez.http import ForbiddenHttpError, GlobalHttpCalls, MockResponse, RestClient, RestHandler, RestResponse, urljoin
 
 
 EXAMPLE = RestClient("https://example.com")
@@ -21,10 +21,10 @@ def test_decorator_allowed():
 
 def test_default_disabled():
     assert GlobalHttpCalls.is_forbidden() is True
-    with pytest.raises(AssertionError) as exc:
+    with pytest.raises(ForbiddenHttpError) as exc:
         client = RestClient()
         client.head("https://example.com")
-    assert "intentionally forbidden" in str(exc)
+    assert "https://example.com" in str(exc)
 
 
 @GlobalHttpCalls.forbidden
@@ -179,60 +179,62 @@ def dynamic_call(method, url):
     "fail1": Exception,
     "fail2": Exception("oops"),
 })
-def test_rest(logged):
-    session = RestClient("https://example.com", headers={"test": "testing"})
-    assert len(session.headers) == 2
-    assert session.headers["test"] == "testing"
-    assert session.headers["User-Agent"]
+def test_rest():
+    with runez.CaptureOutput(trace=True) as logged:
+        session = RestClient("https://example.com", headers={"test": "testing"})
+        assert len(session.headers) == 2
+        assert session.headers["test"] == "testing"
+        assert session.headers["User-Agent"]
 
-    assert session.url_exists("foo-bar") is True
-    assert session.delete("foo-bar").ok
-    assert "DELETE https://example.com/foo-bar [200]" in logged.pop()
+        assert session.url_exists("foo-bar") is True
+        assert session.delete("foo-bar").ok
+        assert "DELETE https://example.com/foo-bar [200]" in logged.pop()
 
-    assert session.purge("foo-bar").ok
-    assert "PURGE https://example.com/foo-bar [200]" in logged.pop()
+        assert session.purge("foo-bar").ok
+        assert "PURGE https://example.com/foo-bar [200]" in logged.pop()
 
-    assert session.get("foo-bar") == {"foo": "bar"}
-    assert session.get("https://example.com/foo-bar") == {"foo": "bar"}
-    assert "GET https://example.com/foo-bar [200]" in logged.pop()
-    assert session.post("foo-bar").ok
-    assert "POST https://example.com/foo-bar [200]" in logged.pop()
-    assert session.put("foo-bar").ok
-    assert "PUT https://example.com/foo-bar [200]" in logged.pop()
+        assert session.get("foo-bar") == {"foo": "bar"}
+        assert session.get("https://example.com/foo-bar") == {"foo": "bar"}
+        assert "GET https://example.com/foo-bar [200]" in logged.pop()
+        assert session.post("foo-bar").ok
+        assert "POST https://example.com/foo-bar [200]" in logged.pop()
+        assert session.put("foo-bar").ok
+        assert "PUT https://example.com/foo-bar [200]" in logged.pop()
 
-    assert not session.post("bad-request", fatal=False).ok
-    assert "POST https://example.com/bad-request [400] oops" in logged.pop()
+        assert not session.post("bad-request", fatal=False).ok
+        assert "POST https://example.com/bad-request [400] oops" in logged.pop()
 
-    # Status 500 in mock spec does NOT impact dryrun
-    assert session.post("server-crashed", dryrun=True).ok
-    assert "Would POST" in logged.pop()
+        # Status 500 in mock spec does NOT impact dryrun
+        assert session.post("server-crashed", dryrun=True).ok
+        assert "Would POST" in logged.pop()
 
-    # But does impact actual (no dryrun) run
-    with pytest.raises(runez.system.AbortException):
-        session.get("server-crashed", fatal=True)
-    assert "GET https://example.com/server-crashed [500]" in logged.pop()
-    r = session.get_response("server-crashed", fatal=False, logger=None)
-    assert not r.ok
-    assert r.status_code == 500
+        # But does impact actual (no dryrun) run
+        with pytest.raises(runez.system.AbortException):
+            session.get("server-crashed", fatal=True)
+        assert "GET https://example.com/server-crashed [500]" in logged.pop()
+        r = session.get_response("server-crashed", fatal=False, logger=None)
+        assert not r.ok
+        assert r.status_code == 500
 
-    assert session.url_exists("") is False
-    assert session.url_exists("not-found") is False
-    assert session.get("not-found", fatal=False, logger=None) is None
-    assert session.head("not-found", fatal=False, logger=None).status_code == 404
+        assert session.url_exists("") is False
+        assert session.url_exists("not-found") is False
+        assert session.get("not-found", fatal=False, logger=None) is None
+        assert session.head("not-found", fatal=False, logger=None).status_code == 404
+        logged.pop()
 
-    assert str(session.get_response("dynamic-a", logger=None)) == "<Response [201]>"
-    r = session.get_response("dynamic-b", logger=None)
-    assert r.description(size=12) == "GET https://..."
-    assert not logged
+        assert str(session.get_response("dynamic-a", logger=None)) == "<Response [201]>"
+        r = session.get_response("dynamic-b", logger=None)
+        assert r.description(size=12) == "GET https://..."
+        assert not logged
 
-    r = session.put("explicit")
-    assert r.method == "PUT"
-    assert str(r) == "<Response [202]>"
+        r = session.put("explicit")
+        assert r.method == "PUT"
+        assert str(r) == "<Response [202]>"
 
-    with pytest.raises(Exception) as exc:
-        session.get("fail1")
-    assert "Simulated crash" in str(exc)
+        with pytest.raises(Exception) as exc:
+            session.get("fail1")
+        assert "Simulated crash" in str(exc)
 
-    with pytest.raises(Exception) as exc:
-        session.get("fail2")
-    assert "oops" in str(exc)
+        with pytest.raises(Exception) as exc:
+            session.get("fail2")
+        assert "oops" in str(exc)

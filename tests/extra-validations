@@ -14,10 +14,6 @@ PROJECT = os.path.dirname(TESTS)
 SRC = os.path.join(PROJECT, "src", "runez")
 
 API_EXCEPTIONS = {
-    "http.get_response": collections.OrderedDict(fatal=True, logger="UNSET"),
-    "http.get": collections.OrderedDict(fatal=True, logger="UNSET"),
-    "http.head": collections.OrderedDict(fatal=True, logger="UNSET"),
-    "logsetup.hdry": collections.OrderedDict(dryrun="UNSET", logger="UNSET"),
     "pyenv.latest_pypi_version": collections.OrderedDict(fatal=True, logger="UNSET"),
     "pyenv.ls_pypi": collections.OrderedDict(fatal=True, logger="UNSET"),
     "pyenv.pypi_response": collections.OrderedDict(fatal=True, logger="UNSET"),
@@ -197,7 +193,7 @@ def expected_sig(path, node, sig):
             return "getter", func_name, collections.OrderedDict(fatal=False, logger=False)
 
         if sig["fatal"] is True:
-            return "io op ", func_name, collections.OrderedDict(fatal=True, logger="UNSET", dryrun="UNSET")
+            return "IO op ", func_name, collections.OrderedDict(fatal=True, logger="UNSET", dryrun="UNSET")
 
         assert False, "Check new case"
 

@@ -714,7 +714,7 @@ class RestClient:
 
         return response
 
-    def get_response(self, url, fatal=True, logger=UNSET, params=None, headers=None):
+    def get_response(self, url, fatal=False, logger=False, params=None, headers=None):
         """
         Args:
             url (str): Remote URL (may be absolute, or relative to self.base_url)
@@ -744,7 +744,7 @@ class RestClient:
         """
         return self._get_response("DELETE", url, fatal, logger, dryrun=dryrun, params=params, headers=headers)
 
-    def get(self, url, fatal=True, logger=UNSET, params=None, headers=None):
+    def get(self, url, fatal=False, logger=False, params=None, headers=None):
         """
         Args:
             url (str): Remote URL (may be absolute, or relative to self.base_url)
@@ -760,7 +760,7 @@ class RestClient:
         if response.ok:
             return response.json()
 
-    def head(self, url, fatal=True, logger=UNSET, params=None, headers=None):
+    def head(self, url, fatal=False, logger=False, params=None, headers=None):
         """
         Args:
             url (str): URL to query (can be absolute, or relative to self.base_url)
@@ -875,9 +875,9 @@ class RestClient:
             return self.handler.raw_response(self.session, method, absolute_url, **keyword_args)
 
         except ForbiddenHttpError:
-            pass
+            pass  # Shorten stack trace
 
-        assert False, "Outgoing requests intentionally forbidden: %s" % absolute_url
+        raise ForbiddenHttpError(absolute_url)
 
     def _get_response(self, method, url, fatal, logger, dryrun=False, params=None, headers=None, state=None, action=None):
         """
