@@ -842,7 +842,7 @@ class RestClient:
         Returns:
             (bool): True if remote URL exists (ie: not a 404)
         """
-        response = self.head(url, fatal=False, logger=logger)
+        response = self.head(url, logger=logger)
         return bool(response and response.ok)
 
     def mock(self, specs):

@@ -14,9 +14,6 @@ PROJECT = os.path.dirname(TESTS)
 SRC = os.path.join(PROJECT, "src", "runez")
 
 API_EXCEPTIONS = {
-    "pyenv.latest_pypi_version": collections.OrderedDict(fatal=True, logger="UNSET"),
-    "pyenv.ls_pypi": collections.OrderedDict(fatal=True, logger="UNSET"),
-    "pyenv.pypi_response": collections.OrderedDict(fatal=True, logger="UNSET"),
     "system.abort": {},
 }
 IO_API_DOCSTRINGS = dict(

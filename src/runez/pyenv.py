@@ -161,7 +161,7 @@ class PypiStd:
         return cls._pypi_client
 
     @classmethod
-    def pypi_response(cls, package_name, client=None, index=None, fatal=True, logger=UNSET):
+    def pypi_response(cls, package_name, client=None, index=None, fatal=False, logger=False):
         """See https://warehouse.pypa.io/api-reference/json/
         Args:
             package_name (str): Pypi package name
@@ -194,7 +194,7 @@ class PypiStd:
             url = urljoin(index, "%s/" % pypi_name)
 
         r = client.get_response(url, fatal=fatal, logger=logger)
-        if r.ok:
+        if r and r.ok:
             text = (r.text or "").strip()
             if text.startswith("{"):
                 return json.loads(text)
@@ -202,7 +202,7 @@ class PypiStd:
             return text
 
     @classmethod
-    def latest_pypi_version(cls, package_name, client=None, index=None, include_prerelease=False, fatal=True, logger=UNSET):
+    def latest_pypi_version(cls, package_name, client=None, index=None, include_prerelease=False, fatal=False, logger=False):
         """
         Args:
             package_name (str): Pypi package name
@@ -216,28 +216,29 @@ class PypiStd:
             (Version | None): Latest version, if any
         """
         response = cls.pypi_response(package_name, client=client, index=index, fatal=fatal, logger=logger)
-        if isinstance(response, dict):
-            info = response.get("info")
-            if isinstance(info, dict) and not info.get("yanked"):  # Not sure if this can ever happen
-                version = Version(info.get("version"))
-                if version.is_valid and (include_prerelease or not version.prerelease):
-                    return version
+        if response:
+            if isinstance(response, dict):
+                info = response.get("info")
+                if isinstance(info, dict) and not info.get("yanked"):  # Not sure if this can ever happen
+                    version = Version(info.get("version"))
+                    if version.is_valid and (include_prerelease or not version.prerelease):
+                        return version
 
-            versions = sorted(x.version for x in cls._versions_from_pypi(response.get("releases")))
+                versions = sorted(x.version for x in cls._versions_from_pypi(response.get("releases")))
 
-        else:
-            versions = sorted(i.version for i in cls._parsed_legacy_html(response))
+            else:
+                versions = sorted(i.version for i in cls._parsed_legacy_html(response))
 
-        if not include_prerelease:
-            candidates = [v for v in versions if v.is_valid and not v.prerelease]
-            if candidates:
-                versions = candidates
+            if not include_prerelease:
+                candidates = [v for v in versions if v.is_valid and not v.prerelease]
+                if candidates:
+                    versions = candidates
 
-        if versions:
-            return versions[-1]
+            if versions:
+                return versions[-1]
 
     @classmethod
-    def ls_pypi(cls, package_name, client=None, index=None, source=None, fatal=True, logger=UNSET):
+    def ls_pypi(cls, package_name, client=None, index=None, source=None, fatal=False, logger=False):
         """
         Args:
             package_name (str): Pypi package name
@@ -254,7 +255,7 @@ class PypiStd:
         if isinstance(response, dict):
             yield from cls._versions_from_pypi(response.get("releases"), source=source)
 
-        else:
+        elif response:
             yield from cls._parsed_legacy_html(response, source=source)
 
     @classmethod
