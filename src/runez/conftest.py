@@ -250,34 +250,36 @@ class ClickWrapper:
 class ClickRunner:
     """Allows to provide a test-friendly fixture around testing click entry-points"""
 
+    args: list = None  # Arguments used in last run()
+    exit_code: int = None  # Exit code of last run()
+    logged: TrackedOutput = None  # Captured log from last run()
+    main: callable = None  # Optional, override default_main for this runner instance
+    trace: bool = None  # Optional, enable trace logging for this runner instance
+
     def __init__(self, context=None):
         """
         Args:
             context (callable | None): Context (example: temp folder) this click run was invoked under
         """
         self.context = context
-        self.main = None
-        self.args = None  # type: list # Arguments used in last run() invocation
-        self.logged = None  # type: TrackedOutput
-        self.exit_code = None  # type: int
 
     @classmethod
-    def project_path(cls, *relative_path):
+    def project_path(cls, *relative_path) -> str:
         """Convenience shortcut to DEV.project_path()"""
         return DEV.project_path(*relative_path)
 
     @classmethod
-    def tests_path(cls, *relative_path):
+    def tests_path(cls, *relative_path) -> str:
         """Convenience shortcut to DEV.tests_path()"""
         return DEV.tests_path(*relative_path)
 
     @property
-    def project_folder(self):
+    def project_folder(self) -> str:
         """Convenience shortcut to DEV.project_folder"""
         return DEV.project_folder
 
     @property
-    def tests_folder(self):
+    def tests_folder(self) -> str:
         """Convenience shortcut to DEV.tests_folder"""
         return DEV.tests_folder
 
@@ -304,22 +306,22 @@ class ClickRunner:
                     logging.error("%s\n%s", msg, r.full_output)
                     assert False, msg
 
-    def run(self, *args, exe=None, main=UNSET):
+    def run(self, *args, exe=None, main=UNSET, trace=UNSET):
         """
         Args:
             *args: Command line args
             exe (str | None): Optional, override sys.argv[0] just for this run
             main (callable | None): Optional, override current self.main just for this run
+            trace (bool): If True, enable trace logging
         """
         main = _R.rdefault(main, self.main or cli.default_main)
-        assert bool(main), "No main provided"
         if len(args) == 1 and hasattr(args[0], "split"):
             # Convenience: allow to provide full command as one string argument
             args = args[0].split()
 
         self.args = flattened(args, shellify=True)
         with IsolatedLogSetup(adjust_tmp=False):
-            with CaptureOutput(dryrun=_R.is_dryrun(), seed_logging=True) as logged:
+            with CaptureOutput(dryrun=_R.is_dryrun(), seed_logging=True, trace=_R.rdefault(trace, self.trace)) as logged:
                 self.logged = logged
                 with TempArgv(self.args, exe=exe):
                     result = self._run_main(main, self.args)

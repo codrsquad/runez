@@ -1226,34 +1226,34 @@ class DevInfo:
         return find_caller(regex=DevInfo.__ct_regex)
 
     @cached_property
-    def project_folder(self):
-        """(str | None): Path to current development project, if we're running from a source compilation"""
+    def project_folder(self) -> str:
+        """Path to current development project, if we're running from a source compilation"""
         return _validated_project_path(self.tests_folder, self.venv_folder)
 
     @cached_property
-    def tests_folder(self):
-        """(str | None): Path to current development project's tests/ folder, if we're running from a source compilation"""
+    def tests_folder(self) -> str:
+        """Path to current development project's tests/ folder, if we're running from a source compilation"""
         if SYS_INFO.venv_bin_folder:
             ct = self.current_test()
             if ct is not None:
                 return _R.find_parent_folder(ct.folder, {"tests", "test"})
 
     @cached_property
-    def venv_folder(self):
-        """(str | None): Path to current development venv, if we're running from one"""
+    def venv_folder(self) -> str:
+        """Path to current development venv, if we're running from one"""
         if SYS_INFO.venv_bin_folder:
             return _R.find_parent_folder(sys.prefix, {"venv", ".venv", ".tox", "build"})
 
-    def project_path(self, *relative_path):
-        """(str | None): Full path relative to development project we're currently running from (if any)"""
+    def project_path(self, *relative_path) -> str:
+        """Full path relative to development project we're currently running from (if any)"""
         return _full_path(self.project_folder, relative_path)
 
-    def tests_path(self, *relative_path):
-        """(str | None): Full path relative to development project's tests/ folder (if any)"""
+    def tests_path(self, *relative_path) -> str:
+        """Full path relative to development project's tests/ folder (if any)"""
         return _full_path(self.tests_folder, relative_path)
 
-    def venv_path(self, *relative_path):
-        """(str | None): Full path relative to development venv (such as .venv, .tox etc) we're currently running from (if any)"""
+    def venv_path(self, *relative_path) -> str:
+        """Full path relative to development venv (such as .venv, .tox etc) we're currently running from (if any)"""
         return _full_path(self.venv_folder, relative_path)
 
 

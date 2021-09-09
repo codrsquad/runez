@@ -10,6 +10,7 @@ import runez.conftest
 
 def sample_main():
     args = sys.argv[1:]
+    runez.log.trace("Running main() with: %s" % args)
     if args:
         args = runez.flattened(args, shellify=True)
         if args[0] == "TypeError":
@@ -170,7 +171,12 @@ def test_success(cli, monkeypatch):
 
     cli.run("quiet")
     assert cli.succeeded
-    assert not cli.match(".*", regex=True)
+    assert not cli.logged
+    assert cli.match(".*", regex=True) is None
+
+    cli.run("quiet", trace=True)
+    assert cli.succeeded
+    assert ":: Running main() with: ['quiet']" in cli.logged
 
     cli.run("--dryrun hello", exe="bar/foo")
     assert cli.succeeded
