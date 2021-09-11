@@ -6,7 +6,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from runez.system import _R, abort, Anchored, decode, resolved_path, short, SYMBOLIC_TMP, SYS_INFO, UNSET
+from runez.system import _R, abort, Anchored, decode, flattened, resolved_path, short, SYMBOLIC_TMP, SYS_INFO, UNSET
 
 
 def basename(path, extension_marker=os.extsep, follow=False):
@@ -149,32 +149,31 @@ def ensure_folder(path, clean=False, fatal=True, logger=UNSET, dryrun=UNSET):
         return abort("Can't create folder %s" % short(path), exc_info=e, return_value=-1, fatal=fatal, logger=logger)
 
 
-def filesize(path, _seen=None):
+def filesize(*paths, logger=False):
     """
     Args:
-        path (str | Path | None): Path to file or folder
-        _seen: Internal, used to avoid being fooled by circular symlinks
+        *paths (str | Path | None): Paths to files/folders
+        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
 
     Returns:
-        (int | None): File size in bytes, if path provided (None otherwise)
+        (int): File size in bytes
     """
-    if path:
+    size = 0
+    for path in flattened(paths, unique=True):
         path = to_path(path)
-        if not path.exists():
-            return 0
-
-        if path.is_dir():
-            if _seen is None:
-                _seen = set()
-
-            size = 0
-            if path not in _seen:
+        if path and path.exists() and not path.is_symlink():
+            if path.is_dir():
                 for sf in path.iterdir():
-                    size += filesize(sf, _seen=_seen)
+                    size += filesize(sf)
 
-            return size
+            elif path.is_file():
+                try:
+                    size += path.stat().st_size
 
-        return path.stat().st_size
+                except Exception as e:  # pragma: no cover, ignore cases like permission denied, file name too long, etc
+                    _R.hlog(logger, "Can't stat %s: %s" % (short(path), short(e, size=32)))
+
+    return size
 
 
 def ini_to_dict(path, keep_empty=False, fatal=False, logger=False):
