@@ -880,18 +880,6 @@ class Version:
         other = Version.from_text(other, strict=True)
         return isinstance(other, Version) and self.components == other.components and self.prerelease == other.prerelease
 
-    def __ge__(self, other):
-        if isinstance(other, Version):
-            return self == other or other < self
-
-    def __gt__(self, other):
-        other = Version.from_text(other, strict=True)
-        if other is None:
-            return True
-
-        if isinstance(other, Version):
-            return other < self
-
     def __lt__(self, other):
         other = Version.from_text(other, strict=True)
         if isinstance(other, Version):
@@ -905,6 +893,18 @@ class Version:
                 return self.prerelease < other.prerelease
 
             return self.components < other.components
+
+    def __le__(self, other):
+        other = Version.from_text(other, strict=True)
+        return isinstance(other, Version) and self < other or self == other
+
+    def __ge__(self, other):
+        other = Version.from_text(other, strict=True)
+        return other is None or other <= self
+
+    def __gt__(self, other):
+        other = Version.from_text(other, strict=True)
+        return other is None or other < self
 
     @property
     def is_final(self):

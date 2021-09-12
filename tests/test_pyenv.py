@@ -679,6 +679,8 @@ def test_version():
     s.add(vrc)
     assert vrc in s
 
+
+def test_version_comparison():
     v11 = Version("1.1.2.3")
     v12 = Version("1.2.3")
     v12p = Version("1.2.3.post4")
@@ -693,12 +695,28 @@ def test_version():
     assert v20d.suffix == "dev"
 
     # Verify that numerical comparison takes place (not alphanumeric)
-    assert v12 < 1.19
-    assert v12 < "1.19"
-    assert v12 > 1
+    assert None < v12  # For total ordering
+    assert v12 > None
     assert v12 == "1.2.3"
     assert v12 == [1, 2, 3]
     assert v12 == (1, 2, 3)
+    assert v12 <= (1, 2, 3)
+    assert v12 < 1.19
+    assert v12 != 1.19
+    assert v12 != 1
+    assert v12 != (1, 2)
+    assert v12 < "1.19"
+    assert v12 < "1.19"
+    assert v12 != "1.19"
+    assert v12 <= "1.19"
+    assert v12 <= "1.2.3"
+    assert v12 > "1.2"
+    assert v12 >= "1.2"
+    assert v12 >= "1.2.3"
+    assert v12 > 1
+    assert v12 == "1.2.3"
+    assert v12 < 2
+    assert v12 <= 2
     assert v20 == 2
     assert v20 == 2.0
     assert v20 != 2.1
