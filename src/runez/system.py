@@ -775,7 +775,7 @@ class Anchored:
             (str): Short form, using '~' if applicable
         """
         if cls._home is None:
-            cls._home = os.path.expanduser("~")
+            cls._home = "" if os.geteuid() == 0 else os.path.expanduser("~")
 
         text = stringified(text)
         if cls._paths:
@@ -783,7 +783,10 @@ class Anchored:
                 if p:
                     text = text.replace(p + os.path.sep, "")
 
-        return text.replace(cls._home, "~")
+        if cls._home:
+            text = text.replace(cls._home, "~")
+
+        return text
 
 
 class CapturedStream:
