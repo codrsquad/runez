@@ -129,7 +129,7 @@ def cmd_passthrough():
 
     print("-- Running: %s\n" % unknown)
     r = runez.run(*unknown, fatal=False, passthrough=True)
-    print("\n---- Captured: ----")
+    print("\n---- Captured: (exit code %s) ----" % r.exit_code)
     print("\nstdout:\n%s" % (r.output or runez.dim("-empty-")))
     print("\nstderr:\n%s" % (r.error or runez.dim("-empty-")))
 

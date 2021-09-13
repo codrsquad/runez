@@ -670,6 +670,8 @@ def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
 
                     readable.remove(fd)
 
+    sys.stdout.flush()
+    sys.stderr.flush()
     os.close(stdout_r)
     os.close(stderr_r)
     return p, uncolored(decode(stdout_buffer.getvalue())), uncolored(decode(stderr_buffer.getvalue()))
