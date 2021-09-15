@@ -604,6 +604,7 @@ def test_version():
     assert str(none) == ""
     assert not none.is_valid
     assert not none.is_final
+    assert none.mm is None
 
     empty = Version("")
     assert str(empty) == ""
@@ -616,6 +617,7 @@ def test_version():
     assert ep.epoch == 123
     assert ep.main == "2.1.0"
     assert ep.local_part == "foo.dirty-bar"
+    assert ep.mm == "2.1"
 
     foo = Version("foo")
     assert str(foo) == "foo"
@@ -633,6 +635,7 @@ def test_version():
     v1 = Version("1")
     assert v1.components == (1, 0, 0, 0, 0)
     assert str(v1) == "1"
+    assert v1.mm == "1.0"
     assert empty < v1
     assert v1 > empty
     assert v1 != empty

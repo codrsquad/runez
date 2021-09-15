@@ -7,7 +7,7 @@ from collections import defaultdict
 from runez.file import ls_dir, parent_folder, to_path
 from runez.http import RestClient, urljoin
 from runez.program import is_executable, run
-from runez.system import _R, abort, flattened, joined, resolved_path, short, stringified, UNSET
+from runez.system import _R, abort, cached_property, flattened, joined, resolved_path, short, stringified, UNSET
 
 
 CPYTHON = "cpython"
@@ -931,6 +931,12 @@ class Version:
     def minor(self):
         """(int): Minor part of version"""
         return self.components and self.components[1]
+
+    @cached_property
+    def mm(self):
+        """(str): <major>.<minor>, often used in python paths, like config-3.9"""
+        if self.is_valid:
+            return joined(self.major, self.minor, delimiter=".")
 
     @property
     def patch(self):
