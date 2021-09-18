@@ -1319,6 +1319,7 @@ class PlatformId:
             base_paths.append("libc.so.6")
             base_paths.append("libcrypt.so.1")
             base_paths.append("libdl.so.2")
+            base_paths.append("libexpat.so.1")
             base_paths.append("libm.so.6")
             base_paths.append("libnsl.so.1")
             base_paths.append("libpthread.so.0")
