@@ -454,12 +454,14 @@ def test_platform_identification(monkeypatch):
     assert str(linux_arm_libc) == "linux-arm64-libc"
     assert linux_arm_libc.is_base_lib("linux-vdso.so.1")
     assert linux_arm_libc.is_base_lib("libc.so.6")
+    assert not linux_arm_libc.is_base_lib("@rpath/foo")
 
     m1 = PlatformId("macos-arm64")
     assert str(m1) == "macos-arm64"
     assert m1.canonical_compress_extension() == "tar.gz"
     assert not m1.is_base_lib("linux-vdso.so.1")
     assert not m1.is_base_lib("libc.so.6")
+    assert m1.is_base_lib("@rpath/foo")
     assert m1.is_base_lib("/usr/lib/libSystem.B.dylib")
     assert not m1.is_system_lib("/lib/foo.so")
     assert m1.is_system_lib("/usr/lib/foo.so")

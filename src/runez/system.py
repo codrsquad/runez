@@ -1313,7 +1313,7 @@ class PlatformId:
             subsystem = self.determine_current_subsystem()
 
         self.subsystem = subsystem
-        base_paths = ["@rpath/.+"]
+        base_paths = []
         if self.is_using_libc:
             # Similar to https://github.com/pypa/auditwheel/blob/master/auditwheel/policy/manylinux-policy.json
             base_paths.append("libc.so.6")
@@ -1335,6 +1335,7 @@ class PlatformId:
         elif self.is_macos:
             self.sys_include = ["/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include"]
             self.rx_sys_lib = re.compile(r"^/(usr/lib\d*|System/Library)/.+$")
+            base_paths.append("@(rpath|executable_path|loader_path)/.+")  # Count relative libs as base
             base_paths.append(r"/usr/lib/libSystem\.B\.dylib")
 
         elif self.is_windows:
