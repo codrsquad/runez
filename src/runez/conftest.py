@@ -16,6 +16,7 @@ import _pytest.logging
 import pytest
 
 import runez.config
+import runez.system
 from runez.colors import ActivateColors
 from runez.file import TempFolder
 from runez.logsetup import LogManager
@@ -111,6 +112,8 @@ class IsolatedLogSetup:
         """
         self.adjust_tmp = adjust_tmp
         self.temp_folder = None
+        self.abort_exception = None
+        self.old_cwd = None
 
     def __enter__(self):
         WrappedHandler.isolation += 1
@@ -125,6 +128,10 @@ class IsolatedLogSetup:
             self.temp_folder = TempFolder()
             LogManager.spec.tmp = self.temp_folder.__enter__()
 
+        else:
+            self.abort_exception = runez.system.AbortException
+            self.old_cwd = os.getcwd()
+
         return self.temp_folder and self.temp_folder.tmp_folder
 
     def __exit__(self, *_):
@@ -136,6 +143,11 @@ class IsolatedLogSetup:
         LogManager.reset()
         if self.temp_folder:
             self.temp_folder.__exit__()
+
+        else:
+            runez.system.AbortException = self.abort_exception
+            if self.old_cwd and self.old_cwd != os.getcwd():
+                os.chdir(self.old_cwd)
 
 
 @pytest.fixture

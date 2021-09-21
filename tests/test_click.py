@@ -3,6 +3,8 @@ Test click related methods
 """
 
 import errno
+import logging
+import os
 import sys
 
 import click
@@ -20,12 +22,26 @@ def my_formatter(text):
 @runez.click.version(message="%(prog)s, version %(version)s")
 @runez.click.color()
 @runez.click.config("-c", prefix="g.")
-@runez.click.debug(expose_value=False)
+@runez.click.debug()
 @runez.click.dryrun()
 @runez.click.log(expose_value=False)
-def my_group():
+def my_group(debug):
     # By default, --config value is NOT exposed, the global runez.config.CONFIG is altered
+    runez.system.AbortException = SystemExit
+    runez.log.setup(
+        debug=debug,
+        console_format="%(levelname)s %(message)s",
+        console_level=logging.INFO,
+        locations=None,
+        greetings=":: {argv}",
+    )
     config = runez.config.CONFIG
+    cd = config.get("g.cd")
+    if cd:
+        logging.info("Changed folder to %s" % runez.short(cd))
+        runez.ensure_folder(cd)
+        os.chdir(cd)
+
     assert len(config.providers) == 1
     assert "--config: " in config.overview()
     assert config.provider_by_name("--config") is not None
@@ -182,6 +198,7 @@ def test_config(isolated_log_setup, logged, monkeypatch):
 
 
 def test_group(cli):
+    assert runez.system.AbortException is not SystemExit
     cli.main = my_group
     runez.click.prettify_epilogs(my_group, formatter=my_formatter)
     runez.click.prettify_epilogs(my_group, formatter=my_formatter)  # Calling this multiple times is a no-op
@@ -194,10 +211,15 @@ def test_group(cli):
     assert "Repeat provided text" in cli.logged
     assert "This part will be" not in cli.logged
 
-    cli.run("echo", "--help")
+    assert cli.context == os.getcwd()
+    cli.run("-ccd=foo", "echo", "--help")
     assert cli.succeeded
     assert "Repeat provided text" in cli.logged
     assert "This part will be an epilog" in cli.logged
+    assert "Changed folder to foo" in cli.logged  # TODO: correct it so it doesn't get logged twice
+    # Verify that current folder was restored
+    assert cli.context == os.getcwd()
+    assert runez.system.AbortException is not SystemExit
 
     cli.run("--color echo hello")
     assert cli.succeeded
