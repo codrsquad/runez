@@ -20,7 +20,7 @@ Usage:
 import threading
 import time
 
-from runez.system import LOG
+from runez.system import LOG, ltattr
 
 
 DEFAULT_FREQUENCY = 60
@@ -56,10 +56,10 @@ class HeartbeatTask:
         return self is other
 
     def __le__(self, other):
-        return (self.next_execution, self.frequency) <= (other.next_execution, other.frequency)
+        return self is other or self < other
 
     def __lt__(self, other):
-        return (self.next_execution, self.frequency) < (other.next_execution, other.frequency)
+        return ltattr(self, other, "next_execution", "frequency")
 
 
 class Heartbeat:

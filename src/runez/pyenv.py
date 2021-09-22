@@ -7,7 +7,7 @@ from collections import defaultdict
 from runez.file import ls_dir, parent_folder, to_path
 from runez.http import RestClient, urljoin
 from runez.program import is_executable, run
-from runez.system import _R, abort, cached_property, flattened, joined, resolved_path, short, stringified, UNSET
+from runez.system import _R, abort, cached_property, flattened, joined, ltattr, resolved_path, short, stringified, UNSET
 
 
 CPYTHON = "cpython"
@@ -93,17 +93,7 @@ class ArtifactInfo:
 
     def __lt__(self, other):
         """Ordered by source, then pypi_name, then version, then category"""
-        if isinstance(other, ArtifactInfo):
-            if self.source == other.source:
-                if self.pypi_name == other.pypi_name:
-                    if self.version == other.version:
-                        return self.category < other.category
-
-                    return self.version and other.version and self.version < other.version
-
-                return self.pypi_name and other.pypi_name and self.pypi_name < other.pypi_name
-
-            return self.source and (not other.source or self.source < other.source)
+        return ltattr(self, other, "source", "pypi_name", "version", "category", t=ArtifactInfo)
 
     @property
     def category(self):

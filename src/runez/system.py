@@ -487,6 +487,27 @@ def joined(*args, delimiter=" ", keep_empty=False, strip=None, stringify=stringi
     return delimiter.join(args)
 
 
+def ltattr(self, other, *fields, t=None):
+    """Allows to avoid repeating implementation of __lt__, where fields of an object are simply compared in order
+    Missing fields (None) arbitrarily are considered < all others
+
+    Args:
+        self: Object issuing the comparison
+        other: Object 'self' is being compared to
+        t: If provided, 'other' must be an instance of given type 't'
+        *fields: Fields to examine
+
+    Returns:
+        (bool): True if there is one field 'x' such that obj1.x < obj2.x, and all previous fields are ==
+    """
+    if t is None or isinstance(other, t):
+        for field in fields:
+            f1 = getattr(self, field)
+            f2 = getattr(other, field)
+            if f1 != f2:
+                return f1 is None or (f2 is not None and f1 < f2)
+
+
 def quoted(*items, delimiter=" ", adapter=UNSET, keep_empty=True, strip=None, stringify=stringified, unique=False):
     """Quoted `items`, for those that contain whitespaces
 
@@ -1315,7 +1336,7 @@ class PlatformId:
         self.subsystem = subsystem
         base_paths = []
         if self.is_using_libc:
-            # Similar to https://github.com/pypa/auditwheel/blob/master/auditwheel/policy/manylinux-policy.json
+            # Similar to https://github.com/pypa/auditwheel/tree/master/src/auditwheel/policy
             base_paths.append("libc.so.6")
             base_paths.append("libcrypt.so.1")
             base_paths.append("libdl.so.2")

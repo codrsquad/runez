@@ -180,7 +180,7 @@ def test_depot_adhoc(temp_folder, monkeypatch):
     assert not (p11 < pfoo)
     assert not (pfoo > p11)
 
-    # Edge case: comparison still works even when there is no spec
+    # Edge case: comparison still works even when there is no spec, arbitrarily sort no spec lower...
     pfoo.spec = None
     assert pfoo < p11
 
@@ -381,7 +381,7 @@ def test_pypi_parsing():
     assert funky[0].pypi_name == "funky-proj"
     assert funky[1].is_dirty
     assert black[0] < funky[0]  # Alphabetical sort when both have no source
-    assert sample[4] < funky[0]  # Source-defined comes before no-source
+    assert funky[0] < sample[4]  # Arbitrary: no-source sorts lowest...
 
 
 def test_sorting(temp_folder):
@@ -690,6 +690,7 @@ def test_version_comparison():
     v2 = Version("2")
     v20 = Version("2.0")
     v20d = Version("2.0.dev1")
+    v21d = Version("2.1.dev1")
     v3 = Version("3.0.1.2")
     assert v11.is_final
     assert not v12p.is_final
@@ -737,6 +738,7 @@ def test_version_comparison():
     assert v20 > v12p
     assert v20d > v12p
     assert v3 > v12p
+    assert v21d > v20
     assert v20d > v20
     assert v3 > v20
     assert v3 > v20d
