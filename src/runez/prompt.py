@@ -11,7 +11,7 @@ def ask_once(name, instructions, default=None, base="~/.config", serializer=stri
         base (str): Base folder where to stored provided answer
         serializer (callable): Function that will turn provided value into object to be stored
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
 
     Returns:
         Value given by user (or 'default' if given), optionally wrapped via `serializer`

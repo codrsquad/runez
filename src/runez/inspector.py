@@ -14,7 +14,7 @@ from functools import wraps
 from runez.convert import to_int
 from runez.program import run
 from runez.pyenv import get_current_version
-from runez.system import abort, find_caller, py_mimic, SYS_INFO
+from runez.system import abort_if, find_caller, py_mimic, SYS_INFO
 
 
 def auto_import_siblings(skip=None, caller=None):
@@ -91,12 +91,9 @@ class AutoInstall:
             importlib.import_module(self.top_level)
 
         except ImportError:
-            if not SYS_INFO.venv_bin_folder:
-                abort("Can't auto-install '%s' outside of a virtual environment" % self.package_name)
-
-            r = run(sys.executable, "-mpip", "install", self.package_name, dryrun=False)
-            if r.failed:
-                abort("Can't auto-install '%s': %s" % (self.package_name, r.full_output))
+            abort_if(not SYS_INFO.venv_bin_folder, "Can't auto-install '%s' outside of a virtual environment" % self.package_name)
+            r = run(sys.executable, "-mpip", "install", self.package_name, fatal=False, dryrun=False)
+            abort_if(r.failed, "Can't auto-install '%s': %s" % (self.package_name, r.full_output))
 
     def __call__(self, target):
         """Decorator invoked with decorated function 'target'"""

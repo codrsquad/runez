@@ -242,7 +242,7 @@ def make_executable(path, fatal=True, logger=UNSET, dryrun=UNSET):
     """
     Args:
         path (str): chmod file with 'path' as executable
-        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
 
@@ -277,7 +277,7 @@ def run(
         program (str | pathlib.Path): Program to run (full path, or basename)
         *args: Command line args to call 'program' with
         background (bool): When True, background the spawned process (detach from console and current process)
-        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
         short_exe (str | bool | None): Try to log a compact representation of executable
@@ -388,7 +388,7 @@ def shell(*args, fatal=False, logger=False, dryrun=False):
 
     Args:
         *args: Program and arguments to run
-        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): Override current dryrun setting
 

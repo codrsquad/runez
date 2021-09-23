@@ -17,7 +17,7 @@ from runez.ascii import AsciiAnimation
 from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone, represented_duration
 from runez.file import parent_folder
-from runez.system import _R, abort, cached_property, decode, DEV, find_caller, flattened, quoted, short, stringified, uncolored
+from runez.system import _R, abort_if, cached_property, decode, DEV, find_caller, flattened, quoted, short, stringified, uncolored
 from runez.system import LOG, py_mimic, Slotted, SYS_INFO, ThreadGlobalContext, UNSET, WINDOWS
 
 
@@ -874,9 +874,7 @@ class LogManager:
                     message = "\n%s\n%s\n%s\n\n" % (bars, message, bars)
 
                 message = _R.colored(message, "red")
-                if allow_root is None:
-                    abort(message)
-
+                abort_if(allow_root is None, message)
                 LOG.warning(message)
 
     @staticmethod

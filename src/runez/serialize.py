@@ -561,7 +561,7 @@ class Serializable:
         Args:
             path (str): Path to json file
             default (dict | list | str | None): Default if file is not present, or can't be deserialized
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
 
         Returns:
@@ -628,7 +628,7 @@ def from_json(value, default=None, fatal=False, logger=False):
     Args:
         value (str): Value to deserialize
         default (dict | list | str | None): Default returned if value can't be deserialized
-        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
 
     Returns:
@@ -653,7 +653,7 @@ def read_json(path, default=None, fatal=False, logger=False):
     Args:
         path (str | pathlib.Path | None): Path to file to deserialize
         default (dict | list | str | None): Default returned if file is not present, or can't be deserialized
-        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
 
     Returns:
@@ -704,7 +704,7 @@ def save_json(data, path, stringify=stringified, dt=str, none=False, indent=2, s
                            - True: No filtering, keep `None` keys/values as-is
         indent (int | None): Indentation to use, if None: use compact (one line) mode
         sort_keys (bool): Whether keys should be sorted
-        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool): Optionally override current dryrun setting
 

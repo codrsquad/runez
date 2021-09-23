@@ -157,7 +157,7 @@ class PypiStd:
             package_name (str): Pypi package name
             client (RestClient | None): Optional custom pypi client to use
             index (str | None): Optional custom pypi index url
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
 
         Returns:
@@ -199,7 +199,7 @@ class PypiStd:
             client (RestClient | None): Optional custom pypi client to use
             index (str | None): Optional custom pypi index url
             include_prerelease (bool): If True, include pre-releases
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
 
         Returns:
@@ -235,7 +235,7 @@ class PypiStd:
             client (RestClient | None): Optional custom pypi client to use
             index (str | None): Optional custom pypi index url
             source: Optional arbitrary object to track provenance of ArtifactInfo
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
 
         Returns:
@@ -547,7 +547,7 @@ class PythonDepot:
         """
         Args:
             spec (str | PythonSpec | PythonInstallation | None): Example: 3.7, py37, pypy3.7, conda3.7, /usr/bin/python
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
 
         Returns:

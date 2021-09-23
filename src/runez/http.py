@@ -657,7 +657,7 @@ class RestClient:
             url (str): URL of .tar.gz to unpack (may be absolute, or relative to self.base_url)
             destination (str | Path): Path to local folder where to untar url
             simplify (bool): If True and source has only one sub-folder, extract that one sub-folder to destination
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
             dryrun (bool): Optionally override current dryrun setting
             params (dict | None): Key/value pairs for query string
@@ -681,7 +681,7 @@ class RestClient:
             url (str): URL of resource to download (may be absolute, or relative to self.base_url)
                        Use #sha256=... or #sha512=... at the end of the url to ensure content is validated against given checksum
             destination (str | Path): Path to local file where to store the download
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
             dryrun (bool): Optionally override current dryrun setting
             params (dict | None): Key/value pairs for query string
@@ -718,7 +718,7 @@ class RestClient:
         """
         Args:
             url (str): Remote URL (may be absolute, or relative to self.base_url)
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
             params (dict | None): Key/value pairs for query string
             headers (dict | None): Optional Headers specific to this request
@@ -733,7 +733,7 @@ class RestClient:
 
         Args:
             url (str): URL to query (can be absolute, or relative to self.base_url)
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
             dryrun (bool): Optionally override current dryrun setting
             params (dict | None): Key/value pairs for query string
@@ -748,7 +748,7 @@ class RestClient:
         """
         Args:
             url (str): Remote URL (may be absolute, or relative to self.base_url)
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
             params (dict | None): Key/value pairs for query string
             headers (dict | None): Optional Headers specific to this request
@@ -764,7 +764,7 @@ class RestClient:
         """
         Args:
             url (str): URL to query (can be absolute, or relative to self.base_url)
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
             params (dict | None): Key/value pairs for query string
             headers (dict | None): Optional Headers specific to this request
@@ -781,7 +781,7 @@ class RestClient:
 
         Args:
             url (str): URL to query (can be absolute, or relative to self.base_url)
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
             dryrun (bool): Optionally override current dryrun setting
             params (dict | None): Key/value pairs for query string
@@ -802,7 +802,7 @@ class RestClient:
 
         Args:
             url (str): URL to query (can be absolute, or relative to self.base_url)
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
             dryrun (bool): Optionally override current dryrun setting
             params (dict | None): Key/value pairs for query string
@@ -817,7 +817,7 @@ class RestClient:
         """
         Args:
             url (str): URL to query (can be absolute, or relative to self.base_url)
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
             dryrun (bool): Optionally override current dryrun setting
             params (dict | None): Key/value pairs for query string
@@ -884,7 +884,7 @@ class RestClient:
         Args:
             method (str): Underlying method to call
             url (str): Remote URL (may be absolute, or relative to self.base_url)
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
             dryrun (bool): Optionally override current dryrun setting
             params (dict | None): Key/value pairs for query string

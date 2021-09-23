@@ -17,7 +17,7 @@ API_EXCEPTIONS = {
     "system.abort": {},
 }
 IO_API_DOCSTRINGS = dict(
-    fatal="fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log",
+    fatal="fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log",
     logger="logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter",
     dryrun="dryrun (bool): Optionally override current dryrun setting",
 )

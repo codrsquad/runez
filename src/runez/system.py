@@ -77,7 +77,7 @@ def abort(message, code=1, exc_info=None, return_value=None, fatal=True, logger=
         code (int): Exit code used when runez.system.AbortException is set to SystemExit
         exc_info (Exception): Exception info to pass on to logger
         return_value (Any): Value to return when `fatal` is not True
-        fatal (type | bool | None): True: abort execution, False: don't abort but log, None: don't abort, don't log
+        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), None to disable log chatter
 
     Returns:
@@ -104,6 +104,20 @@ def abort(message, code=1, exc_info=None, return_value=None, fatal=True, logger=
         _show_abort_message(message, exc_info, logger)
 
     return return_value
+
+
+def abort_if(condition, message=None, code=1, exc_info=None, logger=UNSET):
+    """Abort if 'condition' is True-ish
+
+    Args:
+        condition (str | bool | None): Abort if True-ish
+        message (str): Message explaining why we're aborting (default: 'condition', which should be a string then)
+        code (int): Exit code used when runez.system.AbortException is set to SystemExit
+        exc_info (Exception): Exception info to pass on to logger
+        logger (callable | bool | None): Logger to use, True to print(), None to disable log chatter
+    """
+    if condition:
+        abort(_R.actual_message(message or condition), code=code, exc_info=exc_info, logger=logger)
 
 
 def py_mimic(target, source):
@@ -364,7 +378,7 @@ def get_version(mod, default="0.0.0", fatal=False, logger=False):
         mod (module | str): Module, or module name to find version for (pass either calling module, or its .__name__)
         default (str): Value to return if version determination fails
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
 
     Returns:
         (str | None): Determined version
@@ -1956,7 +1970,7 @@ class _R:
 
         Args:
             default: Default value to return, if 'fatal' is False
-            fatal (bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
             message (str): Message explaining failure
             exc_info (Exception): Exception, if this comes from a try/except block
@@ -1964,9 +1978,7 @@ class _R:
         Returns:
             'default', if we didn't abort
         """
-        if fatal:
-            abort(_R.actual_message(message), exc_info=exc_info, fatal=fatal, logger=logger)
-
+        abort_if(fatal, message, exc_info=exc_info, logger=logger)
         _R.hlog(logger, message, exc_info=exc_info)
         return default
 
