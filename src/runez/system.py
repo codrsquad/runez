@@ -514,12 +514,14 @@ def ltattr(self, other, *fields, t=None):
     Returns:
         (bool): True if there is one field 'x' such that obj1.x < obj2.x, and all previous fields are ==
     """
-    if t is None or isinstance(other, t):
-        for field in fields:
-            f1 = getattr(self, field)
-            f2 = getattr(other, field)
-            if f1 != f2:
-                return f1 is None or (f2 is not None and f1 < f2)
+    if t is not None and not isinstance(other, t):
+        return NotImplemented
+
+    for field in fields:
+        f1 = getattr(self, field)
+        f2 = getattr(other, field)
+        if f1 != f2:
+            return f1 is None or (f2 is not None and f1 < f2)
 
 
 def quoted(*items, delimiter=" ", adapter=UNSET, keep_empty=True, strip=None, stringify=stringified, unique=False):

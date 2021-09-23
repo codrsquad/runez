@@ -371,6 +371,9 @@ def test_pypi_parsing():
     assert sample[3] < sample[4]  # Source distribution before wheel
     assert sample[3] != sample[4]
 
+    with pytest.raises(TypeError):
+        _ = sample[3] < "foo"
+
     black = sorted(PypiStd.ls_pypi("black"))  # All versions are pre-releases
     assert len(black) == 3
     assert black[0].version.prerelease
