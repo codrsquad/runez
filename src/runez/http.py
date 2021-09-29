@@ -651,7 +651,7 @@ class RestClient:
         """
         return urljoin(self.base_url, url)
 
-    def decompress(self, url, destination, simplify=False, fatal=True, logger=UNSET, dryrun=UNSET, params=None, headers=None):
+    def decompress(self, url, destination, simplify=False, fatal=True, logger=UNSET, dryrun=UNSET, **kwargs):
         """
         Args:
             url (str): URL of .tar.gz to unpack (may be absolute, or relative to self.base_url)
@@ -660,8 +660,7 @@ class RestClient:
             fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
             dryrun (bool): Optionally override current dryrun setting
-            params (dict | None): Key/value pairs for query string
-            headers (dict | None): Optional Headers specific to this request
+            **kwargs: Passed through to underlying client
 
         Returns:
             (RestResponse): Response from underlying call
@@ -669,13 +668,13 @@ class RestClient:
         destination = to_path(destination).absolute()
         with TempFolder():
             tarball_path = to_path(os.path.basename(url)).absolute()
-            response = self.download(url, tarball_path, fatal=fatal, logger=logger, dryrun=dryrun, params=params, headers=headers)
+            response = self.download(url, tarball_path, fatal=fatal, logger=logger, dryrun=dryrun, **kwargs)
             if response.ok:
                 decompress(tarball_path, destination, simplify=simplify, fatal=fatal, logger=logger, dryrun=dryrun)
 
             return response
 
-    def download(self, url, destination, fatal=True, logger=UNSET, dryrun=UNSET, params=None, headers=None):
+    def download(self, url, destination, fatal=True, logger=UNSET, dryrun=UNSET, **kwargs):
         """
         Args:
             url (str): URL of resource to download (may be absolute, or relative to self.base_url)
@@ -684,8 +683,7 @@ class RestClient:
             fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
             dryrun (bool): Optionally override current dryrun setting
-            params (dict | None): Key/value pairs for query string
-            headers (dict | None): Optional Headers specific to this request
+            **kwargs: Passed through to underlying client
 
         Returns:
             (RestResponse): Response from underlying call
@@ -698,7 +696,7 @@ class RestClient:
             hash_checksum = m.group(3)
             url = url[:m.start(0)]
 
-        response = self._get_response("GET", url, fatal, logger, dryrun=dryrun, params=params, headers=headers, action="download")
+        response = self._get_response("GET", url, fatal, logger, dryrun=dryrun, action="download", **kwargs)
         if response.ok and not _R.resolved_dryrun(dryrun):
             destination = to_path(destination)
             ensure_folder(destination.parent, fatal=fatal, logger=None)
@@ -714,21 +712,20 @@ class RestClient:
 
         return response
 
-    def get_response(self, url, fatal=False, logger=False, params=None, headers=None):
+    def get_response(self, url, fatal=False, logger=False, **kwargs):
         """
         Args:
             url (str): Remote URL (may be absolute, or relative to self.base_url)
             fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-            params (dict | None): Key/value pairs for query string
-            headers (dict | None): Optional Headers specific to this request
+            **kwargs: Passed through to underlying client
 
         Returns:
             (RestResponse): Response from underlying call
         """
-        return self._get_response("GET", url, fatal, logger, params=params, headers=headers)
+        return self._get_response("GET", url, fatal, logger, **kwargs)
 
-    def delete(self, url, fatal=True, logger=UNSET, dryrun=UNSET, params=None, headers=None):
+    def delete(self, url, fatal=True, logger=UNSET, dryrun=UNSET, **kwargs):
         """Same as underlying .delete(), but respecting 'dryrun' mode
 
         Args:
@@ -736,47 +733,42 @@ class RestClient:
             fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
             dryrun (bool): Optionally override current dryrun setting
-            params (dict | None): Key/value pairs for query string
-            headers (dict | None): Optional Headers specific to this request
+            **kwargs: Passed through to underlying client
 
         Returns:
             (RestResponse): Response from underlying call
         """
-        return self._get_response("DELETE", url, fatal, logger, dryrun=dryrun, params=params, headers=headers)
+        return self._get_response("DELETE", url, fatal, logger, dryrun=dryrun, **kwargs)
 
-    def get(self, url, fatal=False, logger=False, params=None, headers=None):
+    def get(self, url, fatal=False, logger=False, **kwargs):
         """
         Args:
             url (str): Remote URL (may be absolute, or relative to self.base_url)
             fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-            params (dict | None): Key/value pairs for query string
-            headers (dict | None): Optional Headers specific to this request
+            **kwargs: Passed through to underlying client
 
         Returns:
             (dict | None): Deserialized .json() from response, if available
         """
-        response = self.get_response(url, fatal=fatal, logger=logger, params=params, headers=headers)
+        response = self.get_response(url, fatal=fatal, logger=logger, **kwargs)
         if response.ok:
             return response.json()
 
-    def head(self, url, fatal=False, logger=False, params=None, headers=None):
+    def head(self, url, fatal=False, logger=False, **kwargs):
         """
         Args:
             url (str): URL to query (can be absolute, or relative to self.base_url)
             fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-            params (dict | None): Key/value pairs for query string
-            headers (dict | None): Optional Headers specific to this request
+            **kwargs: Passed through to underlying client
 
         Returns:
             (RestResponse): Response from underlying call
         """
-        return self._get_response("HEAD", url, fatal, logger, params=params, headers=headers)
+        return self._get_response("HEAD", url, fatal, logger, **kwargs)
 
-    def post(
-        self, url, fatal=True, logger=UNSET, dryrun=UNSET, params=None, headers=None, data=None, json=None, files=None, filepaths=None
-    ):
+    def post(self, url, fatal=True, logger=UNSET, dryrun=UNSET, data=None, json=None, files=None, filepaths=None, **kwargs):
         """Same as underlying .post(), but respecting 'dryrun' mode
 
         Args:
@@ -784,20 +776,19 @@ class RestClient:
             fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
             dryrun (bool): Optionally override current dryrun setting
-            params (dict | None): Key/value pairs for query string
-            headers (dict | None): Optional Headers specific to this request
             data (dict | tuple | bytes | file | None): Data to send in the body
             json: (optional) json to send in the body
             files (dict | None): File-like-objects for multipart encoding upload.
             filepaths (dict[str, Path] | None): File-like-objects for multipart encoding upload.
+            **kwargs: Passed through to underlying client
 
         Returns:
             (RestResponse): Response from underlying call
         """
         state = DataState.wrapped(dryrun, data, json, files, filepaths)
-        return self._get_response("POST", url, fatal, logger, dryrun=dryrun, params=params, headers=headers, state=state)
+        return self._get_response("POST", url, fatal, logger, dryrun=dryrun, state=state, **kwargs)
 
-    def purge(self, url, fatal=True, logger=UNSET, dryrun=UNSET, params=None, headers=None):
+    def purge(self, url, fatal=True, logger=UNSET, dryrun=UNSET, **kwargs):
         """Same as underlying .purge(), but respecting 'dryrun' mode
 
         Args:
@@ -805,44 +796,43 @@ class RestClient:
             fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
             dryrun (bool): Optionally override current dryrun setting
-            params (dict | None): Key/value pairs for query string
-            headers (dict | None): Optional Headers specific to this request
+            **kwargs: Passed through to underlying client
 
         Returns:
             (RestResponse): Response from underlying call
         """
-        return self._get_response("PURGE", url, fatal, logger, dryrun=dryrun, params=params, headers=headers)
+        return self._get_response("PURGE", url, fatal, logger, dryrun=dryrun, **kwargs)
 
-    def put(self, url, fatal=True, logger=UNSET, dryrun=UNSET, params=None, headers=None, data=None, json=None, files=None, filepaths=None):
+    def put(self, url, fatal=True, logger=UNSET, dryrun=UNSET, data=None, json=None, files=None, filepaths=None, **kwargs):
         """
         Args:
             url (str): URL to query (can be absolute, or relative to self.base_url)
             fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
             dryrun (bool): Optionally override current dryrun setting
-            params (dict | None): Key/value pairs for query string
-            headers (dict | None): Optional Headers specific to this request
             data (dict | tuple | bytes | file | None): Data to send in the body
             json: (optional) json to send in the body
             files (dict | None): File-like-objects for multipart encoding upload.
             filepaths (dict[str, Path] | None): File-like-objects for multipart encoding upload.
+            **kwargs: Passed through to underlying client
 
         Returns:
             (RestResponse): Response from underlying call
         """
         state = DataState.wrapped(dryrun, data, json, files, filepaths)
-        return self._get_response("PUT", url, fatal, logger, dryrun=dryrun, params=params, headers=headers, state=state)
+        return self._get_response("PUT", url, fatal, logger, dryrun=dryrun, state=state, **kwargs)
 
-    def url_exists(self, url, logger=False):
+    def url_exists(self, url, logger=False, **kwargs):
         """
         Args:
             url (str): URL to query (can be absolute, or relative to self.base_url)
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+            **kwargs: Passed through to underlying client
 
         Returns:
             (bool): True if remote URL exists (ie: not a 404)
         """
-        response = self.head(url, logger=logger)
+        response = self.head(url, logger=logger, **kwargs)
         return bool(response and response.ok)
 
     def mock(self, specs):
@@ -879,7 +869,7 @@ class RestClient:
 
         raise ForbiddenHttpError(absolute_url)
 
-    def _get_response(self, method, url, fatal, logger, dryrun=False, params=None, headers=None, state=None, action=None):
+    def _get_response(self, method, url, fatal, logger, dryrun=False, state=None, action=None, **kwargs):
         """
         Args:
             method (str): Underlying method to call
@@ -887,10 +877,9 @@ class RestClient:
             fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
             dryrun (bool): Optionally override current dryrun setting
-            params (dict | None): Key/value pairs for query string
-            headers (dict | None): Optional Headers specific to this request
             state (DataState | None): For PUT/POST requests
             action (str | None): Action to refer to in dryrun message (default: method)
+            **kwargs: Passed through to underlying client
 
         Returns:
             (RestResponse): Response from underlying call
@@ -901,11 +890,14 @@ class RestClient:
             return RestResponse(method, absolute_url, MockResponse(200, dict(message="dryrun %s" % message)))
 
         full_headers = self.headers
+        headers = kwargs.get("headers")
         if headers:
             full_headers = dict(full_headers)
             full_headers.update(headers)
 
-        keyword_args = dict(headers=full_headers, params=params, timeout=self.timeout)
+        keyword_args = dict(kwargs)
+        keyword_args["headers"] = full_headers
+        keyword_args.setdefault("timeout", self.timeout)
         if state is not None:
             state.complete(keyword_args)
 
