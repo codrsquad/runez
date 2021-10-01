@@ -665,9 +665,10 @@ class RestClient:
         Returns:
             (RestResponse): Response from underlying call
         """
+        _, _, actual_url = self._decomposed_checksum_url(url)
         destination = to_path(destination).absolute()
         with TempFolder():
-            tarball_path = to_path(os.path.basename(url)).absolute()
+            tarball_path = to_path(os.path.basename(actual_url)).absolute()
             response = self.download(url, tarball_path, fatal=fatal, logger=logger, dryrun=dryrun, **kwargs)
             if response.ok:
                 decompress(tarball_path, destination, simplify=simplify, fatal=fatal, logger=logger, dryrun=dryrun)
@@ -688,14 +689,7 @@ class RestClient:
         Returns:
             (RestResponse): Response from underlying call
         """
-        hash_algo = None
-        hash_checksum = None
-        m = re.search(r"#(md5|sha(1|256|512))=([a-f0-9]+)", url)
-        if m and m.end(0) == len(url):
-            hash_algo = m.group(1)
-            hash_checksum = m.group(3)
-            url = url[:m.start(0)]
-
+        hash_algo, hash_checksum, url = self._decomposed_checksum_url(url)
         response = self._get_response("GET", url, fatal, logger, dryrun=dryrun, action="download", **kwargs)
         if response.ok and not _R.resolved_dryrun(dryrun):
             destination = to_path(destination)
@@ -868,6 +862,20 @@ class RestClient:
             pass  # Shorten stack trace
 
         raise ForbiddenHttpError(absolute_url)
+
+    @classmethod
+    def _decomposed_checksum_url(cls, url):
+        regex = getattr(cls, "_checksum_regex", None)
+        if regex is None:
+            regex = cls._checksum_regex = re.compile(r"#(md5|sha(1|256|512))=([a-f0-9]+)")
+
+        m = regex.search(url)
+        if m and m.end(0) == len(url):
+            hash_algo = m.group(1)
+            hash_checksum = m.group(3)
+            return hash_algo, hash_checksum, url[:m.start(0)]
+
+        return None, None, url
 
     def _get_response(self, method, url, fatal, logger, dryrun=False, state=None, action=None, **kwargs):
         """

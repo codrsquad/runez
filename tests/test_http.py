@@ -80,7 +80,7 @@ def test_download(temp_folder, logged):
     # Not considered checksum, url fragment left as-is
     assert client.download("README.txt#sha2=bar", "README.txt", fatal=False).status_code == 404
 
-    client.decompress("foo/test.tar.gz", "my-folder", dryrun=True)
+    client.decompress("foo/test.tar.gz#sha256=123", "my-folder", dryrun=True)
     assert "Would untar test.tar.gz -> my-folder" in logged.pop()
 
 
