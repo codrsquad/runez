@@ -12,8 +12,9 @@ from runez.system import _R, abort, cached_property, flattened, joined, ltattr, 
 
 CPYTHON = "cpython"
 PYTHON_FAMILIES = (CPYTHON, "pypy", "conda")
-R_SPEC = re.compile(r"^\s*((|py?|c?python|(ana|mini)?conda[23]?|pypy)\s*[:-]?)\s*(\d*)\.?(\d*)\.?(\d*)\s*(\+?)$", re.IGNORECASE)
-R_VERSION = re.compile(r"v?((\d+!)?(\d+)((\.(\d+))*)((a|b|c|rc)(\d+))?(\.(dev|post|final)\.?(\d+))?(\+[\w.-]*)?).*")
+R_FAMILY = re.compile(r"^([a-z]+\d?)[:-]?$")
+R_SPEC = re.compile(r"^([a-z][a-z\d]*?)?([:-])?(\d[^:-]*)$", re.IGNORECASE)
+R_VERSION = re.compile(r"v?((\d+!)?(\d+)((\.(\d+))*)((a|b|c|rc)(\d+))?(\.(dev|post|final)\.?(\d+))?(\+[\w.-]*)?)(.*)")
 
 
 def get_current_version(components=3):
@@ -29,6 +30,13 @@ def guess_family(text):
         (str): Guessed python family from given 'text' (typically path to installation)
     """
     if text:
+        if text in ("p", "py", "python"):
+            return CPYTHON
+
+        m = R_FAMILY.match(text)
+        if m:
+            return m.group(1)
+
         for name in PYTHON_FAMILIES:
             if name in text:
                 return name
@@ -289,6 +297,10 @@ class PythonSpec:
     `PythonDepot` can then search for pythons satisfying the partial specs given
     """
 
+    family = None
+    is_min_spec = ""
+    version = None
+
     def __init__(self, text, family=None):
         """
         Args:
@@ -297,40 +309,46 @@ class PythonSpec:
         """
         text = stringified(text, none="").strip()
         self.text = text
-        self.version = None
-        self.is_min_spec = ""
-        if text == "invoker":
-            self.canonical = text
-            self.family = guess_family(sys.version)
+        if not text or text == "invoker":
+            self.family = guess_family(family or sys.version)
+            self.canonical = "invoker"
             self.version = get_current_version()
             return
 
-        self.family = guess_family(family or text)
         if _is_path(text):
+            self.family = guess_family(family or text)
             self.canonical = resolved_path(text)
             return
 
         m = R_SPEC.match(text)
         if not m:
-            self.canonical = "?%s" % text  # Don't let arbitrary given text accidentally count as valid canonical
+            m = R_FAMILY.match(text)
+            if m:
+                self.family = guess_family(family or m.group(1))
+                self.canonical = "%s:" % self.family
+
+            else:
+                self.canonical = "?%s" % text
+
             return
 
-        components = [s for s in (m.group(4), m.group(5), m.group(6)) if s]
-        min_ver_marker = m.group(7)
-        if len(components) == 1:
-            components = [c for c in components[0]]  # Support notations of the form: "py37"
-
-        if len(components) > 3 or (not components and min_ver_marker):
-            self.canonical = "?%s" % text  # Too many version components, or '+' marker without actual version
-            return
-
-        if components:
-            self.version = Version(".".join(components))
-
-        if min_ver_marker:
+        version_text = m.group(3)
+        if version_text and version_text.endswith("+"):
             self.is_min_spec = "+"
+            version_text = version_text[:-1]
 
-        self.canonical = "%s:%s%s" % (self.family, self.version or "", self.is_min_spec)
+        if version_text:
+            if len(version_text) > 1 and "." not in version_text:
+                version_text = "%s.%s" % (version_text[0], version_text[1:])
+
+            self.version = Version.from_text(version_text, strict=True)
+
+        if self.version:
+            self.family = guess_family(family or m.group(1))
+            self.canonical = "%s:%s%s" % (self.family, self.version or "", self.is_min_spec)
+
+        else:
+            self.canonical = "?%s" % text
 
     def __repr__(self):
         return short(self.canonical)
@@ -787,7 +805,7 @@ class Version:
     Pre-releases are partially supported, no complex combinations (such as ".post.dev") are paid attention to
     """
 
-    def __init__(self, text, max_parts=4):
+    def __init__(self, text, max_parts=4, strict=False):
         """
         Args:
             text (str | None): Text to be parsed
@@ -804,15 +822,22 @@ class Version:
         if not m:
             return
 
-        self.text, epoch, major, main_part, pre, pre_num, rel, rel_num, local_part = m.group(1, 2, 3, 4, 8, 9, 11, 12, 13)
+        self.text, epoch, major, main_part, pre, pre_num, rel, rel_num, local_part, rest = m.group(1, 2, 3, 4, 8, 9, 11, 12, 13, 14)
+        if local_part:
+            local_part = local_part[1:]
+            if strict and not local_part:
+                return
+
+            self.local_part = local_part
+
+        if strict and rest:
+            return
+
         if epoch:
             self.epoch = int(epoch[:-1])
 
         if rel:
             rel = rel.lower()
-
-        if local_part:
-            self.local_part = local_part[1:]
 
         components = (major + main_part).split(".")
         if len(components) > max_parts:
@@ -856,7 +881,7 @@ class Version:
                 if m:
                     text = m.group(1)
 
-            v = cls(text)
+            v = cls(text, strict=strict)
             if v.is_valid:
                 return v
 
@@ -878,7 +903,7 @@ class Version:
 
             if self.components == other.components:
                 if self.prerelease is None or other.prerelease is None:
-                    return bool(other.prerelease)
+                    return bool(self.prerelease)
 
                 return self.prerelease < other.prerelease
 

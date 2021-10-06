@@ -49,26 +49,6 @@ def check_find_python(depot, spec, expected):
     assert str(p) == expected
 
 
-def test_empty_depot():
-    depot = PythonDepot(use_path=False)
-    assert str(depot) == "0 scanned"
-    assert depot.from_path == []
-    assert depot.scanned == []
-
-    assert depot.find_python(depot.invoker) is depot.invoker
-    assert depot.find_python(PythonSpec(depot.invoker.executable)) is depot.invoker
-    assert depot.find_python(PythonSpec("invoker")) is depot.invoker
-    assert depot.find_python("invoker") is depot.invoker
-    assert depot.find_python(depot.invoker.spec.family) is depot.invoker
-    assert depot.representation() == ""
-
-    p = depot.find_python("foo")
-    assert str(p) == "foo [not available]"
-    assert repr(p) == "foo [not available]"
-    assert p.problem == "not available"
-    assert str(depot) == "0 scanned"
-
-
 def test_depot(temp_folder, monkeypatch, logged):
     # Create some pyenv-style python installation mocks (using version 8 so it sorts above any real version...)
     mk_python("8.6.1")
@@ -190,6 +170,26 @@ def test_depot_adhoc(temp_folder, monkeypatch):
     assert depot.find_python("./some-path/") == p11
     assert depot.find_python("some-path/bin") == p11
     assert str(p11) == "some-path/bin/python [cpython:11.0.0]"
+
+
+def test_empty_depot():
+    depot = PythonDepot(use_path=False)
+    assert str(depot) == "0 scanned"
+    assert depot.from_path == []
+    assert depot.scanned == []
+
+    assert depot.find_python(depot.invoker) is depot.invoker
+    assert depot.find_python(PythonSpec(depot.invoker.executable)) is depot.invoker
+    assert depot.find_python(PythonSpec("invoker")) is depot.invoker
+    assert depot.find_python("invoker") is depot.invoker
+    assert depot.find_python(depot.invoker.spec.family) is depot.invoker
+    assert depot.representation() == ""
+
+    p = depot.find_python("foo")
+    assert str(p) == "foo [not available]"
+    assert repr(p) == "foo [not available]"
+    assert p.problem == "not available"
+    assert str(depot) == "0 scanned"
 
 
 def mocked_invoker(**sysattrs):
@@ -406,6 +406,10 @@ def check_spec(text, canonical):
 
 
 def test_spec():
+    invoker = PythonSpec("invoker")
+    assert invoker.family
+    assert invoker.version
+    assert str(invoker) == "invoker"
     assert PythonSpec.speccified(None) == []
     assert PythonSpec.speccified([]) == []
     assert PythonSpec.speccified([None, "", None]) == []
@@ -419,28 +423,28 @@ def test_spec():
     assert PythonSpec.speccified("2.7.7a", strict=True) == []
 
     pnone = PythonSpec(None)
-    assert PythonSpec.to_spec(None) == pnone
+    assert pnone == invoker
+    assert PythonSpec.to_spec(None) == invoker
     assert PythonSpec.to_spec(pnone) is pnone
-    assert str(pnone) == "cpython:"
-    p37a = PythonSpec("py37")
-    p37b = PythonSpec("python3.7")
-    assert p37a == p37b
-    assert pnone != p37a
-    assert pnone < p37a
-    assert not (pnone > p37a)
-    assert len({p37a, p37b}) == 1
-    assert len({p37a, p37b, pnone}) == 2
+    p32a = PythonSpec("py32")
+    p32b = PythonSpec("python3.2")
+    assert p32a == p32b
+    assert pnone != p32a
+    assert pnone > p32a
+    assert not (pnone < p32a)
+    assert len({p32a, p32b}) == 1
+    assert len({p32a, p32b, pnone}) == 2
 
-    assert p37a.satisfies(pnone)
-    assert not pnone.satisfies(p37a)
+    assert not p32a.satisfies(pnone)
+    assert not pnone.satisfies(p32a)
 
     invoker = PythonSpec("invoker")
     assert str(invoker) == "invoker"
     assert invoker.version.major == sys.version_info[0]
 
     p38plus = PythonSpec("3.8+")
-    assert not p37a.satisfies(p38plus)
-    assert not p37b.satisfies(p38plus)
+    assert not p32a.satisfies(p38plus)
+    assert not p32b.satisfies(p38plus)
 
     p38 = PythonSpec("3.8")
     c38a = PythonSpec("conda:38")
@@ -449,6 +453,11 @@ def test_spec():
     assert c38a != p38
     assert c38a.version == p38.version
     assert c38a == c38b
+
+    p310 = PythonSpec("3.10.0")
+    p310rc = PythonSpec("3.10.0rc1")
+    assert p310rc < p310
+    assert p310 > p310rc
 
     p39 = PythonSpec("3.9")
     p395 = PythonSpec("3.9.5")
@@ -469,22 +478,21 @@ def test_spec():
     assert c38a.represented(compact=["cpython", "conda"]) == "3.8"
     assert c38a.represented(color=str, compact=None) == "conda:3.8"
 
-    check_spec("", "cpython:")
-    check_spec(" ", "cpython:")
-    check_spec(" : ", "cpython:")
-    check_spec(" - ", "cpython:")
+    check_spec("", "invoker")
+    check_spec(" ", "invoker")
+    check_spec(" : ", "?:")
+    check_spec(" - ", "?-")
+    check_spec(" pY 3 ", "?pY 3")
     check_spec(2, "cpython:2")
     check_spec("2", "cpython:2")
     check_spec("3", "cpython:3")
     check_spec("3+", "cpython:3+")
     check_spec("P3", "cpython:3")
     check_spec("py3", "cpython:3")
-    check_spec(" pY 3 ", "cpython:3")
     check_spec("cpython:", "cpython:")
     check_spec("cpython-", "cpython:")
     check_spec("cpython3", "cpython:3")
     check_spec("python3", "cpython:3")
-    check_spec(" python  3 ", "cpython:3")
     check_spec(3.7, "cpython:3.7")
     check_spec(" p3.7 ", "cpython:3.7")
     check_spec(" cpython:3.7 ", "cpython:3.7")
@@ -515,25 +523,24 @@ def test_spec():
 
     # Non-cpython families
     check_spec("pypy", "pypy:")
-    check_spec("pypy+", "?pypy+")  # Need actual version for '+' marker to count
+    check_spec("pypy:", "pypy:")
+    check_spec("pypy:+", "?pypy:+")  # Need actual version for '+' marker to count
     check_spec("pypy36", "pypy:3.6")
     check_spec("pypy36+", "pypy:3.6+")
     check_spec("pypy:37", "pypy:3.7")
     check_spec("pypy:3.8", "pypy:3.8")
-    check_spec("conda", "conda:")
+    check_spec("conda:", "conda:")
     check_spec("conda:38", "conda:3.8")
     check_spec("conda:3.9.1", "conda:3.9.1")
-    check_spec("anaconda", "conda:")
-    check_spec("anaconda3", "conda:")
-    check_spec("miniconda", "conda:")
-    check_spec("miniconda3", "conda:")
-    check_spec("miniconda-3.18.3", "conda:3.18.3")
-    check_spec("miniconda3-4.7.12", "conda:4.7.12")
+    check_spec("miniconda-3.18.3", "miniconda:3.18.3")
+    check_spec("miniconda3-4.7.12", "miniconda3:4.7.12")
 
     # Up to 3 version components are valid
-    check_spec("391", "cpython:3.9.1")
+    check_spec("391", "cpython:3.91")
     check_spec("3.9.1", "cpython:3.9.1")
-    check_spec("py391", "cpython:3.9.1")
+    check_spec("py391", "cpython:3.91")
+    check_spec("3777", "cpython:3.777")
+    check_spec("3.7.7.7", "cpython:3.7.7.7")
 
     # Invalid marked with starting '?' for canonical form
     check_spec(" + ", "?+")
@@ -541,11 +548,8 @@ def test_spec():
     check_spec(" python+ ", "?python+")
     check_spec("cpython:3.7a", "?cpython:3.7a")
     check_spec("miniconda3--4.7.1", "?miniconda3--4.7.1")
-    check_spec("foo3.7", "?foo3.7")
-    check_spec("3777", "?3777")  # Too many components
-    check_spec("3.7.7.7", "?3.7.7.7")
-    check_spec("python3:", "?python3:")  # Separator is in the wrong place
-    check_spec("python3-", "?python3-")
+    check_spec("foo3.7", "foo:3.7")
+    check_spec("python3:", "python3:")  # Separator is in the wrong place, consider 'python3' to be the family name...
 
     # Paths remain as-is
     check_spec("foo/python2.7", runez.short(runez.resolved_path("foo/python2.7")))
@@ -596,7 +600,7 @@ def test_unknown():
     assert p.folder is None
     assert p.major is None
     assert p.problem == "not available"
-    assert p.spec.canonical == "?foo"
+    assert p.spec.canonical == "foo:"
     assert p.spec.text == "foo"
     assert p.major is None
     assert p.version is None
@@ -659,8 +663,11 @@ def test_version():
     assert v1 == v1foo
 
     vrc = Version("1.0rc4-foo")
+    vrc_strict = Version("1.0rc4-foo", strict=True)
     vdev = Version("1.0a4.dev5-foo")
+    assert vrc.is_valid
     assert not vrc.is_final
+    assert not vrc_strict.is_valid
     assert not vdev.is_final
     assert vrc.suffix == "rc"
     assert vdev.suffix == "dev_a"  # Combine in a way where `dev` will be "more important" than "a"
@@ -742,6 +749,6 @@ def test_version_comparison():
     assert v20d > v12p
     assert v3 > v12p
     assert v21d > v20
-    assert v20d > v20
+    assert v20d < v20
     assert v3 > v20
     assert v3 > v20d
