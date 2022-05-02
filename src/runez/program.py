@@ -244,7 +244,7 @@ def make_executable(path, fatal=True, logger=UNSET, dryrun=UNSET):
         path (str): chmod file with 'path' as executable
         fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool): Optionally override current dryrun setting
+        dryrun (bool | UNSET | None): Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
@@ -279,7 +279,7 @@ def run(
         background (bool): When True, background the spawned process (detach from console and current process)
         fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool): Optionally override current dryrun setting
+        dryrun (bool | UNSET | None): Optionally override current dryrun setting
         short_exe (str | bool | None): Try to log a compact representation of executable
         passthrough (bool | file | None): If True-ish, pass-through stderr/stdout in addition to capturing it
                                           as well as 'passthrough' itself if it has a write() function

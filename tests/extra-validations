@@ -19,7 +19,7 @@ API_EXCEPTIONS = {
 IO_API_DOCSTRINGS = dict(
     fatal="fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log",
     logger="logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter",
-    dryrun="dryrun (bool): Optionally override current dryrun setting",
+    dryrun="dryrun (bool | UNSET | None): Optionally override current dryrun setting",
 )
 IO_API_CATEGORIZED = collections.defaultdict(list)
 

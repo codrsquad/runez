@@ -706,7 +706,7 @@ def save_json(data, path, stringify=stringified, dt=str, none=False, indent=2, s
         sort_keys (bool): Whether keys should be sorted
         fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool): Optionally override current dryrun setting
+        dryrun (bool | UNSET | None): Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed

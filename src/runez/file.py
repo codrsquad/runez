@@ -68,7 +68,7 @@ def copy(source, destination, ignore=None, overwrite=True, fatal=True, logger=UN
         overwrite (bool | None): True: replace existing, False: fail if destination exists, None: no destination check
         fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool): Optionally override current dryrun setting
+        dryrun (bool | UNSET | None): Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
@@ -82,7 +82,7 @@ def delete(path, fatal=True, logger=UNSET, dryrun=UNSET):
         path (str | Path | None): Path to file or folder to delete
         fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool): Optionally override current dryrun setting
+        dryrun (bool | UNSET | None): Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
@@ -112,7 +112,7 @@ def ensure_folder(path, clean=False, fatal=True, logger=UNSET, dryrun=UNSET):
         clean (bool): True: If True, ensure folder is clean (delete any file/folder it may have)
         fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool): Optionally override current dryrun setting
+        dryrun (bool | UNSET | None): Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, >=1: successfully done, 0: was no-op, -1: failed
@@ -326,7 +326,7 @@ def move(source, destination, overwrite=True, fatal=True, logger=UNSET, dryrun=U
         overwrite (bool | None): True: replace existing, False: fail if destination exists, None: no destination check
         fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool): Optionally override current dryrun setting
+        dryrun (bool | UNSET | None): Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
@@ -344,7 +344,7 @@ def symlink(source, destination, must_exist=True, overwrite=True, fatal=True, lo
         overwrite (bool | None): True: replace existing, False: fail if destination exists, None: no destination check
         fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool): Optionally override current dryrun setting
+        dryrun (bool | UNSET | None): Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
@@ -362,7 +362,7 @@ def compress(source, destination, arcname=UNSET, ext=None, overwrite=True, fatal
         overwrite (bool | None): True: replace existing, False: fail if destination exists, None: no destination check
         fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool): Optionally override current dryrun setting
+        dryrun (bool | UNSET | None): Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
@@ -400,7 +400,7 @@ def decompress(source, destination, ext=None, overwrite=True, simplify=False, fa
         simplify (bool): If True and source has only one sub-folder, extract that one sub-folder to destination
         fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool): Optionally override current dryrun setting
+        dryrun (bool | UNSET | None): Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
@@ -424,7 +424,7 @@ class TempFolder:
         """
         Args:
             anchor (bool): If True, short-ify paths relative to used temp folder
-            dryrun (bool): Optionally override current dryrun setting
+            dryrun (bool | UNSET | None): Optionally override current dryrun setting
             follow (bool): If True, change working dir to temp folder (and restore)
         """
         self.anchor = anchor
@@ -467,7 +467,7 @@ def touch(path, fatal=True, logger=UNSET, dryrun=UNSET):
         path (str | Path | None): Path to file to touch
         fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool): Optionally override current dryrun setting
+        dryrun (bool | UNSET | None): Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
@@ -483,7 +483,7 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
         contents (str | bytes | None): Contents to write (only touch file if None)
         fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool): Optionally override current dryrun setting
+        dryrun (bool | UNSET | None): Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
@@ -639,7 +639,7 @@ def _file_op(source, destination, func, overwrite, fatal, logger, dryrun, must_e
         overwrite (bool | None): True: replace existing, False: fail if destination exists, None: no destination check
         fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool): Optionally override current dryrun setting
+        dryrun (bool | UNSET | None): Optionally override current dryrun setting
         must_exist (bool): If True, verify that source does indeed exist
         ignore (callable | list | str | None): Names to be ignored
         **extra: Passed-through to 'func'

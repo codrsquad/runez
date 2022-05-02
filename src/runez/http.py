@@ -160,7 +160,7 @@ class DataState:
     def wrapped(cls, dryrun, data, json, files, filepaths):
         """
         Args:
-            dryrun (bool): Optionally override current dryrun setting
+            dryrun (bool | UNSET | None): Optionally override current dryrun setting
             data (dict | tuple | bytes | file | None): Data to send in the body
             json: (optional) json to send in the body
             files (dict | None): File-like-objects for multipart encoding upload.
@@ -659,7 +659,7 @@ class RestClient:
             simplify (bool): If True and source has only one sub-folder, extract that one sub-folder to destination
             fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-            dryrun (bool): Optionally override current dryrun setting
+            dryrun (bool | UNSET | None): Optionally override current dryrun setting
             **kwargs: Passed through to underlying client
 
         Returns:
@@ -683,7 +683,7 @@ class RestClient:
             destination (str | Path): Path to local file where to store the download
             fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-            dryrun (bool): Optionally override current dryrun setting
+            dryrun (bool | UNSET | None): Optionally override current dryrun setting
             **kwargs: Passed through to underlying client
 
         Returns:
@@ -726,7 +726,7 @@ class RestClient:
             url (str): URL to query (can be absolute, or relative to self.base_url)
             fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-            dryrun (bool): Optionally override current dryrun setting
+            dryrun (bool | UNSET | None): Optionally override current dryrun setting
             **kwargs: Passed through to underlying client
 
         Returns:
@@ -769,7 +769,7 @@ class RestClient:
             url (str): URL to query (can be absolute, or relative to self.base_url)
             fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-            dryrun (bool): Optionally override current dryrun setting
+            dryrun (bool | UNSET | None): Optionally override current dryrun setting
             data (dict | tuple | bytes | file | None): Data to send in the body
             json: (optional) json to send in the body
             files (dict | None): File-like-objects for multipart encoding upload.
@@ -789,7 +789,7 @@ class RestClient:
             url (str): URL to query (can be absolute, or relative to self.base_url)
             fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-            dryrun (bool): Optionally override current dryrun setting
+            dryrun (bool | UNSET | None): Optionally override current dryrun setting
             **kwargs: Passed through to underlying client
 
         Returns:
@@ -803,7 +803,7 @@ class RestClient:
             url (str): URL to query (can be absolute, or relative to self.base_url)
             fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-            dryrun (bool): Optionally override current dryrun setting
+            dryrun (bool | UNSET | None): Optionally override current dryrun setting
             data (dict | tuple | bytes | file | None): Data to send in the body
             json: (optional) json to send in the body
             files (dict | None): File-like-objects for multipart encoding upload.
@@ -884,7 +884,7 @@ class RestClient:
             url (str): Remote URL (may be absolute, or relative to self.base_url)
             fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-            dryrun (bool): Optionally override current dryrun setting
+            dryrun (bool | UNSET | None): Optionally override current dryrun setting
             state (DataState | None): For PUT/POST requests
             action (str | None): Action to refer to in dryrun message (default: method)
             **kwargs: Passed through to underlying client

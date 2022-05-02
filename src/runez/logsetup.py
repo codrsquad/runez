@@ -1027,7 +1027,7 @@ class LogManager:
 
         Args:
             message (str | callable | None): Message to log
-            dryrun (bool): Optionally override current dryrun setting
+            dryrun (bool | UNSET | None): Optionally override current dryrun setting
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
 
         Returns:
