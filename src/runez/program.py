@@ -415,6 +415,9 @@ class RunAudit:
         self.popen_args = popen_args
         self.dryrun = False  # Was this a dryrun?
 
+    def __repr__(self):
+        return self.run_description()
+
     @staticmethod
     def shortened_program(program, args):
         if program and args:

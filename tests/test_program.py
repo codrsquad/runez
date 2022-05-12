@@ -388,6 +388,7 @@ def test_require_installed(monkeypatch):
 def test_run_description():
     short_py = runez.short(sys.executable)
     audit = RunAudit(sys.executable, ["-mpip", "--help"], {})
+    assert str(audit) == "pip --help"
     assert audit.run_description() == "pip --help"
     assert audit.run_description(short_exe=None) == "%s -mpip --help" % short_py
     assert audit.run_description(short_exe=False) == "%s -mpip --help" % short_py
@@ -424,6 +425,7 @@ def test_run_description():
 
     cmd = runez.to_path(runez.SYS_INFO.venv_bin_path("foo"))
     audit = RunAudit(cmd, ["--help"], {})
+    assert str(audit) == "foo --help"
     assert audit.run_description() == "foo --help"
 
 
