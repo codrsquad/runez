@@ -504,6 +504,7 @@ class PythonDepot:
     from_path = None  # type: list[PythonInstallation]  # Installations from PATH env var
     invoker = None  # type: PythonInstallation  # The python installation (parent python, non-venv) that we're currently running under
     scanned = None  # type: list[PythonInstallation]  # Installations found by scanner
+    preferred_python = None  # type: PythonInstallation  # Preferred python to use, if configured
 
     use_path = True  # Scan $PATH env var for python installations as well?
     _cache = None  # type: dict[str, PythonInstallation]
@@ -561,6 +562,29 @@ class PythonDepot:
         """
         return PythonSpec.to_spec(text)
 
+    def find_preferred_python(self, preferred_pythons, min_python="3.6", preferred_min_python="3.7"):
+        """First python in 'preferred_pythons' that satisfies the stated minimum versions
+        Args:
+            preferred_pythons (str | list): Comma-separated list of desired preferred pythons
+            min_python (str): Minimum version to consider (as 2nd best)
+            preferred_min_python (str): Minimum version to consider, if available
+        """
+        self.preferred_python = None
+        if preferred_pythons:
+            second_best = None
+            for pref in flattened(preferred_pythons, split=","):
+                if pref:
+                    python = self._find_python(pref, False, False)
+                    if python and not python.problem:
+                        if preferred_min_python and python.version >= preferred_min_python:
+                            self.preferred_python = python
+                            return
+
+                        if min_python and not second_best and python.version >= min_python:
+                            second_best = python
+
+            self.preferred_python = second_best
+
     def find_python(self, spec, fatal=False, logger=False):
         """
         Args:
@@ -571,6 +595,12 @@ class PythonDepot:
         Returns:
             (PythonInstallation): Object representing python installation (may not be usable, see reported .problem)
         """
+        if not spec and self.preferred_python:
+            return self.preferred_python
+
+        return self._find_python(spec, fatal, logger)
+
+    def _find_python(self, spec, fatal, logger):
         if isinstance(spec, PythonInstallation):
             return spec
 
@@ -580,6 +610,9 @@ class PythonDepot:
                 return self._checked_pyinstall(python, fatal, logger)
 
             spec = PythonSpec(spec)
+
+        if self.preferred_python and self.preferred_python.satisfies(spec):
+            return self.preferred_python
 
         python = self._cache.get(spec.canonical)
         if python:

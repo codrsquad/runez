@@ -85,9 +85,18 @@ def test_depot(temp_folder, monkeypatch, logged):
     assert str(scanner) == "portable python [.pyenv]"
     depot = PythonDepot(scanner=scanner, use_path=True)
     assert str(depot) == "4 scanned, 2 from PATH"
+    depot.find_preferred_python("8.7.2,8.9.0", "10.7", "10.8")
+    assert depot.preferred_python is None
+    depot.find_preferred_python("8.7.2,8.9.0", "8.7", "8.8")
+    assert depot.preferred_python.version == "8.9.0"
+    assert depot.find_python(None) is depot.preferred_python
+    assert depot.find_python("8") is depot.preferred_python
     r = depot.representation()
     assert "Installed portable python:" in r
     assert "Available pythons from PATH:" in r
+
+    depot.find_preferred_python("")
+    assert depot.preferred_python is None
 
     assert len(depot.from_path) == 2
     assert len(depot.scanned) == 4
