@@ -2,6 +2,33 @@
 History
 =======
 
+3.6.0 (2022-05-26)
+------------------
+
+* Allow to configure a ``preferred_python`` in ``PythonDepot``
+
+
+3.5.6 (2021-05-12)
+------------------
+
+* Added ``__repr__`` to ``RunAudit``
+
+* Corrected docstrings
+
+3.5.4 (2021-10-06)
+------------------
+
+* More generic parsing of ``PythonSpec``
+
+* Respect optional checksum in url, in ``decompress()``
+
+
+3.4.9 (2021-09-21)
+------------------
+
+* Restore ``cwd`` after a ``cli`` test command run
+
+
 3.0.3 (2021-07-15)
 ------------------
 
