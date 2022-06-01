@@ -9,7 +9,7 @@ import pytest
 
 import runez
 from runez.ascii import AsciiAnimation, AsciiFrames
-from runez.conftest import TMP, WrappedHandler
+from runez.conftest import WrappedHandler
 from runez.logsetup import _formatted_text, formatted, LogSpec
 
 
@@ -226,7 +226,7 @@ def test_deprecated():
     assert runez.log.tests_path() == runez.DEV.tests_path()  # deprecated
 
 
-@pytest.mark.skipif(runez.WINDOWS, reason="No /dev/null on Windows")
+@pytest.mark.skipif(runez.SYS_INFO.platform_id.is_windows, reason="No /dev/null on Windows")
 def test_file_location_not_writable(temp_log):
     runez.log.setup(
         greetings="Logging to: {location}",
@@ -254,6 +254,7 @@ def test_formatted():
 
 def test_formatted_text():
     # Unsupported formats
+    assert _formatted_text("", {}) == ""
     assert _formatted_text("{filename}", {}) == "{filename}"
     assert _formatted_text("{filename}", {}, strict=True) is None  # In strict mode, all named refs must be defined
     assert _formatted_text("{filename}", {"filename": "foo"}) == "foo"
@@ -301,6 +302,13 @@ def test_locations(temp_log):
     runez.log.setup(locations=None)
     assert runez.log.file_handler is None
 
+    # Verify that a non-writeable folder is not used
+    runez.ensure_folder("foo/bar", logger=None)
+    os.chmod("foo/bar", 0o400)
+    runez.log.setup(locations=["foo/bar"])
+    os.chmod("foo/bar", 0o700)
+    assert runez.log.file_handler is None
+
     runez.log.setup(locations=["{dev}/test-location.log"])
     assert runez.log.file_handler
 
@@ -310,7 +318,7 @@ def test_locations(temp_log):
 
 def test_log_rotate(temp_folder):
     with pytest.raises(ValueError):
-        runez.log.setup(rotate="foo")
+        runez.log.setup(rotate="foo", tmp=temp_folder)
 
     with pytest.raises(ValueError):
         runez.logsetup._get_file_handler("test.log", "time", 0)
@@ -357,7 +365,6 @@ def test_logspec(isolated_log_setup):
     assert s1.appname == "pytest"
     assert s1.timezone == "UTC"
     assert s1.should_log_to_file
-    assert s1.usable_location() == os.path.join(TMP, "pytest.log")
 
     # No basename -> can't determine a usable location anymore
     s1.basename = None
@@ -367,7 +374,6 @@ def test_logspec(isolated_log_setup):
     s1.set(basename="testing.log", timezone=None, locations=[s1.tmp])
     assert s1.basename == "testing.log"
     assert s1.timezone is None
-    assert s1.usable_location() == os.path.join(TMP, "testing.log")
     assert s1 != s2
 
     # Empty string custom location just disables file logging
@@ -377,9 +383,9 @@ def test_logspec(isolated_log_setup):
 
     # No basename, and custom location points to folder -> not usable
     s1.basename = None
-    s1.file_location = TMP
+    s1.file_location = "./foo"
     assert s1.should_log_to_file
-    assert s1.usable_location() is None
+    assert s1.usable_location() == "./foo"
 
     # Restore from other spec
     s1.set(s2)
@@ -419,7 +425,7 @@ def test_setup(temp_log, monkeypatch):
     assert runez.log.is_using_format("%(context) %(lineno)", fmt) is True
     assert runez.log.is_using_format("%(context)", "") is False
 
-    if not runez.WINDOWS:
+    if not runez.SYS_INFO.platform_id.is_windows:
         # signum=None is equivalent to disabling faulthandler
         runez.log.enable_faulthandler(signum=None)
         assert runez.log.faulthandler_signum is None
@@ -485,7 +491,7 @@ def test_setup(temp_log, monkeypatch):
         assert "DEBUG - hello" in temp_log.stdout.pop()
         assert not temp_log.stderr
 
-        if not runez.WINDOWS and runez.logsetup.faulthandler:
+        if not runez.SYS_INFO.platform_id.is_windows and runez.logsetup.faulthandler:
             # Available only in python3
             runez.log.enable_faulthandler()
             assert runez.log.faulthandler_signum

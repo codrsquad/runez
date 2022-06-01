@@ -12,9 +12,6 @@ from runez.system import _R, abort, cached_property, flattened, joined, ltattr, 
 
 CPYTHON = "cpython"
 PYTHON_FAMILIES = (CPYTHON, "pypy", "conda")
-R_FAMILY = re.compile(r"^([a-z]+\d?)[:-]?$")
-R_SPEC = re.compile(r"^([a-z][a-z\d]*?)?([:-])?(\d[^:-]*)$", re.IGNORECASE)
-R_VERSION = re.compile(r"v?((\d+!)?(\d+)((\.(\d+))*)((a|b|c|rc)(\d+))?(\.(dev|post|final)\.?(\d+))?(\+[\w.-]*)?)(.*)")
 
 
 def get_current_version(components=3):
@@ -33,7 +30,7 @@ def guess_family(text):
         if text in ("p", "py", "python"):
             return CPYTHON
 
-        m = R_FAMILY.match(text)
+        m = _R.lazy_cache.rx_family.match(text)
         if m:
             return m.group(1)
 
@@ -320,9 +317,9 @@ class PythonSpec:
             self.canonical = resolved_path(text)
             return
 
-        m = R_SPEC.match(text)
+        m = _R.lazy_cache.rx_spec.match(text)
         if not m:
-            m = R_FAMILY.match(text)
+            m = _R.lazy_cache.rx_family.match(text)
             if m:
                 self.family = guess_family(family or m.group(1))
                 self.canonical = "%s:" % self.family
@@ -851,7 +848,7 @@ class Version:
         self.local_part = None
         self.prerelease = None
         self.suffix = None
-        m = R_VERSION.match(self.text)
+        m = _R.lazy_cache.rx_version.match(self.text)
         if not m:
             return
 
@@ -910,7 +907,7 @@ class Version:
 
         if text:
             if not strict and (not text[0].isdigit() or not text[-1].isdigit()):
-                m = R_VERSION.search(text)
+                m = _R.lazy_cache.rx_version.search(text)
                 if m:
                     text = m.group(1)
 

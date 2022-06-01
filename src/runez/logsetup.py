@@ -5,7 +5,6 @@ Convenience logging setup
 import faulthandler
 import logging
 import os
-import re
 import signal
 import sys
 import threading
@@ -18,11 +17,10 @@ from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone, represented_duration
 from runez.file import parent_folder
 from runez.system import _R, abort_if, cached_property, decode, DEV, find_caller, flattened, quoted, short, stringified, uncolored
-from runez.system import LOG, py_mimic, Slotted, SYS_INFO, ThreadGlobalContext, UNSET, WINDOWS
+from runez.system import LOG, py_mimic, Slotted, SYS_INFO, ThreadGlobalContext, UNSET
 
 
 ORIGINAL_CF = logging.currentframe
-RE_FORMAT_MARKERS = re.compile(r"{([a-z]\w*)}", re.IGNORECASE)
 
 
 def formatted(message, *args, **named_values):
@@ -603,7 +601,7 @@ class _ContextFilter(logging.Filter):
 
 
 def default_log_locations():
-    if WINDOWS:  # pragma: no cover
+    if SYS_INFO.platform_id.is_windows:  # pragma: no cover
         return [os.path.join("{dev}", "log", "{basename}")]
 
     return ["{dev}/log/{basename}", "/logs/{appname}/{basename}", "/var/log/{basename}"]
@@ -1239,7 +1237,7 @@ def _canonical_format(fmt):
 
 
 def _format_recursive(key, value, definitions, max_depth):
-    m = RE_FORMAT_MARKERS.search(value)
+    m = _R.lazy_cache.rx_format_markers.search(value)
     if not m:
         return value
 
@@ -1273,7 +1271,7 @@ def _formatted_text(text, props, strict=False, max_depth=3):
         return text
 
     definitions = {}
-    markers = RE_FORMAT_MARKERS.findall(text)
+    markers = _R.lazy_cache.rx_format_markers.findall(text)
     while markers:
         key = markers.pop()
         if key in definitions:
@@ -1284,7 +1282,7 @@ def _formatted_text(text, props, strict=False, max_depth=3):
             return None
 
         val = stringified(val) if val is not None else "{%s}" % key
-        markers.extend(m for m in RE_FORMAT_MARKERS.findall(val) if m not in definitions)
+        markers.extend(m for m in _R.lazy_cache.rx_format_markers.findall(val) if m not in definitions)
         definitions[key] = val
 
     if not max_depth or not isinstance(max_depth, int) or max_depth <= 0:

@@ -9,13 +9,6 @@ from collections import defaultdict
 from runez.system import _R, flattened, joined, stringified
 
 
-DEFAULT_BASE = 1000
-DEFAULT_UNITS = "KMGTP"
-RE_CAMEL_CASE_WORDS = re.compile(r"(^[a-z]+|[A-Z](?:[a-z]+|[A-Z]*(?=[A-Z]|$)))")
-RE_WORDS = re.compile(r"[^\w]+")
-TRUE_TOKENS = {"on", "true", "y", "yes"}
-
-
 def parsed_tabular(content):
     """
     Args:
@@ -30,7 +23,7 @@ def parsed_tabular(content):
     return list(_TabularHeader.parsed_lines(content))
 
 
-def represented_bytesize(size, unit="B", base=1024, delimiter=" ", prefixes=DEFAULT_UNITS):
+def represented_bytesize(size, unit="B", base=1024, delimiter=" "):
     """Human friendly byte size representation
 
     >>> represented_bytesize(1024)
@@ -45,7 +38,6 @@ def represented_bytesize(size, unit="B", base=1024, delimiter=" ", prefixes=DEFA
         unit (str): Unit symbol
         base (int): Base to represent it in (example: 1024 for bytes, 1000 for bits)
         delimiter (str): Delimiter to use between number and units
-        prefixes (str): Prefixes to use per power (kilo, mega, giga, tera, peta, ...)
 
     Returns:
         (str): Human friendly byte size representation
@@ -53,22 +45,21 @@ def represented_bytesize(size, unit="B", base=1024, delimiter=" ", prefixes=DEFA
     if isinstance(size, pathlib.Path):
         size = _R.filesize(size)
 
-    return _represented_with_units(size, unit, base, delimiter, prefixes)
+    return _R.lazy_cache.units.represented(size, base=base, delimiter=delimiter, unit=unit)
 
 
-def represented_with_units(size, unit="", base=1000, delimiter="", prefixes=DEFAULT_UNITS):
+def represented_with_units(size, unit="", base=1000, delimiter=""):
     """
     Args:
         size (int | float): Size to represent
         unit (str): Unit symbol
         base (int): Base to represent it in (example: 1024 for bytes, 1000 for bits)
         delimiter (str): Delimiter to use between number and units
-        prefixes (str): Prefixes to use per power (kilo, mega, giga, tera, peta, ...)
 
     Returns:
         (str): Human friendly representation with units, avoids having to read/parse visually large numbers
     """
-    return _represented_with_units(size, unit, base, delimiter, prefixes)
+    return _R.lazy_cache.units.represented(size, base=base, delimiter=delimiter, unit=unit)
 
 
 def to_boolean(value):
@@ -82,7 +73,7 @@ def to_boolean(value):
         (bool): Deduced boolean value
     """
     if isinstance(value, str):
-        if value.lower() in TRUE_TOKENS:
+        if value.lower() in _R.lazy_cache.true_tokens:
             return True
 
         return bool(to_float(value))
@@ -104,7 +95,7 @@ def to_bytesize(value, default_unit=None, base=1024):
     if value is not None:
         v = to_float(value)
         if v is not None:
-            return unitized(v, default_unit, base)
+            return _R.lazy_cache.units.unitized(v, base, default_unit)
 
         try:
             if value[-1].lower() == "b":
@@ -118,7 +109,7 @@ def to_bytesize(value, default_unit=None, base=1024):
             else:
                 value = value[:-1]
 
-            return unitized(to_float(value), unit, base)
+            return _R.lazy_cache.units.unitized(to_float(value), base, unit)
 
         except (AttributeError, IndexError, KeyError, TypeError, ValueError):
             return None
@@ -265,13 +256,12 @@ class Pluralizer:
         return "%ss" % singular
 
 
-def plural(countable, singular=None, base=1000, prefixes=DEFAULT_UNITS):
+def plural(countable, singular=None, base=1000):
     """
     Args:
         countable: How many things there are (can be int, or something countable)
         singular: What is counted (example: "record", or "chair", etc...)
         base (int | None): Optional base to unitize count representation
-        prefixes (str | None): Prefixes to use per power (kilo, mega, giga, tera, peta, ...)
 
     Returns:
         (str): Rudimentary, best-effort plural of "<count> <name>(s)"
@@ -290,7 +280,7 @@ def plural(countable, singular=None, base=1000, prefixes=DEFAULT_UNITS):
     if count is None:
         return "no %s" % plural
 
-    count = _represented_with_units(count, "", base, "", prefixes)
+    count = _R.lazy_cache.units.represented(count, base=base)
     return "%s %s" % (count, plural)
 
 
@@ -344,39 +334,15 @@ def words(text, normalize=None, split="_", decamel=False):
 
         return result
 
-    strings = RE_WORDS.split(stringified(text))
+    strings = _R.lazy_cache.rx_words.split(stringified(text))
     strings = flattened(strings, split=split, strip=True)
     if decamel:
-        strings = flattened(RE_CAMEL_CASE_WORDS.findall(s) for s in strings)
+        strings = flattened(_R.lazy_cache.rx_camel_cased_words.findall(s) for s in strings)
 
     if normalize:
         strings = [normalize(s) for s in strings]
 
     return strings
-
-
-def unitized(value, unit, base=DEFAULT_BASE, unitseq=DEFAULT_UNITS):
-    """
-    Args:
-        value (int | float): Value to expand
-        unit (str): Given unit
-        base (int): Base to use (usually 1024)
-        unitseq (str): Sequence of 1-letter representation for each exponent level
-
-    Returns:
-        Deduced value (example: "1k" becomes 1000)
-    """
-    exponent = _get_unit_exponent(unit, unitseq)
-    if exponent is not None:
-        return int(round(value * (base ** exponent)))
-
-
-def _get_unit_exponent(unit, unitseq, default=None):
-    try:
-        return 0 if not unit else unitseq.upper().index(unit.upper()) + 1
-
-    except ValueError:
-        return default
 
 
 def _int_from_text(text, base=None, default=None):
@@ -433,28 +399,6 @@ def _float_from_text(text, lenient=True, default=None):
                 pass
 
     return default
-
-
-def _represented_with_units(size, unit, base, delimiter, prefixes, exponent=0):
-    if not base:
-        return "%g" % size
-
-    if size >= base and exponent < len(prefixes):
-        size = float(size) / base
-        return _represented_with_units(size, unit, base, delimiter, prefixes, exponent=exponent + 1)
-
-    if exponent == 0:
-        if unit:
-            return "%g%s%s" % (size, delimiter, unit)
-
-        return "%g" % size
-
-    fmt = "%.{precision}f".format(precision=0 if size > 9 else 1)
-    represented_size = fmt % size
-    if "." in represented_size:
-        represented_size = represented_size.strip("0").strip(".")
-
-    return "%s%s%s%s" % (represented_size, delimiter, prefixes[exponent - 1], unit)
 
 
 class _TabularInterval:

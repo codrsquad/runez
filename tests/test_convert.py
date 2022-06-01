@@ -71,7 +71,7 @@ def test_plural():
     assert runez.plural(1, "carrot") == "1 carrot"
     assert runez.plural(20, "carrot") == "20 carrots"
     assert runez.plural(20000, "carrot") == "20K carrots"
-    assert runez.plural(20000, "carrot", base=None) == "20000 carrots"
+    assert runez.plural(20000, "carrot", base=None) == "20K carrots"
     assert runez.plural(20000, "carrot", base=0) == "20000 carrots"
 
 

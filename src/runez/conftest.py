@@ -10,7 +10,6 @@ import logging
 import os
 import re
 import sys
-import tempfile
 
 import _pytest.logging
 import pytest
@@ -33,8 +32,6 @@ except ImportError:  # pragma: no cover, click used only if installed
     _CliRunner = None
 
 
-TMP = tempfile.gettempdir()
-
 # Set DEBUG logging level when running tests, makes sure LOG.debug() calls get captured (for inspection in tests)
 logging.root.setLevel(logging.DEBUG)
 
@@ -46,7 +43,7 @@ if sys.argv and "pycharm" in sys.argv[0].lower():  # pragma: no cover, ignore Py
         sys.argv[0] = pt
 
 # Set logsetup defaults to stable/meaningful for pytest runs
-LogManager.override_spec(timezone="UTC", tmp=TMP, locations=[os.path.join("{tmp}", "{basename}")])
+LogManager.override_spec(timezone="UTC", locations=["{tmp}/{basename}"])
 
 
 def exception_raiser(exc=Exception):

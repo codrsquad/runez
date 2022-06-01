@@ -412,6 +412,9 @@ def test_platform_identification(monkeypatch):
     assert str(current)
     assert current.arch  # Will depend on where we're running this
     assert current.platform
+    assert current.canonical_platform("linux2") == "linux"
+    assert current.canonical_platform("win32") == "windows"
+    assert current.canonical_platform("foo") == "foo"
     assert current.canonical_compress_extension("foo") is None
     assert current.canonical_compress_extension("foo.zip") is None
     assert current.canonical_compress_extension(".tar") == "tar"

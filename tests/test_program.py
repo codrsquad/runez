@@ -49,7 +49,7 @@ class CrashingWrite:
         raise Exception("oops, failed to write %s" % message)
 
 
-@pytest.mark.skipif(runez.WINDOWS, reason="Not supported on windows")
+@pytest.mark.skipif(runez.SYS_INFO.platform_id.is_windows, reason="Not supported on windows")
 def test_capture(monkeypatch):
     with runez.CurrentFolder(os.path.dirname(CHATTER)):
         # Check which finds programs in current folder
@@ -198,7 +198,7 @@ def test_daemonize(*_):
     assert runez.program.daemonize() is None
 
 
-@pytest.mark.skipif(runez.WINDOWS, reason="Not supported on windows")
+@pytest.mark.skipif(runez.SYS_INFO.platform_id.is_windows, reason="Not supported on windows")
 def test_executable(temp_folder):
     with runez.CaptureOutput(dryrun=True) as logged:
         assert runez.make_executable("some-file") == 1
@@ -294,7 +294,7 @@ def simulated_ps_output(pid, ppid, cmd):
     return RunResult(output=template.format(pid=pid, ppid=ppid, cmd=cmd), code=0)
 
 
-def simulated_tmux(program, *args, **kwargs):
+def simulated_tmux(program, *args, **_):
     if program == "tmux":
         return RunResult(output="3", code=0)
 
@@ -370,18 +370,18 @@ def test_require_installed(monkeypatch):
     assert runez.program.require_installed("foo") is None  # Does not raise
 
     monkeypatch.setattr(runez.program, "which", lambda x: None)
-    r = check_ri("darwin")
+    r = check_ri("macos")
     assert "foo is not installed, run: `brew install foo`" in r
 
     r = check_ri("linux")
     assert "foo is not installed, run: `apt install foo`" in r
 
-    r = check_ri("darwin", instructions="custom instructions")
+    r = check_ri("macos", instructions="custom instructions")
     assert "foo is not installed, custom instructions" in r
 
-    r = check_ri(None)
+    r = check_ri("unknown-platform")
     assert "foo is not installed:" in r
-    assert "- on darwin: run: `brew install foo`" in r
+    assert "- on macos: run: `brew install foo`" in r
     assert "- on linux: run: `apt install foo`" in r
 
 
@@ -438,7 +438,7 @@ def test_which():
     assert pp == ps
 
 
-@pytest.mark.skipif(runez.WINDOWS, reason="Not supported on windows")
+@pytest.mark.skipif(runez.SYS_INFO.platform_id.is_windows, reason="Not supported on windows")
 def test_wrapped_run(monkeypatch):
     original = ["python", "-mvenv", "foo"]
     monkeypatch.delenv("PYCHARM_HOSTED", raising=False)

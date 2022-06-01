@@ -1,4 +1,9 @@
-from runez.system import py_mimic, THREAD_LOCAL
+import threading
+
+from runez.system import py_mimic
+
+
+THREAD_LOCAL = threading.local()
 
 
 class thread_local_property:

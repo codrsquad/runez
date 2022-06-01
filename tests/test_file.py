@@ -230,7 +230,7 @@ def test_failure(monkeypatch):
         assert runez.write("bar", "some content", fatal=False)
         assert "Can't write" in logged.pop()
 
-        if not runez.WINDOWS:
+        if not runez.SYS_INFO.platform_id.is_windows:
             assert runez.make_executable("some-file", fatal=False) == -1
             assert "Can't chmod" in logged.pop()
 
@@ -406,7 +406,7 @@ def test_parent_folder():
     assert runez.parent_folder(None) is None
     assert runez.parent_folder("././some-file") == cwd
 
-    if not runez.WINDOWS:
+    if not runez.SYS_INFO.platform_id.is_windows:
         parent = runez.parent_folder("/logs/foo")
         assert parent == "/logs"
         assert runez.parent_folder(parent) == "/"

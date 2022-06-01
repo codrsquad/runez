@@ -16,17 +16,7 @@ from io import BytesIO
 from select import select
 
 from runez.convert import parsed_tabular, to_int
-from runez.system import _R, abort, cached_property, decode, flattened, quoted, resolved_path, short, SYS_INFO, uncolored
-from runez.system import UNSET, WINDOWS
-
-
-DEFAULT_INSTRUCTIONS = {
-    "darwin": "run: `brew install {program}`",
-    "linux": "run: `apt install {program}`",
-}
-PS_FOLLOW = {
-    "tmux": ("tmux", "display-message", "-p", "#{client_pid}"),
-}
+from runez.system import _R, abort, cached_property, decode, flattened, quoted, resolved_path, short, SYS_INFO, uncolored, UNSET
 
 
 class PsInfo:
@@ -94,13 +84,17 @@ class PsInfo:
         return cmd
 
     @cached_property
+    def ps_follow(self):
+        return dict(tmux=("tmux", "display-message", "-p", "#{client_pid}"))
+
+    @cached_property
     def followed_parent(self):
         """
         Returns:
             (PsInfo | None): Parent process info (if any), special processes like tmux are followed through
         """
         if self.parent and self.parent.ppid == 1:
-            follow_command = PS_FOLLOW.get(self.parent.cmd_basename)
+            follow_command = self.ps_follow.get(self.parent.cmd_basename)
             if follow_command:
                 r = run(*follow_command, dryrun=False, fatal=False, logger=None)
                 if r.succeeded:
@@ -180,10 +174,10 @@ def check_pid(pid):
     Returns:
         (bool): True if process with pid exists
     """
-    if not pid:  # No support for kill pid 0, as that is not the intent of this function, and it's not cross platform
+    if not pid:  # No support for kill pid 0, as that is not the intent of this function, and it's not cross-platform
         return False
 
-    if WINDOWS:  # pragma: no cover
+    if SYS_INFO.platform_id.is_windows:  # pragma: no cover
         import ctypes
 
         kernel32 = ctypes.windll.kernel32
@@ -232,7 +226,7 @@ def is_executable(path):
     Returns:
         (bool): True if file exists and is executable
     """
-    if WINDOWS:  # pragma: no cover
+    if SYS_INFO.platform_id.is_windows:  # pragma: no cover
         return bool(_windows_exe(path))
 
     return path and os.path.isfile(path) and os.access(path, os.X_OK)
@@ -420,9 +414,9 @@ class RunAudit:
 
     @staticmethod
     def shortened_program(program, args):
-        if program and args:
+        if program:
             base = os.path.basename(program)
-            if base in ("python", "python3"):
+            if args and base in ("python", "python3"):
                 if args[0] == "-m":
                     return args[1], args[2:]
 
@@ -523,14 +517,14 @@ def which(program, ignore_own_venv=False):
     program = str(program)
     if os.path.basename(program) != program:
         program = resolved_path(program)
-        if WINDOWS:  # pragma: no cover
+        if SYS_INFO.platform_id.is_windows:  # pragma: no cover
             return _windows_exe(program)
 
         return program if is_executable(program) else None
 
     for p in os.environ.get("PATH", "").split(os.pathsep):
         fp = os.path.join(p, program)
-        if WINDOWS:  # pragma: no cover
+        if SYS_INFO.platform_id.is_windows:  # pragma: no cover
             fp = _windows_exe(fp)
 
         if fp and (not ignore_own_venv or not SYS_INFO.venv_bin_folder or not fp.startswith(SYS_INFO.venv_bin_folder)):
@@ -544,27 +538,27 @@ def which(program, ignore_own_venv=False):
     return None
 
 
-def require_installed(program, instructions=None, platform=sys.platform):
+def require_installed(program, instructions=None, platform=None):
     """Raise an exception if 'program' is not available on PATH, show instructions on how to install it
 
     Args:
         program (str): Program to check
         instructions (str | dict): Short instructions letting user know how to get `program` installed, example: `run: brew install foo`
                                    Extra convenience, specify:
-                                   - None if `program` can simply be install via `brew install <program>`
-                                   - A word (without spaces) to refer to "usual" package (brew on OSX, apt on Linux etc)
-                                   - A dict with instructions per `sys.platform`
-        platform (str | None): Override sys.platform (for testing instructions rendering)
+                                   - None if `program` can simply be installed via `brew install <program>`
+                                   - A word (without spaces) to refer to "usual" package (brew on OSX, apt on Linux etc.)
+                                   - A dict with per-platform instructions
+        platform (str | None): Override SYS_INFO.platform (for testing instructions rendering)
 
     Returns:
         (bool): True if installed, False otherwise (when fatal=False)
     """
     if which(program) is None:
         if not instructions:
-            instructions = DEFAULT_INSTRUCTIONS
+            instructions = dict(macos="run: `brew install {program}`", linux="run: `apt install {program}`")
 
         if isinstance(instructions, dict):
-            instructions = _install_instructions(instructions, platform)
+            instructions = _install_instructions(instructions, platform or SYS_INFO.platform_id.platform)
 
         message = "{program} is not installed"
         if instructions:
@@ -714,7 +708,8 @@ class _WrappedArgs:
 
     def __enter__(self):
         args = self.args
-        if not WINDOWS and "PYCHARM_HOSTED" in os.environ and len(args) > 1 and "python" in args[0] and args[1][:2] in ("-m", "-X", "-c"):
+        needs_wrap = not SYS_INFO.platform_id.is_windows and "PYCHARM_HOSTED" in os.environ and len(args) > 1
+        if needs_wrap and "python" in args[0] and args[1][:2] in ("-m", "-X", "-c"):
             self.tmp_folder = os.path.realpath(tempfile.mkdtemp())
             wrapper = os.path.join(self.tmp_folder, "pydev-wrapper.sh")
             with open(wrapper, "wt") as fh:

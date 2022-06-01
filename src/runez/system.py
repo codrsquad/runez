@@ -17,11 +17,7 @@ from io import StringIO
 
 ABORT_LOGGER = logging.error
 LOG = logging.getLogger("runez")
-RE_ANSI_ESCAPE = re.compile(r"\x1b(\[[;\d]*[A-Za-z]?)?")
-RE_SPACES = re.compile(r"[\s\n]+", re.MULTILINE)
 SYMBOLIC_TMP = "<tmp>"
-THREAD_LOCAL = threading.local()
-WINDOWS = sys.platform.startswith("win")
 
 
 class Undefined:
@@ -598,7 +594,7 @@ def short(value, size=UNSET, none="None", uncolor=False):
         (str): Leading part of text, with at most 'size' chars (when specified)
     """
     text = stringified(value, converter=_prettified, none=none).strip()
-    text = RE_SPACES.sub(" ", text)
+    text = _R.lazy_cache.rx_spaces.sub(" ", text)
     text = Anchored.short(text)
     if size is UNSET or isinstance(size, int) and size < 0:
         size = SYS_INFO.terminal.columns
@@ -623,7 +619,7 @@ def uncolored(text):
     Returns:
         (str): Text without any ANSI color rendering
     """
-    return RE_ANSI_ESCAPE.sub("", stringified(text))
+    return _R.lazy_cache.rx_ansi_escape.sub("", stringified(text))
 
 
 def wcswidth(text):
@@ -956,7 +952,7 @@ class CaptureOutput:
             logging.root.addHandler(self.handler)
 
         if self.trace:
-            self.prior_trace = _R._runez_module().log.enable_trace(True)
+            self.prior_trace = _R.lazy_cache.runez_module.log.enable_trace(True)
 
         return self.tracked
 
@@ -975,7 +971,7 @@ class CaptureOutput:
             Anchored.pop(self.anchors)
 
         if self.trace:
-            _R._runez_module().log.enable_trace(self.prior_trace)
+            _R.lazy_cache.runez_module.log.enable_trace(self.prior_trace)
 
 
 class CurrentFolder:
@@ -1397,7 +1393,7 @@ class PlatformId:
             short_form (bool): If True, return the short form (ie: no "tar.")
 
         Returns:
-            (str): Canonical form of 'extension', or default extension for self.platform
+            (str): Canonical form of 'extension', or default extension for 'self.platform'
         """
         if not extension:
             extension = self.platform_archive_type.get(self.platform) or "tar.gz"
@@ -1473,11 +1469,25 @@ class PlatformId:
 
         return platform.machine()
 
+    @staticmethod
+    def canonical_platform(name):
+        name = name and name.lower()
+        if name == "darwin":
+            # Using 'macos' to differentiate from iOS (which may be detected in the future)
+            name = "macos"
+
+        elif name.startswith("linux"):
+            name = "linux"
+
+        if name.startswith("win"):
+            name = "windows"
+
+        return name
+
     def determine_current_platform(self):
         import platform
 
-        p = platform.system().lower()
-        return "macos" if p == "darwin" else p
+        return self.canonical_platform(platform.system())
 
     def determine_current_subsystem(self):
         return self.default_subsystem and self.default_subsystem.get(self.platform)
@@ -1488,7 +1498,7 @@ class PlatformInfo:
 
     def __init__(self, text=None):
         if text is None:
-            text = "Windows" if WINDOWS else _R.shell_output("uname", "-msrp")
+            text = "Windows" if SYS_INFO.platform_id.is_windows else _R.shell_output("uname", "-msrp")
 
         self.os_name = text or "unknown-os"
         self.os_version = None
@@ -1515,7 +1525,7 @@ class SystemInfo:
     @cached_property
     def current_process(self):
         """Info on currently running process"""
-        return _R._runez_module().PsInfo()
+        return _R.lazy_cache.runez_module.PsInfo()
 
     def diagnostics(self, argv=UNSET, exe=True, platform=True, prefix=UNSET, term=UNSET, userid=UNSET, version=UNSET, via=" ⚡ "):
         """Usable by runez.render.PrettyTable.two_column_diagnostics()"""
@@ -1878,7 +1888,7 @@ class ThreadGlobalContext:
 
     def _ensure_threadlocal(self):
         if self._tpayload is None:
-            self._tpayload = THREAD_LOCAL
+            self._tpayload = threading.local()
 
         if not hasattr(self._tpayload, "log_context"):
             self._tpayload.log_context = {}
@@ -1890,6 +1900,147 @@ class ThreadGlobalContext:
         """
         if self._gpayload is None:
             self._gpayload = values or {}
+
+
+class UnitRepresentation:
+
+    def __init__(self, base=1000, prefixes="KMGTP"):
+        """
+        Args:
+            base (int): Base to represent it in (example: 1024 for bytes, 1000 for bits)
+            prefixes (str): Prefixes to use per power (kilo, mega, giga, tera, peta, ...)
+        """
+        self.base = base
+        self.prefixes = prefixes
+
+    def unit_exponent(self, unit, default=None):
+        try:
+            return 0 if not unit else self.prefixes.index(unit.upper()) + 1
+
+        except ValueError:
+            return default
+
+    def unitized(self, value, base, unit):
+        """
+        Args:
+            value (int | float): Value to expand
+            base (int): Base to use (usually 1024)
+            unit (str): Given unit
+
+        Returns:
+            Deduced value (example: "1k" becomes 1000)
+        """
+        exponent = self.unit_exponent(unit)
+        if exponent is not None:
+            return int(round(value * (base ** exponent)))
+
+    def represented(self, size, base=None, delimiter="", unit="", exponent=0):
+        """
+        Args:
+            size (int | float): Size to represent
+            base (int): Base to represent it in (example: 1024 for bytes, 1000 for bits)
+            delimiter (str): Delimiter to use between number and units
+            unit (str): Unit symbol to use
+            exponent (int): Internal use
+
+        Returns:
+            (str): Human friendly byte size representation
+        """
+        if base is None:
+            base = self.base
+
+        if not base:
+            return "%g" % size
+
+        if size >= base and exponent < len(self.prefixes):
+            size = float(size) / base
+            return self.represented(size, base=base, delimiter=delimiter, unit=unit, exponent=exponent + 1)
+
+        if exponent == 0:
+            if unit:
+                return "%g%s%s" % (size, delimiter, unit)
+
+            return "%g" % size
+
+        fmt = "%.{precision}f".format(precision=0 if size > 9 else 1)
+        represented_size = fmt % size
+        if "." in represented_size:
+            represented_size = represented_size.strip("0").strip(".")
+
+        return "%s%s%s%s" % (represented_size, delimiter, self.prefixes[exponent - 1], unit)
+
+
+class _LazyCache:
+
+    @cached_property
+    def runez_module(self):
+        import runez
+
+        return runez
+
+    @cached_property
+    def runez_schema_module(self):
+        import runez.schema
+
+        return runez.schema
+
+    @cached_property
+    def rx_ansi_escape(self):
+        return re.compile(r"\x1b(\[[;\d]*[A-Za-z]?)?")
+
+    @cached_property
+    def rx_camel_cased_words(self):
+        return re.compile(r"(^[a-z]+|[A-Z](?:[a-z]+|[A-Z]*(?=[A-Z]|$)))")
+
+    @cached_property
+    def rx_date(self):
+        base_number = r"([-+]?[\d_]*\.?[\d_]*([eE][-+]?[\d_]+)?|[-+]?\.inf|[-+]?\.Inf|[-+]?\.INF|\.nan|\.NaN|\.NAN|0o[0-7]+|0x[\da-fA-F]+)"
+        base_date = (
+            r"((\d{1,4})[-/](\d\d?)[-/](\d{1,4})"
+            r"([Tt \t](\d\d?):(\d\d?):(\d\d?)(\.\d*)?"
+            r"([ \t]*(Z|[A-Z]{3}|[+-]\d\d?(:(\d\d?))?))?)?)"
+        )
+        return re.compile(r"^\s*(%s)\s*$" % "|".join((base_number, base_date)))
+
+    @cached_property
+    def rx_duration(self):
+        return re.compile(r"^\s*(\d+[ywdhms]\s*)+$")
+
+    @cached_property
+    def rx_family(self):
+        return re.compile(r"^([a-z]+\d?)[:-]?$")
+
+    @cached_property
+    def rx_format_markers(self):
+        return re.compile(r"{([a-z]\w*)}", re.IGNORECASE)
+
+    @cached_property
+    def rx_spaces(self):
+        return re.compile(r"[\s\n]+", re.MULTILINE)
+
+    @cached_property
+    def rx_spec(self):
+        return re.compile(r"^([a-z][a-z\d]*?)?([:-])?(\d[^:-]*)$", re.IGNORECASE)
+
+    @cached_property
+    def rx_words(self):
+        return re.compile(r"[^\w]+")
+
+    @cached_property
+    def rx_tz(self):
+        return re.compile(r"\s*(Z|UTC|([+-]?\d\d):?(\d\d))\s*")
+
+    @cached_property
+    def rx_version(self):
+        return re.compile(r"v?((\d+!)?(\d+)((\.(\d+))*)((a|b|c|rc)(\d+))?(\.(dev|post|final)\.?(\d+))?(\+[\w.-]*)?)(.*)")
+
+    @cached_property
+    def true_tokens(self):
+        return {"on", "true", "y", "yes"}
+
+    @cached_property
+    def units(self):
+        return UnitRepresentation()
 
 
 class _R:
@@ -1904,19 +2055,7 @@ class _R:
     """
 
     getframe = getattr(sys, "_getframe", None)
-
-    _runez = None
-    _schema = None
-
-    @classmethod
-    def _runez_module(cls):
-        """Late-imported runez module"""
-        if cls._runez is None:
-            import runez
-
-            cls._runez = runez
-
-        return cls._runez
+    lazy_cache = _LazyCache()
 
     @staticmethod
     def actual_message(message):
@@ -1928,27 +2067,27 @@ class _R:
     @classmethod
     def colored(cls, text, color, is_coloring=UNSET):
         """Colored 'text' with 'color', 'is_coloring' can be used to override current coloring setting"""
-        return cls._runez_module().color.colored(text, color, is_coloring=is_coloring)
+        return cls.lazy_cache.runez_module.color.colored(text, color, is_coloring=is_coloring)
 
     @classmethod
     def filesize(cls, path):
-        return cls._runez_module().filesize(path)
+        return cls.lazy_cache.runez_module.filesize(path)
 
     @classmethod
     def plural(cls, countable, singular=None):
-        return cls._runez_module().plural(countable, singular=singular)
+        return cls.lazy_cache.runez_module.plural(countable, singular=singular)
 
     @classmethod
     def represented_bytesize(cls, size, unit="bytes"):
-        return cls._runez_module().represented_bytesize(size, unit=unit)
+        return cls.lazy_cache.runez_module.represented_bytesize(size, unit=unit)
 
     @classmethod
     def shell_output(cls, program, *args):
-        return cls._runez_module().shell(program, *args)
+        return cls.lazy_cache.runez_module.shell(program, *args)
 
     @classmethod
     def to_int(cls, text):
-        return cls._runez_module().to_int(text)
+        return cls.lazy_cache.runez_module.to_int(text)
 
     @staticmethod
     def _schema_type_name(target):
@@ -1964,7 +2103,7 @@ class _R:
         if isinstance(override, type) and issubclass(override, BaseException):
             return override
 
-        return cls._runez_module().system.AbortException
+        return cls.lazy_cache.runez_module.system.AbortException
 
     @classmethod
     def habort(cls, default, fatal, logger, message, exc_info=None):
@@ -2023,7 +2162,7 @@ class _R:
             return
 
         if logger is UNSET:
-            logger = cls._runez_module().log.spec.default_logger
+            logger = cls.lazy_cache.runez_module.log.spec.default_logger
 
         if callable(logger):
             msg = _R.actual_message(message)
@@ -2043,7 +2182,7 @@ class _R:
         Returns:
             (bool): Same as runez.DRYRUN, but as a function (and with late import)
         """
-        return cls._runez_module().DRYRUN
+        return cls.lazy_cache.runez_module.DRYRUN
 
     @staticmethod
     def rdefault(value, default_value):
@@ -2059,24 +2198,14 @@ class _R:
             (bool): Resolved value for dryrun
         """
         if dryrun is UNSET:
-            return cls._runez_module().DRYRUN
+            return cls.lazy_cache.runez_module.DRYRUN
 
         return dryrun
 
     @classmethod
-    def schema(cls):
-        """Late-imported schema"""
-        if cls._schema is None:
-            import runez.schema
-
-            cls._schema = runez.schema
-
-        return cls._schema
-
-    @classmethod
     def serializable(cls):
         """Late-imported Serializable class"""
-        return cls._runez_module().Serializable
+        return cls.lazy_cache.runez_module.Serializable
 
     @classmethod
     def meta_description(cls, struct):
@@ -2087,7 +2216,7 @@ class _R:
         Returns:
             (runez.serialize.ClassMetaDescription): Meta object describing given 'struct'
         """
-        return cls._runez_module().serialize.ClassMetaDescription(struct.__class__)
+        return cls.lazy_cache.runez_module.serialize.ClassMetaDescription(struct.__class__)
 
     @classmethod
     def set_dryrun(cls, dryrun):
@@ -2099,7 +2228,7 @@ class _R:
         Returns:
             (bool): Old values for dryrun
         """
-        r = cls._runez_module()
+        r = cls.lazy_cache.runez_module
         old_dryrun = r.DRYRUN
         if dryrun is not UNSET:
             r.DRYRUN = bool(dryrun)
@@ -2112,7 +2241,7 @@ class _R:
         Args:
             message (str): Message to trace
         """
-        cls._runez_module().log.trace(message, *args)
+        cls.lazy_cache.runez_module.log.trace(message, *args)
 
     @staticmethod
     def find_parent_folder(path, basenames):
