@@ -594,7 +594,7 @@ def short(value, size=UNSET, none="None", uncolor=False):
         (str): Leading part of text, with at most 'size' chars (when specified)
     """
     text = stringified(value, converter=_prettified, none=none).strip()
-    text = _R.lazy_cache.rx_spaces.sub(" ", text)
+    text = _R.lc.rx_spaces.sub(" ", text)
     text = Anchored.short(text)
     if size is UNSET or isinstance(size, int) and size < 0:
         size = SYS_INFO.terminal.columns
@@ -619,7 +619,7 @@ def uncolored(text):
     Returns:
         (str): Text without any ANSI color rendering
     """
-    return _R.lazy_cache.rx_ansi_escape.sub("", stringified(text))
+    return _R.lc.rx_ansi_escape.sub("", stringified(text))
 
 
 def wcswidth(text):
@@ -952,7 +952,7 @@ class CaptureOutput:
             logging.root.addHandler(self.handler)
 
         if self.trace:
-            self.prior_trace = _R.lazy_cache.runez_module.log.enable_trace(True)
+            self.prior_trace = _R.lc.rm.log.enable_trace(True)
 
         return self.tracked
 
@@ -971,7 +971,7 @@ class CaptureOutput:
             Anchored.pop(self.anchors)
 
         if self.trace:
-            _R.lazy_cache.runez_module.log.enable_trace(self.prior_trace)
+            _R.lc.rm.log.enable_trace(self.prior_trace)
 
 
 class CurrentFolder:
@@ -1498,7 +1498,7 @@ class PlatformInfo:
 
     def __init__(self, text=None):
         if text is None:
-            text = "Windows" if SYS_INFO.platform_id.is_windows else _R.shell_output("uname", "-msrp")
+            text = "Windows" if SYS_INFO.platform_id.is_windows else _R.lc.rm.shell("uname", "-msrp")
 
         self.os_name = text or "unknown-os"
         self.os_version = None
@@ -1525,7 +1525,7 @@ class SystemInfo:
     @cached_property
     def current_process(self):
         """Info on currently running process"""
-        return _R.lazy_cache.runez_module.PsInfo()
+        return _R.lc.rm.PsInfo()
 
     def diagnostics(self, argv=UNSET, exe=True, platform=True, prefix=UNSET, term=UNSET, userid=UNSET, version=UNSET, via=" ⚡ "):
         """Usable by runez.render.PrettyTable.two_column_diagnostics()"""
@@ -1706,7 +1706,7 @@ class TerminalInfo:
         Returns:
             (int | None): Current number of columns, determined dynamically
         """
-        return _R.to_int(_R.shell_output("tput", "cols"))
+        return _R.lc.rm.to_int(_R.lc.rm.shell("tput", "cols"))
 
     @staticmethod
     def get_lines():
@@ -1714,7 +1714,7 @@ class TerminalInfo:
         Returns:
             (int | None): Current number of lines, determined dynamically
         """
-        return _R.to_int(_R.shell_output("tput", "lines"))
+        return _R.lc.rm.to_int(_R.lc.rm.shell("tput", "lines"))
 
     @staticmethod
     def get_size(default_columns=160, default_lines=25):
@@ -1722,8 +1722,8 @@ class TerminalInfo:
         Returns:
             (int, int): Current number of rows and columns of current terminal, if available
         """
-        cols = _R.to_int(os.environ.get("COLUMNS"))
-        lines = _R.to_int(os.environ.get("LINES"))
+        cols = _R.lc.rm.to_int(os.environ.get("COLUMNS"))
+        lines = _R.lc.rm.to_int(os.environ.get("LINES"))
         if not cols or not lines:
             size = shutil.get_terminal_size(fallback=(0, 0))
             cols = size.columns
@@ -1973,13 +1973,13 @@ class UnitRepresentation:
 class _LazyCache:
 
     @cached_property
-    def runez_module(self):
+    def rm(self):
         import runez
 
         return runez
 
     @cached_property
-    def runez_schema_module(self):
+    def rm_schema(self):
         import runez.schema
 
         return runez.schema
@@ -2055,7 +2055,15 @@ class _R:
     """
 
     getframe = getattr(sys, "_getframe", None)
-    lazy_cache = _LazyCache()
+    lc = _LazyCache()
+
+    @classmethod
+    def abort_exception(cls, override=None):
+        """AbortException can be modified from client"""
+        if isinstance(override, type) and issubclass(override, BaseException):
+            return override
+
+        return cls.lc.rm.system.AbortException
 
     @staticmethod
     def actual_message(message):
@@ -2067,43 +2075,7 @@ class _R:
     @classmethod
     def colored(cls, text, color, is_coloring=UNSET):
         """Colored 'text' with 'color', 'is_coloring' can be used to override current coloring setting"""
-        return cls.lazy_cache.runez_module.color.colored(text, color, is_coloring=is_coloring)
-
-    @classmethod
-    def filesize(cls, path):
-        return cls.lazy_cache.runez_module.filesize(path)
-
-    @classmethod
-    def plural(cls, countable, singular=None):
-        return cls.lazy_cache.runez_module.plural(countable, singular=singular)
-
-    @classmethod
-    def represented_bytesize(cls, size, unit="bytes"):
-        return cls.lazy_cache.runez_module.represented_bytesize(size, unit=unit)
-
-    @classmethod
-    def shell_output(cls, program, *args):
-        return cls.lazy_cache.runez_module.shell(program, *args)
-
-    @classmethod
-    def to_int(cls, text):
-        return cls.lazy_cache.runez_module.to_int(text)
-
-    @staticmethod
-    def _schema_type_name(target):
-        meta = getattr(target, "meta", None)
-        if meta is not None:
-            return meta.name
-
-        return target.__class__.__name__
-
-    @classmethod
-    def abort_exception(cls, override=None):
-        """AbortException can be modified from client"""
-        if isinstance(override, type) and issubclass(override, BaseException):
-            return override
-
-        return cls.lazy_cache.runez_module.system.AbortException
+        return cls.lc.rm.color.colored(text, color, is_coloring=is_coloring)
 
     @classmethod
     def habort(cls, default, fatal, logger, message, exc_info=None):
@@ -2162,7 +2134,7 @@ class _R:
             return
 
         if logger is UNSET:
-            logger = cls.lazy_cache.runez_module.log.spec.default_logger
+            logger = cls.lc.rm.log.spec.default_logger
 
         if callable(logger):
             msg = _R.actual_message(message)
@@ -2182,7 +2154,7 @@ class _R:
         Returns:
             (bool): Same as runez.DRYRUN, but as a function (and with late import)
         """
-        return cls.lazy_cache.runez_module.DRYRUN
+        return cls.lc.rm.DRYRUN
 
     @staticmethod
     def rdefault(value, default_value):
@@ -2198,14 +2170,14 @@ class _R:
             (bool): Resolved value for dryrun
         """
         if dryrun is UNSET:
-            return cls.lazy_cache.runez_module.DRYRUN
+            return cls.lc.rm.DRYRUN
 
         return dryrun
 
     @classmethod
     def serializable(cls):
         """Late-imported Serializable class"""
-        return cls.lazy_cache.runez_module.Serializable
+        return cls.lc.rm.Serializable
 
     @classmethod
     def meta_description(cls, struct):
@@ -2216,7 +2188,7 @@ class _R:
         Returns:
             (runez.serialize.ClassMetaDescription): Meta object describing given 'struct'
         """
-        return cls.lazy_cache.runez_module.serialize.ClassMetaDescription(struct.__class__)
+        return cls.lc.rm.serialize.ClassMetaDescription(struct.__class__)
 
     @classmethod
     def set_dryrun(cls, dryrun):
@@ -2228,7 +2200,7 @@ class _R:
         Returns:
             (bool): Old values for dryrun
         """
-        r = cls.lazy_cache.runez_module
+        r = cls.lc.rm
         old_dryrun = r.DRYRUN
         if dryrun is not UNSET:
             r.DRYRUN = bool(dryrun)
@@ -2241,7 +2213,7 @@ class _R:
         Args:
             message (str): Message to trace
         """
-        cls.lazy_cache.runez_module.log.trace(message, *args)
+        cls.lc.rm.log.trace(message, *args)
 
     @staticmethod
     def find_parent_folder(path, basenames):

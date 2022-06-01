@@ -43,9 +43,9 @@ def represented_bytesize(size, unit="B", base=1024, delimiter=" "):
         (str): Human friendly byte size representation
     """
     if isinstance(size, pathlib.Path):
-        size = _R.filesize(size)
+        size = _R.lc.rm.filesize(size)
 
-    return _R.lazy_cache.units.represented(size, base=base, delimiter=delimiter, unit=unit)
+    return _R.lc.units.represented(size, base=base, delimiter=delimiter, unit=unit)
 
 
 def represented_with_units(size, unit="", base=1000, delimiter=""):
@@ -59,7 +59,7 @@ def represented_with_units(size, unit="", base=1000, delimiter=""):
     Returns:
         (str): Human friendly representation with units, avoids having to read/parse visually large numbers
     """
-    return _R.lazy_cache.units.represented(size, base=base, delimiter=delimiter, unit=unit)
+    return _R.lc.units.represented(size, base=base, delimiter=delimiter, unit=unit)
 
 
 def to_boolean(value):
@@ -73,7 +73,7 @@ def to_boolean(value):
         (bool): Deduced boolean value
     """
     if isinstance(value, str):
-        if value.lower() in _R.lazy_cache.true_tokens:
+        if value.lower() in _R.lc.true_tokens:
             return True
 
         return bool(to_float(value))
@@ -95,7 +95,7 @@ def to_bytesize(value, default_unit=None, base=1024):
     if value is not None:
         v = to_float(value)
         if v is not None:
-            return _R.lazy_cache.units.unitized(v, base, default_unit)
+            return _R.lc.units.unitized(v, base, default_unit)
 
         try:
             if value[-1].lower() == "b":
@@ -109,7 +109,7 @@ def to_bytesize(value, default_unit=None, base=1024):
             else:
                 value = value[:-1]
 
-            return _R.lazy_cache.units.unitized(to_float(value), base, unit)
+            return _R.lc.units.unitized(to_float(value), base, unit)
 
         except (AttributeError, IndexError, KeyError, TypeError, ValueError):
             return None
@@ -280,7 +280,7 @@ def plural(countable, singular=None, base=1000):
     if count is None:
         return "no %s" % plural
 
-    count = _R.lazy_cache.units.represented(count, base=base)
+    count = _R.lc.units.represented(count, base=base)
     return "%s %s" % (count, plural)
 
 
@@ -334,10 +334,10 @@ def words(text, normalize=None, split="_", decamel=False):
 
         return result
 
-    strings = _R.lazy_cache.rx_words.split(stringified(text))
+    strings = _R.lc.rx_words.split(stringified(text))
     strings = flattened(strings, split=split, strip=True)
     if decamel:
-        strings = flattened(_R.lazy_cache.rx_camel_cased_words.findall(s) for s in strings)
+        strings = flattened(_R.lc.rx_camel_cased_words.findall(s) for s in strings)
 
     if normalize:
         strings = [normalize(s) for s in strings]

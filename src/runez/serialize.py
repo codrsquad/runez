@@ -103,7 +103,7 @@ class DefaultBehavior:
         if extras is UNSET:
             extras = self.extras
 
-        self.strict = _to_callable(strict, fallback=_R.lazy_cache.runez_schema_module.ValidationException)
+        self.strict = _to_callable(strict, fallback=_R.lc.rm_schema.ValidationException)
         self.hook = _to_callable(hook)  # Called if provided at the end of ClassMetaDescription initialization
         self.ignored_extras = None  # Internal, populated if given `extras` is a `tuple(callable, list)`
 
@@ -358,7 +358,7 @@ class ClassMetaDescription:
                     self.properties.append(key)
                     continue
 
-                schema_module = _R.lazy_cache.runez_schema_module
+                schema_module = _R.lc.rm_schema
                 schema_type = schema_module.determined_schema_type(value, required=False)
                 if schema_type is not None:
                     if isinstance(schema_type, schema_module.UniqueIdentifier):

@@ -30,7 +30,7 @@ def guess_family(text):
         if text in ("p", "py", "python"):
             return CPYTHON
 
-        m = _R.lazy_cache.rx_family.match(text)
+        m = _R.lc.rx_family.match(text)
         if m:
             return m.group(1)
 
@@ -317,9 +317,9 @@ class PythonSpec:
             self.canonical = resolved_path(text)
             return
 
-        m = _R.lazy_cache.rx_spec.match(text)
+        m = _R.lc.rx_spec.match(text)
         if not m:
-            m = _R.lazy_cache.rx_family.match(text)
+            m = _R.lc.rx_family.match(text)
             if m:
                 self.family = guess_family(family or m.group(1))
                 self.canonical = "%s:" % self.family
@@ -848,7 +848,7 @@ class Version:
         self.local_part = None
         self.prerelease = None
         self.suffix = None
-        m = _R.lazy_cache.rx_version.match(self.text)
+        m = _R.lc.rx_version.match(self.text)
         if not m:
             return
 
@@ -907,7 +907,7 @@ class Version:
 
         if text:
             if not strict and (not text[0].isdigit() or not text[-1].isdigit()):
-                m = _R.lazy_cache.rx_version.search(text)
+                m = _R.lc.rx_version.search(text)
                 if m:
                     text = m.group(1)
 

@@ -236,7 +236,7 @@ def timezone_from_text(value, default=UNSET):
     if value in ("Z", "UTC"):
         return UTC
 
-    m = _R.lazy_cache.rx_tz.match(value)
+    m = _R.lc.rx_tz.match(value)
     if m:
         hours = m.group(2)
         if hours is not None:
@@ -347,7 +347,7 @@ def to_seconds(duration):
     if not duration:
         return 0
 
-    m = _R.lazy_cache.rx_duration.match(duration)
+    m = _R.lc.rx_duration.match(duration)
     if not m:
         dt = to_datetime(duration)
         if dt is not None:
@@ -421,9 +421,9 @@ def _date_from_text(text, epocher, tz=UNSET):
     Returns:
         (datetime.date | datetime.datetime | None): Extracted date, if possible
     """
-    match = _R.lazy_cache.rx_date.match(text)
+    match = _R.lc.rx_date.match(text)
     if match is None:
-        m = _R.lazy_cache.rx_duration.match(text)
+        m = _R.lc.rx_duration.match(text)
         if m:
             tz = UTC if tz is UNSET else tz
             offset = to_seconds(text)

@@ -130,7 +130,7 @@ def ensure_folder(path, clean=False, fatal=True, logger=UNSET, dryrun=UNSET):
             cleaned += delete(os.path.join(path, fname), fatal=fatal, logger=None, dryrun=dryrun)
 
         if cleaned:
-            msg = "%s from %s" % (_R.plural(cleaned, "file"), short(path))
+            msg = "%s from %s" % (_R.lc.rm.plural(cleaned, "file"), short(path))
             if not _R.hdry(dryrun, logger, "clean %s" % msg):
                 _R.hlog(logger, "Cleaned %s" % msg)
 
@@ -492,7 +492,7 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
         return 0
 
     path = resolved_path(path)
-    byte_size = _R.represented_bytesize(len(contents)) if contents else ""
+    byte_size = _R.lc.rm.represented_bytesize(len(contents), unit="bytes") if contents else ""
 
     def dryrun_msg():
         return "%s %s" % ("write %s to" % byte_size if byte_size else "touch", short(path))

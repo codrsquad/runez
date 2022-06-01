@@ -1237,7 +1237,7 @@ def _canonical_format(fmt):
 
 
 def _format_recursive(key, value, definitions, max_depth):
-    m = _R.lazy_cache.rx_format_markers.search(value)
+    m = _R.lc.rx_format_markers.search(value)
     if not m:
         return value
 
@@ -1271,7 +1271,7 @@ def _formatted_text(text, props, strict=False, max_depth=3):
         return text
 
     definitions = {}
-    markers = _R.lazy_cache.rx_format_markers.findall(text)
+    markers = _R.lc.rx_format_markers.findall(text)
     while markers:
         key = markers.pop()
         if key in definitions:
@@ -1282,7 +1282,7 @@ def _formatted_text(text, props, strict=False, max_depth=3):
             return None
 
         val = stringified(val) if val is not None else "{%s}" % key
-        markers.extend(m for m in _R.lazy_cache.rx_format_markers.findall(val) if m not in definitions)
+        markers.extend(m for m in _R.lc.rx_format_markers.findall(val) if m not in definitions)
         definitions[key] = val
 
     if not max_depth or not isinstance(max_depth, int) or max_depth <= 0:

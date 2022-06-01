@@ -107,7 +107,7 @@ class Any:
         Returns:
             (str): Textual representation for this type constraint
         """
-        return _R._schema_type_name(self)
+        return _schema_type_name(self)
 
     def problem(self, value):
         """
@@ -219,7 +219,7 @@ class Dict(Any):
         super().__init__(default=default)
 
     def representation(self):
-        return "%s[%s, %s]" % (_R._schema_type_name(self), self.key, self.value)
+        return "%s[%s, %s]" % (_schema_type_name(self), self.key, self.value)
 
     def _problem(self, value):
         if not isinstance(value, dict):
@@ -253,7 +253,7 @@ class Enum(Any):
         super().__init__(default=default)
 
     def representation(self):
-        return "%s[%s]" % (_R._schema_type_name(self), ", ".join(sorted(self.values)))
+        return "%s[%s]" % (_schema_type_name(self), ", ".join(sorted(self.values)))
 
     def _problem(self, value):
         if value not in self.values:
@@ -295,7 +295,7 @@ class List(Any):
         super().__init__(default=default)
 
     def representation(self):
-        return "%s[%s]" % (_R._schema_type_name(self), self.subtype)
+        return "%s[%s]" % (_schema_type_name(self), self.subtype)
 
     def _problem(self, value):
         if not isinstance(value, (list, set, tuple)):
@@ -371,7 +371,7 @@ class Struct(Any):
 
     def _problem(self, value):
         if not isinstance(value, dict):
-            return "expecting structure %s, got '%s'" % (_R._schema_type_name(self), value)
+            return "expecting structure %s, got '%s'" % (_schema_type_name(self), value)
 
         return self.meta.problem(value)
 
@@ -398,3 +398,11 @@ TYPE_MAP = {
     set: List,
     tuple: List,
 }
+
+
+def _schema_type_name(target):
+    meta = getattr(target, "meta", None)
+    if meta is not None:
+        return meta.name
+
+    return target.__class__.__name__
