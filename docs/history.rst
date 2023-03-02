@@ -7,6 +7,8 @@ History
 
 * Support a simple optional cache for RestClient-s
 
+* CVE-2007-4559
+
 
 3.6.1 (2022-06-01)
 ------------------

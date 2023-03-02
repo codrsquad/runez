@@ -10,9 +10,8 @@ from runez.http import ForbiddenHttpError, GlobalHttpCalls, MockResponse, RestCl
 
 
 EXAMPLE = RestClient("https://example.com")
-
-
 CacheState = namedtuple("CacheState", "cached hits misses updates")
+
 
 class MockBackend:
     def __init__(self):
