@@ -1278,7 +1278,7 @@ class DevInfo:
     def venv_folder(self) -> str:
         """Path to current development venv, if we're running from one"""
         if SYS_INFO.venv_bin_folder:
-            return _R.find_parent_folder(sys.prefix, {"venv", ".venv", ".tox", "build"})
+            return _R.find_parent_folder(sys.prefix, {"venv", ".venv", ".virtualenvs", ".tox", "build"})
 
     def project_path(self, *relative_path) -> str:
         """Full path relative to development project we're currently running from (if any)"""

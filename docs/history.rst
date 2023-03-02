@@ -2,6 +2,18 @@
 History
 =======
 
+3.6.2 (2023-03-02)
+------------------
+
+* Support a simple optional cache for RestClient-s
+
+
+3.6.1 (2022-06-01)
+------------------
+
+* Avoid creating anything at import time (removed most globals)
+
+
 3.6.0 (2022-05-26)
 ------------------
 
