@@ -560,7 +560,7 @@ class Serializable:
     def from_json(cls, path, default=None, fatal=False, logger=False):
         """
         Args:
-            path (str): Path to json file
+            path (str | pathlib.Path): Path to json file
             default (dict | list | str | None): Default if file is not present, or can't be deserialized
             fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
@@ -696,7 +696,7 @@ def save_json(data, path, stringify=stringified, dt=str, none=False, indent=2, s
     """
     Args:
         data (object | None): Data to serialize and save
-        path (str | None): Path to file where to save
+        path (str | pathlib.Path | None): Path to file where to save
         stringify (callable | None): Function to use to stringify non-builtin types
         dt (callable | None): Function to use to stringify dates
         none (str | bool): States how to treat `None` keys/values
