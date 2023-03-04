@@ -683,6 +683,7 @@ def test_version():
     assert not vrc.is_final
     assert not vrc_strict.is_valid
     assert not vdev.is_final
+    assert vdev.prerelease == ("dev", 4)
     assert vrc.suffix == "rc"
     assert vdev.suffix == "dev_a"  # Combine in a way where `dev` will be "more important" than "a"
 
@@ -694,6 +695,13 @@ def test_version():
     assert vrc.patch == 0
     assert vrc.main == "1.0.0"
     assert Version.from_text("foo, version 1.0a4.dev5\nbar baz") == vdev
+
+    incomplete_dev = Version("0.4.34dev")
+    assert not incomplete_dev.is_final
+    assert incomplete_dev.is_valid
+    assert incomplete_dev.main == "0.4.34"
+    assert incomplete_dev.prerelease == ("dev", 0)
+    assert incomplete_dev.suffix == "dev"
 
     # .from_text() can be used to filter out invalid versions as None
     assert Version.from_text("Python 3.8.6", strict=True) is None

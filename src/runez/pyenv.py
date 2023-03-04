@@ -44,7 +44,18 @@ def guess_family(text):
 class ArtifactInfo:
     """Info extracted from a typical python build artifact basename"""
 
-    def __init__(self, basename, package_name, version, is_wheel=False, source=None, tags=None, wheel_build_number=None):
+    def __init__(
+        self,
+        basename,
+        package_name,
+        version,
+        is_wheel=False,
+        source=None,
+        tags=None,
+        wheel_build_number=None,
+        last_modified=None,
+        size=None,
+    ):
         """
         Args:
             basename (str): Basename of artifact
@@ -54,6 +65,8 @@ class ArtifactInfo:
             source: Optional arbitrary object to track provenance of ArtifactInfo
             tags (str | None): Wheel tags, if any
             wheel_build_number (str | None): Wheel build number, if any
+            last_modified (datetime.datetime | None): Timestamp when artifact was last modified, if available
+            size (int | None): Size in bytes of artifact, if available
         """
         self.basename = basename
         self.package_name = package_name
@@ -64,13 +77,18 @@ class ArtifactInfo:
         self.wheel_build_number = wheel_build_number
         self.pypi_name = PypiStd.std_package_name(package_name)
         self.relative_url = "%s/%s" % (self.pypi_name, basename)
+        self.last_modified = last_modified
+        self.size = size
 
     @classmethod
-    def from_basename(cls, basename, source=None):
+    def from_basename(cls, basename, source=None, strict=False, last_modified=None, size=None):
         """
         Args:
             basename (str): Basename to parse
             source: Optional arbitrary object to track provenance of ArtifactInfo
+            strict (bool): If True, extract info only from valid PEP compliant versions
+            last_modified (datetime.datetime | None): Timestamp when artifact was last modified, if available
+            size (int | None): Size in bytes of artifact, if available
 
         Returns:
             (ArtifactInfo | None): Parsed artifact info, if any
@@ -87,8 +105,18 @@ class ArtifactInfo:
             is_wheel = True
 
         # RX_SDIST and RX_WHEEL both yield package_name and version as match groups 1 and 2
-        version = Version(m.group(2))
-        return cls(basename, m.group(1), version, is_wheel=is_wheel, source=source, tags=tags, wheel_build_number=wheel_build_number)
+        version = Version(m.group(2), strict=strict)
+        return cls(
+            basename,
+            m.group(1),
+            version,
+            is_wheel=is_wheel,
+            source=source,
+            tags=tags,
+            wheel_build_number=wheel_build_number,
+            last_modified=last_modified,
+            size=size,
+        )
 
     def __repr__(self):
         return self.relative_url or self.basename
@@ -840,6 +868,7 @@ class Version:
         Args:
             text (str | None): Text to be parsed
             max_parts (int): Maximum number of parts (components) to consider version valid
+            strict (bool): If True, extract info only from valid PEP compliant versions
         """
         self.text = text or ""
         self.components = None  # tuple of components with exactly 'max_parts', auto-filled with zeros

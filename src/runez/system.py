@@ -2032,7 +2032,7 @@ class _LazyCache:
 
     @cached_property
     def rx_version(self):
-        return re.compile(r"v?((\d+!)?(\d+)((\.(\d+))*)((a|b|c|rc)(\d+))?(\.(dev|post|final)\.?(\d+))?(\+[\w.-]*)?)(.*)")
+        return re.compile(r"v?((\d+!)?(\d+)((\.(\d+))*)((a|b|c|rc)(\d+))?(\.?(dev|post|final)\.?(\d*))?(\+[\w.-]*)?)(.*)")
 
     @cached_property
     def true_tokens(self):
