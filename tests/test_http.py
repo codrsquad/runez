@@ -1,4 +1,7 @@
+import sys
+from collections import namedtuple
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -7,6 +10,80 @@ from runez.http import ForbiddenHttpError, GlobalHttpCalls, MockResponse, RestCl
 
 
 EXAMPLE = RestClient("https://example.com")
+CacheState = namedtuple("CacheState", "cached hits misses updates")
+
+
+class MockBackend:
+    def __init__(self):
+        self.cache = {}
+        self.cache_hits = 0
+        self.cache_misses = 0
+        self.cache_updates = 0
+        self.last_expire = None
+
+    @property
+    def state(self):
+        return CacheState(len(self.cache), self.cache_hits, self.cache_misses, self.cache_updates)
+
+    def delete(self, cache_key):
+        if cache_key in self.cache:
+            self.cache_updates += 1
+            del self.cache[cache_key]
+
+    def get(self, cache_key):
+        if cache_key in self.cache:
+            self.cache_hits += 1
+            return self.cache[cache_key]
+
+        self.cache_misses += 1
+
+    def set(self, cache_key, data, expire=None):
+        self.cache_updates += 1
+        self.last_expire = expire
+        self.cache[cache_key] = data
+
+
+@EXAMPLE.mock({
+    "test/README.txt?a=b": "Hello",
+})
+def test_cache(monkeypatch):
+    c = RestClient.std_diskcache()
+    assert c is None
+
+    with patch("runez.http.DEV.current_test", return_value=False):
+        monkeypatch.setitem(sys.modules, "diskcache", MagicMock())
+        c = RestClient.std_diskcache()
+        assert isinstance(c.cache_backend, MagicMock)
+        assert c.default_expire == 3600
+
+        cm = MockBackend()
+        c.cache_backend = cm
+        assert cm.state == CacheState(cached=0, hits=0, misses=0, updates=0)
+        client = EXAMPLE.sub_client("")
+        client.cache_wrapper = c
+        response = client.get_response("foo")
+        assert not response.ok
+        assert cm.state == CacheState(cached=0, hits=0, misses=1, updates=0)
+
+        response = client.get_response("test/README.txt", params={"a": "b"})
+        assert response.text == "Hello"
+        assert cm.cache["https://example.com/test/README.txt?a=b"] == response
+        assert cm.last_expire == 3600
+        assert cm.state == CacheState(cached=1, hits=0, misses=2, updates=1)
+
+        response2 = client.get_response("test/README.txt", params={"a": "b"})
+        assert response2 is response
+        assert cm.state == CacheState(cached=1, hits=1, misses=2, updates=1)
+
+        client.purge("test/README.txt", params={"a": "b"})
+        assert cm.cache_updates == 2
+        assert cm.state == CacheState(cached=0, hits=1, misses=2, updates=2)
+
+        response3 = client.get_response("test/README.txt", params={"a": "b"}, expire=5)
+        assert response3 is not response
+        assert response3.text == response.text
+        assert cm.last_expire == 5
+        assert cm.state == CacheState(cached=1, hits=1, misses=3, updates=3)
 
 
 @GlobalHttpCalls.allowed

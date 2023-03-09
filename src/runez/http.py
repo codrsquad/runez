@@ -26,12 +26,13 @@ import functools
 import json
 import os
 import re
+import sys
 import urllib.parse
 from pathlib import Path
 
 from runez.file import checksum, decompress, delete, ensure_folder, TempFolder, to_path
 from runez.logsetup import LogManager
-from runez.system import _R, abort, find_caller, short, stringified, SYS_INFO, UNSET
+from runez.system import _R, abort, DEV, find_caller, joined, short, stringified, SYS_INFO, UNSET
 
 
 def urljoin(base, url):
@@ -47,6 +48,124 @@ def urljoin(base, url):
         base += "/"
 
     return urllib.parse.urljoin(base, url, allow_fragments=False)
+
+
+class CacheWrapper:
+    """
+    Simple cache wrapper, intended to provide a convenient way of caching REST calls via pypi module diskcache for example
+    By default, ~/.cache/{program_name} is used
+
+    Example usage:
+        cache = RestClient.std_diskcache(size_limit="4g")
+        client = RestClient(url, cache=cache)
+    """
+
+    base_location = "~/.cache/{program_name}"
+    cachable_methods = {"GET": True, "POST": True}  # By default, cache only these REST methods
+    default_expire = "1h"  # 1 hour
+    size_limit = "2g"  # 2 GB
+
+    __dev_suffix = "-dev"  # Override to None to disable distinguishing dev runs from non-dev runs
+
+    @classmethod
+    def resolved_base_location(cls, base_location=UNSET):
+        if base_location is UNSET:
+            base_location = cls.base_location
+
+        if base_location:
+            base_location = base_location.format(program_name=SYS_INFO.program_name)
+            return os.path.expanduser(base_location)
+
+    @classmethod
+    def cache_base_path(cls, base_location=UNSET, suffix=None, dev_suffix=UNSET):
+        """
+        Args:
+            base_location (str | None): Base location to use, {program_name}
+            suffix (str | None): Optional suffix for location basename to add
+            dev_suffix (str | None): Suffix to add for detected development runs (from a dev venv)
+
+        Returns:
+            (str): Fully resolved location, example: ~/.cache/my-program-py39-dev
+        """
+        path = cls.resolved_base_location(base_location)
+        if path:
+            if suffix:
+                path += "-%s" % suffix
+
+            if dev_suffix is UNSET:
+                dev_suffix = cls.__dev_suffix
+
+            if dev_suffix and DEV.venv_folder:
+                # Allows to distinguish development runs (dev and "prod" runs won't use the same cache)
+                path += dev_suffix
+
+        return path
+
+    def __init__(self, cache_backend, base_location, default_expire, size_limit):
+        """
+        Args:
+            cache_backend: Underlying backend to use
+            base_location (str | None): Cache base location
+            default_expire (int | float | None): Default expiration time in seconds
+            size_limit (int | None): Max size in bytes for this cache
+        """
+        self.base_location = base_location
+        self.cachable_methods = dict(self.cachable_methods)
+        self.default_expire = _R.lc.rm.to_seconds(default_expire)
+        self.size_limit = _R.lc.rm.to_bytesize(size_limit)
+        self.cache_backend = cache_backend
+
+    @staticmethod
+    def cache_key(full_url, params=None):
+        """
+        Args:
+            full_url (str): Full URL to remote asset
+            params (dict | None): Optional REST query params
+
+        Returns:
+            (str): Key to use to represent this remote asset in the cache
+        """
+        key = full_url
+        if params:
+            key += "?%s" % urllib.parse.urlencode(params)
+
+        return key
+
+    def is_cachable_method(self, method):
+        """
+        Args:
+            method (str): Should this method be cached (REST methods: DELETE, GET, HEAD, POST, PURGE, PUT)
+
+        Returns:
+            (bool): True if this REST method call should be cached
+        """
+        return self.cachable_methods.get(method)
+
+    def delete(self, cache_key):
+        """
+        Args:
+            cache_key (str): Key to delete from cache
+        """
+        self.cache_backend.delete(cache_key)
+
+    def get(self, cache_key):
+        """
+        Args:
+            cache_key (str): Key to lookup from this cache
+        """
+        return self.cache_backend.get(cache_key)
+
+    def set(self, cache_key, data, expire=UNSET):
+        """
+        Args:
+            cache_key (str): Key to store `data` under
+            data: Data to store
+            expire (int | float | None): Expiration time in seconds
+        """
+        if expire is UNSET:
+            expire = self.default_expire
+
+        return self.cache_backend.set(cache_key, data, expire=expire)
 
 
 class ForbiddenHttpError(Exception):
@@ -601,12 +720,13 @@ class RestClient:
 
     handler = RequestsHandler
 
-    def __init__(self, base_url=None, headers=None, timeout=30, user_agent=None, handler=None, session=None, **session_spec):
+    def __init__(self, base_url=None, headers=None, timeout=30, cache=None, user_agent=None, handler=None, session=None, **session_spec):
         """
         Args:
             base_url (str | None): Base url of remote REST server
             headers (dict | None): Default headers to use
             timeout (int): Default timeout in seconds
+            cache (CacheWrapper): Optional local cache to use
             user_agent (str | None): User-Agent to use for outgoing calls coming from this client (default: handler.user_agent())
             handler: Optional: override default handler
             session: Optional: override getting handler.new_session()
@@ -614,6 +734,7 @@ class RestClient:
         self.base_url = base_url
         self.headers = dict(headers) if headers else {}
         self.timeout = timeout
+        self.cache_wrapper = cache
         if handler:
             self.handler = handler
 
@@ -854,6 +975,42 @@ class RestClient:
 
         return MockWrapper(self.handler, self.base_url, specs)
 
+    @staticmethod
+    def std_diskcache(directory=UNSET, default_expire=UNSET, size_limit=UNSET):
+        """
+        Convenience method to obtain a diskcache with good defaults, callers must require diskcache (not provided by runez)
+        This can be used as an example cache setup
+
+        Args:
+            directory (str | None): Directory where to store the cache
+            default_expire (int | float | str): Default expiration time in seconds
+            size_limit (int | float | str): Size limit for this cache
+
+        Returns:
+            (CacheWrapper): Object wrapping this cache
+        """
+        try:
+            from diskcache import Cache
+
+            if directory is UNSET:
+                directory = None
+                if not DEV.current_test():
+                    # By default, do not use ~/.cache for test runs (diskcache will default to a temp dir)
+                    pymm = "py%s" % joined(sys.version_info[:2], delimiter="")
+                    directory = CacheWrapper.cache_base_path(suffix=pymm)
+
+            if default_expire is UNSET:
+                default_expire = CacheWrapper.default_expire
+
+            if size_limit is UNSET:
+                size_limit = _R.lc.rm.to_bytesize(CacheWrapper.size_limit)
+
+            cache_backend = Cache(directory=directory or None, size_limit=size_limit)
+            return CacheWrapper(cache_backend, directory, default_expire,  size_limit)
+
+        except ImportError:
+            return None
+
     def _protected_get(self, method, absolute_url, keyword_args):
         try:
             return self.handler.raw_response(self.session, method, absolute_url, **keyword_args)
@@ -897,6 +1054,18 @@ class RestClient:
         if _R.hdry(dryrun, logger, message):
             return RestResponse(method, absolute_url, MockResponse(200, dict(message="dryrun %s" % message)))
 
+        cache_key = cache_expire = None
+        if self.cache_wrapper is not None:
+            cache_expire = kwargs.pop("expire", UNSET)
+            cache_key = self.cache_wrapper.cache_key(absolute_url, params=kwargs.get("params"))
+            if method in ("PURGE", "DELETE"):
+                self.cache_wrapper.delete(cache_key)
+
+            elif self.cache_wrapper.is_cachable_method(method):
+                response = self.cache_wrapper.get(cache_key)
+                if response is not None:
+                    return response
+
         full_headers = self.headers
         headers = kwargs.get("headers")
         if headers:
@@ -918,6 +1087,9 @@ class RestClient:
                     abort(msg, fatal=fatal, logger=logger)
 
                 _R.hlog(logger, msg)
+
+            if cache_key is not None and response.ok and self.cache_wrapper.is_cachable_method(method):
+                self.cache_wrapper.set(cache_key, response, expire=cache_expire)
 
             return response
 

@@ -714,12 +714,12 @@ class LogManager:
 
     # Below fields should be read-only for outside users, do not modify these
     debug = False
-    console_handler = None  # type: Optional[logging.StreamHandler]
-    file_handler = None  # type: Optional[logging.FileHandler] # File we're currently logging to (if any)
-    handlers = None  # type: Optional[List[logging.Handler]]
-    tracer = None  # type: Optional[TraceHandler]
-    used_formats = None  # type: Optional[str]
-    faulthandler_signum = None  # type: Optional[int]
+    console_handler: Optional[logging.StreamHandler] = None
+    file_handler: Optional[logging.FileHandler] = None  # File we're currently logging to (if any)
+    handlers: Optional[List[logging.Handler]] = None
+    tracer: Optional[TraceHandler] = None
+    used_formats: Optional[str] = None
+    faulthandler_signum: Optional[int] = None
     trace_env_var = "TRACE_DEBUG"
 
     # Convenience decorator/context logging how long a function or section of code took to run
