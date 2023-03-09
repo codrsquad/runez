@@ -130,7 +130,7 @@ class ArtifactInfo:
 
     @property
     def category(self):
-        return "wheel" if self.is_wheel else "source distribution"
+        return "wheel" if self.is_wheel else "sdist"
 
     @property
     def is_dirty(self):

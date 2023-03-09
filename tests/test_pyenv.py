@@ -370,7 +370,7 @@ def test_pypi_parsing():
     assert str(sample[0]) == "shell-functools/shell-functools-1.8.1!1.tar.gz"
     assert sample[0].version == Version("1.8.1")
     assert not sample[0].is_dirty
-    assert sample[0].category == "source distribution"
+    assert sample[0].category == "sdist"
 
     pickley = sorted(PypiStd.ls_pypi("pickley", source="s1"))
     assert len(pickley) == 3
