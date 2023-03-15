@@ -221,11 +221,11 @@ def ini_to_dict(path, keep_empty=False, fatal=False, logger=False):
 def is_subfolder(path, root_folder):
     """
     Args:
-        path (str): Path to file or folder
-        root_folder (str): Path to folder to consider as root
+        path (str | Path): Path to file or folder
+        root_folder (str | Path): Path to folder to consider as root
 
     Returns:
-        (bool): True if 'path' is a subfolder of 'root_folder'
+        (bool): True if 'path' is a sub-folder of 'root_folder'
     """
     if path and root_folder:
         abs_path = os.path.abspath(path)
@@ -614,7 +614,7 @@ def _untar(source, destination, simplify):
                 if not is_subfolder(member_path, extracted_source):  # pragma: no cover, don't have an exploit sample handy
                     raise Exception("Attempted Path Traversal in Tar File")
 
-            fh.extractall(extracted_source)
+            fh.extractall(extracted_source)  # nosec B202, taken care of
 
         _move_extracted(extracted_source, destination, simplify)
 
@@ -628,7 +628,7 @@ def _unzip(source, destination, simplify):
     with TempFolder():
         extracted_source = to_path(source.name)
         with ZipFile(source) as fh:
-            fh.extractall(extracted_source)
+            fh.extractall(extracted_source)  # nosec B202, not a tarfile
 
         _move_extracted(extracted_source, destination, simplify)
 
