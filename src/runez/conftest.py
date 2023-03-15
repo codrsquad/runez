@@ -143,7 +143,8 @@ class IsolatedLogSetup:
 
         else:
             runez.system.AbortException = self.abort_exception
-            if self.old_cwd and self.old_cwd != os.getcwd():
+            if os.path.isdir(self.old_cwd):
+                # Edge case: some tests 'cd' to a now-deleted temp folder (side effect)
                 os.chdir(self.old_cwd)
 
 
