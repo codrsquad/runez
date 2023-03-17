@@ -871,7 +871,7 @@ class Version:
             strict (bool): If True, extract info only from valid PEP compliant versions
         """
         self.text = text or ""
-        self.components = None  # tuple of components with exactly 'max_parts', auto-filled with zeros
+        self.components = None  # tuple of components with exactly 'max_parts', autofilled with zeros
         self.given_components = None  # Components as given by 'text'
         self.epoch = 0
         self.local_part = None
@@ -882,6 +882,20 @@ class Version:
             return
 
         self.text, epoch, major, main_part, pre, pre_num, rel, rel_num, local_part, rest = m.group(1, 2, 3, 4, 8, 9, 11, 12, 13, 14)
+        if rel == "dev":
+            # Special case for '.dev' markers: we need them to parse 2nd, and also be applicable to a '.rc'
+            # Order: .devN, aN, bN, rcN, <no suffix>, .postN
+            prerelease = ("dev", int(pre_num or 0))
+            pre_num = rel_num
+            rel_num = None
+            if pre:
+                pre = "dev+%s" % pre
+
+            else:
+                pre = "dev_"  # Trail with underscore, because '_' < '+' (allows to sort 'dev' higher than
+
+            rel = None
+
         if local_part:
             local_part = local_part[1:]
             if strict and not local_part:

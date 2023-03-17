@@ -620,7 +620,48 @@ def test_unknown():
     assert p.version is None
 
 
+@pytest.mark.parametrize(
+    ("given_version", "expected_components", "expected_prerelease"),
+    [
+        ("1.dev0", (1, 0, 0, 0, 0), ("_dev", 0)),
+        ("1.0.dev456", (1, 0, 0, 0, 0), ("_dev", 456)),
+        ("1.0a12", (1, 0, 0, 0, 0), ("_a", 12)),
+        ("1.2.3rc12", (1, 2, 3, 0, 0), ("_rc", 12)),
+    ]
+)
+def test_pep_sample(given_version, expected_components, expected_prerelease):
+    version = Version(given_version)
+    assert version.is_valid
+    assert str(version) == given_version
+    assert version.components == expected_components
+    assert version.prerelease == expected_prerelease
+
+
+@pytest.mark.parametrize(
+    ("given_version", "expected_components", "expected_prerelease"),
+    [
+        # The first marker wins! (pre-release or final, ignoring the rest)
+        ("1.0a2.dev456", (1, 0, 0, 0, 0), ("_a", 2)),
+        ("1.0b2.post345", (1, 0, 0, 0, 345), ("_b", 2)),
+        ("1.0b2.post345.dev456", (1, 0, 0, 0, 345), ("_b", 2)),
+        ("1.0rc1.dev456", (1, 0, 0, 0, 0), ("_rc", 1)),
+        ("1.0.post456.dev34", (1, 0, 0, 0, 456), None),
+    ]
+)
+def test_pep_sample_partial(given_version, expected_components, expected_prerelease):
+    """These versions are only partially understood/parsed!"""
+    version = Version(given_version)
+    assert version.is_valid
+    assert version.components == expected_components
+    assert version.prerelease == expected_prerelease
+
+
 def test_version():
+    dev101 = Version("0.0.1.dev101")
+    assert not dev101.is_final
+    assert dev101.is_valid
+    assert dev101.prerelease
+
     none = Version(None)
     assert str(none) == ""
     assert not none.is_valid
