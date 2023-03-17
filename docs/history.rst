@@ -2,6 +2,18 @@
 History
 =======
 
+3.6.4 (2023-03-17)
+------------------
+
+* Corrected comparison of ``Version``-s (was not properly sorting ``.dev`` versions before)
+
+
+3.6.3 (2023-03-15)
+------------------
+
+* Corrected ``cli`` test fixture, avoid crashing when test deleted current working directory
+
+
 3.6.2 (2023-03-02)
 ------------------
 

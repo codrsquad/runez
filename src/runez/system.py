@@ -1903,7 +1903,6 @@ class ThreadGlobalContext:
 
 
 class UnitRepresentation:
-
     def __init__(self, base=1000, prefixes="KMGTP"):
         """
         Args:
@@ -1932,7 +1931,7 @@ class UnitRepresentation:
         """
         exponent = self.unit_exponent(unit)
         if exponent is not None:
-            return int(round(value * (base ** exponent)))
+            return int(round(value * (base**exponent)))
 
     def represented(self, size, base=None, delimiter="", unit="", exponent=0):
         """
@@ -1971,7 +1970,6 @@ class UnitRepresentation:
 
 
 class _LazyCache:
-
     @cached_property
     def rm(self):
         import runez
@@ -2032,7 +2030,17 @@ class _LazyCache:
 
     @cached_property
     def rx_version(self):
-        return re.compile(r"v?((\d+!)?(\d+)((\.(\d+))*)((a|b|c|rc)(\d+))?(\.?(dev|post|final)\.?(\d*))?(\+[\w.-]*)?)(.*)")
+        # See https://peps.python.org/pep-0440/
+        return re.compile(
+            r"v?(?P<vtext>"
+            r"((?P<epoch>\d+)!)?"
+            r"(?P<main>\d+(\.\d+)*)"
+            r"([-_.]?(?P<pre>a|b|c|rc|alpha|beta|pre|preview)[-_.]?(?P<pre_num>\d+))?"
+            r"([-_.]?(?P<rel>post|rev|r)[-_.]?(?P<rel_num>\d*))?"
+            r"([-_.]?(?P<dev>dev)[-_.]?(?P<dev_num>\d*))?"
+            r"(\+(?P<local>[a-z0-9]+(?:[-_.][a-z0-9]+)*))?)"
+            r"(?P<rest>.*)"
+        )
 
     @cached_property
     def true_tokens(self):
