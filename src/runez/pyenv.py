@@ -881,38 +881,26 @@ class Version:
         if not m:
             return
 
-        self.text, epoch, major, main_part, pre, pre_num, rel, rel_num, local_part, rest = m.group(1, 2, 3, 4, 8, 9, 11, 12, 13, 14)
-        if rel == "dev":
-            # Special case for '.dev' markers: we need them to parse 2nd, and also be applicable to a '.rc'
-            # Order: .devN, aN, bN, rcN, <no suffix>, .postN
-            prerelease = ("dev", int(pre_num or 0))
-            pre_num = rel_num
-            rel_num = None
-            if pre:
-                pre = "dev+%s" % pre
-
-            else:
-                pre = "dev_"  # Trail with underscore, because '_' < '+' (allows to sort 'dev' higher than
-
-            rel = None
-
-        if local_part:
-            local_part = local_part[1:]
-            if strict and not local_part:
-                return
-
-            self.local_part = local_part
-
-        if strict and rest:
+        if strict and m.group("rest"):
             return
 
-        if epoch:
-            self.epoch = int(epoch[:-1])
+        self.text = m.group("vtext")
+        self.epoch = int(m.group("epoch") or 0)
+        self.local_part = m.group("local") or None
+        pre, pre_num, rel, rel_num, dev, dev_num = m.group("pre", "pre_num", "rel", "rel_num", "dev", "dev_num")
+        if pre or dev:
+            # Order: .devN, aN, bN, rcN, <no suffix>, .postN
+            dev_suffix = pre or ""
+            if dev:
+                dev_suffix += ".dev"
 
-        if rel:
-            rel = rel.lower()
+            self.suffix = joined(dev_suffix, rel, delimiter=".", keep_empty=None) or None
+            self.prerelease = self.suffix, int(pre_num or 0), int(dev_num or 0)
 
-        components = (major + main_part).split(".")
+        else:
+            self.suffix = rel
+
+        components = m.group("main").split(".")
         if len(components) > max_parts:
             return  # Invalid version
 
@@ -920,17 +908,8 @@ class Version:
         while len(components) < max_parts:
             components.append(0)
 
-        if rel in ("final", "post"):
-            components.append(rel_num or 0)
-
-        else:
-            components.append(0)
-
+        components.append(rel_num or 0)
         self.components = tuple(map(int, components))
-        self.suffix = joined(rel, pre, delimiter="_", keep_empty=None) or None
-        pre = "dev" if rel == "dev" else "_" + pre if pre else None  # Ensure 'dev' is sorted higher than other pre-release markers
-        if pre:
-            self.prerelease = (pre, int(pre_num or 0))
 
     @classmethod
     def from_text(cls, text, strict=False):
@@ -966,11 +945,15 @@ class Version:
 
     def __eq__(self, other):
         other = Version.from_text(other, strict=True)
-        return isinstance(other, Version) and self.components == other.components and self.prerelease == other.prerelease
+        if isinstance(other, Version):
+            return self.epoch == other.epoch and self.components == other.components and self.prerelease == other.prerelease
 
     def __lt__(self, other):
         other = Version.from_text(other, strict=True)
         if isinstance(other, Version):
+            if self.epoch != other.epoch:
+                return self.epoch < other.epoch
+
             if self.components is None or other.components is None:
                 return bool(other.components)
 
@@ -997,7 +980,7 @@ class Version:
     @property
     def is_final(self):
         """Is this a final version as per PEP-440?"""
-        return self.is_valid and not self.local_part and not self.suffix
+        return self.is_valid and not self.prerelease
 
     @property
     def is_valid(self):

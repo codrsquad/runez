@@ -621,42 +621,43 @@ def test_unknown():
 
 
 @pytest.mark.parametrize(
-    ("given_version", "expected_components", "expected_prerelease"),
+    ("given_version", "expected"),
     [
-        ("1.dev0", (1, 0, 0, 0, 0), ("_dev", 0)),
-        ("1.0.dev456", (1, 0, 0, 0, 0), ("_dev", 456)),
-        ("1.0a12", (1, 0, 0, 0, 0), ("_a", 12)),
-        ("1.2.3rc12", (1, 2, 3, 0, 0), ("_rc", 12)),
+        ("1.2", (1, 2, 0, 0, 0)),
+        ("1.2rev5", (1, 2, 0, 0, 5)),
+        ("1.2r5.dev3", (1, 2, 0, 0, 5, ".dev.r", 0, 3)),
+        ("1.dev0", (1, 0, 0, 0, 0, ".dev", 0, 0)),
+        ("1.0.dev456", (1, 0, 0, 0, 0, ".dev", 0, 456)),
+        ("1.0a12", (1, 0, 0, 0, 0, "a", 12, 0)),
+        ("1.2.3rc12", (1, 2, 3, 0, 0, "rc", 12, 0)),
+        ("1.0a2.dev456", (1, 0, 0, 0, 0, "a.dev", 2, 456)),
+        ("1.0b2.post345", (1, 0, 0, 0, 345, "b.post", 2, 0)),
+        ("1.0b2.post345.dev456", (1, 0, 0, 0, 345, "b.dev.post", 2, 456)),
+        ("1.0rc1.dev456", (1, 0, 0, 0, 0, "rc.dev", 1, 456)),
+        ("1.0.post456.dev34", (1, 0, 0, 0, 456, ".dev.post", 0, 34)),
     ]
 )
-def test_pep_sample(given_version, expected_components, expected_prerelease):
-    version = Version(given_version)
+def test_pep_sample(given_version, expected):
+    version = Version(given_version, strict=True)
     assert version.is_valid
     assert str(version) == given_version
-    assert version.components == expected_components
-    assert version.prerelease == expected_prerelease
+    actual = version.components
+    if version.prerelease:
+        actual += version.prerelease
 
-
-@pytest.mark.parametrize(
-    ("given_version", "expected_components", "expected_prerelease"),
-    [
-        # The first marker wins! (pre-release or final, ignoring the rest)
-        ("1.0a2.dev456", (1, 0, 0, 0, 0), ("_a", 2)),
-        ("1.0b2.post345", (1, 0, 0, 0, 345), ("_b", 2)),
-        ("1.0b2.post345.dev456", (1, 0, 0, 0, 345), ("_b", 2)),
-        ("1.0rc1.dev456", (1, 0, 0, 0, 0), ("_rc", 1)),
-        ("1.0.post456.dev34", (1, 0, 0, 0, 456), None),
-    ]
-)
-def test_pep_sample_partial(given_version, expected_components, expected_prerelease):
-    """These versions are only partially understood/parsed!"""
-    version = Version(given_version)
-    assert version.is_valid
-    assert version.components == expected_components
-    assert version.prerelease == expected_prerelease
+    assert actual == expected
 
 
 def test_version():
+    loose = Version("v1.0.dirty", strict=False)
+    assert loose.is_valid
+    assert str(loose) == "1.0"
+
+    invalid = Version("v1.0.dirty", strict=True)
+    assert not invalid.is_valid
+    assert str(invalid) == "v1.0.dirty"
+    assert loose > invalid
+
     dev101 = Version("0.0.1.dev101")
     assert not dev101.is_final
     assert dev101.is_valid
@@ -724,11 +725,11 @@ def test_version():
     assert not vrc.is_final
     assert not vrc_strict.is_valid
     assert not vdev.is_final
-    assert vdev.prerelease == ("dev", 4)
+    assert vdev.prerelease == ("a.dev", 4, 5)
     assert vrc.suffix == "rc"
-    assert vdev.suffix == "dev_a"  # Combine in a way where `dev` will be "more important" than "a"
+    assert vdev.suffix == "a.dev"  # Try and convey the fact that we have .a.dev version
 
-    assert vrc < vdev
+    assert vdev < vrc
     assert str(vrc) == "1.0rc4"
     assert str(vdev) == "1.0a4.dev5"
     assert vrc.major == 1
@@ -741,8 +742,8 @@ def test_version():
     assert not incomplete_dev.is_final
     assert incomplete_dev.is_valid
     assert incomplete_dev.main == "0.4.34"
-    assert incomplete_dev.prerelease == ("dev", 0)
-    assert incomplete_dev.suffix == "dev"
+    assert incomplete_dev.prerelease == (".dev", 0, 0)
+    assert incomplete_dev.suffix == ".dev"
 
     # .from_text() can be used to filter out invalid versions as None
     assert Version.from_text("Python 3.8.6", strict=True) is None
@@ -757,6 +758,20 @@ def test_version():
 
 
 def test_version_comparison():
+    v = "2.11.1.dev2+b 2.11.0 2.11.1.dev11+a.dirty 1!1.0 2.11.1.dev1 2.11.1"
+    v = runez.flattened(v, split=" ", transform=Version)
+    assert all(x.is_valid for x in v)
+    v = sorted(v)
+    v = runez.joined(v)
+    assert v == "2.11.0 2.11.1.dev1 2.11.1.dev2+b 2.11.1.dev11+a.dirty 2.11.1 1!1.0"
+
+    v = "1.2rc1 1.2rc2.dev05 1.2rc2.dev4 1.2a1.dev1"
+    v = runez.flattened(v, split=" ", transform=Version)
+    assert all(x.is_valid for x in v)
+    v = sorted(v)
+    v = runez.joined(v)
+    assert v == "1.2a1.dev1 1.2rc1 1.2rc2.dev4 1.2rc2.dev05"
+
     v11 = Version("1.1.2.3")
     v12 = Version("1.2.3")
     v12p = Version("1.2.3.post4")
@@ -766,10 +781,10 @@ def test_version_comparison():
     v21d = Version("2.1.dev1")
     v3 = Version("3.0.1.2")
     assert v11.is_final
-    assert not v12p.is_final
+    assert v12p.is_final
     assert v11.suffix is None
     assert v12p.suffix == "post"
-    assert v20d.suffix == "dev"
+    assert v20d.suffix == ".dev"
 
     # Verify that numerical comparison takes place (not alphanumeric)
     assert None < v12  # For total ordering
