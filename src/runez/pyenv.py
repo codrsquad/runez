@@ -945,8 +945,12 @@ class Version:
 
     def __eq__(self, other):
         other = Version.from_text(other, strict=True)
-        if isinstance(other, Version):
-            return self.epoch == other.epoch and self.components == other.components and self.prerelease == other.prerelease
+        return (
+            isinstance(other, Version)
+            and self.epoch == other.epoch
+            and self.components == other.components
+            and self.prerelease == other.prerelease
+        )
 
     def __lt__(self, other):
         other = Version.from_text(other, strict=True)
