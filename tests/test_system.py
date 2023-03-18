@@ -607,8 +607,10 @@ def check_terminal_program_name(*names):
         assert TerminalProgram.known_terminal(name) == name
 
 
-def test_terminal():
+def test_terminal(monkeypatch):
     assert TerminalProgram.known_terminal("termin") is None
+    monkeypatch.delenv("COLUMNS", raising=False)
+    monkeypatch.delenv("LINES", raising=False)
     check_terminal_program_name(
         "alacritty",
         "eterm",
@@ -638,14 +640,14 @@ def test_terminal():
             assert t.get_columns() == 12
             assert t.get_lines() == 12
 
-    with patch.dict(os.environ, {"LC_TERMINAL": "foo", "LC_TERMINAL_VERSION": "2"}):
+    with patch.dict(os.environ, {"LC_TERMINAL": "foo", "LC_TERMINAL_VERSION": "2", "TERM": "screen-256color"}):
         t = TerminalInfo()
         p = t.term_program
-        assert str(p) == "foo v2"
+        assert str(p) == "foo v2 screen-256color"
         p.extra_info = None
-        assert str(p) == "foo"
+        assert str(p) == "foo screen-256color"
 
-    with patch.dict(os.environ, {"LC_TERMINAL": "", "TERM_PROGRAM": ""}):
+    with patch.dict(os.environ, {"LC_TERMINAL": "", "TERM_PROGRAM": "", "TERM": ""}):
         # Simulate a known terminal
         ps = runez.PsInfo()
         ps.followed_parent.cmd = "/dev/null/tilix"

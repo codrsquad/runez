@@ -623,18 +623,18 @@ def test_unknown():
 @pytest.mark.parametrize(
     ("given_version", "expected"),
     [
-        ("1.2", (1, 2, 0, 0, 0)),
-        ("1.2rev5", (1, 2, 0, 0, 5)),
-        ("1.2r5.dev3", (1, 2, 0, 0, 5, ".dev.r", 0, 3)),
-        ("1.dev0", (1, 0, 0, 0, 0, ".dev", 0, 0)),
-        ("1.0.dev456", (1, 0, 0, 0, 0, ".dev", 0, 456)),
-        ("1.0a12", (1, 0, 0, 0, 0, "a", 12, 0)),
-        ("1.2.3rc12", (1, 2, 3, 0, 0, "rc", 12, 0)),
-        ("1.0a2.dev456", (1, 0, 0, 0, 0, "a.dev", 2, 456)),
-        ("1.0b2.post345", (1, 0, 0, 0, 345, "b.post", 2, 0)),
-        ("1.0b2.post345.dev456", (1, 0, 0, 0, 345, "b.dev.post", 2, 456)),
-        ("1.0rc1.dev456", (1, 0, 0, 0, 0, "rc.dev", 1, 456)),
-        ("1.0.post456.dev34", (1, 0, 0, 0, 456, ".dev.post", 0, 34)),
+        ("1.2", (1, 2, 0, 0, 0, 0)),
+        ("1.2rev5", (1, 2, 0, 0, 0, 5)),
+        ("1.2r5.dev3", (1, 2, 0, 0, 0, 5, ".dev.r", 0, 3)),
+        ("1.dev0", (1, 0, 0, 0, 0, 0, ".dev", 0, 0)),
+        ("1.0.dev456", (1, 0, 0, 0, 0, 0, ".dev", 0, 456)),
+        ("1.0a12", (1, 0, 0, 0, 0, 0, "a", 12, 0)),
+        ("1.2.3rc12", (1, 2, 3, 0, 0, 0, "rc", 12, 0)),
+        ("1.0a2.dev456", (1, 0, 0, 0, 0, 0, "a.dev", 2, 456)),
+        ("1.0b2.post345", (1, 0, 0, 0, 0, 345, "b.post", 2, 0)),
+        ("1.0b2.post345.dev456", (1, 0, 0, 0, 0, 345, "b.dev.post", 2, 456)),
+        ("1.0rc1.dev456", (1, 0, 0, 0, 0, 0, "rc.dev", 1, 456)),
+        ("1.0.post456.dev34", (1, 0, 0, 0, 0, 456, ".dev.post", 0, 34)),
     ]
 )
 def test_pep_sample(given_version, expected):
@@ -651,11 +651,13 @@ def test_pep_sample(given_version, expected):
 def test_version():
     loose = Version("v1.0.dirty", strict=False)
     assert loose.is_valid
+    assert loose.ignored == ".dirty"
     assert str(loose) == "1.0"
 
     invalid = Version("v1.0.dirty", strict=True)
     assert not invalid.is_valid
     assert str(invalid) == "v1.0.dirty"
+    assert invalid.ignored == ".dirty"
     assert loose > invalid
 
     dev101 = Version("0.0.1.dev101")
@@ -689,14 +691,14 @@ def test_version():
     assert not foo.prerelease
     assert foo.major is None
 
-    bogus = Version("1.2.3.4.5")
-    assert str(bogus) == "1.2.3.4.5"
+    bogus = Version("1.2.3.4.5.6")
+    assert str(bogus) == "1.2.3.4.5.6"
     assert not bogus.is_valid
     assert not bogus.components
     assert not bogus.prerelease
 
     v1 = Version("1")
-    assert v1.components == (1, 0, 0, 0, 0)
+    assert v1.components == (1, 0, 0, 0, 0, 0)
     assert str(v1) == "1"
     assert v1.mm == "1.0"
     assert empty < v1
@@ -713,7 +715,7 @@ def test_version():
     # All versions are bigger than anything not parsing to a valid version
     assert v1 > ""
     assert v1 > []
-    assert v1 > [5, 2, 3, 4, 5]
+    assert v1 > [5, 2, 3, 4, 5, 6]
 
     v1foo = Version("1foo")  # Ignore additional text
     assert v1 == v1foo
