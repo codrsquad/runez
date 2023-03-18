@@ -106,17 +106,18 @@ class ArtifactInfo:
 
         # RX_SDIST and RX_WHEEL both yield package_name and version as match groups 1 and 2
         version = Version(m.group(2), strict=strict)
-        return cls(
-            basename,
-            m.group(1),
-            version,
-            is_wheel=is_wheel,
-            source=source,
-            tags=tags,
-            wheel_build_number=wheel_build_number,
-            last_modified=last_modified,
-            size=size,
-        )
+        if not strict or version.is_valid:
+            return cls(
+                basename,
+                m.group(1),
+                version,
+                is_wheel=is_wheel,
+                source=source,
+                tags=tags,
+                wheel_build_number=wheel_build_number,
+                last_modified=last_modified,
+                size=size,
+            )
 
     def __repr__(self):
         return self.relative_url or self.basename
@@ -863,7 +864,7 @@ class Version:
     Pre-releases are partially supported, no complex combinations (such as ".post.dev") are paid attention to
     """
 
-    def __init__(self, text, max_parts=4, strict=False):
+    def __init__(self, text, max_parts=5, strict=False):
         """
         Args:
             text (str | None): Text to be parsed
@@ -879,9 +880,11 @@ class Version:
         self.suffix = None
         m = _R.lc.rx_version.match(self.text)
         if not m:
+            self.ignored = self.text
             return
 
-        if strict and m.group("rest"):
+        self.ignored = m.group("ignored") or None  # Ignored part of 'text', if strict was False, and version had extraneous ignored bits
+        if strict and self.ignored:
             return
 
         self.text = m.group("vtext")
@@ -1010,7 +1013,7 @@ class Version:
     @cached_property
     def mm(self):
         """(str): <major>.<minor>, often used in python paths, like config-3.9"""
-        if self.is_valid:
+        if self.components:
             return joined(self.major, self.minor, delimiter=".")
 
     @property

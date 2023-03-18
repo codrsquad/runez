@@ -2039,7 +2039,7 @@ class _LazyCache:
             r"([-_.]?(?P<rel>post|rev|r)[-_.]?(?P<rel_num>\d*))?"
             r"([-_.]?(?P<dev>dev)[-_.]?(?P<dev_num>\d*))?"
             r"(\+(?P<local>[a-z0-9]+(?:[-_.][a-z0-9]+)*))?)"
-            r"(?P<rest>.*)"
+            r"(?P<ignored>.*)"
         )
 
     @cached_property
