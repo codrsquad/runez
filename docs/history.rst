@@ -2,6 +2,14 @@
 History
 =======
 
+3.6.5 (2023-03-18)
+------------------
+
+* Accept up to 5 version components (was up to 4 before)
+
+* Report on ignored part of a loosely parsed ``Version``
+
+
 3.6.4 (2023-03-17)
 ------------------
 
