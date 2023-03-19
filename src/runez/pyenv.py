@@ -288,7 +288,9 @@ class PypiStd:
             for v, infos in releases.items():
                 for info in infos:
                     if not info.get("yanked"):
-                        info = ArtifactInfo.from_basename(info.get("filename"), source=source)
+                        size = info.get("size")
+                        upload_time = _R.lc.rm.to_datetime(info.get("upload_time"))
+                        info = ArtifactInfo.from_basename(info.get("filename"), last_modified=upload_time, source=source, size=size)
                         if info:
                             yield info
 

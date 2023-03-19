@@ -196,7 +196,10 @@ def json_sanitized(value, stringify=stringified, dt=str, none=False):
     if value is None or is_basetype(value):
         return value
 
-    if hasattr(value, "to_dict"):
+    if isinstance(value, Serializable):
+        value = value.to_dict(stringify=stringify, dt=dt, none=none)
+
+    elif hasattr(value, "to_dict"):
         value = value.to_dict()
 
     elif isinstance(value, set):
