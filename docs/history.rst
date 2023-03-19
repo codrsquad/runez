@@ -2,6 +2,14 @@
 History
 =======
 
+3.6.6 (2023-03-18)
+------------------
+
+* Corrected a serialization bug, where nested ``Serialized`` objects weren't properly serialized
+
+* Report ``last_modified`` date and ``size`` in ``ArtifactInfo`` when available
+
+
 3.6.5 (2023-03-18)
 ------------------
 

@@ -329,7 +329,7 @@ P_PICKLEY = {
   "info": {"version": "2.5.6.dev1"},
   "releases": {
     "2.5.3": [{"filename": "pickley-2.5.3-py2.py3-none-any.whl", "yanked": True}, {"filename": "oops-bad-filename"}],
-    "2.5.4": [{"filename": "pickley-2.5.4-py2.py3-none-any.whl"}],
+    "2.5.4": [{"filename": "pickley-2.5.4-py2.py3-none-any.whl", "upload_time": "2012-01-22T05:08:17"}],
     "2.5.5": [{"filename": "pickley-2.5.5-py2.py3-none-any.whl"}, {"filename": "pickley-2.5.5.tar.gz"}]
   }
 }
@@ -375,6 +375,7 @@ def test_pypi_parsing():
     pickley = sorted(PypiStd.ls_pypi("pickley", source="s1"))
     assert len(pickley) == 3
     assert pickley[0] < sample[0]  # Alphabetical sort for same-source artifacts
+    assert pickley[0].last_modified.year == 2012
 
     assert sample[3].version == Version("1.9.11")
     assert not sample[3].is_wheel
@@ -760,6 +761,15 @@ def test_version():
 
 
 def test_version_comparison():
+    v10rc5 = Version("1.0rc5")
+    assert v10rc5 > "0.9"
+    assert v10rc5 > "1.0rc2"
+    assert v10rc5 > "1.0a5"
+    assert v10rc5 < "1.0rc15"
+    assert v10rc5 < "1.0"
+    assert v10rc5 < "1.1"
+    assert v10rc5 < "1.1rc2"
+
     v = "2.11.1.dev2+b 2.11.0 2.11.1.dev11+a.dirty 1!1.0 2.11.1.dev1 2.11.1"
     v = runez.flattened(v, split=" ", transform=Version)
     assert all(x.is_valid for x in v)
