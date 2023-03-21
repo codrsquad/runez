@@ -2,6 +2,12 @@
 History
 =======
 
+3.6.7 (2023-03-21)
+------------------
+
+* Fully implemented PEP-440_ for ``Version`` ordering
+
+
 3.6.6 (2023-03-18)
 ------------------
 
@@ -682,3 +688,6 @@ History
 ------------------
 
 * Initial operational version
+
+
+.. _PEP-440: https://peps.python.org/pep-0440/

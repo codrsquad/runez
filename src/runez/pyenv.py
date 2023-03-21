@@ -862,8 +862,7 @@ class PythonDepot:
 
 class Version:
     """
-    Parse versions according to PEP-440, ordering for non pre-releases is well supported
-    Pre-releases are partially supported, no complex combinations (such as ".post.dev") are paid attention to
+    Parse versions according to PEP-440, including ordering.
     """
 
     def __init__(self, text, max_parts=5, strict=False):
@@ -893,28 +892,27 @@ class Version:
         self.epoch = int(m.group("epoch") or 0)
         self.local_part = m.group("local") or None
         pre, pre_num, rel, rel_num, dev, dev_num = m.group("pre", "pre_num", "rel", "rel_num", "dev", "dev_num")
+        if pre == "c":
+            pre = "rc"
+
+        # Order: .devN, aN, bN, rcN, <no suffix>, .postN
+        self.suffix = joined(pre, rel, dev, delimiter=".", keep_empty=None) or None
         if pre or dev:
-            # Order: .devN, aN, bN, rcN, <no suffix>, .postN
-            dev_suffix = pre or ""
-            if dev:
-                dev_suffix += ".dev"
+            self.prerelease = pre or "", int(pre_num or 0), rel or "", int(rel_num or 0), dev or "z", int(dev_num or 0)
+            if pre:
+                rel = rel_num = None  # rc.post does not count as .post (but a .post.dev does)
 
-            self.suffix = joined(dev_suffix, rel, delimiter=".", keep_empty=None) or None
-            self.prerelease = self.suffix, int(pre_num or 0), int(dev_num or 0)
-
-        else:
-            self.suffix = rel
-
-        components = m.group("main").split(".")
+        components = [int(c) for c in m.group("main").split(".")]
         if len(components) > max_parts:
-            return  # Invalid version
+            return  # Invalid version, too many parts
 
-        self.given_components = tuple(map(int, components))
+        self.given_components = tuple(components)
         while len(components) < max_parts:
             components.append(0)
 
-        components.append(rel_num or 0)
-        self.components = tuple(map(int, components))
+        components.append(int(rel_num or 0))
+        components.append(rel or "")
+        self.components = tuple(components)
 
     @classmethod
     def from_text(cls, text, strict=False):
@@ -955,6 +953,7 @@ class Version:
             and self.epoch == other.epoch
             and self.components == other.components
             and self.prerelease == other.prerelease
+            and self.local_part == other.local_part
         )
 
     def __lt__(self, other):
@@ -967,6 +966,26 @@ class Version:
                 return bool(other.components)
 
             if self.components == other.components:
+                if self.prerelease == other.prerelease:
+                    my_parts = self.local_parts
+                    other_parts = other.local_parts
+                    if my_parts is None or other_parts is None:
+                        return bool(other_parts)
+
+                    for mine, theirs in zip(my_parts, other_parts):
+                        if mine == theirs:
+                            continue
+
+                        if theirs.isdigit():
+                            return not mine.isdigit() or int(mine) < int(theirs)
+
+                        if mine.isdigit():
+                            return False
+
+                        return mine < theirs
+
+                    return len(my_parts) < len(other_parts)
+
                 if self.prerelease is None or other.prerelease is None:
                     return bool(self.prerelease)
 
@@ -985,6 +1004,17 @@ class Version:
     def __gt__(self, other):
         other = Version.from_text(other, strict=True)
         return other is None or other < self
+
+    @property
+    def local_parts(self):
+        """Local parts are only needed when comparing versions that differ solely by local part..."""
+        if self.local_part:
+            v = getattr(self, "_local_parts", None)
+            if v is None:
+                v = self.local_part.split(".")
+                setattr(self, "_local_parts", v)
+
+            return v
 
     @property
     def is_final(self):
