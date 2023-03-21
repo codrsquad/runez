@@ -895,12 +895,17 @@ class Version:
         self.epoch = int(m.group("epoch") or 0)
         self.local_part = m.group("local") or None
         pre, pre_num, rel, rel_num, dev, dev_num = m.group("pre", "pre_num", "rel", "rel_num", "dev", "dev_num")
-        self.release_suffix = rel
-        self.dev_suffix = dev
-        self.prerelease_suffix = pre
         if pre or dev:
             # Order: .devN, aN, bN, rcN, <no suffix>, .postN
-            self.prerelease = self.prerelease_suffix or "", int(pre_num or 0), self.dev_suffix or "", int(dev_num or 0)
+            rel = rel or ""
+            dev = dev or ""
+            self.dev_suffix = f"{rel}.{dev}"
+            self.prerelease_suffix = pre or ""
+            self.prerelease = self.prerelease_suffix, int(pre_num or 0), self.dev_suffix, int(dev_num or 0)
+            rel_num = None  # A .post on top of a .rc or .dev is still a pre-release
+
+        else:
+            self.release_suffix = rel
 
         components = [int(c) for c in m.group("main").split(".")]
         if len(components) > max_parts:

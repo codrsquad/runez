@@ -845,3 +845,31 @@ def test_version_comparison():
     assert v20d < v20
     assert v3 > v20
     assert v3 > v20d
+
+
+def test_version_crazy():
+    expected = [
+        Version("1.2.3.7"),
+        Version("1.2.3.40dev7"),
+        Version("1.2.3.40post6.dev7"),
+        Version("1.2.3.40rc5"),
+        Version("1.2.3.40rc5.dev0"),
+        Version("1.2.3.40rc5.dev7"),
+        Version("1.2.3.40rc5.post6"),
+        Version("1.2.3.40rc5.post6.dev7"),
+        Version("1.2.3.40rc5.post6.dev8"),
+        Version("1.2.3.40rc6"),
+        Version("1.2.3.40rc6.dev7"),
+        Version("1.2.3.40rc6.post15"),
+        Version("1.2.3.40rc20.post6.dev7"),
+        Version("1.2.3.40rc20.post17.dev8"),
+        Version("1.2.3.40"),
+        Version("1.2.3.40post6"),
+    ]
+    given = [expected[1]]
+    for i, v in enumerate(expected):
+        if v not in given:
+            given.append(v)
+
+    assert given != expected
+    assert sorted(given) == expected
