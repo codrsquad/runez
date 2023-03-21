@@ -862,8 +862,7 @@ class PythonDepot:
 
 class Version:
     """
-    Parse versions according to PEP-440, ordering for non pre-releases is well supported
-    Pre-releases are partially supported, no complex combinations (such as ".post.dev") are paid attention to
+    Parse versions according to PEP-440, including ordering.
     """
 
     def __init__(self, text, max_parts=5, strict=False):
@@ -879,9 +878,7 @@ class Version:
         self.epoch = 0
         self.local_part = None
         self.prerelease = None
-        self.release_suffix = None
-        self.dev_suffix = None
-        self.prerelease_suffix = None
+        self.suffix = None
         m = _R.lc.rx_version.match(self.text)
         if not m:
             self.ignored = self.text
@@ -895,17 +892,15 @@ class Version:
         self.epoch = int(m.group("epoch") or 0)
         self.local_part = m.group("local") or None
         pre, pre_num, rel, rel_num, dev, dev_num = m.group("pre", "pre_num", "rel", "rel_num", "dev", "dev_num")
-        if pre or dev:
-            # Order: .devN, aN, bN, rcN, <no suffix>, .postN
-            rel = rel or ""
-            dev = dev or ""
-            self.dev_suffix = f"{rel}.{dev}"
-            self.prerelease_suffix = pre or ""
-            self.prerelease = self.prerelease_suffix, int(pre_num or 0), self.dev_suffix, int(dev_num or 0)
-            rel_num = None  # A .post on top of a .rc or .dev is still a pre-release
+        if pre == "c":
+            pre = "rc"
 
-        else:
-            self.release_suffix = rel
+        # Order: .devN, aN, bN, rcN, <no suffix>, .postN
+        self.suffix = joined(pre, rel, dev, delimiter=".", keep_empty=None) or None
+        if pre or dev:
+            self.prerelease = pre or "", int(pre_num or 0), rel or "", int(rel_num or 0), dev or "z", int(dev_num or 0)
+            if pre:
+                rel = rel_num = None  # rc.post does not count as .post (but a .post.dev does)
 
         components = [int(c) for c in m.group("main").split(".")]
         if len(components) > max_parts:
@@ -915,14 +910,9 @@ class Version:
         while len(components) < max_parts:
             components.append(0)
 
-        components.append(int(rel_num) if rel_num is not None else 0)
-        components.append(self.release_suffix or "")
+        components.append(int(rel_num or 0))
+        components.append(rel or "")
         self.components = tuple(components)
-
-    @property
-    def suffix(self):
-        """Deprecated: Originally this was used for version comparison, but text comparison """
-        return joined(self.prerelease_suffix, self.release_suffix, self.dev_suffix, delimiter=".", keep_empty=None) or None
 
     @classmethod
     def from_text(cls, text, strict=False):
@@ -963,6 +953,7 @@ class Version:
             and self.epoch == other.epoch
             and self.components == other.components
             and self.prerelease == other.prerelease
+            and self.local_part == other.local_part
         )
 
     def __lt__(self, other):
@@ -975,6 +966,26 @@ class Version:
                 return bool(other.components)
 
             if self.components == other.components:
+                if self.prerelease == other.prerelease:
+                    my_parts = self.local_parts
+                    other_parts = other.local_parts
+                    if my_parts is None or other_parts is None:
+                        return bool(other_parts)
+
+                    for mine, theirs in zip(my_parts, other_parts):
+                        if mine == theirs:
+                            continue
+
+                        if theirs.isdigit():
+                            return not mine.isdigit() or int(mine) < int(theirs)
+
+                        if mine.isdigit():
+                            return False
+
+                        return mine < theirs
+
+                    return len(my_parts) < len(other_parts)
+
                 if self.prerelease is None or other.prerelease is None:
                     return bool(self.prerelease)
 
@@ -993,6 +1004,17 @@ class Version:
     def __gt__(self, other):
         other = Version.from_text(other, strict=True)
         return other is None or other < self
+
+    @property
+    def local_parts(self):
+        """Local parts are only needed when comparing versions that differ solely by local part..."""
+        if self.local_part:
+            v = getattr(self, "_local_parts", None)
+            if v is None:
+                v = self.local_part.split(".")
+                setattr(self, "_local_parts", v)
+
+            return v
 
     @property
     def is_final(self):

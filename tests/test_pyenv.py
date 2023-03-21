@@ -626,16 +626,16 @@ def test_unknown():
     [
         ("1.2", (1, 2, 0, 0, 0, 0, "")),
         ("1.2rev5", (1, 2, 0, 0, 0, 5, "rev")),
-        ("1.2r5.dev3", (1, 2, 0, 0, 0, 5, "r", "", 0, "dev", 3)),
-        ("1.dev0", (1, 0, 0, 0, 0, 0, "", "", 0, "dev", 0)),
-        ("1.0.dev456", (1, 0, 0, 0, 0, 0, "", "", 0, "dev", 456)),
-        ("1.0a12", (1, 0, 0, 0, 0, 0, "", "a", 12, "", 0)),
-        ("1.2.3rc12", (1, 2, 3, 0, 0, 0, "", "rc", 12, "", 0)),
-        ("1.0a2.dev456", (1, 0, 0, 0, 0, 0, "", "a", 2, "dev", 456)),
-        ("1.0b2.post345", (1, 0, 0, 0, 0, 345, "post", "b", 2, "", 0)),
-        ("1.0b2.post345.dev456", (1, 0, 0, 0, 0, 345, "post", "b", 2, "dev", 456)),
-        ("1.0rc1.dev456", (1, 0, 0, 0, 0, 0, "", "rc", 1, "dev", 456)),
-        ("1.0.post456.dev34", (1, 0, 0, 0, 0, 456, "post", "", 0, "dev", 34)),
+        ("1.2r5.dev3", (1, 2, 0, 0, 0, 5, "r", "", 0, "r", 5, "dev", 3)),
+        ("1.dev0", (1, 0, 0, 0, 0, 0, "", "", 0, "", 0, "dev", 0)),
+        ("1.0.dev456", (1, 0, 0, 0, 0, 0, "", "", 0, "", 0, "dev", 456)),
+        ("1.0a12", (1, 0, 0, 0, 0, 0, "", "a", 12, "", 0, "z", 0)),
+        ("1.2.3rc12", (1, 2, 3, 0, 0, 0, "", "rc", 12, "", 0, "z", 0)),
+        ("1.0a2.dev456", (1, 0, 0, 0, 0, 0, "", "a", 2, "", 0, "dev", 456)),
+        ("1.0b2.post345", (1, 0, 0, 0, 0, 0, "", "b", 2, "post", 345, "z", 0)),
+        ("1.0b2.post345.dev456", (1, 0, 0, 0, 0, 0, "", "b", 2, "post", 345, "dev", 456)),
+        ("1.0rc1.dev456", (1, 0, 0, 0, 0, 0, "", "rc", 1, "", 0, "dev", 456)),
+        ("1.0.post456.dev34", (1, 0, 0, 0, 0, 456, "post", "", 0, "post", 456, "dev", 34)),
     ]
 )
 def test_pep_sample(given_version, expected):
@@ -728,7 +728,7 @@ def test_version():
     assert not vrc.is_final
     assert not vrc_strict.is_valid
     assert not vdev.is_final
-    assert vdev.prerelease == ("a", 4, "dev", 5)
+    assert vdev.prerelease == ("a", 4, "", 0, "dev", 5)
     assert vrc.suffix == "rc"
     assert vdev.suffix == "a.dev"  # Try and convey the fact that we have .a.dev version
 
@@ -736,7 +736,7 @@ def test_version():
     assert str(vrc) == "1.0rc4"
     assert str(vdev) == "1.0a4.dev5"
     assert vdev.suffix == "a.dev"
-    assert vdev.prerelease == ("a", 4, "dev", 5)
+    assert vdev.prerelease == ("a", 4, "", 0, "dev", 5)
     assert vrc.major == 1
     assert vrc.minor == 0
     assert vrc.patch == 0
@@ -747,7 +747,7 @@ def test_version():
     assert not incomplete_dev.is_final
     assert incomplete_dev.is_valid
     assert incomplete_dev.main == "0.4.34"
-    assert incomplete_dev.prerelease == ("", 0, "dev", 0)
+    assert incomplete_dev.prerelease == ("", 0, "", 0, "dev", 0)
     assert incomplete_dev.suffix == "dev"
 
     # .from_text() can be used to filter out invalid versions as None
@@ -848,28 +848,69 @@ def test_version_comparison():
 
 
 def test_version_crazy():
-    expected = [
+    verify_ordering([
         Version("1.2.3.7"),
         Version("1.2.3.40dev7"),
-        Version("1.2.3.40post6.dev7"),
-        Version("1.2.3.40rc5"),
+        Version("1.2.3.40a6"),
         Version("1.2.3.40rc5.dev0"),
-        Version("1.2.3.40rc5.dev7"),
-        Version("1.2.3.40rc5.post6"),
+        Version("1.2.3.40c5.dev7"),  # PEP-440 says 'c' should be sorted as 'rc'
+        Version("1.2.3.40rc5"),
         Version("1.2.3.40rc5.post6.dev7"),
         Version("1.2.3.40rc5.post6.dev8"),
-        Version("1.2.3.40rc6"),
+        Version("1.2.3.40rc5.post6"),
         Version("1.2.3.40rc6.dev7"),
+        Version("1.2.3.40rc6"),
         Version("1.2.3.40rc6.post15"),
         Version("1.2.3.40rc20.post6.dev7"),
         Version("1.2.3.40rc20.post17.dev8"),
         Version("1.2.3.40"),
+        Version("1.2.3.40post6.dev7"),
         Version("1.2.3.40post6"),
-    ]
-    given = [expected[1]]
-    for i, v in enumerate(expected):
-        if v not in given:
-            given.append(v)
+    ])
+
+
+def test_version_local_part():
+    verify_ordering([
+        Version("1.0+foo.a"),
+        Version("1.0+foo.a.b"),
+        Version("1.0+foo.a.5"),
+        Version("1.0+foo.z"),
+        Version("1.0+foo.z.8"),
+        Version("1.0+foo.5"),
+        Version("1.0+foo.7"),
+    ])
+
+
+def test_version_pep_440():
+    verify_ordering([
+        Version("1.dev0"),
+        Version("1.0.dev456"),
+        Version("1.0a1"),
+        Version("1.0a2.dev456"),
+        Version("1.0a12.dev456"),
+        Version("1.0a12"),
+        Version("1.0b1.dev456"),
+        Version("1.0b2"),
+        Version("1.0b2.post345.dev456"),
+        Version("1.0b2.post345"),
+        Version("1.0rc1.dev456"),
+        Version("1.0rc1"),
+        Version("1.0"),
+        Version("1.0+abc.5"),
+        Version("1.0+abc.7"),
+        Version("1.0+5"),
+        Version("1.0.post456.dev34"),
+        Version("1.0.post456"),
+        Version("1.0.15"),
+        Version("1.1.dev1"),
+    ])
+
+
+def verify_ordering(expected):
+    # Jumble the given list of versions a bit, then sort them and verify they sort back to 'expected'
+    given = sorted(expected, key=lambda x: x.text)
+    x = given.pop(len(given) // 2)
+    given.append(x)
 
     assert given != expected
     assert sorted(given) == expected
