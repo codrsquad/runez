@@ -624,18 +624,18 @@ def test_unknown():
 @pytest.mark.parametrize(
     ("given_version", "expected"),
     [
-        ("1.2", (1, 2, 0, 0, 0, 0)),
-        ("1.2rev5", (1, 2, 0, 0, 0, 5)),
-        ("1.2r5.dev3", (1, 2, 0, 0, 0, 5, ".dev.r", 0, 3)),
-        ("1.dev0", (1, 0, 0, 0, 0, 0, ".dev", 0, 0)),
-        ("1.0.dev456", (1, 0, 0, 0, 0, 0, ".dev", 0, 456)),
-        ("1.0a12", (1, 0, 0, 0, 0, 0, "a", 12, 0)),
-        ("1.2.3rc12", (1, 2, 3, 0, 0, 0, "rc", 12, 0)),
-        ("1.0a2.dev456", (1, 0, 0, 0, 0, 0, "a.dev", 2, 456)),
-        ("1.0b2.post345", (1, 0, 0, 0, 0, 345, "b.post", 2, 0)),
-        ("1.0b2.post345.dev456", (1, 0, 0, 0, 0, 345, "b.dev.post", 2, 456)),
-        ("1.0rc1.dev456", (1, 0, 0, 0, 0, 0, "rc.dev", 1, 456)),
-        ("1.0.post456.dev34", (1, 0, 0, 0, 0, 456, ".dev.post", 0, 34)),
+        ("1.2", (1, 2, 0, 0, 0, 0, "")),
+        ("1.2rev5", (1, 2, 0, 0, 0, 5, "rev")),
+        ("1.2r5.dev3", (1, 2, 0, 0, 0, 5, "r", "", 0, "dev", 3)),
+        ("1.dev0", (1, 0, 0, 0, 0, 0, "", "", 0, "dev", 0)),
+        ("1.0.dev456", (1, 0, 0, 0, 0, 0, "", "", 0, "dev", 456)),
+        ("1.0a12", (1, 0, 0, 0, 0, 0, "", "a", 12, "", 0)),
+        ("1.2.3rc12", (1, 2, 3, 0, 0, 0, "", "rc", 12, "", 0)),
+        ("1.0a2.dev456", (1, 0, 0, 0, 0, 0, "", "a", 2, "dev", 456)),
+        ("1.0b2.post345", (1, 0, 0, 0, 0, 345, "post", "b", 2, "", 0)),
+        ("1.0b2.post345.dev456", (1, 0, 0, 0, 0, 345, "post", "b", 2, "dev", 456)),
+        ("1.0rc1.dev456", (1, 0, 0, 0, 0, 0, "", "rc", 1, "dev", 456)),
+        ("1.0.post456.dev34", (1, 0, 0, 0, 0, 456, "post", "", 0, "dev", 34)),
     ]
 )
 def test_pep_sample(given_version, expected):
@@ -699,7 +699,7 @@ def test_version():
     assert not bogus.prerelease
 
     v1 = Version("1")
-    assert v1.components == (1, 0, 0, 0, 0, 0)
+    assert v1.components == (1, 0, 0, 0, 0, 0, "")
     assert str(v1) == "1"
     assert v1.mm == "1.0"
     assert empty < v1
@@ -728,13 +728,15 @@ def test_version():
     assert not vrc.is_final
     assert not vrc_strict.is_valid
     assert not vdev.is_final
-    assert vdev.prerelease == ("a.dev", 4, 5)
+    assert vdev.prerelease == ("a", 4, "dev", 5)
     assert vrc.suffix == "rc"
     assert vdev.suffix == "a.dev"  # Try and convey the fact that we have .a.dev version
 
     assert vdev < vrc
     assert str(vrc) == "1.0rc4"
     assert str(vdev) == "1.0a4.dev5"
+    assert vdev.suffix == "a.dev"
+    assert vdev.prerelease == ("a", 4, "dev", 5)
     assert vrc.major == 1
     assert vrc.minor == 0
     assert vrc.patch == 0
@@ -745,8 +747,8 @@ def test_version():
     assert not incomplete_dev.is_final
     assert incomplete_dev.is_valid
     assert incomplete_dev.main == "0.4.34"
-    assert incomplete_dev.prerelease == (".dev", 0, 0)
-    assert incomplete_dev.suffix == ".dev"
+    assert incomplete_dev.prerelease == ("", 0, "dev", 0)
+    assert incomplete_dev.suffix == "dev"
 
     # .from_text() can be used to filter out invalid versions as None
     assert Version.from_text("Python 3.8.6", strict=True) is None
@@ -764,6 +766,7 @@ def test_version_comparison():
     v10rc5 = Version("1.0rc5")
     assert v10rc5 > "0.9"
     assert v10rc5 > "1.0rc2"
+    assert v10rc5 > "1.0rc2.dev10"
     assert v10rc5 > "1.0a5"
     assert v10rc5 < "1.0rc15"
     assert v10rc5 < "1.0"
@@ -796,7 +799,7 @@ def test_version_comparison():
     assert v12p.is_final
     assert v11.suffix is None
     assert v12p.suffix == "post"
-    assert v20d.suffix == ".dev"
+    assert v20d.suffix == "dev"
 
     # Verify that numerical comparison takes place (not alphanumeric)
     assert None < v12  # For total ordering

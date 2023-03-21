@@ -879,7 +879,9 @@ class Version:
         self.epoch = 0
         self.local_part = None
         self.prerelease = None
-        self.suffix = None
+        self.release_suffix = None
+        self.dev_suffix = None
+        self.prerelease_suffix = None
         m = _R.lc.rx_version.match(self.text)
         if not m:
             self.ignored = self.text
@@ -893,28 +895,29 @@ class Version:
         self.epoch = int(m.group("epoch") or 0)
         self.local_part = m.group("local") or None
         pre, pre_num, rel, rel_num, dev, dev_num = m.group("pre", "pre_num", "rel", "rel_num", "dev", "dev_num")
+        self.release_suffix = rel
+        self.dev_suffix = dev
+        self.prerelease_suffix = pre
         if pre or dev:
             # Order: .devN, aN, bN, rcN, <no suffix>, .postN
-            dev_suffix = pre or ""
-            if dev:
-                dev_suffix += ".dev"
+            self.prerelease = self.prerelease_suffix or "", int(pre_num or 0), self.dev_suffix or "", int(dev_num or 0)
 
-            self.suffix = joined(dev_suffix, rel, delimiter=".", keep_empty=None) or None
-            self.prerelease = self.suffix, int(pre_num or 0), int(dev_num or 0)
-
-        else:
-            self.suffix = rel
-
-        components = m.group("main").split(".")
+        components = [int(c) for c in m.group("main").split(".")]
         if len(components) > max_parts:
-            return  # Invalid version
+            return  # Invalid version, too many parts
 
-        self.given_components = tuple(map(int, components))
+        self.given_components = tuple(components)
         while len(components) < max_parts:
             components.append(0)
 
-        components.append(rel_num or 0)
-        self.components = tuple(map(int, components))
+        components.append(int(rel_num) if rel_num is not None else 0)
+        components.append(self.release_suffix or "")
+        self.components = tuple(components)
+
+    @property
+    def suffix(self):
+        """Deprecated: Originally this was used for version comparison, but text comparison """
+        return joined(self.prerelease_suffix, self.release_suffix, self.dev_suffix, delimiter=".", keep_empty=None) or None
 
     @classmethod
     def from_text(cls, text, strict=False):
