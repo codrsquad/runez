@@ -221,7 +221,7 @@ def daemonize():
 def is_executable(path):
     """
     Args:
-        path (str | None): Path to file
+        path (str | pathlib.Path | None): Path to file
 
     Returns:
         (bool): True if file exists and is executable
@@ -235,7 +235,7 @@ def is_executable(path):
 def make_executable(path, fatal=True, logger=UNSET, dryrun=UNSET):
     """
     Args:
-        path (str): chmod file with 'path' as executable
+        path (str | pathlib.Path): chmod file with 'path' as executable
         fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool | UNSET | None): Optionally override current dryrun setting
@@ -542,7 +542,7 @@ def require_installed(program, instructions=None, platform=None):
     """Raise an exception if 'program' is not available on PATH, show instructions on how to install it
 
     Args:
-        program (str): Program to check
+        program (str | pathlib.Path): Program to check
         instructions (str | dict): Short instructions letting user know how to get `program` installed, example: `run: brew install foo`
                                    Extra convenience, specify:
                                    - None if `program` can simply be installed via `brew install <program>`

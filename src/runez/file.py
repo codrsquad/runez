@@ -337,8 +337,8 @@ def move(source, destination, overwrite=True, fatal=True, logger=UNSET, dryrun=U
     """Move `source` -> `destination`
 
     Args:
-        source (str | None): Source file or folder
-        destination (str | None): Destination file or folder
+        source (str | Path | None): Source file or folder
+        destination (str | Path | None): Destination file or folder
         overwrite (bool | None): True: replace existing, False: fail if destination exists, None: no destination check
         fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
@@ -655,8 +655,8 @@ def _file_op(source, destination, func, overwrite, fatal, logger, dryrun, must_e
     """Call func(source, destination)
 
     Args:
-        source (str | None): Source file or folder
-        destination (str | None): Destination file or folder
+        source (str | Path | None): Source file or folder
+        destination (str | Path | None): Destination file or folder
         func (callable): Implementation function
         overwrite (bool | None): True: replace existing, False: fail if destination exists, None: no destination check
         fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
@@ -669,6 +669,8 @@ def _file_op(source, destination, func, overwrite, fatal, logger, dryrun, must_e
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
     """
+    source = str(source)  # Using str to remain compatible with py3.6 for a while longer
+    destination = str(destination)
     if not source or not destination or source == destination:
         return 0
 

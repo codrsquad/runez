@@ -982,7 +982,7 @@ class RestClient:
         This can be used as an example cache setup
 
         Args:
-            directory (str | None): Directory where to store the cache
+            directory (str | Path | None): Directory where to store the cache
             default_expire (int | float | str): Default expiration time in seconds
             size_limit (int | float | str): Size limit for this cache
 

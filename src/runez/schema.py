@@ -364,7 +364,7 @@ class Struct(Any):
         """
         Args:
             data (dict): Raw data, coming for example from a json file
-            source (str | None): Optional, description of source where 'data' came from
+            source (str | pathlib.Path | None): Optional, description of source where 'data' came from
         """
         if data is not None:
             self.meta.set_from_dict(self, data, source=source)

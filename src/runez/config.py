@@ -107,14 +107,14 @@ class Configuration:
     def use_json(self, *paths):
         """
         Args:
-            *paths (str): Paths to files to add as static DictProvider-s, only existing files are added
+            *paths (str | pathlib.Path): Paths to files to add as static DictProvider-s, only existing files are added
         """
         for path in paths:
             if path:
                 fpath = os.path.expanduser(path)
                 if os.path.exists(fpath):
                     with open(fpath) as fh:
-                        provider = DictProvider(json.load(fh), name=path)
+                        provider = DictProvider(json.load(fh), name=str(path))
                         self.add(provider)
 
     def add(self, provider, front=False):

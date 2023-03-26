@@ -8,7 +8,7 @@ def ask_once(name, instructions, default=None, base="~/.config", serializer=stri
         name (str): Name under which to store provided answer (will be stored in ~/.config/<name>.json)
         instructions (str): Instructions to show to user when prompt is necessary
         default: Default value to return if answer not available
-        base (str): Base folder where to stored provided answer
+        base (str | pathlib.Path): Base folder where to stored provided answer
         serializer (callable): Function that will turn provided value into object to be stored
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log

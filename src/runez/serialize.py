@@ -400,7 +400,7 @@ class ClassMetaDescription:
         """
         Args:
             data (dict): Raw data, coming for example from a json file
-            source (str | None): Optional, description of source where 'data' came from
+            source (str | pathlib.Path | None): Optional, description of source where 'data' came from
 
         Returns:
             (cls): Deserialized object
@@ -415,7 +415,7 @@ class ClassMetaDescription:
         Args:
             obj (Serializable): Object to populate
             data (dict): Raw data, coming for example from a json file
-            source (str | None): Optional, description of source where 'data' came from
+            source (str | pathlib.Path | None): Optional, description of source where 'data' came from
         """
         given = {} if data is None else dict(data)  # Copy of data
         for name, schema_type in self.attributes.items():
@@ -581,7 +581,7 @@ class Serializable:
         """
         Args:
             data (dict): Raw data, coming for example from a json file
-            source (str | None): Optional, description of source where 'data' came from
+            source (str | pathlib.Path | None): Optional, description of source where 'data' came from
 
         Returns:
             (cls): Deserialized object
@@ -592,7 +592,7 @@ class Serializable:
         """
         Args:
             data (dict): Raw data, coming for example from a json file
-            source (str | None): Optional, description of source where 'data' came from
+            source (str | pathlib.Path | None): Optional, description of source where 'data' came from
             merge (bool): If True, add `data` to existing fields
         """
         if data is not None:

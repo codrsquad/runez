@@ -616,7 +616,7 @@ class PythonDepot:
     def find_python(self, spec, fatal=False, logger=False):
         """
         Args:
-            spec (str | PythonSpec | PythonInstallation | None): Example: 3.7, py37, pypy3.7, conda3.7, /usr/bin/python
+            spec (str | pathlib.Path | PythonSpec | PythonInstallation | None): Example: 3.7, py37, pypy3.7, conda3.7, /usr/bin/python
             fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
 
@@ -754,7 +754,7 @@ class PythonDepot:
     def resolved_python_exe(self, path, version=None):
         """Find python executable from 'path'
         Args:
-            path (str): Path to a bin/python, or a folder containing bin/python
+            path (str | pathlib.Path): Path to a bin/python, or a folder containing bin/python
             version (Version | None): Optional, major/minor version to search for
 
         Returns:
@@ -806,7 +806,7 @@ class PythonDepot:
     def _python_from_path(self, path, equivalents=None):
         """
         Args:
-            path (str): Path to python executable
+            path (str | pathlib.Path): Path to python executable
             equivalents (list | set | None): Additional equivalent paths
 
         Returns:
@@ -1159,7 +1159,7 @@ class _Introspect:
     def scan_exe(cls, exe):
         """
         Args:
-            exe (str): Path to python executable
+            exe (str | pathlib.Path): Path to python executable
 
         Returns:
             (PyInstallInfo): Extracted info
