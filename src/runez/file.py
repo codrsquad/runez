@@ -279,7 +279,7 @@ def parent_folder(path, base=None):
     return path and os.path.dirname(resolved_path(path, base=base))
 
 
-def readlines(path, first=None, errors="ignore", fatal=False, logger=False):
+def readlines(path, first=None, errors="ignore", fatal=False, logger=False, rstrip=True):
     """
     Args:
         path (str | Path | None): Path to file to read lines from
@@ -300,7 +300,7 @@ def readlines(path, first=None, errors="ignore", fatal=False, logger=False):
                 if first == 0:
                     return
 
-                yield decode(line).rstrip()
+                yield decode(line).rstrip() if rstrip else decode(line)
                 first -= 1
 
     except Exception as e:
