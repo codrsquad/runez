@@ -279,7 +279,7 @@ def parent_folder(path, base=None):
     return path and os.path.dirname(resolved_path(path, base=base))
 
 
-def readlines(path, first=None, errors="ignore", fatal=False, logger=False, transform=lambda x: x.rstrip()):
+def readlines(path, first=None, errors="ignore", fatal=False, logger=False, transform=str.rstrip):
     """
     Args:
         path (str | Path | None): Path to file to read lines from
