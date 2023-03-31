@@ -247,6 +247,9 @@ def test_file_inspection(temp_folder, logged):
     sample = runez.DEV.tests_path("sample.txt")
     assert len(list(runez.readlines(sample))) == 4
     assert len(list(runez.readlines(sample, first=1))) == 1
+    unstripped_lines = list(runez.readlines(sample, first=1, transform=None))
+    assert len(unstripped_lines) == 1
+    assert unstripped_lines[0].endswith("\n")
     assert not logged
 
     cc = "%s\n" % "\n".join(runez.readlines(sample))

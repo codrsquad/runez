@@ -279,7 +279,7 @@ def parent_folder(path, base=None):
     return path and os.path.dirname(resolved_path(path, base=base))
 
 
-def readlines(path, first=None, errors="ignore", fatal=False, logger=False):
+def readlines(path, first=None, errors="ignore", fatal=False, logger=False, transform=str.rstrip):
     """
     Args:
         path (str | Path | None): Path to file to read lines from
@@ -287,6 +287,7 @@ def readlines(path, first=None, errors="ignore", fatal=False, logger=False):
         errors (str | None): Optional string specifying how encoding errors are to be handled
         fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+        transform (callable | None): Optional callable to transform each line
 
     Yields:
         (str): Lines read, newlines and trailing spaces stripped
@@ -300,7 +301,10 @@ def readlines(path, first=None, errors="ignore", fatal=False, logger=False):
                 if first == 0:
                     return
 
-                yield decode(line).rstrip()
+                line = decode(line)
+                if transform:
+                    line = transform(line)
+                yield line
                 first -= 1
 
     except Exception as e:
