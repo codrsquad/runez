@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import runez
-from runez.http import ForbiddenHttpError, GlobalHttpCalls, MockResponse, RestClient, RestHandler, RestResponse, urljoin
+from runez.http import ForbiddenHttpError, GlobalHttpCalls, MockResponse, RestClient, RestResponse, urljoin
 
 
 EXAMPLE = RestClient("https://example.com")
@@ -172,10 +172,6 @@ def test_edge_cases():
     assert urljoin("http://example.net/a/#/b", "https://example.com/b") == "https://example.com/b"
     assert urljoin("http://example.net/a/#/b", "c") == 'http://example.net/a/#/b/c'
     assert urljoin("http://example.net/a#b", "c") == 'http://example.net/a#b/c'
-
-    with pytest.raises(Exception) as exc:
-        RestClient(handler=RestHandler)
-    assert "is not usable" in str(exc)
 
 
 @EXAMPLE.mock({})

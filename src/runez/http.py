@@ -31,7 +31,6 @@ import urllib.parse
 from pathlib import Path
 
 from runez.file import checksum, decompress, delete, ensure_folder, TempFolder, to_path
-from runez.logsetup import LogManager
 from runez.system import _R, abort, DEV, find_caller, joined, short, stringified, SYS_INFO, UNSET
 
 
@@ -580,10 +579,6 @@ class RestHandler:
         return MockWrapper(cls, base_url, specs)
 
     @classmethod
-    def is_usable(cls):
-        """Is this handler currently usable"""
-
-    @classmethod
     def new_session(cls, **session_spec):
         """New session for 'session_spec'"""
 
@@ -624,24 +619,6 @@ class RestHandler:
 
 class RequestsHandler(RestHandler):
     """Using requests (client is to bring in the dependency)"""
-
-    _is_usable = None
-
-    @classmethod
-    def is_usable(cls):
-        if cls._is_usable is None:
-            try:
-                import requests
-                import urllib3
-
-                # Silence logs, we use runez' more sophisticated logging setup
-                LogManager.silence(requests, urllib3)
-                cls._is_usable = True
-
-            except ImportError:  # pragma: no cover
-                cls._is_usable = False
-
-        return cls._is_usable
 
     @classmethod
     def default_retry(cls):
@@ -737,9 +714,6 @@ class RestClient:
         self.cache_wrapper = cache
         if handler:
             self.handler = handler
-
-        if not self.handler or not self.handler.is_usable():
-            raise Exception("RestClient handler '%s' is not usable" % self.handler)
 
         self.user_agent = user_agent or self.handler.user_agent()
         self.session = session or self.handler.new_session(**session_spec)
