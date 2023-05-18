@@ -52,7 +52,7 @@ def cmd_diagnostics():
 
     from runez.pyenv import PythonDepot
 
-    depot = PythonDepot("~/.pyenv/versions/**", "$PATH")
+    depot = PythonDepot("~/.pyenv/versions/**", "PATH")
     available = depot.representation()
     print(PrettyTable.two_column_diagnostics(runez.SYS_INFO.diagnostics(), available, border=args.border))
 

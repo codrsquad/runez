@@ -108,7 +108,7 @@ def test_depot_adhoc(temp_folder):
 
 
 def test_depot_path(temp_folder):
-    depot = PythonDepot("$PATH")
+    depot = PythonDepot("PATH")
     assert depot.available_pythons
 
 
@@ -144,11 +144,25 @@ def test_empty_depot(temp_folder):
     assert p.full_version is None
 
     # Disabling invoker still finds it explicitly, but not by generic spec
-    # depot = PythonDepot()
     depot.invoker = None
     assert depot.find_python("invoker") is invoker  # Found only if explicitly referred to
     assert str(depot.find_python("python")) == "python [not available]"
     assert str(depot.find_python(mm.text)) == "%s [not available]" % mm
+
+
+def test_invoker(monkeypatch):
+    from runez.pyenv import PyInstallInfo
+
+    # Simulate case where runez was installed globally (not in a venv)
+    monkeypatch.setattr(PyInstallInfo, "cached_by_path", {})
+    monkeypatch.setattr(runez.SYS_INFO, "is_running_in_venv", False)
+    monkeypatch.delattr(runez.SYS_INFO, "invoker_python")
+    invoker = runez.SYS_INFO.invoker_python
+    assert invoker.executable == sys.executable
+    assert not invoker.is_virtualenv
+    assert invoker.is_invoker
+    assert invoker.major == sys.version_info[0]
+    assert not invoker.problem
 
 
 def test_installation_short_name():

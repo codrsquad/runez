@@ -831,7 +831,7 @@ class PythonInstallationLocation:
     - <some-folder>: look for <some-folder>/pythonM.m exes
     - <some-folder>/python*: look for <some-folder>/pythonM.m/bin/pythonM.m (eg: /apps/python*)
     - <some-folder>/**: look for <some-folder>/**/bin/pythonM.m (eg: ~/.pyenv/versions/**)
-    - $PATH: Scan PATH env var for python exes
+    - PATH: Scan PATH env var for python exes
     """
     def __init__(self, location):
         self.location = location
@@ -842,8 +842,8 @@ class PythonInstallationLocation:
     @cached_property
     def available_pythons(self):
         location = self.location
-        if location.startswith("$"):
-            return list(self.installations_from_path_env_var(env_var=location[1:]))
+        if location == "PATH":
+            return list(self.installations_from_path_env_var(env_var=location))
 
         if location.endswith("/**"):
             # Ignore bad pyenv installations, as we need to dynamically sort them by their full spec
