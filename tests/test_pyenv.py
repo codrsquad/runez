@@ -430,6 +430,7 @@ def test_version():
     assert loose.is_valid
     assert loose.ignored == ".dirty"
     assert str(loose) == "1.0"
+    assert loose.pep_440 == "1.0"
 
     invalid = Version("v1.0.dirty", strict=True)
     assert not invalid.is_valid
@@ -437,10 +438,13 @@ def test_version():
     assert invalid.ignored == ".dirty"
     assert loose > invalid
 
-    dev101 = Version("0.0.1.dev101")
+    dev101 = Version("0.0.1dev101")
     assert not dev101.is_final
     assert dev101.is_valid
+    assert not dev101.is_dirty
     assert dev101.prerelease
+    assert str(dev101) == "0.0.1dev101"
+    assert dev101.pep_440 == "0.0.1.dev101"
 
     none = Version(None)
     assert str(none) == ""
@@ -455,9 +459,12 @@ def test_version():
     assert empty.major is None
 
     ep = Version("123!2.1+foo.dirty-bar")
+    assert str(ep) == "123!2.1+foo.dirty-bar"
+    assert ep.pep_440 == "123!2.1+foo.dirty-bar"
     assert ep.is_valid
+    assert ep.is_dirty
     assert ep.epoch == 123
-    assert ep.main == "2.1.0"
+    assert ep.main == "2.1"
     assert ep.local_part == "foo.dirty-bar"
     assert ep.mm == "2.1"
 
@@ -473,10 +480,12 @@ def test_version():
     assert not bogus.is_valid
     assert not bogus.components
     assert not bogus.prerelease
+    assert bogus.mm is None
 
     v1 = Version("1")
     assert v1.components == (1, 0, 0, 0, 0, 0, "")
     assert str(v1) == "1"
+    assert v1.main == "1"
     assert v1.mm == "1.0"
     assert empty < v1
     assert v1 > empty
@@ -500,6 +509,8 @@ def test_version():
     vrc = Version("1.0rc4-foo")
     vrc_strict = Version("1.0rc4-foo", strict=True)
     vdev = Version("1.0a4.dev5-foo")
+    assert vdev.pep_440 == "1.0a4.dev5"
+    assert vdev.ignored == "-foo"
     assert vrc.is_valid
     assert not vrc.is_final
     assert not vrc_strict.is_valid
@@ -516,7 +527,7 @@ def test_version():
     assert vrc.major == 1
     assert vrc.minor == 0
     assert vrc.patch == 0
-    assert vrc.main == "1.0.0"
+    assert vrc.main == "1.0"
     assert Version.from_text("foo, version 1.0a4.dev5\nbar baz") == vdev
 
     incomplete_dev = Version("0.4.34dev")
@@ -657,7 +668,7 @@ def test_version_local_part():
     ])
 
 
-def test_version_pep_440():
+def test_version_ordering():
     verify_ordering([
         Version("1.dev0"),
         Version("1.0.dev456"),
@@ -690,3 +701,35 @@ def verify_ordering(expected):
 
     assert given != expected
     assert sorted(given) == expected
+
+
+def test_version_pep_440():
+    vpost = Version("1.2.post")
+    assert vpost.is_valid
+    assert not vpost.prerelease
+    assert str(vpost) == "1.2.post"
+    assert vpost.pep_440 == "1.2.post0"
+
+    vrev5 = Version("1.2rev05")
+    assert str(vrev5) == "1.2rev05"
+    assert vrev5.is_valid
+    assert vrev5.pep_440 == "1.2.post5"
+    assert vrev5 > vpost
+
+    vr6 = Version("1.2r6")
+    assert str(vr6) == "1.2r6"
+    assert vr6.is_valid
+    assert vr6.pep_440 == "1.2.post6"
+    assert vr6 > vrev5
+
+    vrev5dev3 = Version("1.2rev05.dev3")
+    assert vrev5dev3.prerelease
+    assert str(vrev5dev3) == "1.2rev05.dev3"
+    assert vrev5dev3.pep_440 == "1.2.rev5.dev3.post5"
+    assert vpost < vrev5dev3
+    assert vrev5 > vrev5dev3
+    assert vr6 > vrev5dev3
+
+    vrc1 = Version("v1.39.4-rc.1")
+    assert str(vrc1) == "1.39.4-rc.1"
+    assert vrc1.pep_440 == "1.39.4rc1"

@@ -476,9 +476,10 @@ class Version:
             max_parts (int): Maximum number of parts (components) to consider version valid
             strict (bool): If True, extract info only from valid PEP compliant versions
         """
+        self.given_text = text
+        self.given_components = None  # Components as given by 'text'
         self.text = text or ""
         self.components = None  # tuple of components with exactly 'max_parts', autofilled with zeros
-        self.given_components = None  # Components as given by 'text'
         self.epoch = 0
         self.local_part = None
         self.prerelease = None
@@ -514,6 +515,7 @@ class Version:
         while len(components) < max_parts:
             components.append(0)
 
+        self.release_number = None if rel_num is None else int(rel_num or 0)
         components.append(int(rel_num or 0))
         components.append(rel or "")
         self.components = tuple(components)
@@ -617,11 +619,11 @@ class Version:
         other = Version.from_text(other, strict=True)
         return other is None or other < self
 
-    @property
+    @cached_property
     def given_components_count(self):
         return len(self.given_components) if self.given_components else 0
 
-    @property
+    @cached_property
     def local_parts(self):
         """Local parts are only needed when comparing versions that differ solely by local part..."""
         if self.local_part:
@@ -632,28 +634,33 @@ class Version:
 
             return v
 
-    @property
+    @cached_property
+    def is_dirty(self):
+        """Is this version marked as 'dirty'?"""
+        return self.local_part and "dirty" in self.local_part
+
+    @cached_property
     def is_final(self):
         """Is this a final version as per PEP-440?"""
         return self.is_valid and not self.prerelease
 
-    @property
+    @cached_property
     def is_valid(self):
         """Is this version valid?"""
         return self.components is not None
 
-    @property
+    @cached_property
     def main(self):
         """(str): Main part of version (Major.minor.patch)"""
-        if self.components:
-            return "%s.%s.%s" % (self.major, self.minor, self.patch)
+        if self.given_components:
+            return ".".join(str(x) for x in self.given_components[:3])
 
-    @property
+    @cached_property
     def major(self):
         """(int): Major part of version"""
         return self.components and self.components[0]
 
-    @property
+    @cached_property
     def minor(self):
         """(int): Minor part of version"""
         return self.components and self.components[1]
@@ -668,6 +675,33 @@ class Version:
     def patch(self):
         """(int): Patch part of version"""
         return self.components and self.components[2]
+
+    @cached_property
+    def pep_440(self):
+        """PEP-440 canonical version"""
+        if self.is_valid:
+            result = []
+            if self.epoch:
+                result.append(f"{self.epoch}!")
+
+            result.append(self.main)
+            if self.prerelease:
+                if self.prerelease[0]:
+                    result.append("%s%s" % (self.prerelease[0], self.prerelease[1]))
+
+                if self.prerelease[2]:
+                    result.append(".%s%s" % (self.prerelease[2], self.prerelease[3]))
+
+                if self.prerelease[4] and self.prerelease[4] != "z":
+                    result.append(".%s%s" % (self.prerelease[4], self.prerelease[5]))
+
+            if self.release_number is not None:
+                result.append(".post%s" % self.release_number)
+
+            if self.local_part:
+                result.append(f"+{self.local_part}")
+
+            return "".join(result)
 
 
 class PythonInstallation:
