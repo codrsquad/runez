@@ -281,11 +281,12 @@ def find_caller(depth=2, maximum=1000, need_file=True, need_package=False, regex
     Returns:
         (_CallerInfo | None): Caller info, if any
     """
-    if _R.getframe is not None:
+    getframe = getattr(sys, "_getframe", None)
+    if getframe is not None:
         ignored = ("importlib", "pluggy", "runez")
         while not maximum or depth <= maximum:
             try:
-                f = _R.getframe(depth)
+                f = getframe(depth)
                 package = f.f_globals.get("__package__")
                 if package or not need_package:
                     name = f.f_globals.get("__name__")
@@ -1557,6 +1558,21 @@ class SystemInfo:
             yield "sys.prefix", sys.prefix
 
     @cached_property
+    def invoker_python(self):
+        """The python that is either currently running us, or that created the venv we're running from"""
+        from runez.pyenv import PyInstallInfo, PythonInstallation
+
+        info = PyInstallInfo(version=".".join(str(s) for s in sys.version_info[:3]))
+        if self.is_running_in_venv:
+            installation = PythonInstallation.from_folder(sys.base_prefix, _info=info)
+
+        else:
+            installation = PythonInstallation.from_exe(sys.executable, _info=info)
+
+        PyInstallInfo.cached_by_path["invoker"] = installation
+        return installation
+
+    @cached_property
     def is_running_in_docker(self):
         """Are we currently running in a docker container?"""
         if os.path.exists("/.dockerenv") or os.environ.get("container"):
@@ -1573,6 +1589,11 @@ class SystemInfo:
             pass
 
         return False
+
+    @cached_property
+    def is_running_in_venv(self):
+        """Are we currently running from a virtual environment?"""
+        return sys.prefix != sys.base_prefix
 
     @cached_property
     def platform_id(self):
@@ -1620,7 +1641,7 @@ class SystemInfo:
     @cached_property
     def venv_bin_folder(self):
         """Path to current venv/bin folder, if we're running from a virtual environment"""
-        if sys.prefix != sys.base_prefix:
+        if self.is_running_in_venv:
             return os.path.join(sys.prefix, "bin")
 
     def venv_bin_path(self, name):
@@ -1970,6 +1991,7 @@ class UnitRepresentation:
 
 
 class _LazyCache:
+
     @cached_property
     def rm(self):
         import runez
@@ -2005,20 +2027,16 @@ class _LazyCache:
         return re.compile(r"^\s*(\d+[ywdhms]\s*)+$")
 
     @cached_property
-    def rx_family(self):
-        return re.compile(r"^([a-z]+\d?)[:-]?$")
-
-    @cached_property
     def rx_format_markers(self):
         return re.compile(r"{([a-z]\w*)}", re.IGNORECASE)
 
     @cached_property
-    def rx_spaces(self):
-        return re.compile(r"[\s\n]+", re.MULTILINE)
+    def rx_python_mm(self):
+        return re.compile(r"^python(\d(\.\d+)?)?$")
 
     @cached_property
-    def rx_spec(self):
-        return re.compile(r"^([a-z][a-z\d]*?)?([:-])?(\d[^:-]*)$", re.IGNORECASE)
+    def rx_spaces(self):
+        return re.compile(r"[\s\n]+", re.MULTILINE)
 
     @cached_property
     def rx_words(self):
@@ -2062,7 +2080,6 @@ class _R:
     - respecting any external modifications clients may have done (like: runez.DRYRUN = foo)
     """
 
-    getframe = getattr(sys, "_getframe", None)
     lc = _LazyCache()
 
     @classmethod

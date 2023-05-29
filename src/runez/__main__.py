@@ -50,10 +50,9 @@ def cmd_diagnostics():
     parser.add_argument("--pyenv", default="~/.pyenv", help="Pyenv folder to scan for python installations.")
     args = parser.parse_args()
 
-    from runez.pyenv import PythonDepot, PythonInstallationScanner
+    from runez.pyenv import PythonDepot
 
-    scanner = PythonInstallationScanner(args.pyenv) if args.pyenv else None
-    depot = PythonDepot(scanner=scanner, use_path=True)
+    depot = PythonDepot("~/.pyenv/versions/**", "PATH")
     available = depot.representation()
     print(PrettyTable.two_column_diagnostics(runez.SYS_INFO.diagnostics(), available, border=args.border))
 

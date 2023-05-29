@@ -1164,7 +1164,8 @@ class LogManager:
         logging.logProcesses = cls.is_using_format("%(process)")
         logging.logThreads = cls.is_using_format("%(thread) %(threadName)")
 
-        if not isinstance(logging.info, _LogWrap) and _R.getframe is not None:
+        getframe = getattr(sys, "_getframe", None)
+        if not isinstance(logging.info, _LogWrap) and getframe is not None:
             logging.critical = _LogWrap(logging.CRITICAL)
             logging.fatal = logging.critical
             logging.error = _LogWrap(logging.ERROR)
@@ -1185,11 +1186,12 @@ class _LogWrap:
 
     @staticmethod
     def log(level, msg, *args, **kwargs):
+        getframe = getattr(sys, "_getframe", None)
         offset = kwargs.pop("_stack_offset", 1)
-        name = _R.getframe(offset).f_globals.get("__name__")
+        name = getframe(offset).f_globals.get("__name__")
         logger = logging.getLogger(name)
         try:
-            logging.currentframe = lambda: _R.getframe(3 + offset)
+            logging.currentframe = lambda: getframe(3 + offset)
             logger.log(level, msg, *args, **kwargs)
 
         finally:
