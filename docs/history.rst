@@ -8,7 +8,9 @@ History
 - Generalized ``PythonDepot`` specification
   (API change, ``PythonDepot`` now takes a ``locations`` specification instead of a scanner object)
 
-- Added property ``Version.pep_440`` (canonical PEP-440 version representation)
+- Added property ``Version.pep_440`` (canonical PEP-440_ version representation)
+
+- Removed ``Version.from_text``, ``Version`` is parsed strictly by default
 
 
 3.7.1 (2023-05-03)

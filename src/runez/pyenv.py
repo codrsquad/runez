@@ -52,12 +52,11 @@ class ArtifactInfo:
         self.size = size
 
     @classmethod
-    def from_basename(cls, basename, source=None, strict=False, last_modified=None, size=None):
+    def from_basename(cls, basename, source=None, last_modified=None, size=None):
         """
         Args:
             basename (str): Basename to parse
             source: Optional arbitrary object to track provenance of ArtifactInfo
-            strict (bool): If True, extract info only from valid PEP compliant versions
             last_modified (datetime.datetime | None): Timestamp when artifact was last modified, if available
             size (int | None): Size in bytes of artifact, if available
 
@@ -76,19 +75,17 @@ class ArtifactInfo:
             is_wheel = True
 
         # RX_SDIST and RX_WHEEL both yield package_name and version as match groups 1 and 2
-        version = Version(m.group(2), strict=strict)
-        if not strict or version.is_valid:
-            return cls(
-                basename,
-                m.group(1),
-                version,
-                is_wheel=is_wheel,
-                source=source,
-                tags=tags,
-                wheel_build_number=wheel_build_number,
-                last_modified=last_modified,
-                size=size,
-            )
+        return cls(
+            basename,
+            m.group(1),
+            Version(m.group(2), canonical=None),
+            is_wheel=is_wheel,
+            source=source,
+            tags=tags,
+            wheel_build_number=wheel_build_number,
+            last_modified=last_modified,
+            size=size,
+        )
 
     def __repr__(self):
         return self.relative_url or self.basename
@@ -106,7 +103,7 @@ class ArtifactInfo:
 
     @property
     def is_dirty(self):
-        return not self.version or "dirty" in self.version.text
+        return self.version.is_dirty
 
 
 class PypiStd:
@@ -133,14 +130,14 @@ class PypiStd:
 
     @classmethod
     def std_package_name(cls, name):
-        """Standardized pypi package name, single dashes and alpha numeric chars allowed only"""
+        """Standardized pypi package name, single dashes and alphanumeric chars allowed only"""
         if cls.is_acceptable(name):
             dashed = cls.RR_PYPI.sub("-", name).lower()
             return cls.RR_PYPI.sub("-", dashed)  # 2nd pass to ensure no `--` remains
 
     @classmethod
     def std_wheel_basename(cls, name):
-        """Standardized wheel file base name, single underscores, dots and alpha numeric chars only"""
+        """Standardized wheel file base name, single underscores, dots and alphanumeric chars only"""
         if cls.is_acceptable(name):
             return cls.RR_WHEEL.sub("_", name)
 
@@ -469,12 +466,12 @@ class Version:
     Parse versions according to PEP-440, including ordering.
     """
 
-    def __init__(self, text, max_parts=5, strict=True):
+    def __init__(self, text, max_parts=5, canonical=False):
         """
         Args:
             text (str | None): Text to be parsed
             max_parts (int): Maximum number of parts (components) to consider version valid
-            strict (bool): If True, extract info only from valid PEP compliant versions
+            canonical (bool | None): None: loose parsing, False: strict parsing, version left as-is, True: Turn into canonical PEP-440
         """
         self.given_text = text
         self.given_components = None  # Components as given by 'text'
@@ -489,8 +486,9 @@ class Version:
             self.ignored = self.text
             return
 
-        self.ignored = m.group("ignored") or None  # Ignored part of 'text', if strict was False, and version had extraneous ignored bits
-        if strict and self.ignored:
+        self.ignored = m.group("ignored") or None
+        # 'canonical' set to None allows to continue even if there were extraneous bits
+        if canonical is not None and self.ignored:
             return
 
         self.text = m.group("vtext")
@@ -519,50 +517,47 @@ class Version:
         components.append(int(rel_num or 0))
         components.append(rel or "")
         self.components = tuple(components)
-        if strict:
+        if canonical is True:
             self.text = self.pep_440
 
     @classmethod
-    def from_text(cls, text, strict=False):
+    def extracted_from_text(cls, text):
         """
         Args:
-            text: Text (or any object, for convenience) to be parsed
-            strict (bool): If False, use first substring from 'text' that looks like a version number
+            text (str): Text to extract version from
 
         Returns:
-            (Version | None): Parsed version, if valid
+            (Version | None): Parsed version, if a valid one was found
         """
-        if isinstance(text, Version):
-            return text
-
-        if text is not None:
-            text = joined(text, delimiter=".")
-
-        if text:
-            ignored = None
-            if not strict and (not text[0].isdigit() or not text[-1].isdigit()):
-                m = _R.lc.rx_version.search(text)
-                if m:
-                    ignored = m.group("ignored")
-                    if not ignored:
-                        ignored = text[:m.start("vtext")].strip() or text[m.end("ignored"):].strip() or text
-
-                    text = m.group("vtext")
-
-            v = cls(text, strict=strict)
+        m = _R.lc.rx_version.search(text)
+        if m:
+            v = cls(m.group("vtext"), canonical=None)
             if v.is_valid:
-                if ignored and not v.ignored:
-                    v.ignored = ignored
-
                 return v
+
+    @classmethod
+    def from_object(cls, obj):
+        """
+        Args:
+            obj: Object to turn into a Version, if possible
+
+        Returns:
+            (Version | None): Corresponding version object, if valid
+        """
+        if isinstance(obj, Version):
+            return obj if obj.is_valid else None
+
+        v = cls(joined(obj, delimiter="."))
+        if v.is_valid:
+            return v
 
     @classmethod
     def from_tox_like(cls, text, default=None):
         """Parse a version taking into account tox-like versions like '310' meaning '3.10'"""
         if text and re.match(r"^(\d\d+)$", text):
-            return cls.from_text("%s.%s" % (text[0], text[1:]), strict=True)
+            return cls.from_object((text[0], text[1:]))
 
-        return cls.from_text(text or default, strict=True)
+        return cls.from_object(text or default)
 
     def __repr__(self):
         return self.text
@@ -571,7 +566,10 @@ class Version:
         return hash(self.text)
 
     def __eq__(self, other):
-        other = Version.from_text(other, strict=True)
+        if not self.is_valid:
+            return isinstance(other, Version) and self.text == other.text
+
+        other = Version.from_object(other)
         return (
             isinstance(other, Version)
             and self.epoch == other.epoch
@@ -581,7 +579,7 @@ class Version:
         )
 
     def __lt__(self, other):
-        other = Version.from_text(other, strict=True)
+        other = Version.from_object(other)
         if isinstance(other, Version):
             if self.epoch != other.epoch:
                 return self.epoch < other.epoch
@@ -618,15 +616,15 @@ class Version:
             return self.components < other.components
 
     def __le__(self, other):
-        other = Version.from_text(other, strict=True)
+        other = Version.from_object(other)
         return isinstance(other, Version) and self < other or self == other
 
     def __ge__(self, other):
-        other = Version.from_text(other, strict=True)
+        other = Version.from_object(other)
         return other is None or other <= self
 
     def __gt__(self, other):
-        other = Version.from_text(other, strict=True)
+        other = Version.from_object(other)
         return other is None or other < self
 
     @cached_property
@@ -937,7 +935,7 @@ class PythonInstallationLocation:
             if mm_only and not m.group(2):
                 continue
 
-            mm = PyInstallInfo(version=Version(m.group(1))) if m.group(2) else None
+            mm = PyInstallInfo(version=m.group(1)) if m.group(2) else None
             if dirs_ok and item.is_dir():
                 short_name = short_name or short(item)
                 item = item / "bin" / item.name
@@ -952,7 +950,7 @@ class PyInstallInfo:
     cached_by_path = {}  # type: dict[str | pathlib.Path, PythonInstallation] # Avoid inspecting on-disk installations multiple times
 
     def __init__(self, version=None, sys_prefix=None, base_prefix=None, problem=None):
-        self.version = Version.from_text(version)
+        self.version = Version.from_object(version)
         self.sys_prefix = sys_prefix
         self.base_prefix = base_prefix
         if not problem and not (self.version and self.version.is_valid):
