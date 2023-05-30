@@ -415,7 +415,7 @@ def test_venv_from_project():
     ]
 )
 def test_pep_sample(given_version, expected):
-    version = Version(given_version, strict=True)
+    version = Version.from_text(given_version, strict=False)
     assert version.is_valid
     assert str(version) == given_version
     actual = version.components
@@ -438,7 +438,7 @@ def test_version():
     assert invalid.ignored == ".dirty"
     assert loose > invalid
 
-    dev101 = Version("0.0.1dev101")
+    dev101 = Version.from_text("0.0.1dev101")
     assert not dev101.is_final
     assert dev101.is_valid
     assert not dev101.is_dirty
@@ -503,17 +503,15 @@ def test_version():
     assert v1 > []
     assert v1 > [5, 2, 3, 4, 5, 6]
 
-    v1foo = Version("1foo")  # Ignore additional text
+    v1foo = Version.from_text("1foo")  # Ignore additional text
     assert v1 == v1foo
 
-    vrc = Version("1.0rc4-foo")
-    vrc_strict = Version("1.0rc4-foo", strict=True)
-    vdev = Version("1.0a4.dev5-foo")
+    vrc = Version.from_text("1.0rc4-foo")
+    vdev = Version.from_text("1.0a4.dev5-foo")
     assert vdev.pep_440 == "1.0a4.dev5"
     assert vdev.ignored == "-foo"
     assert vrc.is_valid
     assert not vrc.is_final
-    assert not vrc_strict.is_valid
     assert not vdev.is_final
     assert vdev.prerelease == ("a", 4, "", 0, "dev", 5)
     assert vrc.suffix == "rc"
@@ -528,7 +526,6 @@ def test_version():
     assert vrc.minor == 0
     assert vrc.patch == 0
     assert vrc.main == "1.0"
-    assert Version.from_text("foo, version 1.0a4.dev5\nbar baz") == vdev
 
     incomplete_dev = Version("0.4.34dev")
     assert not incomplete_dev.is_final
@@ -537,16 +534,23 @@ def test_version():
     assert incomplete_dev.prerelease == ("", 0, "", 0, "dev", 0)
     assert incomplete_dev.suffix == "dev"
 
-    # .from_text() can be used to filter out invalid versions as None
-    assert Version.from_text("Python 3.8.6", strict=True) is None
-    assert Version.from_text("Python 3.8.6") == Version("3.8.6")
-    assert Version.from_text("foo") is None
-    assert Version.from_text("1.0rc4") == vrc
-
     # Version() can be used in sets/dicts
     s = set()
     s.add(vrc)
     assert vrc in s
+
+
+def test_version_extraction():
+    x = Version.from_text("foo, version 1.0a4.dev5\nbar baz")
+    assert str(x) == "1.0a4.dev5"
+    assert x.ignored == "foo, version"
+
+    # .canonical() can be used to filter out invalid versions as None
+    assert Version.from_text("Python 3.8.6", strict=True) is None
+    p38 = Version.from_text("Python 3.8.6")
+    assert str(p38) == "3.8.6"
+    assert p38.is_valid
+    assert p38.ignored == "Python"
 
 
 def test_version_comparison():
@@ -568,7 +572,7 @@ def test_version_comparison():
     assert v == "2.11.0 2.11.1.dev1 2.11.1.dev2+b 2.11.1.dev11+a.dirty 2.11.1 1!1.0"
 
     v = "1.2rc1 1.2rc2.dev05 1.2rc2.dev4 1.2a1.dev1"
-    v = runez.flattened(v, split=" ", transform=Version)
+    v = runez.flattened(v, split=" ", transform=Version.from_text)
     assert all(x.is_valid for x in v)
     v = sorted(v)
     v = runez.joined(v)
@@ -704,25 +708,25 @@ def verify_ordering(expected):
 
 
 def test_version_pep_440():
-    vpost = Version("1.2.post")
+    vpost = Version.from_text("1.2.post")
     assert vpost.is_valid
     assert not vpost.prerelease
     assert str(vpost) == "1.2.post"
     assert vpost.pep_440 == "1.2.post0"
 
-    vrev5 = Version("1.2rev05")
+    vrev5 = Version.from_text("1.2rev05")
     assert str(vrev5) == "1.2rev05"
     assert vrev5.is_valid
     assert vrev5.pep_440 == "1.2.post5"
     assert vrev5 > vpost
 
-    vr6 = Version("1.2r6")
+    vr6 = Version.from_text("1.2r6")
     assert str(vr6) == "1.2r6"
     assert vr6.is_valid
     assert vr6.pep_440 == "1.2.post6"
     assert vr6 > vrev5
 
-    vrev5dev3 = Version("1.2rev05.dev3")
+    vrev5dev3 = Version.from_text("1.2rev05.dev3")
     assert vrev5dev3.prerelease
     assert str(vrev5dev3) == "1.2rev05.dev3"
     assert vrev5dev3.pep_440 == "1.2.rev5.dev3.post5"
@@ -730,6 +734,6 @@ def test_version_pep_440():
     assert vrev5 > vrev5dev3
     assert vr6 > vrev5dev3
 
-    vrc1 = Version("v1.39.4-rc.1")
+    vrc1 = Version.from_text("v1.39.4-rc.1")
     assert str(vrc1) == "1.39.4-rc.1"
     assert vrc1.pep_440 == "1.39.4rc1"

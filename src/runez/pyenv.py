@@ -469,7 +469,7 @@ class Version:
     Parse versions according to PEP-440, including ordering.
     """
 
-    def __init__(self, text, max_parts=5, strict=False):
+    def __init__(self, text, max_parts=5, strict=True):
         """
         Args:
             text (str | None): Text to be parsed
@@ -519,6 +519,8 @@ class Version:
         components.append(int(rel_num or 0))
         components.append(rel or "")
         self.components = tuple(components)
+        if strict:
+            self.text = self.pep_440
 
     @classmethod
     def from_text(cls, text, strict=False):
@@ -537,13 +539,21 @@ class Version:
             text = joined(text, delimiter=".")
 
         if text:
+            ignored = None
             if not strict and (not text[0].isdigit() or not text[-1].isdigit()):
                 m = _R.lc.rx_version.search(text)
                 if m:
-                    text = m.group(1)
+                    ignored = m.group("ignored")
+                    if not ignored:
+                        ignored = text[:m.start("vtext")].strip() or text[m.end("ignored"):].strip() or text
+
+                    text = m.group("vtext")
 
             v = cls(text, strict=strict)
             if v.is_valid:
+                if ignored and not v.ignored:
+                    v.ignored = ignored
+
                 return v
 
     @classmethod
