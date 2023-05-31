@@ -113,7 +113,7 @@ class PypiStd:
     """
 
     RX_ACCEPTABLE_PACKAGE_NAME = re.compile(r"^[a-z][\w.-]*[a-z\d]$", re.IGNORECASE)
-    RR_PYPI = re.compile(r"([^a-z\d-]+|--+)", re.IGNORECASE)
+    RR_PYPI = re.compile(r"([^a-z\d.-]+|--+)", re.IGNORECASE)
     RR_WHEEL = re.compile(r"[^a-z\d.]+", re.IGNORECASE)
 
     RX_HREF = re.compile(r'href=".+/([^/#]+\.(tar\.gz|whl))#', re.IGNORECASE)
@@ -129,9 +129,12 @@ class PypiStd:
         return bool(isinstance(name, str) and name != "UNKNOWN" and cls.RX_ACCEPTABLE_PACKAGE_NAME.match(name))
 
     @classmethod
-    def std_package_name(cls, name):
+    def std_package_name(cls, name, allow_dots=True):
         """Standardized pypi package name, single dashes and alphanumeric chars allowed only"""
         if cls.is_acceptable(name):
+            if not allow_dots:
+                name = name.replace(".", "-")
+
             dashed = cls.RR_PYPI.sub("-", name).lower()
             return cls.RR_PYPI.sub("-", dashed)  # 2nd pass to ensure no `--` remains
 

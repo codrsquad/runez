@@ -200,9 +200,10 @@ def test_pypi_standardized_naming():
     assert PypiStd.std_package_name("a") is None
     assert PypiStd.std_package_name("foo") == "foo"
     assert PypiStd.std_package_name("Foo") == "foo"
-    assert PypiStd.std_package_name("A__b-c_1.0") == "a-b-c-1-0"
+    assert PypiStd.std_package_name("A__b-c_1.0") == "a-b-c-1.0"
     assert PypiStd.std_package_name("some_-Test") == "some-test"
-    assert PypiStd.std_package_name("a_-_-.-_.--b") == "a-b"
+    assert PypiStd.std_package_name("a_-_-.-_.--b") == "a-.-.-b"
+    assert PypiStd.std_package_name("a_-_-.-_.--b", allow_dots=False) == "a-b"
 
     assert PypiStd.std_wheel_basename(None) is None
     assert PypiStd.std_package_name(10.1) is None
@@ -294,7 +295,7 @@ def test_pypi_parsing():
     funky = sorted(PypiStd.ls_pypi("funky-proj", source=None))
     assert len(funky) == 2
     assert funky[0].package_name == "funky.proj"
-    assert funky[0].pypi_name == "funky-proj"
+    assert funky[0].pypi_name == "funky.proj"
     assert funky[1].is_dirty
     assert black[0] < funky[0]  # Alphabetical sort when both have no source
     assert funky[0] < sample[4]  # Arbitrary: no-source sorts lowest...
