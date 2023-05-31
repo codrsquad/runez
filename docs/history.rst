@@ -2,7 +2,7 @@
 History
 =======
 
-3.8.0 (2023-05-29)
+4.0.0 (2023-05-31)
 ------------------
 
 - Generalized ``PythonDepot`` specification
@@ -11,6 +11,8 @@ History
 - Added property ``Version.pep_440`` (canonical PEP-440_ version representation)
 
 - Removed ``Version.from_text``, ``Version`` is parsed strictly by default
+
+- Accept dots in pypi package names
 
 
 3.7.1 (2023-05-03)
