@@ -2,6 +2,31 @@
 History
 =======
 
+4.0.0 (2023-05-31)
+------------------
+
+- Generalized ``PythonDepot`` specification
+  (API change, ``PythonDepot`` now takes a ``locations`` specification instead of a scanner object)
+
+- Added property ``Version.pep_440`` (canonical PEP-440_ version representation)
+
+- Removed ``Version.from_text``, ``Version`` is parsed strictly by default
+
+- Accept dots in pypi package names
+
+
+3.7.1 (2023-05-03)
+------------------
+
+- Pass through any http ``requests`` exceptions
+
+
+3.7.0 (2023-03-30)
+------------------
+
+- Add an option in ``readlines()`` to skip call to ``rstrip()``.
+
+
 3.6.7 (2023-03-21)
 ------------------
 

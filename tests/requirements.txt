@@ -3,3 +3,4 @@ freezegun
 psutil
 pytest-cov
 requests
+urllib3<2.0; sys_platform == "darwin"  # urllib3 refueses LibreSSL

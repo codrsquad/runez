@@ -17,7 +17,7 @@ def mk_python(basename, prefix=None, base_prefix=None, executable=True, content=
         folder = runez.to_path(".pyenv/versions") / basename / "bin"
 
     else:
-        version = Version.from_text(os.path.basename(basename))
+        version = Version(os.path.basename(basename))
         if basename.startswith("./"):
             folder = runez.to_path(os.path.dirname(basename[2:]))
 
@@ -46,13 +46,14 @@ def test_depot(temp_folder, logged):
     mk_python("8.6.1")
     mk_python("8.7.2")
     mk_python("miniforge3-22.11.1-4/9.11.2")
+    mk_python("pypy-9.8.7/9.8.7")
     mk_python("8.5.4", content=["invalid"])
     mk_python("8.5.5", content=["invalid-version", "prefix", "prefix"])
     runez.symlink(".pyenv/versions/8.6.1", ".pyenv/versions/8.6", logger=None)
     runez.symlink(".pyenv/versions/8.6.1", ".pyenv/versions/python8.6", logger=None)
 
     depot = PythonDepot(".pyenv/versions/**")
-    assert len(depot.available_pythons) == 3
+    assert len(depot.available_pythons) == 4
 
     assert str(depot.find_python("8.5.4")) == "8.5.4 [not available]"
     invalid = depot.find_python(".pyenv/versions/8.5.4")
@@ -61,7 +62,7 @@ def test_depot(temp_folder, logged):
     assert str(bad_version) == ".pyenv/versions/8.5.5 [invalid version 'invalid-version']"
 
     versions = [p.mm_spec.canonical for p in depot.available_pythons]
-    assert versions == ["cpython:8.7", "cpython:8.6", "conda:9.11"]
+    assert versions == ["pypy:9.8", "cpython:8.7", "cpython:8.6", "conda:9.11"]
 
     # Verify that latest available is found (when under-specified)
     p8 = depot.find_python("8")
@@ -199,9 +200,10 @@ def test_pypi_standardized_naming():
     assert PypiStd.std_package_name("a") is None
     assert PypiStd.std_package_name("foo") == "foo"
     assert PypiStd.std_package_name("Foo") == "foo"
-    assert PypiStd.std_package_name("A__b-c_1.0") == "a-b-c-1-0"
+    assert PypiStd.std_package_name("A__b-c_1.0") == "a-b-c-1.0"
     assert PypiStd.std_package_name("some_-Test") == "some-test"
-    assert PypiStd.std_package_name("a_-_-.-_.--b") == "a-b"
+    assert PypiStd.std_package_name("a_-_-.-_.--b") == "a-.-.-b"
+    assert PypiStd.std_package_name("a_-_-.-_.--b", allow_dots=False) == "a-b"
 
     assert PypiStd.std_wheel_basename(None) is None
     assert PypiStd.std_package_name(10.1) is None
@@ -293,7 +295,7 @@ def test_pypi_parsing():
     funky = sorted(PypiStd.ls_pypi("funky-proj", source=None))
     assert len(funky) == 2
     assert funky[0].package_name == "funky.proj"
-    assert funky[0].pypi_name == "funky-proj"
+    assert funky[0].pypi_name == "funky.proj"
     assert funky[1].is_dirty
     assert black[0] < funky[0]  # Alphabetical sort when both have no source
     assert funky[0] < sample[4]  # Arbitrary: no-source sorts lowest...
@@ -415,8 +417,9 @@ def test_venv_from_project():
     ]
 )
 def test_pep_sample(given_version, expected):
-    version = Version(given_version, strict=True)
+    version = Version(given_version)
     assert version.is_valid
+    assert version.ignored is None
     assert str(version) == given_version
     actual = version.components
     if version.prerelease:
@@ -426,21 +429,25 @@ def test_pep_sample(given_version, expected):
 
 
 def test_version():
-    loose = Version("v1.0.dirty", strict=False)
+    loose = Version("v1.0.dirty", canonical=None)
     assert loose.is_valid
     assert loose.ignored == ".dirty"
     assert str(loose) == "1.0"
+    assert loose.pep_440 == "1.0"
 
-    invalid = Version("v1.0.dirty", strict=True)
+    invalid = Version("v1.0.dirty")
     assert not invalid.is_valid
     assert str(invalid) == "v1.0.dirty"
     assert invalid.ignored == ".dirty"
     assert loose > invalid
 
-    dev101 = Version("0.0.1.dev101")
+    dev101 = Version("0.0.1dev101")
     assert not dev101.is_final
     assert dev101.is_valid
+    assert not dev101.is_dirty
     assert dev101.prerelease
+    assert str(dev101) == "0.0.1dev101"
+    assert dev101.pep_440 == "0.0.1.dev101"
 
     none = Version(None)
     assert str(none) == ""
@@ -455,9 +462,12 @@ def test_version():
     assert empty.major is None
 
     ep = Version("123!2.1+foo.dirty-bar")
+    assert str(ep) == "123!2.1+foo.dirty-bar"
+    assert ep.pep_440 == "123!2.1+foo.dirty-bar"
     assert ep.is_valid
+    assert ep.is_dirty
     assert ep.epoch == 123
-    assert ep.main == "2.1.0"
+    assert ep.main == "2.1"
     assert ep.local_part == "foo.dirty-bar"
     assert ep.mm == "2.1"
 
@@ -473,10 +483,12 @@ def test_version():
     assert not bogus.is_valid
     assert not bogus.components
     assert not bogus.prerelease
+    assert bogus.mm is None
 
     v1 = Version("1")
     assert v1.components == (1, 0, 0, 0, 0, 0, "")
     assert str(v1) == "1"
+    assert v1.main == "1"
     assert v1.mm == "1.0"
     assert empty < v1
     assert v1 > empty
@@ -494,15 +506,15 @@ def test_version():
     assert v1 > []
     assert v1 > [5, 2, 3, 4, 5, 6]
 
-    v1foo = Version("1foo")  # Ignore additional text
+    v1foo = Version("1foo", canonical=None)  # Ignore additional text
     assert v1 == v1foo
 
-    vrc = Version("1.0rc4-foo")
-    vrc_strict = Version("1.0rc4-foo", strict=True)
-    vdev = Version("1.0a4.dev5-foo")
+    vrc = Version("1.0rc4-bar", canonical=None)
+    vdev = Version("1.0a4.dev5-foo", canonical=None)
+    assert vdev.pep_440 == "1.0a4.dev5"
+    assert vdev.ignored == "-foo"
     assert vrc.is_valid
     assert not vrc.is_final
-    assert not vrc_strict.is_valid
     assert not vdev.is_final
     assert vdev.prerelease == ("a", 4, "", 0, "dev", 5)
     assert vrc.suffix == "rc"
@@ -516,8 +528,7 @@ def test_version():
     assert vrc.major == 1
     assert vrc.minor == 0
     assert vrc.patch == 0
-    assert vrc.main == "1.0.0"
-    assert Version.from_text("foo, version 1.0a4.dev5\nbar baz") == vdev
+    assert vrc.main == "1.0"
 
     incomplete_dev = Version("0.4.34dev")
     assert not incomplete_dev.is_final
@@ -526,16 +537,22 @@ def test_version():
     assert incomplete_dev.prerelease == ("", 0, "", 0, "dev", 0)
     assert incomplete_dev.suffix == "dev"
 
-    # .from_text() can be used to filter out invalid versions as None
-    assert Version.from_text("Python 3.8.6", strict=True) is None
-    assert Version.from_text("Python 3.8.6") == Version("3.8.6")
-    assert Version.from_text("foo") is None
-    assert Version.from_text("1.0rc4") == vrc
-
     # Version() can be used in sets/dicts
     s = set()
     s.add(vrc)
     assert vrc in s
+
+
+def test_version_extraction():
+    x = Version.extracted_from_text("foo, version 1.0a4.dev5\nbar baz")
+    assert str(x) == "1.0a4.dev5"
+
+    p38 = Version("Python 3.8.6")
+    assert not p38.is_valid
+
+    p38 = Version.extracted_from_text("Python 3.8.6")
+    assert str(p38) == "3.8.6"
+    assert p38.is_valid
 
 
 def test_version_comparison():
@@ -657,7 +674,7 @@ def test_version_local_part():
     ])
 
 
-def test_version_pep_440():
+def test_version_ordering():
     verify_ordering([
         Version("1.dev0"),
         Version("1.0.dev456"),
@@ -685,8 +702,45 @@ def test_version_pep_440():
 def verify_ordering(expected):
     # Jumble the given list of versions a bit, then sort them and verify they sort back to 'expected'
     given = sorted(expected, key=lambda x: x.text)
-    x = given.pop(len(given) // 2)
-    given.append(x)
+    mid_item = given.pop(len(given) // 2)
+    given.append(mid_item)
 
     assert given != expected
     assert sorted(given) == expected
+
+
+def test_version_pep_440():
+    vpost = Version("1.2.post")
+    assert vpost.is_valid
+    assert not vpost.prerelease
+    assert str(vpost) == "1.2.post"
+    assert vpost.pep_440 == "1.2.post0"
+
+    vrev5 = Version("1.2rev05")
+    assert str(vrev5) == "1.2rev05"
+    assert vrev5.is_valid
+    assert vrev5.pep_440 == "1.2.post5"
+    assert vrev5 > vpost
+
+    vrev5_canonical = Version("1.2rev05", canonical=True)
+    assert str(vrev5_canonical) == "1.2.post5"
+    assert vrev5_canonical.pep_440 == vrev5_canonical.text
+    assert vrev5_canonical == vrev5
+
+    vr6 = Version("1.2r6")
+    assert str(vr6) == "1.2r6"
+    assert vr6.is_valid
+    assert vr6.pep_440 == "1.2.post6"
+    assert vr6 > vrev5
+
+    vrev5dev3 = Version("1.2rev05.dev3")
+    assert vrev5dev3.prerelease
+    assert str(vrev5dev3) == "1.2rev05.dev3"
+    assert vrev5dev3.pep_440 == "1.2.rev5.dev3.post5"
+    assert vpost < vrev5dev3
+    assert vrev5 > vrev5dev3
+    assert vr6 > vrev5dev3
+
+    vrc1 = Version("v1.39.4-rc.1")
+    assert str(vrc1) == "1.39.4-rc.1"
+    assert vrc1.pep_440 == "1.39.4rc1"

@@ -1562,7 +1562,7 @@ class SystemInfo:
         """The python that is either currently running us, or that created the venv we're running from"""
         from runez.pyenv import PyInstallInfo, PythonInstallation
 
-        info = PyInstallInfo(version=".".join(str(s) for s in sys.version_info[:3]))
+        info = PyInstallInfo(version=sys.version_info[:3])
         if self.is_running_in_venv:
             installation = PythonInstallation.from_folder(sys.base_prefix, _info=info)
 
