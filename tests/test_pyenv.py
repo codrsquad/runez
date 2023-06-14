@@ -309,6 +309,13 @@ def test_spec():
     assert not p3.is_min_spec
     assert p3plus.is_min_spec
 
+    p3_rep = p3.represented()
+    p3plus_rep = p3plus.represented()
+    assert isinstance(p3_rep, str)
+    assert isinstance(p3plus_rep, str)
+    assert p3_rep == "3"
+    assert p3plus_rep == "3+"
+
     p38 = PythonSpec.from_text("3.8")
     assert p38.satisfies(p3)
     assert p38.satisfies(p3plus)

@@ -333,10 +333,13 @@ class PythonSpec:
         Returns:
             (str): Textual representation of this spec
         """
+        text = self.canonical
         if compact and (compact is True or self.family in compact):
-            return _R.colored(self.version, color)
+            text = self.version.text
+            if self.is_min_spec:
+                text += "+"
 
-        return _R.colored(self.canonical, color)
+        return _R.colored(text, color)
 
     @classmethod
     def from_text(cls, text):
