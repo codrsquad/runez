@@ -432,7 +432,7 @@ class PythonDepot:
         if python is None:
             python = self._find_python(spec)
             if python is None:
-                python = PythonInstallation(spec, _info=PyInstallInfo(problem="not available"))
+                python = PythonInstallation(str(spec), _info=PyInstallInfo(problem="not available"))
 
         return python
 

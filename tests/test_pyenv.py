@@ -122,6 +122,9 @@ def test_empty_depot(temp_folder):
     assert ", invoker" in str(invoker)
 
     mm = invoker.mm
+    p95_spec = PythonSpec.from_text("9.5")
+    p95 = depot.find_python(p95_spec)
+    assert p95.problem
     assert depot.find_python(None) is invoker
     assert depot.find_python("invoker") is invoker
     assert depot.find_python(invoker.executable) is invoker
