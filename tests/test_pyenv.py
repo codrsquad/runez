@@ -335,6 +335,8 @@ def test_spec():
     assert not p3.is_min_spec
     assert p3plus.is_min_spec
 
+    assert p3 == PythonSpec.from_object(Version("3"))
+
     p3_rep = p3.represented()
     p3plus_rep = p3plus.represented()
     assert isinstance(p3_rep, str)
@@ -419,7 +421,7 @@ def test_spec_list():
     x = PythonSpec.to_list("3.10,py39")
     assert x == [PythonSpec.from_text("3.10"), PythonSpec.from_text("3.9")]
 
-    x = PythonSpec.to_list(["3.10,py36","foo,py37", 3.8])
+    x = PythonSpec.to_list(["3.10,py36", "foo,py37", 3.8])
     assert x == [PythonSpec.from_text("3.10"), PythonSpec.from_text("3.6"), PythonSpec.from_text("3.7"), PythonSpec.from_text("3.8")]
 
 
