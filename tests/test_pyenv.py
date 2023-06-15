@@ -392,10 +392,13 @@ def test_spec_equivalent():
 
 
 def test_spec_invalid():
+    assert PythonSpec.from_object(None) is None
+    assert PythonSpec.from_object([]) is None
+    assert PythonSpec.from_object(["foo"]) is None
+
     def check_spec_invalid(text):
         assert PythonSpec.from_text(text) is None
 
-    check_spec_invalid(None)
     check_spec_invalid("foo")
     check_spec_invalid("foo:3")
     check_spec_invalid("cpython")
@@ -409,6 +412,15 @@ def test_spec_invalid():
     check_spec_invalid("pY3")
     check_spec_invalid("3.9.9a")
     check_spec_invalid("3.9.9++")
+
+
+def test_spec_list():
+    assert not PythonSpec.to_list("a,b")
+    x = PythonSpec.to_list("3.10,py39")
+    assert x == [PythonSpec.from_text("3.10"), PythonSpec.from_text("3.9")]
+
+    x = PythonSpec.to_list(["3.10,py36","foo,py37", 3.8])
+    assert x == [PythonSpec.from_text("3.10"), PythonSpec.from_text("3.6"), PythonSpec.from_text("3.7"), PythonSpec.from_text("3.8")]
 
 
 def test_venv(temp_folder):

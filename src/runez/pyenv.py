@@ -348,9 +348,6 @@ class PythonSpec:
         Returns:
             (PythonSpec | None): Parsed spec from given object, if valid
         """
-        if not text or isinstance(text, PythonSpec):
-            return text or None
-
         m = re.match(r"^(py|python|)(?P<version>\d+(\.\d+(.\w+)*)?)?(?P<min_spec>\+?)$", text)
         if m:
             version = Version.from_tox_like(m.group("version"), default="3")
@@ -360,6 +357,37 @@ class PythonSpec:
         if m:
             version = Version.from_tox_like(m.group("version"))
             return cls(m.group("family"), version, is_min_spec=bool(m.group("min_spec"))) if version else None
+
+    @classmethod
+    def from_object(cls, value):
+        """
+        Args:
+            value: Value to transform into a PythonSpec, if possible
+
+        Returns:
+            (PythonSpec | None): Parsed spec from given object, if valid
+        """
+        if not value or isinstance(value, PythonSpec):
+            return value or None
+
+        if isinstance(value, Version):
+            return cls(CPYTHON, value)
+
+        if value:
+            return cls.from_text(str(value))
+
+    @classmethod
+    def to_list(cls, values):
+        """
+        Args:
+            values: Values to transform into a list of PythonSpec-s
+
+        Returns:
+            (list[PythonSpec]): Corresponding list of PythonSpec-s
+        """
+        values = flattened(values, split=",", transform=PythonSpec.from_object)
+        values = [x for x in values if x and x.version]
+        return values
 
     @classmethod
     def guess_family(cls, text):
@@ -441,7 +469,7 @@ class PythonDepot:
         if _is_path(spec):
             return PythonInstallation.from_path(spec)
 
-        spec = PythonSpec.from_text(spec)
+        spec = PythonSpec.from_object(spec)
         if not spec:
             return None
 
