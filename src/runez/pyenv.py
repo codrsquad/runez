@@ -129,12 +129,10 @@ class PypiStd:
         return bool(isinstance(name, str) and name != "UNKNOWN" and cls.RX_ACCEPTABLE_PACKAGE_NAME.match(name))
 
     @classmethod
-    def std_package_name(cls, name, allow_dots=True):
+    def std_package_name(cls, name):
         """Standardized pypi package name, single dashes and alphanumeric chars allowed only"""
         if cls.is_acceptable(name):
-            if not allow_dots:
-                name = name.replace(".", "-")
-
+            name = name.replace(".", "-")
             dashed = cls.RR_PYPI.sub("-", name).lower()
             return cls.RR_PYPI.sub("-", dashed)  # 2nd pass to ensure no `--` remains
 

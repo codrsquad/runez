@@ -5,10 +5,34 @@ import pytest
 
 import runez
 from runez.http import RestClient
-from runez.pyenv import PypiStd, PythonDepot, PythonInstallation, PythonSpec, Version
+from runez.pyenv import ArtifactInfo, PypiStd, PythonDepot, PythonInstallation, PythonSpec, Version
 
 
 PYPI_CLIENT = RestClient("https://example.com/pypi")
+
+
+def test_artifact_info():
+    info = ArtifactInfo.from_basename("E.S.P.-Hadouken-0.2.1.tar.gz")
+    assert str(info) == "e-s-p-hadouken/E.S.P.-Hadouken-0.2.1.tar.gz"
+    assert info.category == "sdist"
+    assert not info.is_dirty
+    assert not info.is_wheel
+    assert info.package_name == "E.S.P.-Hadouken"
+    assert info.pypi_name == "e-s-p-hadouken"
+    assert info.tags is None
+    assert info.version == "0.2.1"
+    assert info.wheel_build_number is None
+
+    info = ArtifactInfo.from_basename("a_b-1!0.0.1-10-py3-none-any.whl", None)
+    assert str(info) == "a-b/a_b-1!0.0.1-10-py3-none-any.whl"
+    assert info.category == "wheel"
+    assert not info.is_dirty
+    assert info.is_wheel
+    assert info.package_name == "a_b"
+    assert info.pypi_name == "a-b"
+    assert info.tags == "py3-none-any"
+    assert info.version == "1!0.0.1"
+    assert info.wheel_build_number == "10"
 
 
 def mk_python(basename, prefix=None, base_prefix=None, executable=True, content=None):
@@ -203,10 +227,9 @@ def test_pypi_standardized_naming():
     assert PypiStd.std_package_name("a") is None
     assert PypiStd.std_package_name("foo") == "foo"
     assert PypiStd.std_package_name("Foo") == "foo"
-    assert PypiStd.std_package_name("A__b-c_1.0") == "a-b-c-1.0"
+    assert PypiStd.std_package_name("A__b-c_1.0") == "a-b-c-1-0"
     assert PypiStd.std_package_name("some_-Test") == "some-test"
-    assert PypiStd.std_package_name("a_-_-.-_.--b") == "a-.-.-b"
-    assert PypiStd.std_package_name("a_-_-.-_.--b", allow_dots=False) == "a-b"
+    assert PypiStd.std_package_name("a_-_-.-_.--b") == "a-b"
 
     assert PypiStd.std_wheel_basename(None) is None
     assert PypiStd.std_package_name(10.1) is None
@@ -298,7 +321,7 @@ def test_pypi_parsing():
     funky = sorted(PypiStd.ls_pypi("funky-proj", source=None))
     assert len(funky) == 2
     assert funky[0].package_name == "funky.proj"
-    assert funky[0].pypi_name == "funky.proj"
+    assert funky[0].pypi_name == "funky-proj"
     assert funky[1].is_dirty
     assert black[0] < funky[0]  # Alphabetical sort when both have no source
     assert funky[0] < sample[4]  # Arbitrary: no-source sorts lowest...
