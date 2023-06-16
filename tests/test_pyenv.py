@@ -82,6 +82,7 @@ def test_depot(temp_folder, logged):
     assert str(depot.find_python("8.5.4")) == "8.5.4 [not available]"
     invalid = depot.find_python(".pyenv/versions/8.5.4")
     assert str(invalid) == ".pyenv/versions/8.5.4 [internal error: _pv returned 'invalid']"
+    assert invalid.folder == runez.to_path(".pyenv/versions/8.5.4/bin").absolute()
     bad_version = depot.find_python(".pyenv/versions/8.5.5")
     assert str(bad_version) == ".pyenv/versions/8.5.5 [invalid version 'invalid-version']"
 
@@ -90,6 +91,7 @@ def test_depot(temp_folder, logged):
 
     # Verify that latest available is found (when under-specified)
     p8 = depot.find_python("8")
+    assert p8.folder == runez.to_path(".pyenv/versions/8.7.2/bin").absolute()
     assert not p8.is_virtualenv
     assert repr(p8) == ".pyenv/versions/8.7.2 [cpython:8.7]"
     assert str(p8) == ".pyenv/versions/8.7.2 [cpython:8.7.2]"
