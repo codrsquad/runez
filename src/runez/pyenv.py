@@ -449,16 +449,19 @@ class PythonDepot:
     def find_python(self, spec):
         """
         Args:
-            spec (str | pathlib.Path | PythonSpec | None): Example: 3.7, py37, pypy:3.7, /usr/bin/python3
+            spec (str | pathlib.Path | PythonInstallation | PythonSpec | None): Example: 3.7, py37, pypy:3.7, /usr/bin/python3
 
         Returns:
             (PythonInstallation): Object representing python installation (may not be usable, see reported .problem)
         """
+        if isinstance(spec, PythonInstallation):
+            return spec
+
         python = PyInstallInfo.cached_by_path.get(spec)
         if python is None:
             python = self._find_python(spec)
             if python is None:
-                python = PythonInstallation(str(spec), _info=PyInstallInfo(problem="not available"))
+                python = PythonInstallation(None, short_name=str(spec), _info=PyInstallInfo(problem="not available"))
 
         return python
 
@@ -750,14 +753,13 @@ class PythonInstallation:
     def __init__(self, exe, short_name=None, _info=None):
         """
         Args:
-            exe (str | pathlib.Path): Full path to python executable
+            exe (str | pathlib.Path | None): Full path to python executable
             short_name (str | None): Used to textually represent this installation
             _info (PyInstallInfo | None): Internal use, python installation info, when already known
         """
         exe = resolved_path(exe)
         self._info = _info
-        if ".framework/" in exe:
-            # Simplify macos ridiculous paths
+        if exe and ".framework/" in exe:  # Simplify macos ridiculous paths
             location = "/usr/bin"
             if "Cellar" in exe:
                 i = exe.index("Cellar")
@@ -770,7 +772,7 @@ class PythonInstallation:
                 exe = os.path.join(location, "python%s" % m.group(1))
                 short_name = None  # By default, short name if the long folder containing bin/
 
-        self.executable = exe
+        self.executable = exe or short_name
         self.family = PythonSpec.guess_family(exe)
         self.short_name = short_name or short(exe)
 
@@ -802,7 +804,7 @@ class PythonInstallation:
         cached = cls(path, short_name=short_name, _info=_info)
         PyInstallInfo.cached_by_path[path] = cached
         PyInstallInfo.cached_by_path[to_path(path)] = cached
-        if cached.executable != path:
+        if cached.executable and cached.executable != path:
             # Can be different on macOS, with simplified from /Library/.../Frameworks/... -> /usr/bin/python3
             PyInstallInfo.cached_by_path[cached.executable] = cached
             PyInstallInfo.cached_by_path[to_path(cached.executable)] = cached
@@ -830,6 +832,12 @@ class PythonInstallation:
                 path = os.path.join(exe_folder, "python")
 
         return cls.from_exe(path, short_name=short(folder), _info=_info)
+
+    @cached_property
+    def folder(self) -> pathlib.Path:
+        """Folder containing python executable"""
+        if self.executable:
+            return to_path(self.executable).parent
 
     @cached_property
     def full_spec(self):

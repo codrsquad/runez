@@ -150,7 +150,9 @@ def test_empty_depot(temp_folder):
     p95 = depot.find_python(p95_spec)
     assert p95.problem
     assert depot.find_python(None) is invoker
+    assert depot.find_python("") is invoker
     assert depot.find_python("invoker") is invoker
+    assert depot.find_python(invoker) is invoker
     assert depot.find_python(invoker.executable) is invoker
     assert depot.find_python(runez.to_path(invoker.executable)) is invoker
     assert depot.find_python(PythonSpec("cpython", mm)) is invoker
@@ -173,7 +175,13 @@ def test_empty_depot(temp_folder):
 
     # Disabling invoker still finds it explicitly, but not by generic spec
     depot.invoker = None
-    assert depot.find_python("invoker") is invoker  # Found only if explicitly referred to
+
+    # Found only if explicitly referred to
+    assert depot.find_python("invoker") is invoker
+    assert depot.find_python(invoker) is invoker
+
+    assert str(depot.find_python(None)) == "None [not available]"
+    assert str(depot.find_python("")) == "None [not available]"
     assert str(depot.find_python("python")) == "python [not available]"
     assert str(depot.find_python(mm.text)) == "%s [not available]" % mm
 
