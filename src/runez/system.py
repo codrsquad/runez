@@ -395,10 +395,11 @@ def get_version(mod, default="0.0.0", fatal=False, logger=False):
             if version:
                 return version
 
-        except (ImportError, Exception) as e:  # Python < 3.8
+        except (ImportError, Exception) as e:
             last_exception = e
 
         try:
+            # TODO: Remove when py3.7 support is dropped
             import pkg_resources
 
             d = pkg_resources.get_distribution(top_level)

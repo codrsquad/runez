@@ -2,6 +2,12 @@
 History
 =======
 
+4.0.1 (2023-06-16)
+------------------
+
+* Corrected bugs in ``PythonDepot`` and ``PythonSpec``
+
+
 4.0.0 (2023-05-31)
 ------------------
 

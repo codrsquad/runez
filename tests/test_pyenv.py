@@ -5,10 +5,34 @@ import pytest
 
 import runez
 from runez.http import RestClient
-from runez.pyenv import PypiStd, PythonDepot, PythonInstallation, PythonSpec, Version
+from runez.pyenv import ArtifactInfo, PypiStd, PythonDepot, PythonInstallation, PythonSpec, Version
 
 
 PYPI_CLIENT = RestClient("https://example.com/pypi")
+
+
+def test_artifact_info():
+    info = ArtifactInfo.from_basename("E.S.P.-Hadouken-0.2.1.tar.gz")
+    assert str(info) == "e-s-p-hadouken/E.S.P.-Hadouken-0.2.1.tar.gz"
+    assert info.category == "sdist"
+    assert not info.is_dirty
+    assert not info.is_wheel
+    assert info.package_name == "E.S.P.-Hadouken"
+    assert info.pypi_name == "e-s-p-hadouken"
+    assert info.tags is None
+    assert info.version == "0.2.1"
+    assert info.wheel_build_number is None
+
+    info = ArtifactInfo.from_basename("a_b-1!0.0.1-10-py3-none-any.whl", None)
+    assert str(info) == "a-b/a_b-1!0.0.1-10-py3-none-any.whl"
+    assert info.category == "wheel"
+    assert not info.is_dirty
+    assert info.is_wheel
+    assert info.package_name == "a_b"
+    assert info.pypi_name == "a-b"
+    assert info.tags == "py3-none-any"
+    assert info.version == "1!0.0.1"
+    assert info.wheel_build_number == "10"
 
 
 def mk_python(basename, prefix=None, base_prefix=None, executable=True, content=None):
@@ -58,6 +82,7 @@ def test_depot(temp_folder, logged):
     assert str(depot.find_python("8.5.4")) == "8.5.4 [not available]"
     invalid = depot.find_python(".pyenv/versions/8.5.4")
     assert str(invalid) == ".pyenv/versions/8.5.4 [internal error: _pv returned 'invalid']"
+    assert invalid.folder == runez.to_path(".pyenv/versions/8.5.4/bin").absolute()
     bad_version = depot.find_python(".pyenv/versions/8.5.5")
     assert str(bad_version) == ".pyenv/versions/8.5.5 [invalid version 'invalid-version']"
 
@@ -66,6 +91,7 @@ def test_depot(temp_folder, logged):
 
     # Verify that latest available is found (when under-specified)
     p8 = depot.find_python("8")
+    assert p8.folder == runez.to_path(".pyenv/versions/8.7.2/bin").absolute()
     assert not p8.is_virtualenv
     assert repr(p8) == ".pyenv/versions/8.7.2 [cpython:8.7]"
     assert str(p8) == ".pyenv/versions/8.7.2 [cpython:8.7.2]"
@@ -122,8 +148,13 @@ def test_empty_depot(temp_folder):
     assert ", invoker" in str(invoker)
 
     mm = invoker.mm
+    p95_spec = PythonSpec.from_text("9.5")
+    p95 = depot.find_python(p95_spec)
+    assert p95.problem
     assert depot.find_python(None) is invoker
+    assert depot.find_python("") is invoker
     assert depot.find_python("invoker") is invoker
+    assert depot.find_python(invoker) is invoker
     assert depot.find_python(invoker.executable) is invoker
     assert depot.find_python(runez.to_path(invoker.executable)) is invoker
     assert depot.find_python(PythonSpec("cpython", mm)) is invoker
@@ -146,7 +177,13 @@ def test_empty_depot(temp_folder):
 
     # Disabling invoker still finds it explicitly, but not by generic spec
     depot.invoker = None
-    assert depot.find_python("invoker") is invoker  # Found only if explicitly referred to
+
+    # Found only if explicitly referred to
+    assert depot.find_python("invoker") is invoker
+    assert depot.find_python(invoker) is invoker
+
+    assert str(depot.find_python(None)) == "None [not available]"
+    assert str(depot.find_python("")) == "None [not available]"
     assert str(depot.find_python("python")) == "python [not available]"
     assert str(depot.find_python(mm.text)) == "%s [not available]" % mm
 
@@ -200,10 +237,9 @@ def test_pypi_standardized_naming():
     assert PypiStd.std_package_name("a") is None
     assert PypiStd.std_package_name("foo") == "foo"
     assert PypiStd.std_package_name("Foo") == "foo"
-    assert PypiStd.std_package_name("A__b-c_1.0") == "a-b-c-1.0"
+    assert PypiStd.std_package_name("A__b-c_1.0") == "a-b-c-1-0"
     assert PypiStd.std_package_name("some_-Test") == "some-test"
-    assert PypiStd.std_package_name("a_-_-.-_.--b") == "a-.-.-b"
-    assert PypiStd.std_package_name("a_-_-.-_.--b", allow_dots=False) == "a-b"
+    assert PypiStd.std_package_name("a_-_-.-_.--b") == "a-b"
 
     assert PypiStd.std_wheel_basename(None) is None
     assert PypiStd.std_package_name(10.1) is None
@@ -295,7 +331,7 @@ def test_pypi_parsing():
     funky = sorted(PypiStd.ls_pypi("funky-proj", source=None))
     assert len(funky) == 2
     assert funky[0].package_name == "funky.proj"
-    assert funky[0].pypi_name == "funky.proj"
+    assert funky[0].pypi_name == "funky-proj"
     assert funky[1].is_dirty
     assert black[0] < funky[0]  # Alphabetical sort when both have no source
     assert funky[0] < sample[4]  # Arbitrary: no-source sorts lowest...
@@ -308,6 +344,15 @@ def test_spec():
     assert str(p3plus) == "cpython:3+"
     assert not p3.is_min_spec
     assert p3plus.is_min_spec
+
+    assert p3 == PythonSpec.from_object(Version("3"))
+
+    p3_rep = p3.represented()
+    p3plus_rep = p3plus.represented()
+    assert isinstance(p3_rep, str)
+    assert isinstance(p3plus_rep, str)
+    assert p3_rep == "3"
+    assert p3plus_rep == "3+"
 
     p38 = PythonSpec.from_text("3.8")
     assert p38.satisfies(p3)
@@ -359,10 +404,13 @@ def test_spec_equivalent():
 
 
 def test_spec_invalid():
+    assert PythonSpec.from_object(None) is None
+    assert PythonSpec.from_object([]) is None
+    assert PythonSpec.from_object(["foo"]) is None
+
     def check_spec_invalid(text):
         assert PythonSpec.from_text(text) is None
 
-    check_spec_invalid(None)
     check_spec_invalid("foo")
     check_spec_invalid("foo:3")
     check_spec_invalid("cpython")
@@ -376,6 +424,15 @@ def test_spec_invalid():
     check_spec_invalid("pY3")
     check_spec_invalid("3.9.9a")
     check_spec_invalid("3.9.9++")
+
+
+def test_spec_list():
+    assert not PythonSpec.to_list("a,b")
+    x = PythonSpec.to_list("3.10,py39")
+    assert x == [PythonSpec.from_text("3.10"), PythonSpec.from_text("3.9")]
+
+    x = PythonSpec.to_list(["3.10,py36", "foo,py37", 3.8])
+    assert x == [PythonSpec.from_text("3.10"), PythonSpec.from_text("3.6"), PythonSpec.from_text("3.7"), PythonSpec.from_text("3.8")]
 
 
 def test_venv(temp_folder):
