@@ -146,9 +146,11 @@ class ImportTime:
 
         cumulative = 0
         for line in result.error.splitlines():  # python -Ximporttime outputs to stderr
-            c = to_int(line.split("|")[1])
-            if c:
-                cumulative = max(cumulative, c)
+            items = line.split("|")
+            if items and len(items) > 1:
+                c = to_int(items[1])
+                if c:
+                    cumulative = max(cumulative, c)
 
         return cumulative
 

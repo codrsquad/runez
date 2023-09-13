@@ -580,7 +580,7 @@ def resolved_path(path, base=None):
 
     path = os.path.expanduser(path)
     if base and not os.path.isabs(path):
-        return os.path.join(resolved_path(base), path)
+        path = os.path.join(resolved_path(base), path)
 
     return os.path.abspath(path)
 
