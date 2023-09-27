@@ -353,10 +353,17 @@ class PythonSpec:
             version = Version.from_tox_like(m.group("version"), default="3")
             return cls(CPYTHON, version, is_min_spec=bool(m.group("min_spec"))) if version else None
 
-        m = re.match(r"^(?P<family>cpython|conda|pypy):(?P<version>\d+(\.\d+){0,2})(?P<min_spec>\+?)$", text)
+        m = re.match(r"^(?P<family>cpython|conda|pypy):(?P<version>\d.*)$", text)
         if m:
-            version = Version.from_tox_like(m.group("version"))
-            return cls(m.group("family"), version, is_min_spec=bool(m.group("min_spec"))) if version else None
+            min_spec = False
+            version = m.group("version")
+            if version.endswith("+"):
+                min_spec = True
+                version = version[:-1]
+
+            version = Version.from_tox_like(version)
+            if version and version.is_valid:
+                return cls(m.group("family"), version, is_min_spec=min_spec)
 
     @classmethod
     def from_object(cls, value):
