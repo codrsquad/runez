@@ -389,6 +389,14 @@ def test_spec():
     assert c38.represented(compact=["cpython", "conda"]) == "3.8"
     assert c38.represented(color=str, compact=None) == "conda:3.8"
 
+    rc3 = PythonSpec.from_text("cpython:3.12.0rc3")
+    assert rc3.represented(compact=None) == "cpython:3.12.0rc3"
+    assert not rc3.is_min_spec
+
+    rc3plus = PythonSpec.from_text("cpython:3.12.0rc3+")
+    assert rc3plus.represented(compact=True) == "3.12.0rc3+"
+    assert rc3plus.is_min_spec
+
 
 def test_spec_equivalent():
     def check_equivalent_specs(*text):
@@ -415,7 +423,8 @@ def test_spec_invalid():
     check_spec_invalid("foo:3")
     check_spec_invalid("cpython")
     check_spec_invalid("cpython:")
-    check_spec_invalid("cpython:3.10.0rc1")
+    check_spec_invalid("cpython:3 ")
+    check_spec_invalid("cpython:3.10.0--rc1")
     check_spec_invalid("cpython:+")
     check_spec_invalid("cpython: 3")
     check_spec_invalid("cpython :3")
