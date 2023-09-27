@@ -1350,7 +1350,7 @@ class PlatformId:
         self.subsystem = subsystem
         base_paths = []
         if self.is_using_libc:
-            # Similar to https://github.com/pypa/auditwheel/tree/master/src/auditwheel/policy
+            # Similar to https://github.com/pypa/auditwheel/tree/main/src/auditwheel/policy
             base_paths.append("libc.so.6")
             base_paths.append("libcrypt.so.1")
             base_paths.append("libdl.so.2")
