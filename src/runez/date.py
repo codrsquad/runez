@@ -82,7 +82,7 @@ def date_from_epoch(epoch, in_ms=None):
     if in_ms or (in_ms is None and epoch > EPOCH_MS_BREAK):
         epoch = epoch / 1000
 
-    return datetime.datetime.utcfromtimestamp(epoch).date()
+    return datetime.datetime.fromtimestamp(epoch, tz=UTC).date()
 
 
 def datetime_from_epoch(epoch, tz=UNSET, in_ms=None):

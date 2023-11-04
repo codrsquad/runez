@@ -10,7 +10,8 @@ To get going locally, simply do this::
     git clone https://github.com/codrsquad/runez.git  # or your own fork
     cd runez
 
-    tox -e venv
+    python3 -mvenv .venv
+    .venv/bin/pip install -r tests/requirements.txt -e .
 
     # You have a venv now in ./.venv, use it, open it with pycharm etc
     .venv/bin/python -mrunez colors

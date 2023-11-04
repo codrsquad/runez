@@ -226,6 +226,14 @@ def _show_fgcolors(bg=runez.plain, border=None):
 
 def _all_deps():
     """All dependencies in current venv"""
+    try:
+        from importlib.metadata import packages_distributions  # requires py3.10+
+
+        return [t for t, d in packages_distributions().items() if _is_interesting_dist(d[0])]
+
+    except ImportError:
+        pass
+
     import pkg_resources
     import sysconfig
 
@@ -241,13 +249,12 @@ def _all_deps():
     return result
 
 
-# Usual dev libs that are not interesting for --all import times, they import ultra fast...
-# They can always be stated as argument explicitly to show their import times anyway
-DEV_LIBS = """
-attrs coverage more-itertools packaging pip pluggy py pyparsing python-dateutil setuptools six wcwidth wheel zipp
-binaryornot cookiecutter click future
-"""
-DEV_LIBS = set(runez.flattened(DEV_LIBS, split=" "))
+# Usual dev libs that are not interesting for --all import times, they import ultra-fast...
+# They can always be stated as argument explicitly to show their import times
+DEV_LIBS = {
+    "attrs", "coverage", "more-itertools", "packaging", "pip", "pluggy", "py", "pyparsing", "python-dateutil", "setuptools", "six",
+    "wcwidth", "wheel", "zipp", "binaryornot", "cookiecutter", "click", "future",
+}
 
 
 def _is_interesting_dist(key):
