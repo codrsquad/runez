@@ -389,7 +389,7 @@ def get_version(mod, default="0.0.0", fatal=False, logger=False):
         last_exception = None
 
         try:
-            from importlib import metadata
+            from importlib import metadata  # requires py3.8+
 
             version = metadata.version(top_level)
             if version:

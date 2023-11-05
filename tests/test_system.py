@@ -213,6 +213,9 @@ def test_find_parent_folder(monkeypatch):
     monkeypatch.setenv("VIRTUAL_ENV", "bar")
     assert runez.system.DevInfo().venv_path() == runez.DEV.venv_folder
 
+    monkeypatch.setattr(runez.SYS_INFO, "venv_bin_folder", None)
+    assert runez.system.DevInfo().venv_folder is None
+
 
 def test_first_line():
     assert runez.first_line(None) is None
