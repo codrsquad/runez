@@ -526,10 +526,17 @@ def test_progress_bar():
     assert pb.rendered() is None
 
 
-def test_progress_command(cli):
+def test_progress_command(cli, monkeypatch):
     cli.run("progress-bar", "-i10", "-d1", "--sleep", "0.01")
     assert cli.succeeded
     assert "done" in cli.logged.stdout
+    assert "CPU usage" in cli.logged.stdout
+
+    monkeypatch.setitem(sys.modules, "psutil", None)
+    cli.run("progress-bar", "-i10", "-d1", "--sleep", "0.01")
+    assert cli.succeeded
+    assert "done" in cli.logged.stdout
+    assert "CPU usage" not in cli.logged
 
 
 def test_progress_frames(monkeypatch):

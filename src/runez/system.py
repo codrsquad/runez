@@ -387,27 +387,27 @@ def get_version(mod, default="0.0.0", fatal=False, logger=False):
     if name and isinstance(name, str):
         top_level = name.partition(".")[0] if isinstance(name, str) else name
         last_exception = None
+        metadata_version = _metadata_version_function()
+        if metadata_version:
+            try:
+                v = metadata_version(top_level)
+                if v:
+                    return v
 
-        try:
-            from importlib import metadata  # requires py3.8+
+            except (ImportError, Exception) as e:
+                last_exception = e
 
-            version = metadata.version(top_level)
-            if version:
-                return version
+        else:
+            try:
+                # TODO: Remove when py3.7 support is dropped
+                import pkg_resources
 
-        except (ImportError, Exception) as e:
-            last_exception = e
+                d = pkg_resources.get_distribution(top_level)
+                if d and d.version:
+                    return d.version
 
-        try:
-            # TODO: Remove when py3.7 support is dropped
-            import pkg_resources
-
-            d = pkg_resources.get_distribution(top_level)
-            if d and d.version:
-                return d.version
-
-        except (ImportError, Exception) as e:
-            last_exception = e
+            except (ImportError, Exception) as e:
+                last_exception = e
 
         m = sys.modules.get(name)
         if m is not None:
@@ -2368,6 +2368,16 @@ def _full_path(path, relative_path):
         path = os.path.join(path, *relative_path)
 
     return path
+
+
+def _metadata_version_function():
+    try:
+        from importlib.metadata import version  # requires py3.8+
+
+        return version
+
+    except ImportError:
+        return None
 
 
 def _validated_project_path(*paths):
