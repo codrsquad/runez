@@ -972,7 +972,7 @@ class PythonInstallationLocation:
             dirs_ok = True
             location = os.path.dirname(location)
 
-        return sorted(self.scan_installations(location, dirs_ok=dirs_ok), reverse=True, key=lambda x: x.mm_spec)
+        return sorted(self.scan_installations(location, dirs_ok=dirs_ok), reverse=True, key=lambda x: x.full_spec)
 
     def find_python(self, spec):
         for python in self.available_pythons:

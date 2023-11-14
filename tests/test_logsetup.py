@@ -167,7 +167,7 @@ def test_convenience(temp_log):
     logging.info("hello")
     logging.exception("oops")
 
-    assert "f:system.py mod:system func:hlog INFO Wrote 12 bytes" in temp_log.stderr
+    assert "f:system.py mod:system func:hlog INFO Wrote some-file" in temp_log.stderr
     assert "f:test_logsetup.py mod:test_logsetup func:test_convenience INFO hello" in temp_log.stderr
     assert "f:test_logsetup.py mod:test_logsetup func:test_convenience ERROR oops" in temp_log.stderr
     temp_log.stderr.clear()
@@ -175,7 +175,7 @@ def test_convenience(temp_log):
     runez.write("some-file", "some content", logger=LOG.info)
     LOG.info("hello")
     LOG.exception("oops")
-    assert "f:system.py mod:system func:hlog INFO Wrote 12 bytes" in temp_log.stderr
+    assert "f:system.py mod:system func:hlog INFO Wrote some-file" in temp_log.stderr
     assert "f:test_logsetup.py mod:test_logsetup func:test_convenience INFO hello" in temp_log.stderr
     assert "f:test_logsetup.py mod:test_logsetup func:test_convenience ERROR oops" in temp_log.stderr
 

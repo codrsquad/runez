@@ -512,10 +512,9 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
         return 0
 
     path = resolved_path(path)
-    byte_size = _R.lc.rm.represented_bytesize(len(contents), unit="bytes") if contents else ""
 
     def dryrun_msg():
-        return "%s %s" % ("write %s to" % byte_size if byte_size else "touch", short(path))
+        return "%s %s" % ("write " if contents else "touch", short(path))
 
     if _R.hdry(dryrun, logger, dryrun_msg):
         return 1
@@ -530,7 +529,7 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
             else:
                 fh.write(contents)
 
-        _R.hlog(logger, "%s %s" % ("Wrote %s to" % byte_size if byte_size else "Touched", short(path)))
+        _R.hlog(logger, "%s %s" % ("Wrote" if contents else "Touched", short(path)))
         return 1
 
     except Exception as e:
