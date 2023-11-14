@@ -7,6 +7,7 @@ This class should not import any other `runez` class, to avoid circular deps.
 import inspect
 import logging
 import os
+import platform
 import re
 import shutil
 import sys
@@ -1561,16 +1562,14 @@ class SystemInfo:
     @cached_property
     def invoker_python(self):
         """The python that is either currently running us, or that created the venv we're running from"""
-        from runez.pyenv import PyInstallInfo, PythonInstallation
+        from runez.pyenv import INVOKER_ALIASES, PythonInstallation
 
-        info = PyInstallInfo(version=sys.version_info[:3])
-        if self.is_running_in_venv:
-            installation = PythonInstallation.from_folder(sys.base_prefix, _info=info)
-
-        else:
-            installation = PythonInstallation.from_exe(sys.executable, _info=info)
-
-        PyInstallInfo.cached_by_path["invoker"] = installation
+        real_exe = os.path.realpath(sys.executable)
+        inspection = dict(version=".".join(str(s) for s in sys.version_info[:3]), machine=platform.machine())
+        installation = PythonInstallation(_R.lc.rm.to_path(real_exe), short_name=short(sys.base_prefix), inspection=inspection)
+        INVOKER_ALIASES["invoker"] = installation
+        INVOKER_ALIASES[installation.executable] = installation
+        INVOKER_ALIASES[real_exe] = installation
         return installation
 
     @cached_property

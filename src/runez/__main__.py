@@ -49,12 +49,12 @@ def cmd_diagnostics():
     """Show system diagnostics sample"""
     parser = runez.cli.parser()
     parser.add_argument("--border", default="colon", choices=NAMED_BORDERS, help="Use custom border.")
-    parser.add_argument("--pyenv", default="PATH", help="Comma-separated locations to examine for python installations")
+    parser.add_argument("--pyenv", default="PATH", help="Colon separated locations to examine for python installations")
     args = parser.parse_args()
 
     from runez.pyenv import PythonDepot
 
-    locations = runez.flattened(args.pyenv, split=",")
+    locations = runez.flattened(args.pyenv, split=os.path.pathsep)
     depot = PythonDepot(*locations)
     available = depot.representation()
     print(PrettyTable.two_column_diagnostics(runez.SYS_INFO.diagnostics(), available, border=args.border))
