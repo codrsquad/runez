@@ -2,7 +2,7 @@
 History
 =======
 
-4.1.0 (2023-11-14)
+5.0.0 (2023-11-14)
 ------------------
 
 * Avoid using ``pkg_resources``, more flexible ``PythonDepot`` scan for python binaries
