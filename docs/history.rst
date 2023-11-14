@@ -2,6 +2,24 @@
 History
 =======
 
+4.1.0 (2023-11-14)
+------------------
+
+* Avoid using ``pkg_resources``, more flexible ``PythonDepot`` scan for python binaries
+
+
+4.0.4 (2023-09-23)
+------------------
+
+* Test against python 3.12
+
+
+4.0.3 (2023-09-23)
+------------------
+
+* Accept ``rc`` versions for in ``PythonSpec``
+
+
 4.0.2 (2023-09-13)
 ------------------
 
