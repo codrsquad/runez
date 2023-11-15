@@ -130,8 +130,13 @@ def test_json(temp_folder, monkeypatch):
 
     assert runez.save_json(None, None, fatal=False) == 0
 
+    with runez.CaptureOutput() as logged:
+        assert runez.save_json("data", "/dev/null/impossible-folder/test.json", fatal=False) == -1
+        assert "Can't create folder" in logged
+
     assert not runez.DRYRUN
     with runez.CaptureOutput(dryrun=True) as logged:
+        assert runez.DRYRUN
         assert runez.save_json(data, "sample.json") == 1
         assert "Would save" in logged.pop()
     assert not runez.DRYRUN

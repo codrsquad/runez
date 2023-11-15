@@ -8,7 +8,7 @@ import pytest
 
 import runez
 from runez.program import RunResult
-from runez.system import _R, PlatformId, SystemInfo, TerminalInfo, TerminalProgram
+from runez.system import _R, AbortException, PlatformId, SystemInfo, TerminalInfo, TerminalProgram
 
 VERSION = "1.2.3.dev4"
 
@@ -36,6 +36,12 @@ def test_abort(logged, monkeypatch):
 
     def on_log(message):
         print(message)
+
+    # Verify that a logger callback that does not accept exc_info= doesn't fail at logging time
+    with pytest.raises(AbortException):
+        runez.abort("failed", exc_info=Exception("oops"), logger=on_log)
+    assert not logged.stderr
+    assert logged.stdout.pop().strip() == "failed: oops"
 
     assert runez.abort("aborted", return_value="some-return", fatal=False, logger=on_log, exc_info=Exception("oops")) == "some-return"
     assert not logged.stderr
