@@ -2071,7 +2071,8 @@ class _LazyCache:
 
 class _R:
     """
-    Internal class to provide a late import of runez (after __init__ imported everything), and also holds some common stuff.
+    Internal class, used as a namespace
+    Provides a late import of runez (after __init__ imported everything), and also holds some common stuff.
     The name is intentionally short to avoid verbose/long lines calling it.
     _R stands for "runez, internal class"
 
