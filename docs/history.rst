@@ -7,8 +7,6 @@ History
 
 * Avoid using ``pkg_resources``, more flexible ``PythonDepot`` scan for python binaries
 
-* ``Version.mm`` is now of type ``Version`` (was ``str``)
-
 
 4.0.4 (2023-09-23)
 ------------------

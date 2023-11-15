@@ -295,11 +295,11 @@ class PythonSpec:
         """
         Args:
             family (str): Python family (cpython, conda, pypi, ...)
-            version (Version): Desired version
+            version (Version | str): Desired version
             is_min_spec (bool): If True, match installations that are at least at `version`, e.g. cpython:3.10+
         """
         self.family = family
-        self.version = version
+        self.version = Version.from_object(version)
         self.canonical = "%s:%s%s" % (family, version, "+" if is_min_spec else "")
         self.is_min_spec = is_min_spec
 
@@ -590,12 +590,16 @@ class Version:
         Returns:
             (Version | None): Corresponding version object, if valid
         """
-        if isinstance(obj, Version):
-            return obj if obj.is_valid else None
+        if obj:
+            if isinstance(obj, Version):
+                return obj if obj.is_valid else None
 
-        v = cls(joined(obj, delimiter="."))
-        if v.is_valid:
-            return v
+            if not isinstance(obj, str):
+                obj = joined(obj, delimiter=".")
+
+            v = cls(obj)
+            if v.is_valid:
+                return v
 
     @classmethod
     def from_tox_like(cls, text, default=None):
@@ -725,7 +729,7 @@ class Version:
     def mm(self):
         """(str): <major>.<minor>, often used in python paths, like config-3.9"""
         if self.minor is not None:
-            return Version("%s.%s" % (self.major, self.minor))
+            return "%s.%s" % (self.major, self.minor)
 
     @property
     def patch(self):
@@ -924,7 +928,7 @@ class PythonInstallation:
     def mm_spec(self):
         """Major/minor spec, e.g: cpython:3.11"""
         if self.full_version:
-            return PythonSpec(self.family, self.full_version.mm)
+            return PythonSpec(self.family, Version(self.full_version.mm))
 
     @cached_property
     def machine(self):
