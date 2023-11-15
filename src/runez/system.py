@@ -2092,10 +2092,8 @@ class _R:
 
     @staticmethod
     def actual_message(message):
-        if callable(message):
-            message = message()  # Allow message to be late-called function
-
-        return message
+        """Allow message to be late-called function"""
+        return message() if callable(message) else message
 
     @classmethod
     def colored(cls, text, color, is_coloring=UNSET):

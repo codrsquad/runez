@@ -512,11 +512,8 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
         return 0
 
     path = resolved_path(path)
-
-    def dryrun_msg():
-        return "%s %s" % ("write " if contents else "touch", short(path))
-
-    if _R.hdry(dryrun, logger, dryrun_msg):
+    short_path = short(path)
+    if _R.hdry(dryrun, logger, "%s %s" % ("write" if contents else "touch", short_path)):
         return 1
 
     ensure_folder(parent_folder(path), fatal=fatal, logger=None, dryrun=dryrun)
@@ -529,11 +526,11 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
             else:
                 fh.write(contents)
 
-        _R.hlog(logger, "%s %s" % ("Wrote" if contents else "Touched", short(path)))
+        _R.hlog(logger, "%s %s" % ("Wrote" if contents else "Touched", short_path))
         return 1
 
     except Exception as e:
-        return abort("Can't write to %s" % short(path), exc_info=e, return_value=-1, fatal=fatal, logger=logger)
+        return abort("Can't write to %s" % short_path, exc_info=e, return_value=-1, fatal=fatal, logger=logger)
 
 
 def _copy(source, destination, ignore=None):
