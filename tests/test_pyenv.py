@@ -522,11 +522,16 @@ def test_version():
     assert dev101.prerelease
     assert str(dev101) == "0.0.1dev101"
     assert dev101.pep_440 == "0.0.1.dev101"
+    assert dev101.major == 0
+    assert dev101.minor == 0
+    assert dev101.patch == 1
+    assert dev101.mm == "0.0"
 
     none = Version(None)
     assert str(none) == ""
     assert not none.is_valid
     assert not none.is_final
+    assert none.major is None
     assert none.mm is None
 
     empty = Version("")
@@ -563,7 +568,10 @@ def test_version():
     assert v1.components == (1, 0, 0, 0, 0, 0, "")
     assert str(v1) == "1"
     assert v1.main == "1"
-    assert v1.mm == "1.0"
+    assert v1.major == 1
+    assert v1.minor is None
+    assert v1.patch is None
+    assert v1.mm is None
     assert empty < v1
     assert v1 > empty
     assert v1 != empty
@@ -601,7 +609,7 @@ def test_version():
     assert vdev.prerelease == ("a", 4, "", 0, "dev", 5)
     assert vrc.major == 1
     assert vrc.minor == 0
-    assert vrc.patch == 0
+    assert vrc.patch is None
     assert vrc.main == "1.0"
 
     incomplete_dev = Version("0.4.34dev")

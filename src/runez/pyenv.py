@@ -712,23 +712,26 @@ class Version:
     @cached_property
     def major(self):
         """(int): Major part of version"""
-        return self.components and self.components[0]
+        if self.given_components_count >= 1:
+            return self.components and self.components[0]
 
     @cached_property
     def minor(self):
         """(int): Minor part of version"""
-        return self.components and self.components[1]
+        if self.given_components_count >= 2:
+            return self.components and self.components[1]
 
     @cached_property
     def mm(self):
         """(str): <major>.<minor>, often used in python paths, like config-3.9"""
-        if self.components:
-            return joined(self.major, self.minor, delimiter=".")
+        if self.minor is not None:
+            return Version("%s.%s" % (self.major, self.minor))
 
     @property
     def patch(self):
         """(int): Patch part of version"""
-        return self.components and self.components[2]
+        if self.given_components_count >= 3:
+            return self.components and self.components[2]
 
     @cached_property
     def pep_440(self):
@@ -915,13 +918,13 @@ class PythonInstallation:
     def mm(self):
         """Major/minor version, e.g: cpython:3.11"""
         if self.full_version:
-            return Version(self.full_version.mm)
+            return self.full_version.mm
 
     @cached_property
     def mm_spec(self):
         """Major/minor spec, e.g: cpython:3.11"""
         if self.full_version:
-            return PythonSpec(self.family, self.mm)
+            return PythonSpec(self.family, self.full_version.mm)
 
     @cached_property
     def machine(self):
