@@ -174,11 +174,11 @@ def test_empty_depot(temp_folder):
     assert depot.find_python(PythonSpec("cpython", invoker.mm)) is invoker
     assert depot.find_python("python") is invoker
     assert depot.find_python("py%s" % invoker.mm) is invoker  # eg: py3.10
-    assert depot.find_python("py%s" % invoker.mm.replace(".", "")) is invoker  # tox style: py310
+    assert depot.find_python("py%s" % invoker.mm.text.replace(".", "")) is invoker  # tox style: py310
     assert depot.find_python(invoker.mm) is invoker
-    assert depot.find_python(Version(invoker.mm)) is invoker
+    assert depot.find_python(invoker.mm.text) is invoker
     assert depot.find_python("python") is invoker
-    assert depot.find_python("python%s" % invoker.full_version.major) is invoker
+    assert depot.find_python("python%s" % invoker.mm.major) is invoker
 
     p = depot.find_python("foo")
     assert str(p) == "foo [not available]"

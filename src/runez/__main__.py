@@ -219,7 +219,6 @@ def _show_fgcolors(bg=runez.plain, border=None):
 
         line = [bg(color(text))]
         for style in runez.color.style:
-            # text = "%s %s" % (style.name, color_name)
             line.append(bg(style(color(color_name))))
 
         table.add_row(line)
@@ -228,7 +227,11 @@ def _show_fgcolors(bg=runez.plain, border=None):
 
 
 def _interesting_top_levels():
-    uninteresting = re.compile(r"^(_|pip|pkg_resources|pydev|pytest|setuptools)")
+    """
+    Convenience for `-mrunez import-time --all` command
+    Return list of import top level names, ignoring things like top levels starting with an `_`, and other uninteresting libs
+    """
+    uninteresting = re.compile(r"^(_|pip|pkg_resources|pydev|pytest|setuptools).*$")
     result = set()
     base = sysconfig.get_path("purelib")
     for item in runez.ls_dir(base):
@@ -236,10 +239,10 @@ def _interesting_top_levels():
             top_levels = item / "top_level.txt"
             if top_levels.exists():
                 for line in runez.readlines(top_levels):
-                    if line and not uninteresting.search(line):
+                    if line and not uninteresting.match(line):
                         result.add(line)
 
-    return result
+    return sorted(result)
 
 
 if __name__ == "__main__":

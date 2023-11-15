@@ -90,15 +90,15 @@ def abort(message, code=1, exc_info=None, return_value=None, fatal=True, logger=
         exception = _R.abort_exception(override=fatal)
         if exception is SystemExit:
             # Ensure message shown if we raise SystemExit
-            _show_abort_message(message, exc_info, logger or ABORT_LOGGER)
+            _show_abort_message(message, exc_info, fatal, logger or ABORT_LOGGER)
             raise SystemExit(code)
 
         if isinstance(exception, type) and issubclass(exception, BaseException):
-            _show_abort_message(message, exc_info, logger)
+            _show_abort_message(message, exc_info, fatal, logger)
             raise exception(message)
 
     elif fatal is not None:
-        _show_abort_message(message, exc_info, logger)
+        _show_abort_message(message, exc_info, fatal, logger)
 
     return return_value
 
@@ -386,7 +386,7 @@ def get_version(mod, default="0.0.0", fatal=False, logger=False):
         name = mod.__name__
 
     if name and isinstance(name, str):
-        top_level = name.partition(".")[0] if isinstance(name, str) else name
+        top_level = name.partition(".")[0]
         last_exception = None
         metadata_version = _metadata_version_function()
         if metadata_version:
@@ -395,7 +395,7 @@ def get_version(mod, default="0.0.0", fatal=False, logger=False):
                 if v:
                     return v
 
-            except (ImportError, Exception) as e:
+            except Exception as e:
                 last_exception = e
 
         else:
@@ -407,7 +407,7 @@ def get_version(mod, default="0.0.0", fatal=False, logger=False):
                 if d and d.version:
                     return d.version
 
-            except (ImportError, Exception) as e:
+            except Exception as e:
                 last_exception = e
 
         m = sys.modules.get(name)
@@ -2345,10 +2345,10 @@ def _prettified(value):
         return "function '%s'" % value.__name__
 
 
-def _show_abort_message(message, exc_info, logger):
+def _show_abort_message(message, exc_info, fatal, logger):
     if logger is not None:
         if logging.root.handlers:
-            _R.hlog(logger, message, exc_info=exc_info)
+            _R.hlog(logger, message, exc_info=exc_info if fatal else None)
 
         else:
             sys.stderr.write("%s\n" % message)

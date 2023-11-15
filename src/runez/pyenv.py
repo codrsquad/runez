@@ -922,13 +922,13 @@ class PythonInstallation:
     def mm(self):
         """Major/minor version, e.g: cpython:3.11"""
         if self.full_version:
-            return self.full_version.mm
+            return Version(self.full_version.mm)
 
     @cached_property
     def mm_spec(self):
         """Major/minor spec, e.g: cpython:3.11"""
-        if self.full_version:
-            return PythonSpec(self.family, Version(self.full_version.mm))
+        if self.mm:
+            return PythonSpec(self.family, self.mm)
 
     @cached_property
     def machine(self):
