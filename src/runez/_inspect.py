@@ -8,8 +8,6 @@ def simple_inspection():
     return dict(
         version=".".join(str(s) for s in sys.version_info[:3]),
         machine=platform.machine(),
-        sys_prefix=sys.prefix,
-        base_prefix=getattr(sys, "base_prefix", sys.prefix),
     )
 
 

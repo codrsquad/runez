@@ -2,10 +2,12 @@
 History
 =======
 
-5.0.0 (2023-11-15)
+5.0.0 (2023-11-27)
 ------------------
 
-* Avoid using ``pkg_resources``, more flexible ``PythonDepot`` scan for python binaries
+* More flexible ``PythonDepot`` scan for python binaries
+
+* Avoid using ``pkg_resources``
 
 
 4.0.4 (2023-09-23)

@@ -98,8 +98,8 @@ def test_diagnostics(monkeypatch):
         s = SystemInfo()
         x = PrettyTable.two_column_diagnostics(s.diagnostics())
         assert "terminal : foo v2" in x
-        assert "sys.executable : foo" in x  # Present when sys.executable doesn't match sys.prefix
-        assert "sys.prefix" in x
+        assert "sys.executable : foo" in x
+        assert "sys.prefix" in x  # Present when sys.executable doesn't match sys.prefix
         assert "via : " in x
 
         x = PrettyTable.two_column_diagnostics(s.diagnostics(via=None))

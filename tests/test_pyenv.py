@@ -37,7 +37,7 @@ def test_artifact_info():
     assert info.wheel_build_number == "10"
 
 
-def mk_python(basename, prefix=None, base_prefix=None, executable=True, content=None):
+def mk_python(basename, executable=True, content=None):
     if basename[0].isdigit():
         version = Version(basename)
         folder = runez.to_path(".pyenv/versions") / basename / "bin"
@@ -50,15 +50,9 @@ def mk_python(basename, prefix=None, base_prefix=None, executable=True, content=
         else:
             folder = runez.to_path(".pyenv/versions") / os.path.dirname(basename) / "bin"
 
-    if not prefix:
-        prefix = str(folder)
-
-    if not base_prefix:
-        base_prefix = prefix
-
     path = folder / ("python%s" % version.mm)
     if not content:
-        content = dict(version=str(version), machine=platform.machine(), sys_prefix=prefix, base_prefix=base_prefix)
+        content = dict(version=str(version), machine=platform.machine())
 
     if content == "failed":
         content = "echo failed\nexit 1"
@@ -90,6 +84,8 @@ def test_depot(temp_folder, logged):
     runez.symlink(".pyenv/versions/8.6.1", ".pyenv/versions/python8.6", logger=None)
 
     depot = PythonDepot(".pyenv/versions/**")
+    text = depot.representation()
+    assert text.startswith("4 python installations in .pyenv/versions/**:")
     assert len(depot.available_pythons) == 4
 
     assert str(depot.find_python("8.5.4")) == "8.5.4 [not available]"
@@ -101,20 +97,25 @@ def test_depot(temp_folder, logged):
     assert str(failed) == ".pyenv/versions/8.5.6 [failed]"
     invalid_json = depot.find_python(".pyenv/versions/8.5.7")
     assert str(invalid_json).startswith(".pyenv/versions/8.5.7 [internal error: ")
+    assert invalid < bad_version < failed
 
     versions = [p.mm_spec.canonical for p in depot.available_pythons]
     assert versions == ["pypy:9.8", "cpython:8.7", "cpython:8.6", "conda:9.11"]
 
     # Verify that latest available is found (when under-specified)
     p8 = depot.find_python("8")
-    assert not p8.is_virtualenv
     assert repr(p8) == ".pyenv/versions/8.7.2"
     assert str(p8) == ".pyenv/versions/8.7.2"
+    assert invalid < p8
 
     # Verify that preferred python is respected
     depot.set_preferred_python("8.6")
     assert repr(depot.find_python("8")) == ".pyenv/versions/8.6.1"
-    assert p8 == depot.find_python("8.7")
+    assert p8 is depot.find_python("8.7")
+    p8b = depot.find_python(".pyenv/versions/8.7.2")
+    assert p8 is not p8b
+    assert p8 == p8b
+    assert p8 < p8b  # Due to their .path
 
     # Verify min spec
     assert str(depot.find_python("conda:9.1+")) == ".pyenv/versions/miniforge3-22.11.1-4 [conda:9.11.2]"
@@ -143,10 +144,22 @@ def test_depot_adhoc(temp_folder):
 
     mk_python("./some-path/bin/13.1.2")
     assert str(depot.find_python("some-path/bin/python13.1")) == "some-path/bin/python13.1 [13.1.2]"
-    assert str(depot.find_python("./some-path/")) == "some-path [13.1.2]"
+    assert str(depot.find_python("./some-path/")) == "./some-path/ [13.1.2]"
     assert str(depot.find_python(runez.to_path("some-path"))) == "some-path [13.1.2]"
     assert str(depot.find_python("some-path/bin/python")) == "some-path/bin/python [13.1.2]"
     assert str(depot.find_python("some-path/bin")) == "some-path/bin [13.1.2]"
+
+
+def test_depot_folder(temp_folder):
+    mk_python("8.5.6")
+    mk_python("8.5.7")
+    runez.symlink(".pyenv/versions/8.5.6/bin/python", "python8.5", logger=None)
+    runez.symlink(".pyenv/versions/8.5.7/bin/python", "python", logger=None)
+    depot = PythonDepot(".")
+    assert len(depot.available_pythons) == 1
+    assert str(depot.find_python("8.5")) == "python8.5 [8.5.6]"
+    assert str(depot.find_python("8.5.6")) == "python8.5 [8.5.6]"
+    assert str(depot.find_python("8.5.7")) == "8.5.7 [not available]"
 
 
 def test_depot_path(temp_folder):
@@ -169,8 +182,8 @@ def test_empty_depot(temp_folder):
     assert depot.find_python("") is invoker
     assert depot.find_python("invoker") is invoker
     assert depot.find_python(invoker) is invoker
-    assert depot.find_python(invoker.executable) is invoker
-    assert depot.find_python(runez.to_path(invoker.executable)) is invoker
+    assert depot.find_python(invoker.executable).is_invoker
+    assert depot.find_python(runez.to_path(invoker.executable)).is_invoker
     assert depot.find_python(PythonSpec("cpython", invoker.mm)) is invoker
     assert depot.find_python("python") is invoker
     assert depot.find_python("py%s" % invoker.mm) is invoker  # eg: py3.10
@@ -183,7 +196,8 @@ def test_empty_depot(temp_folder):
     p = depot.find_python("foo")
     assert str(p) == "foo [not available]"
     assert repr(p) == "foo [not available]"
-    assert p.executable is None
+    assert p.path == runez.to_path("foo")
+    assert p.executable == runez.to_path("foo").resolve()
     assert p.full_spec is None
     assert p.full_version is None
     assert not p.is_invoker
@@ -192,30 +206,22 @@ def test_empty_depot(temp_folder):
     assert p.problem == "not available"
     assert p.short_name == "foo"
 
-    # Disabling invoker still finds it explicitly, but not by generic spec
-    depot.invoker = None
 
-    # Found only if explicitly referred to
-    assert depot.find_python("invoker") is invoker
-    assert depot.find_python(invoker) is invoker
+def test_inspect():
+    import runez._inspect
 
-    assert str(depot.find_python(None)) == "None [not available]"
-    assert str(depot.find_python("")) == "None [not available]"
-    assert str(depot.find_python("python")) == "python [not available]"
-    assert str(depot.find_python(invoker.mm)) == "%s [not available]" % invoker.mm
+    r = runez.run(sys.executable, runez._inspect.__file__)
+    assert r.succeeded
+    assert '"version":' in r.output
 
 
 def test_invoker(monkeypatch):
     import runez.pyenv
 
-    monkeypatch.setattr(runez.pyenv, "INVOKER_ALIASES", {})
-    monkeypatch.delattr(runez.SYS_INFO, "invoker_python")
     invoker = runez.SYS_INFO.invoker_python
-    assert "invoker" in runez.pyenv.INVOKER_ALIASES
     assert "invoker" in str(invoker)
     assert invoker.full_spec
     assert invoker.is_invoker
-    assert not invoker.is_virtualenv
     assert invoker.machine
     assert invoker.problem is None
 
@@ -448,29 +454,6 @@ def test_spec_list():
 
     x = PythonSpec.to_list(["3.10,py36", "foo,py37", 3.8])
     assert x == [PythonSpec.from_text("3.10"), PythonSpec.from_text("3.6"), PythonSpec.from_text("3.7"), PythonSpec.from_text("3.8")]
-
-
-def test_venv(temp_folder):
-    # Simulate an explicit reference to a venv python
-    mk_python("./some-venv/bin/8.6.1", prefix="foo", base_prefix=".pyenv/versions/8.6.1")
-
-    depot = PythonDepot()
-    assert not depot.available_pythons
-    pvenv = depot.find_python("./some-venv/bin/python")
-    assert repr(pvenv) == "some-venv/bin/python [8.6.1, venv]"
-    assert str(pvenv) == "some-venv/bin/python [8.6.1, venv]"
-    assert pvenv.is_virtualenv
-    assert depot.find_python("./some-venv") == pvenv
-
-
-def test_venv_from_project():
-    depot = PythonDepot()
-    assert not depot.available_pythons
-
-    pvenv = depot.find_python(sys.executable)
-    assert not pvenv.is_invoker
-    assert pvenv.is_virtualenv
-    assert repr(pvenv).endswith(", venv]")
 
 
 @pytest.mark.parametrize(

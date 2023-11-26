@@ -7,7 +7,6 @@ This class should not import any other `runez` class, to avoid circular deps.
 import inspect
 import logging
 import os
-import platform
 import re
 import shutil
 import sys
@@ -1530,7 +1529,7 @@ class SystemInfo:
         """Info on currently running process"""
         return _R.lc.rm.PsInfo()
 
-    def diagnostics(self, argv=UNSET, exe=True, platform=True, prefix=UNSET, term=UNSET, userid=UNSET, version=UNSET, via=" ⚡ "):
+    def diagnostics(self, argv=UNSET, exe=True, platform=True, term=UNSET, userid=UNSET, version=UNSET, via=" ⚡ "):
         """Usable by runez.render.PrettyTable.two_column_diagnostics()"""
         if platform:
             yield "platform", "%s [%s]" % (_R.colored(self.platform_id, "bold"), self.platform_info)
@@ -1547,6 +1546,8 @@ class SystemInfo:
 
         if exe:
             yield "sys.executable", sys.executable
+            if not sys.executable.startswith(sys.prefix):
+                yield "sys.prefix", sys.prefix
 
         if via:
             process_list = self.current_process.parent_list()
@@ -1556,21 +1557,22 @@ class SystemInfo:
         if _R.rdefault(argv, "diagnostics" not in sys.argv):
             yield "sys.argv", quoted(sys.argv)
 
-        if _R.rdefault(prefix, SYS_INFO.venv_bin_folder):
-            yield "sys.prefix", sys.prefix
-
     @cached_property
     def invoker_python(self):
         """The python that is either currently running us, or that created the venv we're running from"""
-        from runez.pyenv import INVOKER_ALIASES, PythonInstallation
+        import platform
+        from pathlib import Path
+        from runez.pyenv import PythonInstallation, PythonSimpleInspection
 
-        real_exe = os.path.realpath(sys.executable)
-        inspection = dict(version=".".join(str(s) for s in sys.version_info[:3]), machine=platform.machine())
-        installation = PythonInstallation(_R.lc.rm.to_path(real_exe), short_name=short(sys.base_prefix), inspection=inspection)
-        INVOKER_ALIASES["invoker"] = installation
-        INVOKER_ALIASES[installation.executable] = installation
-        INVOKER_ALIASES[real_exe] = installation
-        return installation
+        path = Path(sys.executable)
+        real_exe = path.resolve()
+        inspection = PythonSimpleInspection(version=".".join(str(s) for s in sys.version_info[:3]), machine=platform.machine())
+        PythonSimpleInspection.register("invoker", inspection)
+        PythonSimpleInspection.register(sys.executable, inspection)
+        PythonSimpleInspection.register(path, inspection)
+        PythonSimpleInspection.register(real_exe, inspection)
+        PythonSimpleInspection.register(str(real_exe), inspection)
+        return PythonInstallation(real_exe)
 
     @cached_property
     def is_running_in_docker(self):
