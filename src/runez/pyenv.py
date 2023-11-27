@@ -1,12 +1,12 @@
 import json
 import os
-import pathlib
 import re
+from pathlib import Path
 
-from runez.file import ls_dir, to_path
+from runez.file import ls_dir
 from runez.http import RestClient, urljoin
 from runez.program import is_executable, run
-from runez.system import _R, cached_property, flattened, joined, ltattr, resolved_path, short
+from runez.system import _R, cached_property, flattened, joined, ltattr, resolved_path, short, UNSET
 
 
 CPYTHON = "cpython"
@@ -201,7 +201,7 @@ class PypiStd:
             package_name (str): Pypi package name
             client (RestClient | None): Optional custom pypi client to use
             index (str | None): Optional custom pypi index url
-            include_prerelease (bool): If True, include pre-releases
+            include_prerelease (bool): If True, include pre releases
             fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
             logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
 
@@ -294,11 +294,11 @@ class PythonSpec:
         """
         Args:
             family (str): Python family (cpython, conda, pypi, ...)
-            version (Version): Desired version
-            is_min_spec (bool): If True, match installations that are at least at `version`, eg cpython:3.10+
+            version (Version | str): Desired version
+            is_min_spec (bool): If True, match installations that are at least at `version`, e.g. cpython:3.10+
         """
         self.family = family
-        self.version = version
+        self.version = Version.from_object(version)
         self.canonical = "%s:%s%s" % (family, version, "+" if is_min_spec else "")
         self.is_min_spec = is_min_spec
 
@@ -424,14 +424,14 @@ class PythonDepot:
         p = my_depot.find_python("3.7")
     """
 
-    preferred_python = None  # type: PythonInstallation  # Preferred python to use, if configured
+    _preferred_python = None  # type: PythonInstallation  # Preferred python to use, if configured
 
     def __init__(self, *locations):
         """
         Args:
-            locations (str | pathlib.Path): Locations to scan
+            locations (str | Path): Locations to scan
         """
-        self.locations = [PythonInstallationLocation(x) for x in flattened(locations)]
+        self.locations = [PythonInstallationLocation.from_location(x) for x in flattened(locations)]
         self.invoker = _R.lc.rm.SYS_INFO.invoker_python
 
     @cached_property
@@ -442,49 +442,76 @@ class PythonDepot:
 
         return result
 
+    @property
+    def preferred_python(self):
+        """
+        Returns:
+            (PythonInstallation | None): Preferred python to use, either explicitly configured, or auto-determined from locations
+        """
+        if self._preferred_python is None:
+            for location in self.locations:
+                python = location.preferred_python
+                if python:
+                    return python
+
+        return self._preferred_python
+
     def set_preferred_python(self, *specs):
         """
         Args:
-            specs (str | pathlib.Path | PythonSpec): List of preferred pythons, eg: 3.10, /usr/bin/python3, invoker
+            specs (str | list[str]): List of preferred pythons, eg: 3.10, /usr/bin/python3, invoker
         """
         for spec in flattened(specs):
             python = self.find_python(spec)
             if python and not python.problem:
-                self.preferred_python = python
+                self._preferred_python = python
                 return
 
     def find_python(self, spec):
         """
         Args:
-            spec (str | pathlib.Path | PythonInstallation | PythonSpec | None): Example: 3.7, py37, pypy:3.7, /usr/bin/python3
+            spec (str | Path | PythonInstallation | PythonSpec | Version | None): Example: 3.7, py37, pypy:3.7, /usr/bin/python3
 
         Returns:
             (PythonInstallation): Object representing python installation (may not be usable, see reported .problem)
         """
+        if not spec:
+            return self.preferred_python or self.invoker
+
         if isinstance(spec, PythonInstallation):
             return spec
 
-        python = PyInstallInfo.cached_by_path.get(spec)
+        if isinstance(spec, Path):
+            return PythonInstallation.from_path(spec, short_name=short(spec))
+
+        python = self._find_python(spec)
         if python is None:
-            python = self._find_python(spec)
-            if python is None:
-                python = PythonInstallation(None, short_name=str(spec), _info=PyInstallInfo(problem="not available"))
+            if not isinstance(spec, Path):
+                spec = Path(str(spec))
+
+            python = PythonInstallation(spec)
 
         return python
 
     def _find_python(self, spec):
-        if not spec:
-            return self.preferred_python or self.invoker
+        if isinstance(spec, str):
+            if spec.startswith("~") or spec.startswith(".") or "/" in spec or os.path.exists(spec):
+                return PythonInstallation.from_path(Path(resolved_path(spec)), short_name=short(spec))
 
-        if _is_path(spec):
-            return PythonInstallation.from_path(spec)
+            elif spec == "invoker":
+                return self.invoker
 
-        spec = PythonSpec.from_object(spec)
-        if not spec:
+            spec = PythonSpec.from_text(spec)
+
+        else:
+            spec = PythonSpec.from_object(spec)
+
+        if not isinstance(spec, PythonSpec):
             return None
 
-        if self.preferred_python and self.preferred_python.satisfies(spec):
-            return self.preferred_python
+        preferred = self.preferred_python
+        if preferred and preferred.satisfies(spec):
+            return preferred
 
         for location in self.locations:
             python = location.find_python(spec)
@@ -507,6 +534,8 @@ class Version:
     """
     Parse versions according to PEP-440, including ordering.
     """
+
+    text: str
 
     def __init__(self, text, max_parts=5, canonical=False):
         """
@@ -586,12 +615,16 @@ class Version:
         Returns:
             (Version | None): Corresponding version object, if valid
         """
-        if isinstance(obj, Version):
-            return obj if obj.is_valid else None
+        if obj:
+            if isinstance(obj, Version):
+                return obj if obj.is_valid else None
 
-        v = cls(joined(obj, delimiter="."))
-        if v.is_valid:
-            return v
+            if not isinstance(obj, str):
+                obj = joined(obj, delimiter=".")
+
+            v = cls(obj)
+            if v.is_valid:
+                return v
 
     @classmethod
     def from_tox_like(cls, text, default=None):
@@ -708,23 +741,26 @@ class Version:
     @cached_property
     def major(self):
         """(int): Major part of version"""
-        return self.components and self.components[0]
+        if self.given_components_count >= 1:
+            return self.components and self.components[0]
 
     @cached_property
     def minor(self):
         """(int): Minor part of version"""
-        return self.components and self.components[1]
+        if self.given_components_count >= 2:
+            return self.components and self.components[1]
 
     @cached_property
     def mm(self):
         """(str): <major>.<minor>, often used in python paths, like config-3.9"""
-        if self.components:
-            return joined(self.major, self.minor, delimiter=".")
+        if self.minor is not None:
+            return "%s.%s" % (self.major, self.minor)
 
     @property
     def patch(self):
         """(int): Patch part of version"""
-        return self.components and self.components[2]
+        if self.given_components_count >= 3:
+            return self.components and self.components[2]
 
     @cached_property
     def pep_440(self):
@@ -757,105 +793,112 @@ class Version:
 class PythonInstallation:
     """Models a specific python installation"""
 
-    def __init__(self, exe, short_name=None, _info=None):
+    def __init__(self, executable, short_name=None):
         """
         Args:
-            exe (str | pathlib.Path | None): Full path to python executable
-            short_name (str | None): Used to textually represent this installation
-            _info (PyInstallInfo | None): Internal use, python installation info, when already known
+            executable (Path): Path to python executable
+            short_name (str | None): Short name to textually represent this installation
         """
-        exe = resolved_path(exe)
-        self._info = _info
-        if exe and ".framework/" in exe:  # Simplify macos ridiculous paths
-            location = "/usr/bin"
-            if "Cellar" in exe:
-                i = exe.index("Cellar")
-                location = exe[:i].rstrip("/")
-                if not location.endswith("bin"):
-                    location = os.path.join(location, "bin")
+        self.executable = executable
+        self.short_name = short_name or short(executable)
+        self.real_exe, inspection = PythonSimpleInspection.exe_inspection(executable)
+        self.inspection = inspection
+        self.problem = inspection.problem
+        version = None
+        if not self.problem:
+            version = Version(inspection.version)
+            if not version.is_valid:
+                self.problem = f"invalid version '{version.text}'"
+                version = None
 
-            m = re.search(r"Versions/(\d)", exe)
-            if m:
-                exe = os.path.join(location, "python%s" % m.group(1))
-                short_name = None  # By default, short name if the long folder containing bin/
-
-        self.executable = exe or short_name
-        self.family = PythonSpec.guess_family(exe)
-        self.short_name = short_name or short(exe)
+        self.full_version = version
 
     def __repr__(self):
-        text = joined(self.problem or self.mm_spec, self.is_invoker and "invoker", delimiter=", ")
-        return "%s [%s]" % (short(self.short_name), text)
+        return self.representation(is_coloring=False)
 
     def __str__(self):
-        text = _R.colored(self.problem, "red") or "%s%s" % (self.full_spec, "*" if self.is_virtualenv else "")
-        text = joined(text, self.is_invoker and _R.colored("invoker", "green"), delimiter=", ")
-        return "%s [%s]" % (_R.colored(short(self.short_name), "bold"), text)
+        return self.representation()
 
     def __eq__(self, other):
-        return isinstance(other, PythonInstallation) and self.executable == other.executable
+        return isinstance(other, PythonInstallation) and self.real_exe == other.real_exe
+
+    def __lt__(self, other):
+        if isinstance(other, PythonInstallation):
+            if self.full_spec is None or other.full_spec is None:
+                return other.full_spec is not None or str(self.executable) < str(other.executable)
+
+            if self.full_spec == other.full_spec:
+                return str(self.executable) < str(other.executable)
+
+            return self.full_spec < other.full_spec
+
+    def representation(self, delimiter=", ", is_coloring=UNSET, more_info=None):
+        """
+        Args:
+            delimiter (str): Delimiter to use in the more info section
+            is_coloring (bool): Whether text should be colored (default: yes on tty)
+            more_info (list[str] | None): Optional list of strings to append to textual representation
+
+        Returns:
+            (str): Short textual representation of this installation
+        """
+        if more_info is None:
+            more_info = []
+
+        if self.machine and self.machine != _R.lc.rm.SYS_INFO.platform_id.arch:
+            more_info.append(_R.colored(self.machine, "dim", is_coloring=is_coloring))
+
+        if self.is_invoker:
+            more_info.append(_R.colored("invoker", "green", is_coloring=is_coloring))
+
+        full_spec = self.full_spec
+        if full_spec and full_spec.version.text not in self.short_name:
+            more_info.append(full_spec.represented())
+
+        if self.problem:
+            more_info.append(_R.colored(self.problem, "red", is_coloring=is_coloring))
+
+        text = _R.colored(self.short_name, "bold", is_coloring=is_coloring)
+        if more_info:
+            return "%s [%s]" % (text, delimiter.join(reversed(more_info)))
+
+        return text
 
     @classmethod
-    def from_path(cls, path, _info=None):
-        if os.path.isdir(path):
-            return cls.from_folder(path, _info=_info)
+    def from_path(cls, path, short_name=None):
+        """
+        Args:
+            path (Path): Path to folder or file
+            short_name (str | None): Short name to use for textual representation of this installation
 
-        return cls.from_exe(path, _info=_info)
+        Returns:
+            (PythonInstallation): Associated installation
+        """
+        if path.is_dir():
+            return cls.from_folder(path, short_name=short_name)
 
-    @classmethod
-    def from_exe(cls, path, short_name=None, _info=None):
-        cached = PyInstallInfo.cached_by_path.get(path)
-        if cached is not None:
-            return cached
-
-        cached = cls(path, short_name=short_name, _info=_info)
-        PyInstallInfo.cached_by_path[path] = cached
-        PyInstallInfo.cached_by_path[to_path(path)] = cached
-        if cached.executable and cached.executable != path:
-            # Can be different on macOS, with simplified from /Library/.../Frameworks/... -> /usr/bin/python3
-            PyInstallInfo.cached_by_path[cached.executable] = cached
-            PyInstallInfo.cached_by_path[to_path(cached.executable)] = cached
-
-        return cached
+        return cls(path, short_name=short_name)
 
     @classmethod
-    def from_folder(cls, folder, _info=None):
-        exe_folder = folder = resolved_path(folder)
-        bin_folder = os.path.join(exe_folder, "bin")
-        if os.path.isdir(bin_folder):
-            exe_folder = bin_folder
+    def from_folder(cls, folder, short_name=None):
+        """
+        Args:
+            folder (Path): Path to folder
+            short_name (str | None): Short name to use for textual representation of this installation
 
-        elif os.path.basename(exe_folder) == "bin":
-            folder = os.path.dirname(exe_folder)
+        Returns:
+            (PythonInstallation): Associated installation
+        """
+        if folder.name != "bin":
+            bin_folder = folder / "bin"
+            if bin_folder.is_dir():
+                folder = bin_folder
 
-        path = None
-        mm = _info and _info.version and _info.version.mm
-        if mm:
-            path = os.path.join(exe_folder, "python%s" % mm)
-
+        path = folder / "python3"
         if not is_executable(path):
-            path = os.path.join(exe_folder, "python%s" % (mm[0] if mm else 3))
-            if not is_executable(path):
-                path = os.path.join(exe_folder, "python")
+            path = folder / "python"
 
-        return cls.from_exe(path, short_name=short(folder), _info=_info)
-
-    @cached_property
-    def folder(self) -> pathlib.Path:
-        """Folder containing python executable"""
-        if self.executable:
-            return to_path(self.executable).parent
-
-    @cached_property
-    def full_spec(self):
-        """Full spec, can require dynamic inspection of executable"""
-        if self.full_version:
-            return PythonSpec(self.family, self.full_version)
-
-    @cached_property
-    def full_version(self):
-        """Full python version, can require dynamic inspection of executable"""
-        return self._get_installation_info(need_final=True).version
+        return cls(path, short_name=short_name)
 
     @property
     def is_invoker(self):
@@ -863,33 +906,30 @@ class PythonInstallation:
         return self == _R.lc.rm.SYS_INFO.invoker_python
 
     @cached_property
-    def is_virtualenv(self):
-        """Is this python installation a venv?"""
-        info = self._get_installation_info(need_final=True)
-        return info.sys_prefix != info.base_prefix
+    def family(self):
+        return PythonSpec.guess_family(str(self.real_exe))
 
-    @property
-    def major(self):
-        """(int | None): Major python version, if any"""
-        return self.mm and self.mm.major
+    @cached_property
+    def full_spec(self):
+        """Full spec, , e.g: cpython:3.11.6"""
+        if self.full_version:
+            return PythonSpec(self.family, self.full_version)
 
     @cached_property
     def mm(self):
-        """Major/minor version, often available without inspecting dynamically exe"""
-        version = self._get_installation_info().version
-        if version:
-            return Version(version.mm)
+        """Major/minor version, e.g: cpython:3.11"""
+        if self.full_version:
+            return Version(self.full_version.mm)
 
     @cached_property
     def mm_spec(self):
-        """Major/minor spec, often available without inspecting dynamically exe"""
+        """Major/minor spec, e.g: cpython:3.11"""
         if self.mm:
             return PythonSpec(self.family, self.mm)
 
-    @property
-    def problem(self):
-        """String describing a problem with this installation, if there is one"""
-        return self._get_installation_info().problem
+    @cached_property
+    def machine(self):
+        return self.inspection.machine
 
     def satisfies(self, given_spec):
         """
@@ -902,14 +942,6 @@ class PythonInstallation:
         if given_spec and self.family == given_spec.family and not self.problem:
             spec = self.full_spec if given_spec.version.given_components_count > 2 else self.mm_spec
             return spec.satisfies(given_spec)
-
-    def _get_installation_info(self, need_final=False):
-        info = self._info
-        if info is None or (need_final and not info.is_final):
-            info = PyInstallInfo.from_exe(self.executable)
-            self._info = info
-
-        return info
 
 
 class PythonInstallationLocation:
@@ -924,27 +956,74 @@ class PythonInstallationLocation:
     """
     def __init__(self, location):
         self.location = location
+        self._preferred_python = None  # type: PythonInstallation # Auto-selected preferred python from this location
 
     def __repr__(self):
         return short(self.location)
 
-    @cached_property
-    def available_pythons(self):
-        location = self.location
+    @classmethod
+    def from_location(cls, location):
         if location == "PATH":
-            return list(self.installations_from_path_env_var(env_var=location))
+            return PythonInstallationLocationPathEnvVar(location)
 
         if location.endswith("/**"):
-            # Ignore bad pyenv installations, as we need to dynamically sort them by their full spec
-            installations = [p for p in self.pyenv_like_installations(os.path.dirname(location)) if p.full_spec]
-            return sorted(installations, reverse=True, key=lambda x: x.full_spec)
+            return PythonInstallationLocationPyenv(location)
 
-        dirs_ok = False
         if location.endswith("/python*"):
-            dirs_ok = True
-            location = os.path.dirname(location)
+            return PythonInstallationLocationSubFolders(location)
 
-        return sorted(self.scan_installations(location, dirs_ok=dirs_ok), reverse=True, key=lambda x: x.mm_spec)
+        return PythonInstallationLocation(location)
+
+    def _record_preferred(self, executable: Path):
+        """Record 'executable' as the automatically selected preferred python for this location"""
+        if self._preferred_python is None and executable.is_symlink():
+            symlink = os.readlink(executable)
+            m = _R.lc.rx_python_mm.match(symlink)
+            if m and m.group(2):
+                # We have a python -> pythonM.m symlink
+                python = PythonInstallation(executable.parent / symlink)
+                if not python.problem:
+                    self._preferred_python = python
+
+    def _scanned_location(self):
+        """
+        Returns:
+            (list[PythonInstallation]): Python installations found in this location
+        """
+        # Default: pythons from a folder containing pythonM.m symlinks, eg: /opt/my-python-binaries/
+        result = []
+        for item in ls_dir(self.location):
+            if item.is_file():
+                m = _R.lc.rx_python_mm.match(item.name)
+                if m:
+                    if m.group(2):
+                        python = PythonInstallation(item)
+                        if not python.problem:
+                            result.append(python)
+
+                    else:
+                        self._record_preferred(item)
+
+        return sorted(result, reverse=True)
+
+    @property
+    def preferred_python(self):
+        """(PythonInstallation | None): Preferred python found in this location"""
+        if self._preferred_python is None:
+            for python in self.available_pythons:
+                if python.full_version.patch > 5:
+                    self._preferred_python = python
+                    break
+
+        return self._preferred_python
+
+    @cached_property
+    def available_pythons(self):
+        """
+        Returns:
+            (list[PythonInstallation]): Python installations found in this location
+        """
+        return self._scanned_location()
 
     def find_python(self, spec):
         for python in self.available_pythons:
@@ -956,84 +1035,136 @@ class PythonInstallationLocation:
         if not self.available_pythons:
             return "No python installations found in '%s'" % _R.colored(self, "orange")
 
-        header = "%s in %s:" % (_R.lc.rm.plural(self.available_pythons, "python installation"), self)
-        return joined(header, self.available_pythons, delimiter="\n")
+        preferred = self.preferred_python
+        representation = ["%s in %s:" % (_R.lc.rm.plural(self.available_pythons, "python installation"), self)]
+        for python in self.available_pythons:
+            more_info = None
+            if python.executable == preferred.executable:
+                more_info = [_R.colored("preferred", "dim")]
 
-    @classmethod
-    def installations_from_path_env_var(cls, env_var="PATH"):
-        for folder in flattened(os.environ.get(env_var), split=os.pathsep):
-            yield from cls.scan_installations(folder, mm_only=False)
+            representation.append(python.representation(more_info=more_info))
 
-    @classmethod
-    def pyenv_like_installations(cls, location):
-        for item in ls_dir(location):
+        return joined(representation, delimiter="\n")
+
+
+class PythonInstallationLocationPathEnvVar(PythonInstallationLocation):
+    """Pythons from PATH env var"""
+
+    def _scanned_location(self):
+        result = []
+        venv = os.environ.get("VIRTUAL_ENV")
+        for folder in flattened(os.environ.get("PATH"), split=os.pathsep):
+            if venv and folder.startswith(venv):
+                continue  # Ignore python installations from virtualenv
+
+            general = []  # General symlinks, eg: `python3` and `python`
+            major_minors = []  # Major.minor symlinks, eg: `python3.7`
+            for item in ls_dir(folder):
+                if is_executable(item):
+                    m = _R.lc.rx_python_mm.match(item.name)
+                    if m:
+                        python = PythonInstallation(item)
+                        if not python.problem:
+                            if m.group(2):
+                                target = major_minors
+
+                            else:
+                                target = general
+                                self._record_preferred(item)
+
+                            target.append(python)
+
+            result.extend(sorted(general, key=lambda x: x.executable))
+            result.extend(sorted(major_minors, reverse=True))
+
+        return result
+
+
+class PythonInstallationLocationPyenv(PythonInstallationLocation):
+    """Pythons from pyenv-like location, eg: ~/.pyenv/versions/**"""
+
+    def _scanned_location(self):
+        result = []
+        for item in ls_dir(os.path.dirname(self.location)):
             if not item.is_symlink() and item.is_dir():
                 bin_folder = item / "bin"
                 if bin_folder.is_dir():
-                    yield from cls.scan_installations(bin_folder, short_name=short(item))
+                    python = PythonInstallation.from_folder(bin_folder, short_name=short(item))
+                    if not python.problem:
+                        result.append(python)
 
-    @classmethod
-    def scan_installations(cls, location, dirs_ok=False, mm_only=True, short_name=None):
-        for item in ls_dir(location):
-            m = _R.lc.rx_python_mm.match(item.name)
-            if not m:
-                continue
-
-            if mm_only and not m.group(2):
-                continue
-
-            mm = PyInstallInfo(version=m.group(1)) if m.group(2) else None
-            if dirs_ok and item.is_dir():
-                short_name = short_name or short(item)
-                item = item / "bin" / item.name
-
-            if is_executable(item):
-                yield PythonInstallation(item, short_name=short_name, _info=mm)
+        return sorted(result, reverse=True)
 
 
-class PyInstallInfo:
-    """Information on a python installation, determined dynamically when needed, via `_pv.py` script"""
+class PythonInstallationLocationSubFolders(PythonInstallationLocation):
+    """Pythons from python* directories, eg: /apps/python*"""
 
-    cached_by_path = {}  # type: dict[str | pathlib.Path, PythonInstallation] # Avoid inspecting on-disk installations multiple times
+    def _scanned_location(self):
+        result = []
+        for item in ls_dir(os.path.dirname(self.location)):
+            if item.is_dir():
+                m = _R.lc.rx_python_mm.match(item.name)
+                if m and m.group(2):
+                    python = PythonInstallation(item / "bin" / item.name, short_name=short(item))
+                    if not python.problem:
+                        result.append(python)
 
-    def __init__(self, version=None, sys_prefix=None, base_prefix=None, problem=None):
-        self.version = Version.from_object(version)
-        self.sys_prefix = sys_prefix
-        self.base_prefix = base_prefix
-        if not problem and not (self.version and self.version.is_valid):
-            problem = "invalid version '%s'" % version
+        return sorted(result, reverse=True)
 
+
+class PythonSimpleInspection:
+    """Simple inspection (version and arch) of a python executable, cached to avoid expensive python process invocations"""
+
+    _cached = {}
+
+    def __init__(self, version=None, machine=None, problem=None):
+        self.version = version
+        self.machine = machine
         self.problem = problem
 
-    @property
-    def is_final(self):
-        return not self.problem and self.version and self.version.given_components_count > 2
+    def __repr__(self):
+        return self.problem or f"{self.version} ({self.machine})"
 
     @classmethod
-    def from_exe(cls, exe):
-        """
-        Args:
-            exe (str | pathlib.Path): Path to python executable
+    def register(cls, key, real_exe, inspection):
+        cls._cached[key] = (real_exe, inspection)
+        cls._cached[real_exe] = (real_exe, inspection)
 
-        Returns:
-            (PyInstallInfo): Extracted info
-        """
-        import runez._pv
+    @classmethod
+    def exe_inspection(cls, executable):
+        cached = cls._cached.get(executable)
+        if cached is not None:
+            return cached
 
-        r = run(exe, runez._pv.__file__, dryrun=False, fatal=False, logger=None)
-        if r.succeeded:
-            lines = r.output.splitlines()
-            if len(lines) == 3:
-                return cls(version=lines[0], sys_prefix=lines[1], base_prefix=lines[2])
+        real_exe = executable.resolve()
+        cached = cls._cached.get(real_exe)
+        if cached is not None:
+            return cached
 
-            return cls(problem="internal error: _pv returned '%s'" % r.full_output)
+        if not is_executable(executable):
+            if _R.is_dryrun():
+                version = Version.extracted_from_text(short(executable))
+                if version and version.is_valid:
+                    return real_exe, cls(version=version.text, machine=_R.lc.rm.SYS_INFO.platform_id.arch)
 
-        return cls(problem=short(r.full_output))
+            return real_exe, cls(problem="not available")
 
+        try:
+            import runez._inspect
 
-def _is_path(text):
-    if isinstance(text, pathlib.Path):
-        return True
+            r = run(real_exe, runez._inspect.__file__, dryrun=False, fatal=False, logger=None)
+            if r.succeeded:
+                result = json.loads(r.output)
+                if not isinstance(result, dict) or not result.get("version"):
+                    return real_exe, cls(problem=f"internal error: _inspect.py returned '{short(result)}'")
 
-    if isinstance(text, str):
-        return text.startswith("~") or text.startswith(".") or "/" in text or os.path.exists(text)
+                result = cls(**result)
+
+            else:
+                result = cls(problem=short(r.full_output))
+
+        except Exception as e:
+            result = cls(problem=f"internal error: {e}")
+
+        cls.register(executable, real_exe, result)
+        return real_exe, result

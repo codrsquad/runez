@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 
@@ -5,7 +6,7 @@ import pytest
 
 import runez
 from runez.http import RestClient
-from runez.pyenv import ArtifactInfo, PypiStd, PythonDepot, PythonInstallation, PythonSpec, Version
+from runez.pyenv import ArtifactInfo, PypiStd, PythonDepot, PythonSpec, Version
 
 
 PYPI_CLIENT = RestClient("https://example.com/pypi")
@@ -35,7 +36,7 @@ def test_artifact_info():
     assert info.wheel_build_number == "10"
 
 
-def mk_python(basename, prefix=None, base_prefix=None, executable=True, content=None):
+def mk_python(basename, executable=True, content=None, machine=None):
     if basename[0].isdigit():
         version = Version(basename)
         folder = runez.to_path(".pyenv/versions") / basename / "bin"
@@ -48,17 +49,20 @@ def mk_python(basename, prefix=None, base_prefix=None, executable=True, content=
         else:
             folder = runez.to_path(".pyenv/versions") / os.path.dirname(basename) / "bin"
 
-    if not prefix:
-        prefix = str(folder)
-
-    if not base_prefix:
-        base_prefix = prefix
-
     path = folder / ("python%s" % version.mm)
     if not content:
-        content = [version, prefix, base_prefix]
+        content = dict(version=str(version), machine=machine or runez.SYS_INFO.platform_id.arch)
 
-    content = "#!/bin/bash\n%s\n" % "\n".join("echo %s" % s for s in content)
+    if content == "failed":
+        content = "echo failed\nexit 1"
+
+    elif content == "invalid-json":
+        content = "echo '{foo: bar}'"
+
+    else:
+        content = "echo '%s'" % json.dumps(content)
+
+    content = "#!/bin/bash\n%s\n" % content
     runez.write(path, content, logger=None)
     runez.symlink(path, folder / "python", logger=None)
     if executable:
@@ -67,39 +71,56 @@ def mk_python(basename, prefix=None, base_prefix=None, executable=True, content=
 
 def test_depot(temp_folder, logged):
     # Create some pyenv-style python installation mocks (using version 8, so it sorts above any real version...)
-    mk_python("8.6.1")
+    mk_python("8.6.1", machine="x86_64_test")
     mk_python("8.7.2")
     mk_python("miniforge3-22.11.1-4/9.11.2")
     mk_python("pypy-9.8.7/9.8.7")
-    mk_python("8.5.4", content=["invalid"])
-    mk_python("8.5.5", content=["invalid-version", "prefix", "prefix"])
+    mk_python("8.5.4", content="invalid content")
+    mk_python("8.5.5", content=dict(version="invalid-version"))
+    mk_python("8.5.6", content="failed")
+    mk_python("8.5.7", content="invalid-json")
     runez.symlink(".pyenv/versions/8.6.1", ".pyenv/versions/8.6", logger=None)
     runez.symlink(".pyenv/versions/8.6.1", ".pyenv/versions/python8.6", logger=None)
 
     depot = PythonDepot(".pyenv/versions/**")
+    text = depot.representation()
+    assert text.startswith("4 python installations in .pyenv/versions/**:")
     assert len(depot.available_pythons) == 4
 
     assert str(depot.find_python("8.5.4")) == "8.5.4 [not available]"
     invalid = depot.find_python(".pyenv/versions/8.5.4")
-    assert str(invalid) == ".pyenv/versions/8.5.4 [internal error: _pv returned 'invalid']"
-    assert invalid.folder == runez.to_path(".pyenv/versions/8.5.4/bin").absolute()
+    assert str(invalid) == ".pyenv/versions/8.5.4 [internal error: _inspect.py returned 'invalid content']"
     bad_version = depot.find_python(".pyenv/versions/8.5.5")
     assert str(bad_version) == ".pyenv/versions/8.5.5 [invalid version 'invalid-version']"
+    failed = depot.find_python(".pyenv/versions/8.5.6")
+    assert str(failed) == ".pyenv/versions/8.5.6 [failed]"
+    invalid_json = depot.find_python(".pyenv/versions/8.5.7")
+    assert str(invalid_json).startswith(".pyenv/versions/8.5.7 [internal error: ")
+    assert invalid < bad_version < failed
 
     versions = [p.mm_spec.canonical for p in depot.available_pythons]
     assert versions == ["pypy:9.8", "cpython:8.7", "cpython:8.6", "conda:9.11"]
 
     # Verify that latest available is found (when under-specified)
     p8 = depot.find_python("8")
-    assert p8.folder == runez.to_path(".pyenv/versions/8.7.2/bin").absolute()
-    assert not p8.is_virtualenv
-    assert repr(p8) == ".pyenv/versions/8.7.2 [cpython:8.7]"
-    assert str(p8) == ".pyenv/versions/8.7.2 [cpython:8.7.2]"
+    assert repr(p8) == ".pyenv/versions/8.7.2"
+    assert str(p8) == ".pyenv/versions/8.7.2"
+    assert invalid < p8
 
     # Verify that preferred python is respected
+    preferred = depot.preferred_python
+    assert str(preferred) == ".pyenv/versions/pypy-9.8.7"
+
     depot.set_preferred_python("8.6")
-    assert repr(depot.find_python("8")) == ".pyenv/versions/8.6.1 [cpython:8.6]"
-    assert p8 == depot.find_python("8.7")
+    preferred = depot.preferred_python
+    assert str(preferred) == ".pyenv/versions/8.6.1 [x86_64_test]"
+
+    assert repr(depot.find_python("8")) == ".pyenv/versions/8.6.1 [x86_64_test]"
+    assert p8 is depot.find_python("8.7")
+    p8b = depot.find_python(".pyenv/versions/8.7.2")
+    assert p8 is not p8b
+    assert p8 == p8b
+    assert p8 < p8b  # Due to their .path
 
     # Verify min spec
     assert str(depot.find_python("conda:9.1+")) == ".pyenv/versions/miniforge3-22.11.1-4 [conda:9.11.2]"
@@ -107,7 +128,7 @@ def test_depot(temp_folder, logged):
     # There's only one symlink of the form 'python*'
     depot2 = PythonDepot(".pyenv/versions/python*")
     assert len(depot2.available_pythons) == 1
-    assert str(depot2.available_pythons[0]) == ".pyenv/versions/python8.6 [cpython:8.6.1]"
+    assert str(depot2.available_pythons[0]) == ".pyenv/versions/python8.6 [8.6.1, x86_64_test]"
 
     assert not logged
 
@@ -118,20 +139,34 @@ def test_depot_adhoc(temp_folder):
 
     p11 = depot.find_python("11.0.0")
     assert p11.problem == "not available"
+    assert str(p11.inspection) == "not available"
 
     # Only paths are cached
     p11b = depot.find_python("11.0.0")
     assert p11 is not p11b
     assert p11 == p11b
     pfoo = depot.find_python("/foo")
-    assert depot.find_python("/foo") is pfoo
+    assert depot.find_python("/foo") == pfoo
 
     mk_python("./some-path/bin/13.1.2")
-    assert str(depot.find_python("some-path/bin/python13.1")) == "some-path/bin/python13.1 [cpython:13.1.2]"
-    assert str(depot.find_python("./some-path/")) == "some-path [cpython:13.1.2]"
-    assert str(depot.find_python(runez.to_path("some-path"))) == "some-path [cpython:13.1.2]"
-    assert str(depot.find_python("some-path/bin/python")) == "some-path/bin/python [cpython:13.1.2]"
-    assert str(depot.find_python("some-path/bin")) == "some-path/bin/python [cpython:13.1.2]"
+    assert str(depot.find_python("some-path/bin/python13.1")) == "some-path/bin/python13.1 [13.1.2]"
+    assert str(depot.find_python("./some-path/")) == "./some-path/ [13.1.2]"
+    assert str(depot.find_python(runez.to_path("some-path"))) == "some-path [13.1.2]"
+    assert str(depot.find_python("some-path/bin/python")) == "some-path/bin/python [13.1.2]"
+    assert str(depot.find_python("some-path/bin")) == "some-path/bin [13.1.2]"
+
+
+def test_depot_folder(temp_folder):
+    mk_python("8.5.6")
+    mk_python("8.5.7")
+    runez.symlink(".pyenv/versions/8.5.6/bin/python", "python8.5", logger=None)
+    runez.symlink("python8.5", "python", logger=None)
+    depot = PythonDepot(".")
+    assert len(depot.available_pythons) == 1
+    assert depot.locations[0].preferred_python.full_version == "8.5.6"
+    assert str(depot.find_python("8.5")) == "python8.5 [8.5.6]"
+    assert str(depot.find_python("8.5.6")) == "python8.5 [8.5.6]"
+    assert str(depot.find_python("8.5.7")) == "8.5.7 [not available]"
 
 
 def test_depot_path(temp_folder):
@@ -144,74 +179,66 @@ def test_empty_depot(temp_folder):
     assert depot.representation() == "No PythonDepot locations configured"
     assert not depot.available_pythons
     invoker = runez.SYS_INFO.invoker_python
-    assert ", invoker" in repr(invoker)
-    assert ", invoker" in str(invoker)
+    assert "invoker" in repr(invoker)
+    assert "invoker" in str(invoker)
 
-    mm = invoker.mm
     p95_spec = PythonSpec.from_text("9.5")
+    with runez.CaptureOutput(dryrun=True) as logged:
+        # In dryrun mode, any requested python is considered available
+        p95 = depot.find_python(p95_spec)
+        assert str(p95) == "cpython:9.5"
+        assert p95.problem is None
+        assert not logged
+
     p95 = depot.find_python(p95_spec)
     assert p95.problem
     assert depot.find_python(None) is invoker
     assert depot.find_python("") is invoker
     assert depot.find_python("invoker") is invoker
     assert depot.find_python(invoker) is invoker
-    assert depot.find_python(invoker.executable) is invoker
-    assert depot.find_python(runez.to_path(invoker.executable)) is invoker
-    assert depot.find_python(PythonSpec("cpython", mm)) is invoker
+    assert depot.find_python(invoker.executable).is_invoker
+    assert depot.find_python(str(invoker.executable)).is_invoker
+    assert depot.find_python(invoker.real_exe).is_invoker
+    assert depot.find_python(PythonSpec("cpython", invoker.mm)) is invoker
     assert depot.find_python("python") is invoker
-    assert depot.find_python("py%s" % mm) is invoker  # eg: py3.10
-    assert depot.find_python("py%s" % mm.text.replace(".", "")) is invoker  # tox style: py310
-    assert depot.find_python(mm.text) is invoker
+    assert depot.find_python("py%s" % invoker.mm) is invoker  # eg: py3.10
+    assert depot.find_python("py%s" % invoker.mm.text.replace(".", "")) is invoker  # tox style: py310
+    assert depot.find_python(invoker.mm) is invoker
+    assert depot.find_python(invoker.mm.text) is invoker
     assert depot.find_python("python") is invoker
-    assert depot.find_python("python%s" % mm.major) is invoker
+    assert depot.find_python("python%s" % invoker.mm.major) is invoker
 
     p = depot.find_python("foo")
     assert str(p) == "foo [not available]"
     assert repr(p) == "foo [not available]"
-    assert p.short_name == "foo"
-    assert p.major is None
-    assert p.problem == "not available"
-    assert p.mm_spec is None
-    assert p.major is None
+    assert p.executable == runez.to_path("foo")
+    assert p.real_exe == runez.to_path("foo").resolve()
+    assert p.full_spec is None
     assert p.full_version is None
+    assert not p.is_invoker
+    assert p.machine is None
+    assert p.mm_spec is None
+    assert p.problem == "not available"
+    assert p.short_name == "foo"
 
-    # Disabling invoker still finds it explicitly, but not by generic spec
-    depot.invoker = None
 
-    # Found only if explicitly referred to
-    assert depot.find_python("invoker") is invoker
-    assert depot.find_python(invoker) is invoker
+def test_inspect():
+    import runez._inspect
 
-    assert str(depot.find_python(None)) == "None [not available]"
-    assert str(depot.find_python("")) == "None [not available]"
-    assert str(depot.find_python("python")) == "python [not available]"
-    assert str(depot.find_python(mm.text)) == "%s [not available]" % mm
+    r = runez.run(sys.executable, runez._inspect.__file__)
+    assert r.succeeded
+    assert '"version":' in r.output
 
 
 def test_invoker(monkeypatch):
-    from runez.pyenv import PyInstallInfo
+    import runez.pyenv
 
-    # Simulate case where runez was installed globally (not in a venv)
-    monkeypatch.setattr(PyInstallInfo, "cached_by_path", {})
-    monkeypatch.setattr(runez.SYS_INFO, "is_running_in_venv", False)
-    monkeypatch.delattr(runez.SYS_INFO, "invoker_python")
     invoker = runez.SYS_INFO.invoker_python
-    assert invoker.executable == sys.executable
-    assert not invoker.is_virtualenv
+    assert "invoker" in str(invoker)
+    assert invoker.full_spec
     assert invoker.is_invoker
-    assert invoker.major == sys.version_info[0]
-    assert not invoker.problem
-
-
-def test_installation_short_name():
-    python = PythonInstallation("/System/Library/Frameworks/Python.framework/Versions/2.7")
-    assert python.short_name == "/usr/bin/python2"
-
-    python = PythonInstallation("/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.7")
-    assert python.short_name == "/usr/bin/python3"
-
-    python = PythonInstallation("/usr/local/Cellar/python@3.7/3.7.1_1/Frameworks/Python.framework/Versions/3.7")
-    assert python.short_name == "/usr/local/bin/python3"
+    assert invoker.machine
+    assert invoker.problem is None
 
 
 def test_pypi_standardized_naming():
@@ -444,27 +471,6 @@ def test_spec_list():
     assert x == [PythonSpec.from_text("3.10"), PythonSpec.from_text("3.6"), PythonSpec.from_text("3.7"), PythonSpec.from_text("3.8")]
 
 
-def test_venv(temp_folder):
-    # Simulate an explicit reference to a venv python
-    mk_python("./some-venv/bin/8.6.1", prefix="foo", base_prefix=".pyenv/versions/8.6.1")
-
-    depot = PythonDepot()
-    assert not depot.available_pythons
-    pvenv = depot.find_python("./some-venv/bin/python")
-    assert repr(pvenv) == "some-venv/bin/python [cpython:8.6]"
-    assert str(pvenv) == "some-venv/bin/python [cpython:8.6.1*]"
-    assert pvenv.is_virtualenv
-    assert depot.find_python("./some-venv") == pvenv
-
-
-def test_venv_from_project():
-    depot = PythonDepot()
-    assert not depot.available_pythons
-
-    pvenv = depot.find_python(sys.executable)
-    assert pvenv.is_virtualenv
-
-
 @pytest.mark.parametrize(
     ("given_version", "expected"),
     [
@@ -514,11 +520,16 @@ def test_version():
     assert dev101.prerelease
     assert str(dev101) == "0.0.1dev101"
     assert dev101.pep_440 == "0.0.1.dev101"
+    assert dev101.major == 0
+    assert dev101.minor == 0
+    assert dev101.patch == 1
+    assert dev101.mm == "0.0"
 
     none = Version(None)
     assert str(none) == ""
     assert not none.is_valid
     assert not none.is_final
+    assert none.major is None
     assert none.mm is None
 
     empty = Version("")
@@ -555,7 +566,10 @@ def test_version():
     assert v1.components == (1, 0, 0, 0, 0, 0, "")
     assert str(v1) == "1"
     assert v1.main == "1"
-    assert v1.mm == "1.0"
+    assert v1.major == 1
+    assert v1.minor is None
+    assert v1.patch is None
+    assert v1.mm is None
     assert empty < v1
     assert v1 > empty
     assert v1 != empty
@@ -593,7 +607,7 @@ def test_version():
     assert vdev.prerelease == ("a", 4, "", 0, "dev", 5)
     assert vrc.major == 1
     assert vrc.minor == 0
-    assert vrc.patch == 0
+    assert vrc.patch is None
     assert vrc.main == "1.0"
 
     incomplete_dev = Version("0.4.34dev")

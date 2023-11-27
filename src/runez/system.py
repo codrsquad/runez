@@ -89,15 +89,15 @@ def abort(message, code=1, exc_info=None, return_value=None, fatal=True, logger=
         exception = _R.abort_exception(override=fatal)
         if exception is SystemExit:
             # Ensure message shown if we raise SystemExit
-            _show_abort_message(message, exc_info, logger or ABORT_LOGGER)
+            _show_abort_message(message, exc_info, fatal, logger or ABORT_LOGGER)
             raise SystemExit(code)
 
         if isinstance(exception, type) and issubclass(exception, BaseException):
-            _show_abort_message(message, exc_info, logger)
+            _show_abort_message(message, exc_info, fatal, logger)
             raise exception(message)
 
     elif fatal is not None:
-        _show_abort_message(message, exc_info, logger)
+        _show_abort_message(message, exc_info, fatal, logger)
 
     return return_value
 
@@ -385,29 +385,29 @@ def get_version(mod, default="0.0.0", fatal=False, logger=False):
         name = mod.__name__
 
     if name and isinstance(name, str):
-        top_level = name.partition(".")[0] if isinstance(name, str) else name
+        top_level = name.partition(".")[0]
         last_exception = None
+        metadata_version = _metadata_version_function()
+        if metadata_version:
+            try:
+                v = metadata_version(top_level)
+                if v:
+                    return v
 
-        try:
-            from importlib import metadata  # requires py3.8+
+            except Exception as e:
+                last_exception = e
 
-            version = metadata.version(top_level)
-            if version:
-                return version
+        else:
+            try:
+                # TODO: Remove when py3.7 support is dropped
+                import pkg_resources
 
-        except (ImportError, Exception) as e:
-            last_exception = e
+                d = pkg_resources.get_distribution(top_level)
+                if d and d.version:
+                    return d.version
 
-        try:
-            # TODO: Remove when py3.7 support is dropped
-            import pkg_resources
-
-            d = pkg_resources.get_distribution(top_level)
-            if d and d.version:
-                return d.version
-
-        except (ImportError, Exception) as e:
-            last_exception = e
+            except Exception as e:
+                last_exception = e
 
         m = sys.modules.get(name)
         if m is not None:
@@ -1529,7 +1529,7 @@ class SystemInfo:
         """Info on currently running process"""
         return _R.lc.rm.PsInfo()
 
-    def diagnostics(self, argv=UNSET, exe=True, platform=True, prefix=UNSET, term=UNSET, userid=UNSET, version=UNSET, via=" ⚡ "):
+    def diagnostics(self, argv=UNSET, exe=True, platform=True, term=UNSET, userid=UNSET, version=UNSET, via=" ⚡ "):
         """Usable by runez.render.PrettyTable.two_column_diagnostics()"""
         if platform:
             yield "platform", "%s [%s]" % (_R.colored(self.platform_id, "bold"), self.platform_info)
@@ -1546,6 +1546,8 @@ class SystemInfo:
 
         if exe:
             yield "sys.executable", sys.executable
+            if not sys.executable.startswith(sys.prefix):
+                yield "sys.prefix", sys.prefix
 
         if via:
             process_list = self.current_process.parent_list()
@@ -1555,23 +1557,18 @@ class SystemInfo:
         if _R.rdefault(argv, "diagnostics" not in sys.argv):
             yield "sys.argv", quoted(sys.argv)
 
-        if _R.rdefault(prefix, SYS_INFO.venv_bin_folder):
-            yield "sys.prefix", sys.prefix
-
     @cached_property
     def invoker_python(self):
         """The python that is either currently running us, or that created the venv we're running from"""
-        from runez.pyenv import PyInstallInfo, PythonInstallation
+        import platform
+        from pathlib import Path
+        from runez.pyenv import PythonInstallation, PythonSimpleInspection
 
-        info = PyInstallInfo(version=sys.version_info[:3])
-        if self.is_running_in_venv:
-            installation = PythonInstallation.from_folder(sys.base_prefix, _info=info)
-
-        else:
-            installation = PythonInstallation.from_exe(sys.executable, _info=info)
-
-        PyInstallInfo.cached_by_path["invoker"] = installation
-        return installation
+        path = Path(sys.executable)
+        real_exe = path.resolve()
+        inspection = PythonSimpleInspection(version=".".join(str(s) for s in sys.version_info[:3]), machine=platform.machine())
+        PythonSimpleInspection.register(path, real_exe, inspection)
+        return PythonInstallation(real_exe)
 
     @cached_property
     def is_running_in_docker(self):
@@ -2072,7 +2069,8 @@ class _LazyCache:
 
 class _R:
     """
-    Internal class to provide a late import of runez (after __init__ imported everything), and also holds some common stuff.
+    Internal class, used as a namespace
+    Provides a late import of runez (after __init__ imported everything), and also holds some common stuff.
     The name is intentionally short to avoid verbose/long lines calling it.
     _R stands for "runez, internal class"
 
@@ -2093,10 +2091,8 @@ class _R:
 
     @staticmethod
     def actual_message(message):
-        if callable(message):
-            message = message()  # Allow message to be late-called function
-
-        return message
+        """Allow message to be late-called function"""
+        return message() if callable(message) else message
 
     @classmethod
     def colored(cls, text, color, is_coloring=UNSET):
@@ -2348,10 +2344,10 @@ def _prettified(value):
         return "function '%s'" % value.__name__
 
 
-def _show_abort_message(message, exc_info, logger):
+def _show_abort_message(message, exc_info, fatal, logger):
     if logger is not None:
         if logging.root.handlers:
-            _R.hlog(logger, message, exc_info=exc_info)
+            _R.hlog(logger, message, exc_info=exc_info if fatal else None)
 
         else:
             sys.stderr.write("%s\n" % message)
@@ -2368,6 +2364,16 @@ def _full_path(path, relative_path):
         path = os.path.join(path, *relative_path)
 
     return path
+
+
+def _metadata_version_function():
+    try:
+        from importlib.metadata import version  # requires py3.8+
+
+        return version
+
+    except ImportError:
+        return None
 
 
 def _validated_project_path(*paths):

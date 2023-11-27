@@ -723,7 +723,10 @@ def save_json(data, path, stringify=stringified, dt=str, none=False, indent=2, s
         if _R.hdry(dryrun, logger, "save %s" % short(path)):
             return 1
 
-        ensure_folder(parent_folder(path), fatal=fatal, logger=None)
+        r = ensure_folder(parent_folder(path), fatal=fatal, logger=logger)
+        if r < 0:
+            return r
+
         data = json_sanitized(data, stringify=stringify, dt=dt, none=none)
         with open(path, "wt") as fh:
             json.dump(data, fh, indent=indent, sort_keys=sort_keys, separators=K_INDENTED_SEPARATORS if indent else K_COMPACT_SEPARATORS)

@@ -256,7 +256,7 @@ def test_file_inspection(temp_folder, logged):
     assert runez.write("sample", cc, fatal=False, logger=logging.debug) == 1
     cc2 = "%s\n" % "\n".join(runez.readlines("sample"))
     assert cc2 == cc
-    assert "bytes to sample" in logged.pop()  # Wrote 13 bytes on linux... but 14 on windows...
+    assert "Wrote sample" in logged.pop()
 
     assert list(runez.readlines("sample", first=2)) == ["", "Fred"]
     assert runez.file.is_younger("sample", age=10)

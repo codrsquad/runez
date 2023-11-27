@@ -4,7 +4,9 @@ Set of sample commands illustrating behaviors of runez
 
 import logging
 import os
+import re
 import sys
+import sysconfig
 import time
 
 import runez
@@ -47,12 +49,13 @@ def cmd_diagnostics():
     """Show system diagnostics sample"""
     parser = runez.cli.parser()
     parser.add_argument("--border", default="colon", choices=NAMED_BORDERS, help="Use custom border.")
-    parser.add_argument("--pyenv", default="~/.pyenv", help="Pyenv folder to scan for python installations.")
+    parser.add_argument("--pyenv", default="PATH", help="Colon separated locations to examine for python installations")
     args = parser.parse_args()
 
     from runez.pyenv import PythonDepot
 
-    depot = PythonDepot("~/.pyenv/versions/**", "PATH")
+    locations = runez.flattened(args.pyenv, split=os.path.pathsep)
+    depot = PythonDepot(*locations)
     available = depot.representation()
     print(PrettyTable.two_column_diagnostics(runez.SYS_INFO.diagnostics(), available, border=args.border))
 
@@ -67,7 +70,7 @@ def cmd_import_speed():
     args = parser.parse_args()
     names = runez.flattened(args.name, split=",")
     if args.all:
-        names.extend(_all_deps())
+        names.extend(_interesting_top_levels())
 
     if not names:
         sys.exit("Please specify module names, or use --all")
@@ -154,7 +157,7 @@ def cmd_progress_bar():
         process = psutil.Process(os.getpid())
         process.cpu_percent()
 
-    except ImportError:  # pragma: no cover
+    except ImportError:
         pass
 
     runez.log.setup(console_format="%(levelname)s %(message)s", console_level=logging.INFO, trace="RUNEZ_DEBUG")
@@ -216,7 +219,6 @@ def _show_fgcolors(bg=runez.plain, border=None):
 
         line = [bg(color(text))]
         for style in runez.color.style:
-            # text = "%s %s" % (style.name, color_name)
             line.append(bg(style(color(color_name))))
 
         table.add_row(line)
@@ -224,52 +226,23 @@ def _show_fgcolors(bg=runez.plain, border=None):
     print(table)
 
 
-def _all_deps():
-    """All dependencies in current venv"""
-    try:
-        from importlib.metadata import packages_distributions  # requires py3.10+
-
-        return [t for t, d in packages_distributions().items() if _is_interesting_dist(d[0])]
-
-    except ImportError:
-        pass
-
-    import pkg_resources
-    import sysconfig
-
-    result = []
+def _interesting_top_levels():
+    """
+    Convenience for `-mrunez import-time --all` command
+    Return list of import top level names, ignoring things like top levels starting with an `_`, and other uninteresting libs
+    """
+    uninteresting = re.compile(r"^(_|pip|pkg_resources|pydev|pytest|setuptools).*$")
+    result = set()
     base = sysconfig.get_path("purelib")
-    ws = pkg_resources.WorkingSet([base])
-    for dist in ws:
-        if _is_interesting_dist(dist.key):
-            top_level = _find_top_level(base, dist)
-            if top_level:
-                result.append(top_level)
+    for item in runez.ls_dir(base):
+        if item.name.endswith(".dist-info") and item.is_dir():
+            top_levels = item / "top_level.txt"
+            if top_levels.exists():
+                for line in runez.readlines(top_levels):
+                    if line and not uninteresting.match(line):
+                        result.add(line)
 
-    return result
-
-
-# Usual dev libs that are not interesting for --all import times, they import ultra-fast...
-# They can always be stated as argument explicitly to show their import times
-DEV_LIBS = {
-    "attrs", "coverage", "more-itertools", "packaging", "pip", "pluggy", "py", "pyparsing", "python-dateutil", "setuptools", "six",
-    "wcwidth", "wheel", "zipp", "binaryornot", "cookiecutter", "click", "future",
-}
-
-
-def _is_interesting_dist(key):
-    if key.startswith("pytest") or key.startswith("importlib"):
-        return False
-
-    return key not in DEV_LIBS
-
-
-def _find_top_level(base, dist):
-    name = dist.key.replace("-", "_").replace(".", "_")
-    top_level = os.path.join(base, "%s-%s.dist-info" % (name, dist.version), "top_level.txt")
-    for line in runez.readlines(top_level):
-        if not line.startswith("_") and line:
-            return line
+    return sorted(result)
 
 
 if __name__ == "__main__":

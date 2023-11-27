@@ -167,7 +167,7 @@ def test_convenience(temp_log):
     logging.info("hello")
     logging.exception("oops")
 
-    assert "f:system.py mod:system func:hlog INFO Wrote 12 bytes" in temp_log.stderr
+    assert "f:system.py mod:system func:hlog INFO Wrote some-file" in temp_log.stderr
     assert "f:test_logsetup.py mod:test_logsetup func:test_convenience INFO hello" in temp_log.stderr
     assert "f:test_logsetup.py mod:test_logsetup func:test_convenience ERROR oops" in temp_log.stderr
     temp_log.stderr.clear()
@@ -175,7 +175,7 @@ def test_convenience(temp_log):
     runez.write("some-file", "some content", logger=LOG.info)
     LOG.info("hello")
     LOG.exception("oops")
-    assert "f:system.py mod:system func:hlog INFO Wrote 12 bytes" in temp_log.stderr
+    assert "f:system.py mod:system func:hlog INFO Wrote some-file" in temp_log.stderr
     assert "f:test_logsetup.py mod:test_logsetup func:test_convenience INFO hello" in temp_log.stderr
     assert "f:test_logsetup.py mod:test_logsetup func:test_convenience ERROR oops" in temp_log.stderr
 
@@ -526,10 +526,17 @@ def test_progress_bar():
     assert pb.rendered() is None
 
 
-def test_progress_command(cli):
+def test_progress_command(cli, monkeypatch):
     cli.run("progress-bar", "-i10", "-d1", "--sleep", "0.01")
     assert cli.succeeded
     assert "done" in cli.logged.stdout
+    assert "CPU usage" in cli.logged.stdout
+
+    monkeypatch.setitem(sys.modules, "psutil", None)
+    cli.run("progress-bar", "-i10", "-d1", "--sleep", "0.01")
+    assert cli.succeeded
+    assert "done" in cli.logged.stdout
+    assert "CPU usage" not in cli.logged
 
 
 def test_progress_frames(monkeypatch):

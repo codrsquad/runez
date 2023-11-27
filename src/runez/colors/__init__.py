@@ -23,7 +23,7 @@ class ActivateColors:
         self.prev = None
 
     def __enter__(self):
-        self.prev = ColorManager._activate_colors(self.enable, flavor=self.flavor)
+        self.prev = ColorManager.activate_colors(self.enable, flavor=self.flavor)
 
     def __exit__(self, *_):
         ColorManager.backend, ColorManager.bg, ColorManager.fg, ColorManager.style = self.prev
@@ -42,10 +42,11 @@ class PlainBackend:
         """Triplet of named bg, fg and style-s"""
         return NamedColors(), NamedColors(), NamedStyles()
 
-    def adjusted_size(self, text, size=0):
+    @staticmethod
+    def adjusted_size(text, size=0):
         """
         Args:
-            text (str): Text to compute color adjusted padding size
+            text (str): Text to compute color adjusted padding size.
             size (int): Desired padding size
 
         Returns:
@@ -103,7 +104,7 @@ class ColorManager:
     def colored(cls, text, color, is_coloring=UNSET):
         """
         Args:
-            text: Text to color
+            text: Text to color.
             color (str | callable | None): Color to use
             is_coloring (bool | runez.Undefined): If provided, overrides current coloring state
 
@@ -131,26 +132,9 @@ class ColorManager:
 
     @classmethod
     def activate_colors(cls, enable=None, flavor=None):
-        cls._activate_colors(enable=enable, flavor=flavor)
-        return cls.is_coloring()
-
-    @classmethod
-    def adjusted_size(cls, text, size=0):
         """
         Args:
-            text (str): Text to compute color adjusted padding size
-            size (int): Desired padding size
-
-        Returns:
-            (int): `size`, adjusted to help take into account any color ANSI escapes
-        """
-        return cls.backend.adjusted_size(text, size)
-
-    @classmethod
-    def _activate_colors(cls, enable=None, flavor=None):
-        """
-        Args:
-            enable (bool | PlainBackend.__class__ | None): Set colored output on or off
+            enable (bool | type(PlainBackend) | None): Set colored output on or off
             flavor (str | None): Flavor to use (neutral, light or dark)
         """
         if enable is None:
@@ -160,6 +144,18 @@ class ColorManager:
         cls.backend = _detect_backend(enable, flavor=flavor)
         cls.bg, cls.fg, cls.style = cls.backend.named_triplet()
         return prev
+
+    @classmethod
+    def adjusted_size(cls, text, size=0):
+        """
+        Args:
+            text (str): Text to compute color adjusted padding size.
+            size (int): Desired padding size
+
+        Returns:
+            (int): `size`, adjusted to help take into account any color ANSI escapes
+        """
+        return cls.backend.adjusted_size(text, size)
 
 
 class Renderable:
@@ -228,7 +224,7 @@ class NamedStyles(NamedRenderables):
 
 
 def _detect_backend(enable, flavor=None):
-    """Auto-detect best backend to use"""
+    """Auto-detect the best backend to use"""
     if isinstance(enable, type) and issubclass(enable, PlainBackend):
         return enable()
 
