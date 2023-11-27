@@ -1567,11 +1567,7 @@ class SystemInfo:
         path = Path(sys.executable)
         real_exe = path.resolve()
         inspection = PythonSimpleInspection(version=".".join(str(s) for s in sys.version_info[:3]), machine=platform.machine())
-        PythonSimpleInspection.register("invoker", inspection)
-        PythonSimpleInspection.register(sys.executable, inspection)
-        PythonSimpleInspection.register(path, inspection)
-        PythonSimpleInspection.register(real_exe, inspection)
-        PythonSimpleInspection.register(str(real_exe), inspection)
+        PythonSimpleInspection.register(path, real_exe, inspection)
         return PythonInstallation(real_exe)
 
     @cached_property

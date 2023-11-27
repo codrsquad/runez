@@ -1,6 +1,5 @@
 import json
 import os
-import platform
 import sys
 
 import pytest
@@ -37,7 +36,7 @@ def test_artifact_info():
     assert info.wheel_build_number == "10"
 
 
-def mk_python(basename, executable=True, content=None):
+def mk_python(basename, executable=True, content=None, machine=None):
     if basename[0].isdigit():
         version = Version(basename)
         folder = runez.to_path(".pyenv/versions") / basename / "bin"
@@ -52,7 +51,7 @@ def mk_python(basename, executable=True, content=None):
 
     path = folder / ("python%s" % version.mm)
     if not content:
-        content = dict(version=str(version), machine=platform.machine())
+        content = dict(version=str(version), machine=machine or runez.SYS_INFO.platform_id.arch)
 
     if content == "failed":
         content = "echo failed\nexit 1"
@@ -72,7 +71,7 @@ def mk_python(basename, executable=True, content=None):
 
 def test_depot(temp_folder, logged):
     # Create some pyenv-style python installation mocks (using version 8, so it sorts above any real version...)
-    mk_python("8.6.1")
+    mk_python("8.6.1", machine="x86_64_test")
     mk_python("8.7.2")
     mk_python("miniforge3-22.11.1-4/9.11.2")
     mk_python("pypy-9.8.7/9.8.7")
@@ -110,7 +109,7 @@ def test_depot(temp_folder, logged):
 
     # Verify that preferred python is respected
     depot.set_preferred_python("8.6")
-    assert repr(depot.find_python("8")) == ".pyenv/versions/8.6.1"
+    assert repr(depot.find_python("8")) == ".pyenv/versions/8.6.1 [x86_64_test]"
     assert p8 is depot.find_python("8.7")
     p8b = depot.find_python(".pyenv/versions/8.7.2")
     assert p8 is not p8b
@@ -123,7 +122,7 @@ def test_depot(temp_folder, logged):
     # There's only one symlink of the form 'python*'
     depot2 = PythonDepot(".pyenv/versions/python*")
     assert len(depot2.available_pythons) == 1
-    assert str(depot2.available_pythons[0]) == ".pyenv/versions/python8.6 [8.6.1]"
+    assert str(depot2.available_pythons[0]) == ".pyenv/versions/python8.6 [8.6.1, x86_64_test]"
 
     assert not logged
 
@@ -134,6 +133,7 @@ def test_depot_adhoc(temp_folder):
 
     p11 = depot.find_python("11.0.0")
     assert p11.problem == "not available"
+    assert str(p11.inspection) == "not available"
 
     # Only paths are cached
     p11b = depot.find_python("11.0.0")
@@ -154,9 +154,10 @@ def test_depot_folder(temp_folder):
     mk_python("8.5.6")
     mk_python("8.5.7")
     runez.symlink(".pyenv/versions/8.5.6/bin/python", "python8.5", logger=None)
-    runez.symlink(".pyenv/versions/8.5.7/bin/python", "python", logger=None)
+    runez.symlink("python8.5", "python", logger=None)
     depot = PythonDepot(".")
     assert len(depot.available_pythons) == 1
+    assert depot.locations[0].preferred_python.full_version == "8.5.6"
     assert str(depot.find_python("8.5")) == "python8.5 [8.5.6]"
     assert str(depot.find_python("8.5.6")) == "python8.5 [8.5.6]"
     assert str(depot.find_python("8.5.7")) == "8.5.7 [not available]"
