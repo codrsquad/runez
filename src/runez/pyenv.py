@@ -813,7 +813,7 @@ class PythonInstallation:
                 return other.full_spec is not None or self.path < other.path
 
             if self.full_spec == other.full_spec:
-                return self.path < other.path
+                return str(self.path) < str(other.path)
 
             return self.full_spec < other.full_spec
 
