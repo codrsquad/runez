@@ -424,7 +424,7 @@ class PythonDepot:
         p = my_depot.find_python("3.7")
     """
 
-    preferred_python = None  # type: PythonInstallation  # Preferred python to use, if configured
+    _preferred_python = None  # type: PythonInstallation  # Preferred python to use, if configured
 
     def __init__(self, *locations):
         """
@@ -442,6 +442,20 @@ class PythonDepot:
 
         return result
 
+    @property
+    def preferred_python(self):
+        """
+        Returns:
+            (PythonInstallation | None): Preferred python to use, either explicitly configured, or auto-determined from locations
+        """
+        if self._preferred_python is None:
+            for location in self.locations:
+                python = location.preferred_python
+                if python:
+                    return python
+
+        return self._preferred_python
+
     def set_preferred_python(self, *specs):
         """
         Args:
@@ -450,7 +464,7 @@ class PythonDepot:
         for spec in flattened(specs):
             python = self.find_python(spec)
             if python and not python.problem:
-                self.preferred_python = python
+                self._preferred_python = python
                 return
 
     def find_python(self, spec):
@@ -495,8 +509,9 @@ class PythonDepot:
         if not isinstance(spec, PythonSpec):
             return None
 
-        if self.preferred_python and self.preferred_python.satisfies(spec):
-            return self.preferred_python
+        preferred = self.preferred_python
+        if preferred and preferred.satisfies(spec):
+            return preferred
 
         for location in self.locations:
             python = location.find_python(spec)
@@ -778,15 +793,15 @@ class Version:
 class PythonInstallation:
     """Models a specific python installation"""
 
-    def __init__(self, path, short_name=None):
+    def __init__(self, executable, short_name=None):
         """
         Args:
-            path (Path): Path to python executable
+            executable (Path): Path to python executable
             short_name (str | None): Short name to textually represent this installation
         """
-        self.path = path
-        self.short_name = short_name or short(path)
-        self.executable, inspection = PythonSimpleInspection.exe_inspection(path)
+        self.executable = executable
+        self.short_name = short_name or short(executable)
+        self.real_exe, inspection = PythonSimpleInspection.exe_inspection(executable)
         self.inspection = inspection
         self.problem = inspection.problem
         version = None
@@ -805,44 +820,47 @@ class PythonInstallation:
         return self.representation()
 
     def __eq__(self, other):
-        return isinstance(other, PythonInstallation) and self.executable == other.executable
+        return isinstance(other, PythonInstallation) and self.real_exe == other.real_exe
 
     def __lt__(self, other):
         if isinstance(other, PythonInstallation):
             if self.full_spec is None or other.full_spec is None:
-                return other.full_spec is not None or self.path < other.path
+                return other.full_spec is not None or str(self.executable) < str(other.executable)
 
             if self.full_spec == other.full_spec:
-                return str(self.path) < str(other.path)
+                return str(self.executable) < str(other.executable)
 
             return self.full_spec < other.full_spec
 
-    def representation(self, delimiter=", ", is_coloring=UNSET):
+    def representation(self, delimiter=", ", is_coloring=UNSET, more_info=None):
         """
         Args:
             delimiter (str): Delimiter to use in the more info section
             is_coloring (bool): Whether text should be colored (default: yes on tty)
+            more_info (list[str] | None): Optional list of strings to append to textual representation
 
         Returns:
             (str): Short textual representation of this installation
         """
-        more_info = []
-        if self.problem:
-            more_info.append(_R.colored(self.problem, "red", is_coloring=is_coloring))
+        if more_info is None:
+            more_info = []
+
+        if self.machine and self.machine != _R.lc.rm.SYS_INFO.platform_id.arch:
+            more_info.append(_R.colored(self.machine, "dim", is_coloring=is_coloring))
+
+        if self.is_invoker:
+            more_info.append(_R.colored("invoker", "green", is_coloring=is_coloring))
 
         full_spec = self.full_spec
         if full_spec and full_spec.version.text not in self.short_name:
             more_info.append(full_spec.represented())
 
-        if self.is_invoker:
-            more_info.append(_R.colored("invoker", "green", is_coloring=is_coloring))
-
-        if self.machine and self.machine != _R.lc.rm.SYS_INFO.platform_id.arch:
-            more_info.append(_R.colored(self.machine, "dim", is_coloring=is_coloring))
+        if self.problem:
+            more_info.append(_R.colored(self.problem, "red", is_coloring=is_coloring))
 
         text = _R.colored(self.short_name, "bold", is_coloring=is_coloring)
         if more_info:
-            return "%s [%s]" % (text, delimiter.join(more_info))
+            return "%s [%s]" % (text, delimiter.join(reversed(more_info)))
 
         return text
 
@@ -889,7 +907,7 @@ class PythonInstallation:
 
     @cached_property
     def family(self):
-        return PythonSpec.guess_family(str(self.executable))
+        return PythonSpec.guess_family(str(self.real_exe))
 
     @cached_property
     def full_spec(self):
@@ -938,7 +956,7 @@ class PythonInstallationLocation:
     """
     def __init__(self, location):
         self.location = location
-        self.preferred_python = None  # type: PythonInstallation # Auto-selected preferred python from this location
+        self._preferred_python = None  # type: PythonInstallation # Auto-selected preferred python from this location
 
     def __repr__(self):
         return short(self.location)
@@ -956,6 +974,17 @@ class PythonInstallationLocation:
 
         return PythonInstallationLocation(location)
 
+    def _record_preferred(self, executable: Path):
+        """Record 'executable' as the automatically selected preferred python for this location"""
+        if self._preferred_python is None and executable.is_symlink():
+            symlink = os.readlink(executable)
+            m = _R.lc.rx_python_mm.match(symlink)
+            if m and m.group(2):
+                # We have a python -> pythonM.m symlink
+                python = PythonInstallation(executable.parent / symlink)
+                if not python.problem:
+                    self._preferred_python = python
+
     def _scanned_location(self):
         """
         Returns:
@@ -972,16 +1001,21 @@ class PythonInstallationLocation:
                         if not python.problem:
                             result.append(python)
 
-                    elif self.preferred_python is None:
-                        symlink = os.readlink(item)
-                        ms = _R.lc.rx_python_mm.match(symlink)
-                        if ms and ms.group(2):
-                            # Record first python -> pythonM.m symlink found as the preferred python
-                            python = PythonInstallation(item.parent / symlink)
-                            if not python.problem:
-                                self.preferred_python = python
+                    else:
+                        self._record_preferred(item)
 
         return sorted(result, reverse=True)
+
+    @property
+    def preferred_python(self):
+        """(PythonInstallation | None): Preferred python found in this location"""
+        if self._preferred_python is None:
+            for python in self.available_pythons:
+                if python.full_version.patch > 5:
+                    self._preferred_python = python
+                    break
+
+        return self._preferred_python
 
     @cached_property
     def available_pythons(self):
@@ -1001,8 +1035,16 @@ class PythonInstallationLocation:
         if not self.available_pythons:
             return "No python installations found in '%s'" % _R.colored(self, "orange")
 
-        header = "%s in %s:" % (_R.lc.rm.plural(self.available_pythons, "python installation"), self)
-        return joined(header, self.available_pythons, delimiter="\n")
+        preferred = self.preferred_python
+        representation = ["%s in %s:" % (_R.lc.rm.plural(self.available_pythons, "python installation"), self)]
+        for python in self.available_pythons:
+            more_info = None
+            if python.executable == preferred.executable:
+                more_info = [_R.colored("preferred", "dim")]
+
+            representation.append(python.representation(more_info=more_info))
+
+        return joined(representation, delimiter="\n")
 
 
 class PythonInstallationLocationPathEnvVar(PythonInstallationLocation):
@@ -1023,10 +1065,16 @@ class PythonInstallationLocationPathEnvVar(PythonInstallationLocation):
                     if m:
                         python = PythonInstallation(item)
                         if not python.problem:
-                            target = major_minors if m.group(2) else general
+                            if m.group(2):
+                                target = major_minors
+
+                            else:
+                                target = general
+                                self._record_preferred(item)
+
                             target.append(python)
 
-            result.extend(sorted(general, key=lambda x: x.path))
+            result.extend(sorted(general, key=lambda x: x.executable))
             result.extend(sorted(major_minors, reverse=True))
 
         return result
@@ -1094,6 +1142,11 @@ class PythonSimpleInspection:
             return cached
 
         if not is_executable(executable):
+            if _R.is_dryrun():
+                version = Version.extracted_from_text(short(executable))
+                if version and version.is_valid:
+                    return real_exe, cls(version=version.text, machine=_R.lc.rm.SYS_INFO.platform_id.arch)
+
             return real_exe, cls(problem="not available")
 
         try:

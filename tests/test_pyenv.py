@@ -108,7 +108,13 @@ def test_depot(temp_folder, logged):
     assert invalid < p8
 
     # Verify that preferred python is respected
+    preferred = depot.preferred_python
+    assert str(preferred) == ".pyenv/versions/pypy-9.8.7"
+
     depot.set_preferred_python("8.6")
+    preferred = depot.preferred_python
+    assert str(preferred) == ".pyenv/versions/8.6.1 [x86_64_test]"
+
     assert repr(depot.find_python("8")) == ".pyenv/versions/8.6.1 [x86_64_test]"
     assert p8 is depot.find_python("8.7")
     p8b = depot.find_python(".pyenv/versions/8.7.2")
@@ -177,6 +183,13 @@ def test_empty_depot(temp_folder):
     assert "invoker" in str(invoker)
 
     p95_spec = PythonSpec.from_text("9.5")
+    with runez.CaptureOutput(dryrun=True) as logged:
+        # In dryrun mode, any requested python is considered available
+        p95 = depot.find_python(p95_spec)
+        assert str(p95) == "cpython:9.5"
+        assert p95.problem is None
+        assert not logged
+
     p95 = depot.find_python(p95_spec)
     assert p95.problem
     assert depot.find_python(None) is invoker
@@ -184,7 +197,8 @@ def test_empty_depot(temp_folder):
     assert depot.find_python("invoker") is invoker
     assert depot.find_python(invoker) is invoker
     assert depot.find_python(invoker.executable).is_invoker
-    assert depot.find_python(runez.to_path(invoker.executable)).is_invoker
+    assert depot.find_python(str(invoker.executable)).is_invoker
+    assert depot.find_python(invoker.real_exe).is_invoker
     assert depot.find_python(PythonSpec("cpython", invoker.mm)) is invoker
     assert depot.find_python("python") is invoker
     assert depot.find_python("py%s" % invoker.mm) is invoker  # eg: py3.10
@@ -197,8 +211,8 @@ def test_empty_depot(temp_folder):
     p = depot.find_python("foo")
     assert str(p) == "foo [not available]"
     assert repr(p) == "foo [not available]"
-    assert p.path == runez.to_path("foo")
-    assert p.executable == runez.to_path("foo").resolve()
+    assert p.executable == runez.to_path("foo")
+    assert p.real_exe == runez.to_path("foo").resolve()
     assert p.full_spec is None
     assert p.full_version is None
     assert not p.is_invoker
