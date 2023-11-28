@@ -957,7 +957,7 @@ class PythonInstallationLocation:
     """
     def __init__(self, location):
         self.location = location
-        self._preferred_python = None  # type: PythonInstallation # Auto-selected preferred python from this location
+        self._preferred_python = UNSET  # type: PythonInstallation # Auto-selected preferred python from this location
 
     def __repr__(self):
         return short(self.location)
@@ -977,7 +977,7 @@ class PythonInstallationLocation:
 
     def _record_preferred(self, executable: Path):
         """Record 'executable' as the automatically selected preferred python for this location"""
-        if self._preferred_python is None and executable.is_symlink():
+        if not self._preferred_python and executable.is_symlink():
             symlink = os.readlink(executable)
             m = RX_PYTHON_BASENAME.match(symlink)
             if m and m.group(2):
@@ -985,6 +985,12 @@ class PythonInstallationLocation:
                 python = PythonInstallation(executable.parent / symlink)
                 if not python.problem:
                     self._preferred_python = python
+
+    def _auto_determined_preferred(self):
+        """By default, prefer latest python with a patch version > .5"""
+        for python in self.available_pythons:
+            if python.full_version.patch > 5:
+                return python
 
     def _scanned_location(self):
         """
@@ -1010,11 +1016,8 @@ class PythonInstallationLocation:
     @property
     def preferred_python(self):
         """(PythonInstallation | None): Preferred python found in this location"""
-        if self._preferred_python is None:
-            for python in self.available_pythons:
-                if python.full_version.patch > 5:
-                    self._preferred_python = python
-                    break
+        if self._preferred_python is UNSET:
+            self._preferred_python = self._auto_determined_preferred()
 
         return self._preferred_python
 
@@ -1040,7 +1043,7 @@ class PythonInstallationLocation:
         representation = ["%s in %s:" % (_R.lc.rm.plural(self.available_pythons, "python installation"), self)]
         for python in self.available_pythons:
             more_info = None
-            if python.executable == preferred.executable:
+            if preferred and python.executable == preferred.executable:
                 more_info = [_R.colored("preferred", "dim")]
 
             representation.append(python.representation(more_info=more_info))
@@ -1050,6 +1053,10 @@ class PythonInstallationLocation:
 
 class PythonInstallationLocationPathEnvVar(PythonInstallationLocation):
     """Pythons from PATH env var"""
+
+    def _auto_determined_preferred(self):
+        """When using PATH env var, don't pick any preferred python"""
+        return None
 
     def _scanned_location(self):
         result = []
@@ -1066,13 +1073,7 @@ class PythonInstallationLocationPathEnvVar(PythonInstallationLocation):
                     if m:
                         python = PythonInstallation(item)
                         if not python.problem:
-                            if m.group(2):
-                                target = major_minors
-
-                            else:
-                                target = general
-                                self._record_preferred(item)
-
+                            target = major_minors if m.group(2) else general
                             target.append(python)
 
             result.extend(sorted(general, key=lambda x: x.executable))
