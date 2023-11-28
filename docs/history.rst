@@ -2,8 +2,16 @@
 History
 =======
 
+5.0.1 (2023-11-28)
+------------------
+
+* No preferred python from PATH env var (only from explicitly configured locations)
+
+
 5.0.0 (2023-11-27)
 ------------------
+
+* Automatically determine a ``preferred_python`` in ``PythonDepot``
 
 * More flexible ``PythonDepot`` scan for python binaries
 

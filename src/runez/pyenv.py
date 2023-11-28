@@ -985,6 +985,12 @@ class PythonInstallationLocation:
                 if not python.problem:
                     self._preferred_python = python
 
+    def _auto_determined_preferred(self):
+        """By default, prefer latest python with a patch version > .5"""
+        for python in self.available_pythons:
+            if python.full_version.patch > 5:
+                return python
+
     def _scanned_location(self):
         """
         Returns:
@@ -1010,10 +1016,7 @@ class PythonInstallationLocation:
     def preferred_python(self):
         """(PythonInstallation | None): Preferred python found in this location"""
         if self._preferred_python is None:
-            for python in self.available_pythons:
-                if python.full_version.patch > 5:
-                    self._preferred_python = python
-                    break
+            self._preferred_python = self._auto_determined_preferred()
 
         return self._preferred_python
 
@@ -1039,7 +1042,7 @@ class PythonInstallationLocation:
         representation = ["%s in %s:" % (_R.lc.rm.plural(self.available_pythons, "python installation"), self)]
         for python in self.available_pythons:
             more_info = None
-            if python.executable == preferred.executable:
+            if preferred and python.executable == preferred.executable:
                 more_info = [_R.colored("preferred", "dim")]
 
             representation.append(python.representation(more_info=more_info))
@@ -1049,6 +1052,10 @@ class PythonInstallationLocation:
 
 class PythonInstallationLocationPathEnvVar(PythonInstallationLocation):
     """Pythons from PATH env var"""
+
+    def _auto_determined_preferred(self):
+        """When using PATH env var, don't pick any preferred python"""
+        return None
 
     def _scanned_location(self):
         result = []
@@ -1065,13 +1072,7 @@ class PythonInstallationLocationPathEnvVar(PythonInstallationLocation):
                     if m:
                         python = PythonInstallation(item)
                         if not python.problem:
-                            if m.group(2):
-                                target = major_minors
-
-                            else:
-                                target = general
-                                self._record_preferred(item)
-
+                            target = major_minors if m.group(2) else general
                             target.append(python)
 
             result.extend(sorted(general, key=lambda x: x.executable))
