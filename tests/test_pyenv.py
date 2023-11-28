@@ -163,15 +163,20 @@ def test_depot_folder(temp_folder):
     runez.symlink("python8.5", "python", logger=None)
     depot = PythonDepot(".")
     assert len(depot.available_pythons) == 1
-    assert depot.locations[0].preferred_python.full_version == "8.5.6"
-    assert str(depot.find_python("8.5")) == "python8.5 [8.5.6]"
-    assert str(depot.find_python("8.5.6")) == "python8.5 [8.5.6]"
+    python = depot.find_python(None)
+    assert str(python) == "python8.5 [8.5.6]"
+    assert depot.preferred_python is python
+    assert depot.locations[0].preferred_python is python
+    assert depot.find_python("8.5") is python
+    assert depot.find_python("8.5.6") is python
     assert str(depot.find_python("8.5.7")) == "8.5.7 [not available]"
 
 
 def test_depot_path(temp_folder):
     depot = PythonDepot("PATH")
     assert depot.available_pythons
+    assert depot.preferred_python is None
+    assert depot.find_python(None) is depot.invoker
 
 
 def test_empty_depot(temp_folder):
