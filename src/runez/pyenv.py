@@ -956,7 +956,7 @@ class PythonInstallationLocation:
     """
     def __init__(self, location):
         self.location = location
-        self._preferred_python = None  # type: PythonInstallation # Auto-selected preferred python from this location
+        self._preferred_python = UNSET  # type: PythonInstallation # Auto-selected preferred python from this location
 
     def __repr__(self):
         return short(self.location)
@@ -976,7 +976,7 @@ class PythonInstallationLocation:
 
     def _record_preferred(self, executable: Path):
         """Record 'executable' as the automatically selected preferred python for this location"""
-        if self._preferred_python is None and executable.is_symlink():
+        if not self._preferred_python and executable.is_symlink():
             symlink = os.readlink(executable)
             m = _R.lc.rx_python_mm.match(symlink)
             if m and m.group(2):
@@ -1015,7 +1015,7 @@ class PythonInstallationLocation:
     @property
     def preferred_python(self):
         """(PythonInstallation | None): Preferred python found in this location"""
-        if self._preferred_python is None:
+        if self._preferred_python is UNSET:
             self._preferred_python = self._auto_determined_preferred()
 
         return self._preferred_python
