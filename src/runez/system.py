@@ -2029,10 +2029,6 @@ class _LazyCache:
         return re.compile(r"{([a-z]\w*)}", re.IGNORECASE)
 
     @cached_property
-    def rx_python_mm(self):
-        return re.compile(r"^python(\d(\.\d+)?)?$")
-
-    @cached_property
     def rx_spaces(self):
         return re.compile(r"[\s\n]+", re.MULTILINE)
 

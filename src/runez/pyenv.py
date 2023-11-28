@@ -10,6 +10,7 @@ from runez.system import _R, cached_property, flattened, joined, ltattr, resolve
 
 
 CPYTHON = "cpython"
+RX_PYTHON_BASENAME = re.compile(r"^python(\d(\.\d+)?)?$")
 
 
 class ArtifactInfo:
@@ -978,7 +979,7 @@ class PythonInstallationLocation:
         """Record 'executable' as the automatically selected preferred python for this location"""
         if self._preferred_python is None and executable.is_symlink():
             symlink = os.readlink(executable)
-            m = _R.lc.rx_python_mm.match(symlink)
+            m = RX_PYTHON_BASENAME.match(symlink)
             if m and m.group(2):
                 # We have a python -> pythonM.m symlink
                 python = PythonInstallation(executable.parent / symlink)
@@ -994,7 +995,7 @@ class PythonInstallationLocation:
         result = []
         for item in ls_dir(self.location):
             if item.is_file():
-                m = _R.lc.rx_python_mm.match(item.name)
+                m = RX_PYTHON_BASENAME.match(item.name)
                 if m:
                     if m.group(2):
                         python = PythonInstallation(item)
@@ -1061,7 +1062,7 @@ class PythonInstallationLocationPathEnvVar(PythonInstallationLocation):
             major_minors = []  # Major.minor symlinks, eg: `python3.7`
             for item in ls_dir(folder):
                 if is_executable(item):
-                    m = _R.lc.rx_python_mm.match(item.name)
+                    m = RX_PYTHON_BASENAME.match(item.name)
                     if m:
                         python = PythonInstallation(item)
                         if not python.problem:
@@ -1103,7 +1104,7 @@ class PythonInstallationLocationSubFolders(PythonInstallationLocation):
         result = []
         for item in ls_dir(os.path.dirname(self.location)):
             if item.is_dir():
-                m = _R.lc.rx_python_mm.match(item.name)
+                m = RX_PYTHON_BASENAME.match(item.name)
                 if m and m.group(2):
                     python = PythonInstallation(item / "bin" / item.name, short_name=short(item))
                     if not python.problem:
