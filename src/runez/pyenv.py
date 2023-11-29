@@ -453,7 +453,8 @@ class PythonDepot:
             for location in self.locations:
                 python = location.preferred_python
                 if python:
-                    return python
+                    self._preferred_python = python
+                    break
 
         return self._preferred_python
 
@@ -975,22 +976,18 @@ class PythonInstallationLocation:
 
         return PythonInstallationLocation(location)
 
-    def _record_preferred(self, executable: Path):
-        """Record 'executable' as the automatically selected preferred python for this location"""
-        if not self._preferred_python and executable.is_symlink():
-            symlink = os.readlink(executable)
-            m = RX_PYTHON_BASENAME.match(symlink)
-            if m and m.group(2):
-                # We have a python -> pythonM.m symlink
-                python = PythonInstallation(executable.parent / symlink)
-                if not python.problem:
-                    self._preferred_python = python
-
     def _auto_determined_preferred(self):
-        """By default, prefer latest python with a patch version > .5"""
-        for python in self.available_pythons:
-            if python.full_version.patch > 5:
-                return python
+        """By default, look for a `python3` symlink and consider it to be the preferred python"""
+        for basename in ("python3", "python"):
+            path = Path(self.location) / basename
+            if path.is_symlink():
+                symlink = os.readlink(path)
+                m = RX_PYTHON_BASENAME.match(symlink)
+                if m and m.group(2):
+                    # We have a python -> pythonM.m symlink
+                    python = PythonInstallation(path.parent / symlink)
+                    if not python.problem:
+                        return python
 
     def _scanned_location(self):
         """
@@ -1002,14 +999,10 @@ class PythonInstallationLocation:
         for item in ls_dir(self.location):
             if item.is_file():
                 m = RX_PYTHON_BASENAME.match(item.name)
-                if m:
-                    if m.group(2):
-                        python = PythonInstallation(item)
-                        if not python.problem:
-                            result.append(python)
-
-                    else:
-                        self._record_preferred(item)
+                if m and m.group(2):
+                    python = PythonInstallation(item)
+                    if not python.problem:
+                        result.append(python)
 
         return sorted(result, reverse=True)
 
@@ -1056,7 +1049,6 @@ class PythonInstallationLocationPathEnvVar(PythonInstallationLocation):
 
     def _auto_determined_preferred(self):
         """When using PATH env var, don't pick any preferred python"""
-        return None
 
     def _scanned_location(self):
         result = []
@@ -1084,6 +1076,12 @@ class PythonInstallationLocationPathEnvVar(PythonInstallationLocation):
 
 class PythonInstallationLocationPyenv(PythonInstallationLocation):
     """Pythons from pyenv-like location, eg: ~/.pyenv/versions/**"""
+
+    def _auto_determined_preferred(self):
+        """By default, prefer latest python with a patch version > .5"""
+        for python in self.available_pythons:
+            if python.full_version.patch > 5:
+                return python
 
     def _scanned_location(self):
         result = []
