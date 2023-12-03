@@ -107,20 +107,23 @@ def test_depot(temp_folder, logged):
     assert str(p8) == ".pyenv/versions/8.7.2"
     assert invalid < p8
 
-    # Verify that preferred python is respected
-    preferred = depot.preferred_python
-    assert str(preferred) == ".pyenv/versions/pypy-9.8.7"
+    # No auto-determined preferred python for pyenv-style installations
+    assert depot.preferred_python is None
 
+    # Verify that preferred python is respected
     depot.set_preferred_python("8.6")
     preferred = depot.preferred_python
     assert str(preferred) == ".pyenv/versions/8.6.1 [x86_64_test]"
+
+    p86 = depot.find_python("8.6")
+    assert "preferred" in p86.representation(preferred=preferred)
 
     assert repr(depot.find_python("8")) == ".pyenv/versions/8.6.1 [x86_64_test]"
     assert p8 is depot.find_python("8.7")
     p8b = depot.find_python(".pyenv/versions/8.7.2")
     assert p8 is not p8b
     assert p8 == p8b
-    assert p8 < p8b  # Due to their .path
+    assert p8 < p8b  # Due to their .executable
 
     # Verify min spec
     assert str(depot.find_python("conda:9.1+")) == ".pyenv/versions/miniforge3-22.11.1-4 [conda:9.11.2]"
@@ -184,8 +187,6 @@ def test_empty_depot(temp_folder):
     assert depot.representation() == "No PythonDepot locations configured"
     assert not depot.available_pythons
     invoker = runez.SYS_INFO.invoker_python
-    assert "invoker" in repr(invoker)
-    assert "invoker" in str(invoker)
 
     p95_spec = PythonSpec.from_text("9.5")
     with runez.CaptureOutput(dryrun=True) as logged:
@@ -239,7 +240,6 @@ def test_invoker(monkeypatch):
     import runez.pyenv
 
     invoker = runez.SYS_INFO.invoker_python
-    assert "invoker" in str(invoker)
     assert invoker.full_spec
     assert invoker.is_invoker
     assert invoker.machine

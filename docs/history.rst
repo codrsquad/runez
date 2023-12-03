@@ -2,6 +2,21 @@
 History
 =======
 
+5.0.3 (2023-12-04)
+------------------
+
+* Don't highlight ``invoker`` python anymore
+
+* Consider "preferred" python only for explicit ``python3``
+  symlinks in locations that otherwise have ``pythonM.m`` symlinks
+
+
+5.0.2 (2023-11-29)
+------------------
+
+* Corrected side-effect determining ``preferred_python`` in ``PythonDepot``
+
+
 5.0.1 (2023-11-28)
 ------------------
 
