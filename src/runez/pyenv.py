@@ -834,35 +834,32 @@ class PythonInstallation:
 
             return self.full_spec < other.full_spec
 
-    def representation(self, delimiter=", ", is_coloring=UNSET, more_info=None):
+    def representation(self, is_coloring=UNSET, preferred=None):
         """
         Args:
-            delimiter (str): Delimiter to use in the more info section
             is_coloring (bool): Whether text should be colored (default: yes on tty)
-            more_info (list[str] | None): Optional list of strings to append to textual representation
+            preferred (PythonInstallation | None): Highlight preferred python (if this installation is the preferred one)
 
         Returns:
             (str): Short textual representation of this installation
         """
-        if more_info is None:
-            more_info = []
-
-        if self.machine and self.machine != _R.lc.rm.SYS_INFO.platform_id.arch:
-            more_info.append(_R.colored(self.machine, "dim", is_coloring=is_coloring))
-
-        if self.is_invoker:
-            more_info.append(_R.colored("invoker", "green", is_coloring=is_coloring))
+        more_info = []
+        if self.problem:
+            more_info.append(_R.colored(self.problem, "red", is_coloring=is_coloring))
 
         full_spec = self.full_spec
         if full_spec and full_spec.version.text not in self.short_name:
             more_info.append(full_spec.represented())
 
-        if self.problem:
-            more_info.append(_R.colored(self.problem, "red", is_coloring=is_coloring))
+        if preferred and self.executable == preferred.executable:
+            more_info.append(_R.colored("preferred", "dim", is_coloring=is_coloring))
+
+        if self.machine and self.machine != _R.lc.rm.SYS_INFO.platform_id.arch:
+            more_info.append(_R.colored(self.machine, "dim", is_coloring=is_coloring))
 
         text = _R.colored(self.short_name, "bold", is_coloring=is_coloring)
         if more_info:
-            return "%s [%s]" % (text, delimiter.join(reversed(more_info)))
+            return "%s [%s]" % (text, ", ".join(more_info))
 
         return text
 
@@ -1032,16 +1029,10 @@ class PythonInstallationLocation:
         if not self.available_pythons:
             return "No python installations found in '%s'" % _R.colored(self, "orange")
 
-        preferred = self.preferred_python
-        representation = ["%s in %s:" % (_R.lc.rm.plural(self.available_pythons, "python installation"), self)]
-        for python in self.available_pythons:
-            more_info = None
-            if preferred and python.executable == preferred.executable:
-                more_info = [_R.colored("preferred", "dim")]
-
-            representation.append(python.representation(more_info=more_info))
-
-        return joined(representation, delimiter="\n")
+        text = _R.lc.rm.plural(self.available_pythons, "python installation")
+        text = f"{text} in {self}:\n"
+        text += "\n".join(p.representation(preferred=self.preferred_python) for p in self.available_pythons)
+        return text
 
 
 class PythonInstallationLocationPathEnvVar(PythonInstallationLocation):
@@ -1076,12 +1067,6 @@ class PythonInstallationLocationPathEnvVar(PythonInstallationLocation):
 
 class PythonInstallationLocationPyenv(PythonInstallationLocation):
     """Pythons from pyenv-like location, eg: ~/.pyenv/versions/**"""
-
-    def _auto_determined_preferred(self):
-        """By default, prefer latest python with a patch version > .5"""
-        for python in self.available_pythons:
-            if python.full_version.patch > 5:
-                return python
 
     def _scanned_location(self):
         result = []

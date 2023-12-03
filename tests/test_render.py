@@ -89,6 +89,7 @@ def test_diagnostics(monkeypatch):
     diag2 = PrettyTable.two_column_diagnostics(_diag2(), SYS_INFO.diagnostics())
     assert "diag2 : UNSET" in diag2
     assert "sys.executable" in diag2
+    assert "invoker" in diag2  # Present when running from venv
 
     silly_edge_case = PrettyTable.two_column_diagnostics(0, 1, [2])
     assert silly_edge_case == "  0 :\n  1 :\n  2 :"
@@ -98,12 +99,9 @@ def test_diagnostics(monkeypatch):
         s = SystemInfo()
         x = PrettyTable.two_column_diagnostics(s.diagnostics())
         assert "terminal : foo v2" in x
-        assert "sys.executable : foo" in x
-        assert "sys.prefix" in x  # Present when sys.executable doesn't match sys.prefix
         assert "via : " in x
 
         x = PrettyTable.two_column_diagnostics(s.diagnostics(via=None))
-        assert "sys.prefix" in x
         assert "via : " not in x
 
 

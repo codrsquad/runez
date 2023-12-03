@@ -1546,8 +1546,8 @@ class SystemInfo:
 
         if exe:
             yield "sys.executable", sys.executable
-            if not sys.executable.startswith(sys.prefix):
-                yield "sys.prefix", sys.prefix
+            if self.is_running_in_venv:
+                yield "invoker python", self.invoker_python
 
         if via:
             process_list = self.current_process.parent_list()
