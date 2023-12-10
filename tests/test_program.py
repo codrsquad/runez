@@ -138,15 +138,15 @@ def test_capture(monkeypatch):
                 assert r.output is None
                 assert "failed: OSError(" in r.error
 
-        # Verify no extra "exited with code ..." message is added when pass-through had some output
+        # Verify "exited with code ..." is mention in passthrough
         logged.clear()
         with pytest.raises(SystemExit):
             runez.run(CHATTER, "fail", fatal=SystemExit, passthrough=True)
-        assert "exited with code" not in logged.pop()
+        assert "exited with code" in logged.pop()
 
         with pytest.raises(runez.system.AbortException):
             runez.run(CHATTER, "fail", fatal=True, passthrough=True)
-        assert "exited with code" not in logged.pop()
+        assert "exited with code" in logged.pop()
 
         # Verify that silent pass-through gets at least mention of exit code
         with pytest.raises(SystemExit):

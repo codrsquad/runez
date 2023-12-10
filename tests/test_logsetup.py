@@ -657,7 +657,10 @@ def test_progress_operation(isolated_log_setup, logged):
 class SampleClass:
 
     @runez.log.timeit  # Without args
-    def instance_func1(self, message):
+    def instance_func1(self, message, fail=False):
+        if fail:
+            raise ValueError("oops")
+
         print("%s: %s" % (self, message))
 
     @runez.log.timeit()  # With args
@@ -699,6 +702,10 @@ def test_timeit(logged):
     sample = SampleClass()
     sample.instance_func1("hello")
     assert "SampleClass.instance_func1() took " in logged.pop()
+
+    with pytest.raises(ValueError):
+        sample.instance_func1("hello", fail=True)
+    assert "SampleClass.instance_func1() failed: oops (after running for " in logged.pop()
 
     sample.instance_func2("hello")
     assert "SampleClass.instance_func2() took " in logged.pop()

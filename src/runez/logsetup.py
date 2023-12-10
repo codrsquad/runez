@@ -637,12 +637,8 @@ class Timeit:
             (callable): Decorated function
         """
         if self.__func__:
-            self.__enter__()
-            try:
+            with self:
                 return self.__func__(*args, **kwargs)
-
-            finally:
-                self.__exit__()
 
         # We've been used as a decorator with args, and now we're called with the decorated function as argument
         self.__func__ = args[0]
@@ -655,7 +651,7 @@ class Timeit:
         self.start_time = time.time()
         return self
 
-    def __exit__(self, *_):
+    def __exit__(self, exc_type, exc_value, exc_traceback):
         msg = self.function_name
         if not msg:
             msg = "%s()" % find_caller()
@@ -666,7 +662,16 @@ class Timeit:
             elapsed = represented_duration(elapsed)
             msg = _R.colored(msg, self.color)
             elapsed = _R.colored(elapsed, self.color)
-            msg = self.fmt.format(function=msg, elapsed=elapsed)
+            if exc_value:
+                description = _R.colored("failed", "red")
+                if exc_type is not SystemExit:
+                    description += f": {exc_value}"
+
+                msg += f" {description} (after running for {elapsed})"
+
+            else:
+                msg = self.fmt.format(function=msg, elapsed=elapsed)
+
             logger(msg)
 
 

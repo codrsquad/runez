@@ -350,16 +350,11 @@ def run(
 
         if fatal and result.exit_code:
             base_message = "%s exited with code %s" % (short(program), result.exit_code)
-            if passthrough and (result.output or result.error):
-                exception = _R.abort_exception(override=fatal)
-                if exception is SystemExit:
-                    raise SystemExit(result.exit_code)
-
-                if isinstance(exception, type) and issubclass(exception, BaseException):
-                    raise exception(base_message)
+            if passthrough:
+                abort(base_message, code=result.exit_code, exc_info=result.exc_info, fatal=fatal, logger=abort_logger)
 
             message = []
-            if abort_logger is not None and not passthrough:
+            if abort_logger is not None:
                 # Log full output, unless user explicitly turned it off
                 message.append("Run failed: %s" % description)
                 if result.error:
@@ -368,8 +363,8 @@ def run(
                 if result.output:
                     message.append("\nstdout:\n%s" % result.output)
 
-            message.append(base_message)
-            abort("\n".join(message), code=result.exit_code, exc_info=result.exc_info, fatal=fatal, logger=abort_logger)
+            message = _R.lc.rm.joined(message, base_message, delimiter="\n")
+            abort(message, code=result.exit_code, exc_info=result.exc_info, fatal=fatal, logger=abort_logger)
 
         if background:
             os._exit(result.exit_code)  # pragma: no cover, simply exit forked process (don't go back to caller)
