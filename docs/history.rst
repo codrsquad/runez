@@ -2,6 +2,14 @@
 History
 =======
 
+5.0.4 (2023-12-10)
+------------------
+
+* State when a run failed in ``runez.log.timeit()``
+
+* Show exit code for failed ``runez.run()`` even with pass-through
+
+
 5.0.3 (2023-12-04)
 ------------------
 
