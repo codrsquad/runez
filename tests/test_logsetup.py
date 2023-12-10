@@ -705,7 +705,7 @@ def test_timeit(logged):
 
     with pytest.raises(ValueError):
         sample.instance_func1("hello", fail=True)
-    assert "SampleClass.instance_func1() failed: oops (after running for " in logged.pop()
+    assert "SampleClass.instance_func1() failed: oops" in logged.pop()
 
     sample.instance_func2("hello")
     assert "SampleClass.instance_func2() took " in logged.pop()

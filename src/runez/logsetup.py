@@ -667,7 +667,7 @@ class Timeit:
                 if exc_type is not SystemExit:
                     description += f": {exc_value}"
 
-                msg += f" {description} (after running for {elapsed})"
+                msg += f" {description} (ran for {elapsed})"
 
             else:
                 msg = self.fmt.format(function=msg, elapsed=elapsed)
