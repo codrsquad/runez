@@ -188,15 +188,7 @@ def test_empty_depot(temp_folder):
     assert not depot.available_pythons
     invoker = runez.SYS_INFO.invoker_python
 
-    p95_spec = PythonSpec.from_text("9.5")
-    with runez.CaptureOutput(dryrun=True) as logged:
-        # In dryrun mode, any requested python is considered available
-        p95 = depot.find_python(p95_spec)
-        assert str(p95) == "cpython:9.5"
-        assert p95.problem is None
-        assert not logged
-
-    p95 = depot.find_python(p95_spec)
+    p95 = depot.find_python(PythonSpec.from_text("9.5"))
     assert p95.problem
     assert depot.find_python(None) is invoker
     assert depot.find_python("") is invoker

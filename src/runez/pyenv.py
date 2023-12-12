@@ -1127,11 +1127,6 @@ class PythonSimpleInspection:
             return cached
 
         if not is_executable(executable):
-            if _R.is_dryrun():
-                version = Version.extracted_from_text(short(executable))
-                if version and version.is_valid:
-                    return real_exe, cls(version=version.text, machine=_R.lc.rm.SYS_INFO.platform_id.arch)
-
             return real_exe, cls(problem="not available")
 
         try:

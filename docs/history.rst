@@ -2,6 +2,12 @@
 History
 =======
 
+5.0.5 (2023-12-12)
+------------------
+
+* Don't fake existence of ``PythonInstallation`` in dryrun mode
+
+
 5.0.4 (2023-12-10)
 ------------------
 
