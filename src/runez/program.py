@@ -624,15 +624,19 @@ def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
     # Capture output, but also let it pass-through as-is to the terminal
     stdout_r, stdout_w = pty.openpty()
     stderr_r, stderr_w = pty.openpty()
-    stdout_buffer = BytesIO()
-    stderr_buffer = BytesIO()
     term_size = struct.pack("HHHH", SYS_INFO.terminal.lines, SYS_INFO.terminal.columns, 0, 0)
     for fd in (stdout_r, stdout_w, stderr_r, stderr_w):
         fcntl.ioctl(fd, termios.TIOCSWINSZ, term_size)
 
     passthrough = getattr(passthrough, "stream", passthrough)  # Convenience support for things like logging handlers
-    if not hasattr(passthrough, "write"):
+    if hasattr(passthrough, "write"):
+        # Don't accumulate out to RAM if we're passing it through to a file
+        stdout_buffer = stderr_buffer = None
+
+    else:
         passthrough = None
+        stdout_buffer = BytesIO()
+        stderr_buffer = BytesIO()
 
     with subprocess.Popen(args, stdout=stdout_w, stderr=stderr_w, **popen_args) as p:  # nosec
         os.close(stdout_w)
@@ -666,7 +670,13 @@ def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
     sys.stderr.flush()
     os.close(stdout_r)
     os.close(stderr_r)
-    return p, uncolored(decode(stdout_buffer.getvalue())), uncolored(decode(stderr_buffer.getvalue()))
+    if stdout_buffer:
+        stdout_buffer = uncolored(decode(stdout_buffer.getvalue()))
+
+    if stderr_buffer:
+        stderr_buffer = uncolored(decode(stderr_buffer.getvalue()))
+
+    return p, stdout_buffer, stderr_buffer
 
 
 def _safe_write(target, data, flush=None):
