@@ -77,8 +77,13 @@ def test_capture(monkeypatch):
         assert "chatter hello" in logged.pop()
         assert runez.run(CHATTER, stdout=None) == RunResult(None, "", 0)
         assert "Running:" in logged.pop()
+
+        r = runez.run(CHATTER, "hello", fatal=True, passthrough=True)
+        assert r == RunResult("hello", "", 0)
+
         crasher = CrashingWrite()
-        assert runez.run(CHATTER, "hello", fatal=True, passthrough=crasher) == RunResult("hello", "", 0)
+        r = runez.run(CHATTER, "hello", fatal=True, passthrough=crasher)
+        assert r == RunResult(None, None, 0)
         assert crasher.crash_counter
         assert "hello" in logged.pop()
 
