@@ -2,6 +2,18 @@
 History
 =======
 
+5.0.7 (2023-02-07)
+------------------
+
+* Detect ``buildkit`` as docker as well
+
+
+5.0.6 (2023-12-13)
+------------------
+
+* Don't capture passthrough runs when file handler given
+
+
 5.0.5 (2023-12-12)
 ------------------
 
