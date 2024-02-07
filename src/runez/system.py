@@ -1578,7 +1578,7 @@ class SystemInfo:
 
         try:
             with open("/proc/1/cgroup") as fh:
-                regex = re.compile(r"docker|lxc|kubepod", re.IGNORECASE)
+                regex = re.compile(r"docker|buildkit|lxc|kubepod", re.IGNORECASE)
                 for line in fh:
                     if line and regex.search(line):
                         return True
