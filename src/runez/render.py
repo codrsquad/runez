@@ -294,7 +294,6 @@ class PrettyHeader(PrettyCustomizable):
 
 
 class PrettyTable(PrettyCustomizable):
-
     border = AdaptedProperty("border", type=PrettyBorder, doc="Border to use")
     header = AdaptedProperty("header", type=PrettyHeader, doc="Header")
 

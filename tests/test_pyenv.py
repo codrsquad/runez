@@ -285,12 +285,12 @@ href="funky-proj/funky.proj-1.3.0_custom.tar.gz#sha256=..."
 """
 
 P_PICKLEY = {
-  "info": {"version": "2.5.6.dev1"},
-  "releases": {
-    "2.5.3": [{"filename": "pickley-2.5.3-py2.py3-none-any.whl", "yanked": True}, {"filename": "oops-bad-filename"}],
-    "2.5.4": [{"filename": "pickley-2.5.4-py2.py3-none-any.whl", "upload_time": "2012-01-22T05:08:17"}],
-    "2.5.5": [{"filename": "pickley-2.5.5-py2.py3-none-any.whl"}, {"filename": "pickley-2.5.5.tar.gz"}]
-  }
+    "info": {"version": "2.5.6.dev1"},
+    "releases": {
+        "2.5.3": [{"filename": "pickley-2.5.3-py2.py3-none-any.whl", "yanked": True}, {"filename": "oops-bad-filename"}],
+        "2.5.4": [{"filename": "pickley-2.5.4-py2.py3-none-any.whl", "upload_time": "2012-01-22T05:08:17"}],
+        "2.5.5": [{"filename": "pickley-2.5.5-py2.py3-none-any.whl"}, {"filename": "pickley-2.5.5.tar.gz"}],
+    },
 }
 
 P_SHELL_FUNCTOOLS = """
@@ -308,13 +308,15 @@ P_SHELL_FUNCTOOLS = """
 """
 
 
-@PYPI_CLIENT.mock({
-    "shell-functools/": P_SHELL_FUNCTOOLS,
-    "https://pypi.org/pypi/black/json": P_BLACK,
-    "https://pypi.org/pypi/foo/json": {"info": {"version": "1.2.3"}},
-    "https://pypi.org/pypi/pickley/json": P_PICKLEY,
-    "https://pypi.org/pypi/funky-proj/json": P_FUNKY,
-})
+@PYPI_CLIENT.mock(
+    {
+        "shell-functools/": P_SHELL_FUNCTOOLS,
+        "https://pypi.org/pypi/black/json": P_BLACK,
+        "https://pypi.org/pypi/foo/json": {"info": {"version": "1.2.3"}},
+        "https://pypi.org/pypi/pickley/json": P_PICKLEY,
+        "https://pypi.org/pypi/funky-proj/json": P_FUNKY,
+    }
+)
 def test_pypi_parsing():
     assert PypiStd.pypi_response("-invalid-") is None
     assert PypiStd.latest_pypi_version("shell_functools", index=PYPI_CLIENT.base_url) == Version("1.9.11")
@@ -483,7 +485,7 @@ def test_spec_list():
         ("1.0b2.post345.dev456", (1, 0, 0, 0, 0, 0, "", "b", 2, "post", 345, "dev", 456)),
         ("1.0rc1.dev456", (1, 0, 0, 0, 0, 0, "", "rc", 1, "", 0, "dev", 456)),
         ("1.0.post456.dev34", (1, 0, 0, 0, 0, 456, "post", "", 0, "post", 456, "dev", 34)),
-    ]
+    ],
 )
 def test_pep_sample(given_version, expected):
     version = Version(given_version)
@@ -718,62 +720,68 @@ def test_version_comparison():
 
 
 def test_version_crazy():
-    verify_ordering([
-        Version("1.2.3.7"),
-        Version("1.2.3.40dev7"),
-        Version("1.2.3.40a6"),
-        Version("1.2.3.40rc5.dev0"),
-        Version("1.2.3.40c5.dev7"),  # PEP-440 says 'c' should be sorted as 'rc'
-        Version("1.2.3.40rc5"),
-        Version("1.2.3.40rc5.post6.dev7"),
-        Version("1.2.3.40rc5.post6.dev8"),
-        Version("1.2.3.40rc5.post6"),
-        Version("1.2.3.40rc6.dev7"),
-        Version("1.2.3.40rc6"),
-        Version("1.2.3.40rc6.post15"),
-        Version("1.2.3.40rc20.post6.dev7"),
-        Version("1.2.3.40rc20.post17.dev8"),
-        Version("1.2.3.40"),
-        Version("1.2.3.40post6.dev7"),
-        Version("1.2.3.40post6"),
-    ])
+    verify_ordering(
+        [
+            Version("1.2.3.7"),
+            Version("1.2.3.40dev7"),
+            Version("1.2.3.40a6"),
+            Version("1.2.3.40rc5.dev0"),
+            Version("1.2.3.40c5.dev7"),  # PEP-440 says 'c' should be sorted as 'rc'
+            Version("1.2.3.40rc5"),
+            Version("1.2.3.40rc5.post6.dev7"),
+            Version("1.2.3.40rc5.post6.dev8"),
+            Version("1.2.3.40rc5.post6"),
+            Version("1.2.3.40rc6.dev7"),
+            Version("1.2.3.40rc6"),
+            Version("1.2.3.40rc6.post15"),
+            Version("1.2.3.40rc20.post6.dev7"),
+            Version("1.2.3.40rc20.post17.dev8"),
+            Version("1.2.3.40"),
+            Version("1.2.3.40post6.dev7"),
+            Version("1.2.3.40post6"),
+        ]
+    )
 
 
 def test_version_local_part():
-    verify_ordering([
-        Version("1.0+foo.a"),
-        Version("1.0+foo.a.b"),
-        Version("1.0+foo.a.5"),
-        Version("1.0+foo.z"),
-        Version("1.0+foo.z.8"),
-        Version("1.0+foo.5"),
-        Version("1.0+foo.7"),
-    ])
+    verify_ordering(
+        [
+            Version("1.0+foo.a"),
+            Version("1.0+foo.a.b"),
+            Version("1.0+foo.a.5"),
+            Version("1.0+foo.z"),
+            Version("1.0+foo.z.8"),
+            Version("1.0+foo.5"),
+            Version("1.0+foo.7"),
+        ]
+    )
 
 
 def test_version_ordering():
-    verify_ordering([
-        Version("1.dev0"),
-        Version("1.0.dev456"),
-        Version("1.0a1"),
-        Version("1.0a2.dev456"),
-        Version("1.0a12.dev456"),
-        Version("1.0a12"),
-        Version("1.0b1.dev456"),
-        Version("1.0b2"),
-        Version("1.0b2.post345.dev456"),
-        Version("1.0b2.post345"),
-        Version("1.0rc1.dev456"),
-        Version("1.0rc1"),
-        Version("1.0"),
-        Version("1.0+abc.5"),
-        Version("1.0+abc.7"),
-        Version("1.0+5"),
-        Version("1.0.post456.dev34"),
-        Version("1.0.post456"),
-        Version("1.0.15"),
-        Version("1.1.dev1"),
-    ])
+    verify_ordering(
+        [
+            Version("1.dev0"),
+            Version("1.0.dev456"),
+            Version("1.0a1"),
+            Version("1.0a2.dev456"),
+            Version("1.0a12.dev456"),
+            Version("1.0a12"),
+            Version("1.0b1.dev456"),
+            Version("1.0b2"),
+            Version("1.0b2.post345.dev456"),
+            Version("1.0b2.post345"),
+            Version("1.0rc1.dev456"),
+            Version("1.0rc1"),
+            Version("1.0"),
+            Version("1.0+abc.5"),
+            Version("1.0+abc.7"),
+            Version("1.0+5"),
+            Version("1.0.post456.dev34"),
+            Version("1.0.post456"),
+            Version("1.0.15"),
+            Version("1.1.dev1"),
+        ]
+    )
 
 
 def verify_ordering(expected):

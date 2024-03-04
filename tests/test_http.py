@@ -43,9 +43,11 @@ class MockBackend:
         self.cache[cache_key] = data
 
 
-@EXAMPLE.mock({
-    "test/README.txt?a=b": "Hello",
-})
+@EXAMPLE.mock(
+    {
+        "test/README.txt?a=b": "Hello",
+    }
+)
 def test_cache(monkeypatch):
     c = RestClient.std_diskcache()
     assert c is None
@@ -114,9 +116,11 @@ def test_decorator_forbidden():
     assert GlobalHttpCalls.is_forbidden() is True
 
 
-@EXAMPLE.mock({
-    "test/README.txt": "Hello",
-})
+@EXAMPLE.mock(
+    {
+        "test/README.txt": "Hello",
+    }
+)
 def test_download(temp_folder, logged):
     assert str(EXAMPLE) == "https://example.com"
     client = EXAMPLE.sub_client("test/")
@@ -170,8 +174,8 @@ def test_edge_cases():
     assert urljoin("http://example.net/a", "b") == "http://example.net/a/b"
     assert urljoin("http://example.net/a", "https://example.com/b") == "https://example.com/b"
     assert urljoin("http://example.net/a/#/b", "https://example.com/b") == "https://example.com/b"
-    assert urljoin("http://example.net/a/#/b", "c") == 'http://example.net/a/#/b/c'
-    assert urljoin("http://example.net/a#b", "c") == 'http://example.net/a#b/c'
+    assert urljoin("http://example.net/a/#/b", "c") == "http://example.net/a/#/b/c"
+    assert urljoin("http://example.net/a#b", "c") == "http://example.net/a#b/c"
 
 
 @EXAMPLE.mock({})
@@ -242,16 +246,18 @@ def dynamic_call(method, url):
     return ["bar", method]  # Implied status 200
 
 
-@EXAMPLE.mock({
-    "foo-bar": {"foo": "bar"},  # status 200 implied, payload is a dict
-    "bad-request": (400, dict(error="oops", msg="more info")),  # status 400, with sample error
-    "server-crashed": (500, "failed"),  # status 500, with optional content as well
-    "dynamic-a": dynamic_call,  # status and payload will come from function call
-    "dynamic-b": dynamic_call,
-    "explicit": MockResponse(202, "explicit RestResponse"),
-    "fail1": Exception,
-    "fail2": Exception("oops"),
-})
+@EXAMPLE.mock(
+    {
+        "foo-bar": {"foo": "bar"},  # status 200 implied, payload is a dict
+        "bad-request": (400, dict(error="oops", msg="more info")),  # status 400, with sample error
+        "server-crashed": (500, "failed"),  # status 500, with optional content as well
+        "dynamic-a": dynamic_call,  # status and payload will come from function call
+        "dynamic-b": dynamic_call,
+        "explicit": MockResponse(202, "explicit RestResponse"),
+        "fail1": Exception,
+        "fail2": Exception("oops"),
+    }
+)
 def test_rest():
     with runez.CaptureOutput(trace=True) as logged:
         session = RestClient("https://example.com", headers={"test": "testing"})

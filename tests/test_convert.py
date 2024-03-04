@@ -151,7 +151,7 @@ def test_tabulated_docker_ps():
             "COMMAND": '"/init"',
             "CREATED": "18 minutes ago",
             "STATUS": "Up 18 minutes",
-            "NAMES": "foo"
+            "NAMES": "foo",
         },
         {
             "CONTAINER_ID": "6bda1a6f83eb",
@@ -160,8 +160,8 @@ def test_tabulated_docker_ps():
             "CREATED": "7 days ago",
             "STATUS": "Up 43 hours",
             "PORTS": "0.0.0.0:123->123/tcp",
-            "NAMES": "syncthing"
-        }
+            "NAMES": "syncthing",
+        },
     ]
 
 
@@ -235,7 +235,7 @@ def test_wordification():
     assert runez.words("fooBar", decamel=True) == ["foo", "Bar"]
     assert runez.words("FooBar", decamel=True) == ["Foo", "Bar"]
     assert runez.words("_FooBar_", decamel=True, normalize=str.lower) == ["foo", "bar"]
-    assert runez.words("someCamel_likeWords-FooBar_baz", decamel=True) == ['some', 'Camel', 'like', 'Words', 'Foo', 'Bar', 'baz']
+    assert runez.words("someCamel_likeWords-FooBar_baz", decamel=True) == ["some", "Camel", "like", "Words", "Foo", "Bar", "baz"]
 
     assert runez.words(["a", "b_c", "a"]) == ["a", "b", "c", "a"]
     assert runez.words(["a", None, "b", 1]) == ["a", "b", "1"]

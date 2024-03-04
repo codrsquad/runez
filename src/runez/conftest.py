@@ -60,6 +60,7 @@ def exception_raiser(exc=Exception):
     Returns:
         (callable): Function that will raise given exception
     """
+
     def _raise(*_, **__):
         if isinstance(exc, str):
             raise Exception(exc)
@@ -423,7 +424,7 @@ class ClickRunner:
             elif expected in contents:
                 i = contents.index(expected)
                 pre = short(contents[:i], size=32)
-                post = short(contents[i + len(expected):], size=32)
+                post = short(contents[i + len(expected) :], size=32)
                 return Match(c, expected, pre=pre, post=post)
 
     def expect_messages(self, *expected, **kwargs):
@@ -510,7 +511,6 @@ class ClickRunner:
 
 
 class RunSpec(Slotted):
-
     __slots__ = ["stdout", "stderr", "regex"]
 
     def _get_defaults(self):

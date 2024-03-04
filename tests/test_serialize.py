@@ -228,7 +228,7 @@ def test_meta(logged):
     assert SomeSerializable._meta.changed_attributes(obj, obj2) == [
         ("name", "some name", "my name"),
         ("some_int", 15, 7),
-        ('sub', obj.sub, runez.UNSET)
+        ("sub", obj.sub, runez.UNSET),
     ]
 
     obj2.name = "some name"

@@ -69,7 +69,6 @@ class ProgressHandler(logging.Handler):
 
 
 class ProgressBar:
-
     def __init__(self, iterable=None, total=None, columns=8, frames=" ▏▎▍▌▋▊▉"):
         self.columns = columns
         self.frames = frames
@@ -153,7 +152,6 @@ class ProgressBar:
 
 
 class _SpinnerComponent:
-
     def __init__(self, fps, source, color, adapter=None):
         self.adapter = adapter
         self.source = source  # type: callable
@@ -192,7 +190,6 @@ class _SpinnerComponent:
 
 
 class _SpinnerState:
-
     def __init__(self, parent, frames, max_columns, message_color, progress_color, spinner_color):
         """
         Args:
@@ -1352,7 +1349,6 @@ def _get_file_handler(location, rotate, rotate_count):
 
 
 class _WrappedInstanceFunction:
-
     def __init__(self, function, instance):
         self.__func__ = function
         self.instance = instance

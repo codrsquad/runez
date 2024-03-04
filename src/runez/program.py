@@ -262,9 +262,19 @@ def make_executable(path, fatal=True, logger=UNSET, dryrun=UNSET):
 
 
 def run(
-    program, *args, background=False, fatal=True, logger=UNSET, dryrun=UNSET, short_exe=UNSET,
-    passthrough=False, path_env=None, strip="\r\n",
-    stdout=subprocess.PIPE, stderr=subprocess.PIPE, **popen_args
+    program,
+    *args,
+    background=False,
+    fatal=True,
+    logger=UNSET,
+    dryrun=UNSET,
+    short_exe=UNSET,
+    passthrough=False,
+    path_env=None,
+    strip="\r\n",
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+    **popen_args,
 ):
     """Run 'program' with 'args'
     Args:

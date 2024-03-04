@@ -93,7 +93,7 @@ class Cli:
             prog=prog or cls._prog,
             description=Cli.formatted_help(help),
             epilog=epilog,
-            formatter_class=argparse.RawDescriptionHelpFormatter
+            formatter_class=argparse.RawDescriptionHelpFormatter,
         )
 
     @staticmethod
@@ -420,7 +420,7 @@ class _ConfigOption:
             values = {}
             for k, v in os.environ.items():
                 if k.startswith(env_prefix):
-                    k = k[len(env_prefix):]
+                    k = k[len(env_prefix) :]
                     if self.adapter is not None:
                         k = self.adapter(k)
 

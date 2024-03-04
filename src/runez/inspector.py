@@ -96,6 +96,7 @@ class AutoInstall:
 
     def __call__(self, target):
         """Decorator invoked with decorated function 'target'"""
+
         @wraps(target)
         def inner(*args, **kwargs):
             self.ensure_installed()
