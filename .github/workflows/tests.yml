@@ -23,7 +23,7 @@ jobs:
 
     - run: pip install -U pip tox setuptools
     - run: tox -e py
-    - uses: codecov/codecov-action@v3
+    - uses: codecov/codecov-action@v4
       with:
         files: .tox/test-reports/coverage.xml
 
@@ -44,7 +44,7 @@ jobs:
 
     - run: pip install -U pip tox
     - run: tox -e py
-    - uses: codecov/codecov-action@v3
+    - uses: codecov/codecov-action@v4
       with:
         files: .tox/test-reports/coverage.xml
 
