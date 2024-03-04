@@ -605,10 +605,10 @@ def short(value, size=UNSET, none="None", uncolor=False):
         if uncolor and "\033" in text:
             clear_text = uncolored(text)
             if len(clear_text) > size:
-                text = "%s..." % clear_text[:size - 3]
+                text = "%s..." % clear_text[: size - 3]
 
         else:
-            text = "%s..." % text[:size - 3]
+            text = "%s..." % text[: size - 3]
 
     return text
 
@@ -1989,7 +1989,6 @@ class UnitRepresentation:
 
 
 class _LazyCache:
-
     @cached_property
     def rm(self):
         import runez

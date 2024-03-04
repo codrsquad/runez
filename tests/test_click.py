@@ -83,7 +83,13 @@ def say_hello(border, color, config, debug, log, use_stderr):
     assert len(config.providers) == 4
     assert "propsfs" in config.overview()
     msg = "border: %s, color: %s, a=%s c=%s, debug: %s, dryrun: %s, log: %s" % (
-        border, color, config.get("a"), config.get("c"), debug, runez.DRYRUN, log
+        border,
+        color,
+        config.get("a"),
+        config.get("c"),
+        debug,
+        runez.DRYRUN,
+        log,
     )
     if use_stderr:
         sys.stderr.write("%s\n" % msg)
@@ -254,7 +260,7 @@ def test_protected_main():
     logged = check_protected_main(1, Exception("oops"), "oops", debug_stacktrace=True)
     assert "Traceback" not in logged
 
-    check_protected_main(1, TypeError("oops"), "TypeError",  "Traceback", no_stacktrace=[ValueError])
+    check_protected_main(1, TypeError("oops"), "TypeError", "Traceback", no_stacktrace=[ValueError])
     logged = check_protected_main(1, ValueError("oops"), "oops", no_stacktrace=[ValueError])
     assert "ValueError" not in logged  # Exception is stringified and shown as ERROR
     assert "Traceback" not in logged

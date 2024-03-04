@@ -1,3 +1,17 @@
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+cache-dir = ".tox/.ruff_cache"
+line-length = 140
+src = ["src", "tests"]
+
+[tool.ruff.lint.isort]
+order-by-type = false
+
+[tool.ruff.lint.mccabe]
+max-complexity = 20
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"

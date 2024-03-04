@@ -2,6 +2,7 @@
 Friendly misc/utils/convenience library
 """
 
+# fmt: off
 from runez import ascii, click, config, date, file, program, serialize, system
 from runez.colors import ActivateColors, ColorManager as color
 from runez.colors.named import black, blue, brown, gray, green, orange, plain, purple, red, teal, white, yellow
@@ -43,6 +44,7 @@ __all__ = [
     "first_line", "get_version", "is_basetype", "is_iterable", "ltattr"
 ]
 
+# fmt: on
 DRYRUN = False
 color.activate_colors()
 colored = color.colored

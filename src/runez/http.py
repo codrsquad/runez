@@ -204,6 +204,7 @@ class GlobalHttpCalls:
     @classmethod
     def allowed(cls, func):
         """Decorator for test_ functions, temporarily allows external requests"""
+
         @functools.wraps(func)
         def inner(*args, **kwargs):
             with GlobalHttpCalls(True):
@@ -214,6 +215,7 @@ class GlobalHttpCalls:
     @classmethod
     def forbidden(cls, func):
         """Decorator for test_ functions, temporarily forbids external requests"""
+
         @functools.wraps(func)
         def inner(*args, **kwargs):
             with GlobalHttpCalls(False):
@@ -304,7 +306,6 @@ class DataState:
 
 
 class MockResponse:
-
     def __init__(self, status_code, content):
         self.status_code = status_code
         if content is not None and not isinstance(content, bytes):
@@ -324,7 +325,6 @@ class MockResponse:
 
 
 class MockedHandlerStack:
-
     def __init__(self):
         self.handler = None
         self.ms = None
@@ -394,7 +394,6 @@ class MockedHandlerStack:
 
 
 class MockCentral:
-
     _stacks = {}
 
     @classmethod
@@ -980,7 +979,7 @@ class RestClient:
                 size_limit = _R.lc.rm.to_bytesize(CacheWrapper.size_limit)
 
             cache_backend = Cache(directory=directory or None, size_limit=size_limit)
-            return CacheWrapper(cache_backend, directory, default_expire,  size_limit)
+            return CacheWrapper(cache_backend, directory, default_expire, size_limit)
 
         except ImportError:
             return None
@@ -1004,7 +1003,7 @@ class RestClient:
         if m and m.end(0) == len(url):
             hash_algo = m.group(1)
             hash_checksum = m.group(3)
-            return hash_algo, hash_checksum, url[:m.start(0)]
+            return hash_algo, hash_checksum, url[: m.start(0)]
 
         return None, None, url
 

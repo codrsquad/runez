@@ -4,7 +4,6 @@ from runez.system import cached_property
 
 
 class MyObject:
-
     _global_counter = 0
 
     @property

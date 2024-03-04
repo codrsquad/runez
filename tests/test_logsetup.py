@@ -655,7 +655,6 @@ def test_progress_operation(isolated_log_setup, logged):
 
 
 class SampleClass:
-
     @runez.log.timeit  # Without args
     def instance_func1(self, message, fail=False):
         if fail:

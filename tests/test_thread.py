@@ -29,7 +29,6 @@ def test_singleton():
 
 
 class SomeClass:
-
     times_called = 0
 
     @thread_local_property

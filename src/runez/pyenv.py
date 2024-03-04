@@ -953,6 +953,7 @@ class PythonInstallationLocation:
     - <some-folder>/**: look for <some-folder>/**/bin/pythonM.m (eg: ~/.pyenv/versions/**)
     - PATH: Scan PATH env var for python exes
     """
+
     def __init__(self, location):
         self.location = location
         self._preferred_python = UNSET  # type: PythonInstallation # Auto-selected preferred python from this location

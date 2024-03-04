@@ -6,7 +6,7 @@ setup(
     setup_requires="setupmeta",
     versioning="dev",
     author="Zoran Simic zoran@simicweb.com",
-    python_requires='>=3.6',
+    python_requires=">=3.6",
     url="https://github.com/codrsquad/runez",
     classifiers=[
         "Development Status :: 5 - Production/Stable",

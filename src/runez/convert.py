@@ -251,7 +251,7 @@ class Pluralizer:
 
         irregular = cls.find_letter_based(singular)
         if irregular:
-            return singular[:-irregular[0]] + irregular[1]
+            return singular[: -irregular[0]] + irregular[1]
 
         return "%ss" % singular
 
