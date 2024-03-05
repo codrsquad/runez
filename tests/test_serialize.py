@@ -342,9 +342,10 @@ def test_slotted(logged):
     assert se.name == "foo"
     assert se.to_dict() == {"name": "foo"}
 
-    with pytest.raises(Exception) as e:
+    with pytest.raises(Exception, match="Extra content given for SlottedExample: foo"):
         SlottedExample.from_dict({"foo": "bar"})
-    assert str(e.value) == "Extra content given for SlottedExample: foo"
+
+    assert not logged
 
 
 def test_to_dict(temp_folder):

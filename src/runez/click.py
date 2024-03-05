@@ -288,11 +288,7 @@ def option(func, *args, **attrs):
 
         attrs.setdefault("required", False)
         if not name.startswith("-"):
-            if negatable:
-                name = "--%s/--no-%s" % (name, name)
-
-            else:
-                name = "--%s" % name
+            name = f"--{name}/--no-{name}" if negatable else f"--{name}"
 
         return click.option(name, *args, **attrs)(f)
 
@@ -376,7 +372,7 @@ def protected_main(main, debug_stacktrace=False, no_stacktrace=None):
 def _auto_complete_callback(attrs, func):
     if not attrs.get("expose_value", True) and attrs.get("callback") is None:
 
-        def _callback(ctx, param, value):
+        def _callback(_ctx, _param, value):
             value = func(value)
             return value
 
@@ -408,7 +404,7 @@ class _ConfigOption:
         config.add(provider)
         return values
 
-    def __call__(self, ctx, param, value):
+    def __call__(self, _ctx, _param, value):
         c = runez.config.Configuration()
         self._add_dict(c, self.name, self._get_values(value))
 

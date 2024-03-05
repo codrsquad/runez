@@ -164,7 +164,7 @@ def test_depot_folder(temp_folder):
     mk_python("8.5.7")
     runez.symlink(".pyenv/versions/8.5.6/bin/python", "python8.5", logger=None)
     runez.symlink("python8.5", "python", logger=None)
-    depot = PythonDepot(".")
+    depot = PythonDepot(temp_folder)
     assert len(depot.available_pythons) == 1
     python = depot.find_python(None)
     assert str(python) == "python8.5 [8.5.6]"
@@ -175,14 +175,14 @@ def test_depot_folder(temp_folder):
     assert str(depot.find_python("8.5.7")) == "8.5.7 [not available]"
 
 
-def test_depot_path(temp_folder):
+def test_depot_path():
     depot = PythonDepot("PATH")
     assert depot.available_pythons
     assert depot.preferred_python is None
     assert depot.find_python(None) is depot.invoker
 
 
-def test_empty_depot(temp_folder):
+def test_empty_depot():
     depot = PythonDepot()
     assert depot.representation() == "No PythonDepot locations configured"
     assert not depot.available_pythons
@@ -228,7 +228,7 @@ def test_inspect():
     assert '"version":' in r.output
 
 
-def test_invoker(monkeypatch):
+def test_invoker():
     import runez.pyenv
 
     invoker = runez.SYS_INFO.invoker_python
@@ -674,8 +674,7 @@ def test_version_comparison():
     assert v20d.suffix == "dev"
 
     # Verify that numerical comparison takes place (not alphanumeric)
-    assert None < v12  # For total ordering
-    assert v12 > None
+    assert v12 > None  # For total ordering
     assert v12 == "1.2.3"
     assert v12 == [1, 2, 3]
     assert v12 == (1, 2, 3)

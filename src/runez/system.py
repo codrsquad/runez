@@ -13,6 +13,7 @@ import sys
 import threading
 import unicodedata
 from io import StringIO
+from typing import ClassVar
 
 ABORT_LOGGER = logging.error
 LOG = logging.getLogger("runez")
@@ -259,11 +260,7 @@ def decode(value, strip=None):
         value = value.decode("utf-8")
 
     if strip:
-        if strip is True:
-            value = value.strip()
-
-        else:
-            value = value.strip(strip)
+        value = value.strip(strip if isinstance(strip, str) else None)
 
     return value
 
@@ -292,9 +289,8 @@ def find_caller(depth=2, maximum=1000, need_file=True, need_package=False, regex
                     top_level = package and package.partition(".")[0]
                     if name.endswith("__main__") or not top_level or (not top_level.startswith("_") and top_level not in ignored):
                         filepath = f.f_globals.get("__file__")
-                        if filepath or not need_file:
-                            if regex is None or regex.match(name):
-                                return _CallerInfo(f, depth, package, top_level, name, filepath)
+                        if (filepath or not need_file) and (regex is None or regex.match(name)):
+                            return _CallerInfo(f, depth, package, top_level, name, filepath)
 
                 depth = depth + 1
 
@@ -398,7 +394,7 @@ def get_version(mod, default="0.0.0", fatal=False, logger=False):
 
         else:
             try:
-                # TODO: Remove when py3.7 support is dropped
+                # Remove when py3.7 support is dropped
                 import pkg_resources
 
                 d = pkg_resources.get_distribution(top_level)
@@ -693,7 +689,7 @@ class AdaptedProperty:
         >>> assert my_object.width == 10
     """
 
-    __counter = [0]  # Simple counter for anonymous properties
+    __counter: ClassVar = [0]  # Simple counter for anonymous properties
 
     def __init__(self, validator=None, default=None, doc=None, caster=None, type=None):
         """
@@ -710,7 +706,8 @@ class AdaptedProperty:
         assert caster is None or type is None, "Can't accept both 'caster' and 'type' for AdaptedProperty, pick one"
         if callable(validator):
             # 'validator' is available when used as decorator of the form: @AdaptedProperty
-            assert caster is None and type is None, "'caster' and 'type' are not applicable to AdaptedProperty decorator"
+            assert caster is None, "'caster' is not applicable to AdaptedProperty decorator"
+            assert type is None, "'type' is not applicable to AdaptedProperty decorator"
             self.validator = validator
             self.key = "__%s" % validator.__name__
             py_mimic(self, validator)
@@ -728,7 +725,8 @@ class AdaptedProperty:
 
     def __call__(self, validator):
         """Called when used as decorator of the form: @AdaptedProperty(default=...)"""
-        assert self.caster is None and self.type is None, "'caster' and 'type' are not applicable to decorated properties"
+        assert self.caster is None, "'caster' is not applicable to decorated properties"
+        assert self.type is None, "'type' is not applicable to decorated properties"
         self.validator = validator
         self.key = "__%s" % validator.__name__
         py_mimic(self, validator)
@@ -761,7 +759,7 @@ class Anchored:
     """
 
     _home = None
-    _paths = []  # Currently stacked anchored folders that can be simplified away, via short()
+    _paths: ClassVar = []  # Currently stacked anchored folders that can be simplified away, via short()
 
     def __init__(self, *folders):
         self.folders = folders
@@ -899,7 +897,7 @@ class CaptureOutput:
     'foo bar'
     """
 
-    _capture_stack = []  # Shared across all objects, tracks possibly nested CaptureOutput buffers
+    _capture_stack: ClassVar = []  # Shared across all objects, tracks possibly nested CaptureOutput buffers
 
     def __init__(self, stdout=True, stderr=True, anchors=None, dryrun=UNSET, seed_logging=False, trace=False):
         """Context manager allowing to temporarily grab stdout/stderr/log output.
@@ -1146,7 +1144,7 @@ class Slotted:
     def fill_attributes(obj, named):
         """Allows to turn 'named' into named attributes, UNSET values allow to fall back to stated default at class level"""
         if isinstance(obj, type):
-            raise ValueError("extract_settings() called on class %s (should be instance)" % obj)
+            raise TypeError("extract_settings() called on class %s (should be instance)" % obj)
 
         for k, v in named.items():
             if k and not k.startswith("_"):
@@ -1167,11 +1165,7 @@ class Slotted:
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
-            for name in self.__slots__:
-                if getattr(self, name, None) != getattr(other, name, None):
-                    return False
-
-            return True
+            return all(getattr(self, x, None) == getattr(other, x, None) for x in self.__slots__)
 
     def _seed(self):
         """Seed initial fields"""
@@ -1318,7 +1312,7 @@ class PlatformId:
     subsystem: str = None  # Example: libc, musl (empty for macos/windows for now)
 
     default_subsystem = None  # Can this be auto-detected? (currently: users can optionally provide this, by setting this class field)
-    platform_archive_type = {"linux": "tar.gz", "macos": "tar.gz", "windows": "zip"}
+    platform_archive_type: ClassVar = {"linux": "tar.gz", "macos": "tar.gz", "windows": "zip"}
     sys_include = None  # Most standard system include dirs, if any
 
     rx_base_path = None  # Regex identifying "base" libraries (present on any declination of this system)
@@ -1373,7 +1367,6 @@ class PlatformId:
             base_paths.append(r"/usr/lib/libSystem\.B\.dylib")
 
         elif self.is_windows:
-            # TODO: add windows support
             base_paths.append(r"C:/Windows/System32/.*")
 
         self.rx_base_path = re.compile(r"^(%s)$" % joined(base_paths, delimiter="|"))
@@ -1437,16 +1430,12 @@ class PlatformId:
 
     def is_base_lib(self, *paths):
         """Does one of the given 'paths' match a base library? (present on any declination of this system)"""
-        for path in paths:
-            if path:
-                if self.rx_base_path.match(str(path)):
-                    return True
+        return any(p and self.rx_base_path.match(str(p)) for p in paths)
 
     def is_system_lib(self, *paths):
         """Does one of the given 'paths' match a system library? (ie: installed in a system folder, not /usr/local and such)"""
-        for path in paths:
-            if path and self.rx_sys_lib and self.rx_sys_lib.match(str(path)):
-                return True
+        if self.rx_sys_lib:
+            return any(p and self.rx_sys_lib.match(str(p)) for p in paths)
 
     @property
     def is_using_libc(self):
@@ -1663,7 +1652,7 @@ class TempArgv:
         self.old_argv = sys.argv
 
     def __enter__(self):
-        sys.argv = [self.exe] + self.args
+        sys.argv = [self.exe, *self.args]
 
     def __exit__(self, *_):
         sys.argv = self.old_argv
@@ -2255,12 +2244,7 @@ def _flatten(result, value, keep_empty, split, shellify, strip, transform, uniqu
 
                 return
 
-            if isinstance(split, str):
-                value = value.split(split)
-
-            else:
-                value = value.split()
-
+            value = value.split(split if isinstance(split, str) else None)
             if value:
                 _flatten(result, value, keep_empty, None, shellify, strip, transform, unique, none)
 
@@ -2349,9 +2333,7 @@ def _show_abort_message(message, exc_info, fatal, logger):
 
 
 def _has_stream_handler():
-    for h in logging.root.handlers:
-        if isinstance(h, logging.StreamHandler) or getattr(h, "isolation", None) == 0:
-            return True
+    return any(isinstance(h, logging.StreamHandler) or getattr(h, "isolation", None) == 0 for h in logging.root.handlers)
 
 
 def _full_path(path, relative_path):
@@ -2375,7 +2357,7 @@ def _validated_project_path(*paths):
     for path in paths:
         if path:
             path = os.path.dirname(path)
-            if os.path.exists(os.path.join(path, "setup.py")) or os.path.exists(os.path.join(path, "project.toml")):
+            if os.path.exists(os.path.join(path, "setup.py")) or os.path.exists(os.path.join(path, "pyproject.toml")):
                 return path
 
 
@@ -2396,19 +2378,16 @@ class _CallerInfo:
     def globals(self, prefix=None, private=False):
         """Iterate over the globals in caller"""
         for name, value in self.frame.f_globals.items():
-            if private or not name.startswith("_"):
-                if not prefix or name.startswith(prefix):
-                    yield name, value
+            if (private or not name.startswith("_")) and (not prefix or name.startswith(prefix)):
+                yield name, value
 
     @cached_property
     def basename(self):
-        if self.filepath:
-            return os.path.basename(self.filepath)
+        return os.path.basename(self.filepath) if self.filepath else None
 
     @cached_property
     def folder(self):
-        if self.filepath:
-            return os.path.dirname(self.filepath)
+        return os.path.dirname(self.filepath) if self.filepath else None
 
     @cached_property
     def function(self):

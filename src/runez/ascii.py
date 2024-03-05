@@ -99,7 +99,7 @@ class AsciiAnimation:
     @classmethod
     def af_fill(cls):
         """Bar growing/shrinking vertically, then horizontally"""
-        return AsciiFrames([" "] + cls.symmetrical(list("▁▂▃▄▅▆▇█")) + [" "] + cls.symmetrical(list("▏▎▍▌▋▊▉")))
+        return AsciiFrames([" ", cls.symmetrical(list("▁▂▃▄▅▆▇█")), " ", cls.symmetrical(list("▏▎▍▌▋▊▉"))])
 
     @classmethod
     def af_fill2(cls):

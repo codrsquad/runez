@@ -6,6 +6,7 @@ import collections
 import datetime
 import io
 import json
+from typing import ClassVar
 
 from runez.file import ensure_folder, parent_folder
 from runez.system import _R, abort, is_basetype, is_iterable, LOG, resolved_path, short, stringified, UNSET
@@ -290,8 +291,8 @@ def scan_all_attributes(cls):
 class SerializableDescendants:
     """Tracks all descendants of Serializable, with at least one attribute defined"""
 
-    by_name = {}  # Tracks by class name only, last imported class wins
-    by_qualified_name = {}  # Tracks by full qualified name (won't be any conflicts)
+    by_name: ClassVar = {}  # Tracks by class name only, last imported class wins
+    by_qualified_name: ClassVar = {}  # Tracks by full qualified name (won't be any conflicts)
 
     @classmethod
     def descendant_with_name(cls, name):
@@ -466,7 +467,8 @@ class ClassMetaDescription:
         Returns:
             (list): Tuple of attribute names and values for which values differ between `obj1` and `obj2`
         """
-        assert obj1._meta is self and obj2._meta is self
+        assert obj1._meta is self
+        assert obj2._meta is self
         result = []
         for key in self.attributes:
             v1 = getattr(obj1, key)
@@ -546,11 +548,7 @@ class Serializable:
 
     def __eq__(self, other):
         if other is not None and other.__class__ is self.__class__:
-            for name in self._meta.attributes:
-                if not hasattr(other, name) or getattr(self, name) != getattr(other, name):
-                    return False
-
-            return True
+            return not any(not hasattr(other, x) or getattr(self, x) != getattr(other, x) for x in self._meta.attributes)
 
     def __ne__(self, other):
         return not (self == other)

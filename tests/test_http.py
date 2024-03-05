@@ -1,6 +1,6 @@
 import sys
-from collections import namedtuple
 from pathlib import Path
+from typing import NamedTuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -10,7 +10,13 @@ from runez.http import ForbiddenHttpError, GlobalHttpCalls, MockResponse, RestCl
 
 
 EXAMPLE = RestClient("https://example.com")
-CacheState = namedtuple("CacheState", "cached hits misses updates")
+
+
+class CacheState(NamedTuple):
+    cached: int
+    hits: int
+    misses: int
+    updates: int
 
 
 class MockBackend:
@@ -31,11 +37,14 @@ class MockBackend:
             del self.cache[cache_key]
 
     def get(self, cache_key):
-        if cache_key in self.cache:
-            self.cache_hits += 1
-            return self.cache[cache_key]
+        value = self.cache.get(cache_key)
+        if value is None:
+            self.cache_misses += 1
 
-        self.cache_misses += 1
+        else:
+            self.cache_hits += 1
+
+        return value
 
     def set(self, cache_key, data, expire=None):
         self.cache_updates += 1
@@ -100,10 +109,9 @@ def test_decorator_allowed():
 
 def test_default_disabled():
     assert GlobalHttpCalls.is_forbidden() is True
-    with pytest.raises(ForbiddenHttpError) as exc:
-        client = RestClient()
+    client = RestClient()
+    with pytest.raises(ForbiddenHttpError, match="https://example.com"):
         client.head("https://example.com")
-    assert "https://example.com" in str(exc)
 
 
 @GlobalHttpCalls.forbidden
@@ -185,7 +193,7 @@ def test_edge_cases():
 def test_files(temp_folder):
     """yolo"""
     # Exercise download code path
-    sample = Path("README.txt")
+    sample = runez.to_path(temp_folder) / "README.txt"
     r = EXAMPLE.download("README", sample, fatal=False)
     assert r.status_code == 404
     assert r.url == "https://example.com/README"
@@ -210,7 +218,7 @@ def test_files(temp_folder):
 
 @EXAMPLE.mock
 @RestClient.handler.mock("https://example.com/tt", {"test": 205})
-def test_handler_mock(logged):
+def test_handler_mock():
     session = RestClient("https://example.com", handler=EXAMPLE.handler)
     assert session.head("tt/test", fatal=False).status_code == 205
     assert session.head("foo", fatal=False).status_code == 404
@@ -310,10 +318,8 @@ def test_rest():
         assert r.method == "PUT"
         assert str(r) == "<Response [202]>"
 
-        with pytest.raises(Exception) as exc:
+        with pytest.raises(Exception, match="Simulated crash"):
             session.get("fail1")
-        assert "Simulated crash" in str(exc)
 
-        with pytest.raises(Exception) as exc:
+        with pytest.raises(Exception, match="oops"):
             session.get("fail2")
-        assert "oops" in str(exc)

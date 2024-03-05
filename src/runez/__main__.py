@@ -93,7 +93,7 @@ def cmd_import_speed():
 
     table = PrettyTable("Module,-X cumulative,Elapsed,Vs fastest,Note", border=args.border)
     table.header[3].align = "center"
-    mid = _get_mid(times) or 0
+    mid = _get_mid(times)
     for t in sorted(times):
         if t.cumulative is None:
             c = e = f = None
@@ -200,6 +200,8 @@ def _get_mid(times):
     if times:
         times = sorted(times, key=lambda x: -x.elapsed)  # Don't fail if no elapsed available
         return times[int(len(times) / 2)].elapsed
+
+    return 0
 
 
 def main():

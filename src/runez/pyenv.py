@@ -2,6 +2,7 @@ import json
 import os
 import re
 from pathlib import Path
+from typing import ClassVar
 
 from runez.file import ls_dir
 from runez.http import RestClient, urljoin
@@ -181,12 +182,7 @@ class PypiStd:
         if not index:
             index = cls.DEFAULT_PYPI_URL
 
-        if "{name}" in index:
-            url = index.format(name=pypi_name)
-
-        else:
-            url = urljoin(index, "%s/" % pypi_name)
-
+        url = index.format(name=pypi_name) if "{name}" in index else urljoin(index, f"{pypi_name}/")
         r = client.get_response(url, fatal=fatal, logger=logger)
         if r and r.ok:
             text = (r.text or "").strip()
@@ -963,14 +959,15 @@ class PythonInstallationLocation:
 
     @classmethod
     def from_location(cls, location):
-        if location == "PATH":
-            return PythonInstallationLocationPathEnvVar(location)
+        if isinstance(location, str):
+            if location == "PATH":
+                return PythonInstallationLocationPathEnvVar(location)
 
-        if location.endswith("/**"):
-            return PythonInstallationLocationPyenv(location)
+            if location.endswith("/**"):
+                return PythonInstallationLocationPyenv(location)
 
-        if location.endswith("/python*"):
-            return PythonInstallationLocationSubFolders(location)
+            if location.endswith("/python*"):
+                return PythonInstallationLocationSubFolders(location)
 
         return PythonInstallationLocation(location)
 
@@ -1101,7 +1098,7 @@ class PythonInstallationLocationSubFolders(PythonInstallationLocation):
 class PythonSimpleInspection:
     """Simple inspection (version and arch) of a python executable, cached to avoid expensive python process invocations"""
 
-    _cached = {}
+    _cached: ClassVar = {}
 
     def __init__(self, version=None, machine=None, problem=None):
         self.version = version

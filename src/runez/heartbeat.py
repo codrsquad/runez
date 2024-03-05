@@ -19,6 +19,7 @@ Usage:
 
 import threading
 import time
+from typing import ClassVar, List
 
 from runez.system import LOG, ltattr
 
@@ -70,7 +71,7 @@ class Heartbeat:
     - refreshing data from a remote server
     """
 
-    tasks = []  # type: list # of task, to be periodically called
+    tasks: ClassVar[List[HeartbeatTask]] = []  # of task, to be periodically called
 
     _lock = threading.Lock()
     _thread = None  # Background daemon thread used to periodically execute the tasks

@@ -27,7 +27,7 @@ def sample_main():
 
         if args[0] == "Exception":
             # Raise a generic exception
-            raise Exception("crashed: %s" % args[1:])
+            raise RuntimeError("crashed: %s" % args[1:])
 
         assert args[0] != "AssertionError", "oops, something went wrong"
         if args[0] == "exit":
@@ -108,7 +108,7 @@ def test_crash(cli):
         cli.expect_failure(["Exception", "hello"], "this message shouldn't appear")
 
 
-def test_edge_cases(temp_folder, monkeypatch):
+def test_edge_cases(temp_folder):
     # Exercise dev folder determination code
     info = runez.system.DevInfo()
     info.tests_folder = "./bar/baz"
@@ -153,7 +153,7 @@ def test_script_invocations(cli):
         cli.exercise_main("failed-help")
 
 
-def test_success(cli, monkeypatch):
+def test_success(cli):
     cli.main = sample_main
 
     # Verify that project folder works properly

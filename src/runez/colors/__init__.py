@@ -175,16 +175,8 @@ class Renderable:
         >>> runez.blue("foo")
         'foo'
         """
-        if size:
-            text = short(text, size=size)
-
-        else:
-            text = stringified(text)
-
-        if not text:
-            return ""
-
-        return self.rendered(text)
+        text = short(text, size=size) if size else stringified(text)
+        return self.rendered(text) if text else ""
 
     def rendered(self, text):
         return text

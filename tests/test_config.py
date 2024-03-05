@@ -50,55 +50,54 @@ def test_no_implementation():
     assert str(config) == "empty"
     assert config.get("anything") is None
 
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError, match="Invalid config provider"):
         config.add(object())
 
     assert str(config) == "empty"
 
 
-def test_samples(isolated_log_setup):
+def test_samples(temp_log):
     runez.log.setup()
     runez.log.enable_trace(True)
-    with runez.CaptureOutput() as output:
-        config = runez.config.Configuration()
-        config.add(runez.config.PropsfsProvider(SAMPLES))
-        assert str(config) == "propsfs"
-        assert "Adding config provider propsfs" in output.pop()
+    config = runez.config.Configuration()
+    config.add(runez.config.PropsfsProvider(SAMPLES))
+    assert str(config) == "propsfs"
+    assert "Adding config provider propsfs" in temp_log.tracked.pop()
 
-        assert config.get_str("non-existent") is None
-        assert not output
+    assert config.get_str("non-existent") is None
+    assert not temp_log.tracked
 
-        assert config.get_str("some-string") == "hello there"
-        assert "Using some-string='hello there' from propsfs" in output.pop()
+    assert config.get_str("some-string") == "hello there"
+    assert "Using some-string='hello there' from propsfs" in temp_log.tracked.pop()
 
-        assert config.get_int("some-string") is None
-        assert config.get_float("some-string") is None
-        assert config.get_bool("some-string") is False
-        assert config.get_bytesize("some-string") is None
+    assert config.get_int("some-string") is None
+    assert config.get_float("some-string") is None
+    assert config.get_bool("some-string") is False
+    assert config.get_bytesize("some-string") is None
 
-        assert config.get_str("some-string", default="foo") == "hello there"
-        assert config.get_int("some-string", default=5) == 5
-        assert config.get_float("some-string", default=5.1) == 5.1
-        assert config.get_bool("some-string", default=False) is False
-        assert config.get_bytesize("some-string", default=5) == 5
+    assert config.get_str("some-string", default="foo") == "hello there"
+    assert config.get_int("some-string", default=5) == 5
+    assert config.get_float("some-string", default=5.1) == 5.1
+    assert config.get_bool("some-string", default=False) is False
+    assert config.get_bytesize("some-string", default=5) == 5
 
-        assert config.get_str("some-int") == "123"
-        assert config.get_int("some-int") == 123
-        assert config.get_float("some-int") == 123
-        assert config.get_bool("some-int") is True
-        assert config.get_bytesize("some-int") == 123
+    assert config.get_str("some-int") == "123"
+    assert config.get_int("some-int") == 123
+    assert config.get_float("some-int") == 123
+    assert config.get_bool("some-int") is True
+    assert config.get_bytesize("some-int") == 123
 
-        assert config.get_json("sample.json") == {"some-key": "some-value", "some-int": 51}
-        assert config.get_json("some-string") is None
-        assert config.get_json("some-string", default={"a": "b"}) == {"a": "b"}
-        assert config.get_json("some-string", default='{"a": "b"}') == {"a": "b"}
+    assert config.get_json("sample.json") == {"some-key": "some-value", "some-int": 51}
+    assert config.get_json("some-string") is None
+    assert config.get_json("some-string", default={"a": "b"}) == {"a": "b"}
+    assert config.get_json("some-string", default='{"a": "b"}') == {"a": "b"}
 
-        additional = runez.config.DictProvider({"some-string": "foo", "x": "y"})
-        config.add(additional, front=True)
+    additional = runez.config.DictProvider({"some-string": "foo", "x": "y"})
+    config.add(additional, front=True)
 
-        values = config.values
-        assert len(values) == 4
-        assert values["sample.json"]
-        assert values["some-int"] == "123"
-        assert values["some-string"] == "foo"
-        assert values["x"] == "y"
+    values = config.values
+    assert len(values) == 4
+    assert values["sample.json"]
+    assert values["some-int"] == "123"
+    assert values["some-string"] == "foo"
+    assert values["x"] == "y"
