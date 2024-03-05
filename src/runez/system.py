@@ -14,7 +14,6 @@ import threading
 import unicodedata
 from io import StringIO
 
-
 ABORT_LOGGER = logging.error
 LOG = logging.getLogger("runez")
 SYMBOLIC_TMP = "<tmp>"
@@ -1178,7 +1177,7 @@ class Slotted:
         """Seed initial fields"""
         defaults = self._get_defaults()
         if not isinstance(defaults, dict):
-            defaults = dict((k, defaults) for k in self.__slots__)
+            defaults = {k: defaults for k in self.__slots__}
 
         for name in self.__slots__:
             value = getattr(self, name, defaults.get(name))
@@ -1235,7 +1234,7 @@ class Slotted:
     def _values_from_object(self, obj):
         """dict: Optional hook to allow descendants to extract key/value pairs from an object"""
         if obj is not None:
-            return dict((k, getattr(obj, k, UNSET)) for k in self.__slots__)
+            return {k: getattr(obj, k, UNSET) for k in self.__slots__}
 
 
 class DevInfo:
@@ -1319,7 +1318,7 @@ class PlatformId:
     subsystem: str = None  # Example: libc, musl (empty for macos/windows for now)
 
     default_subsystem = None  # Can this be auto-detected? (currently: users can optionally provide this, by setting this class field)
-    platform_archive_type = dict(linux="tar.gz", macos="tar.gz", windows="zip")
+    platform_archive_type = {"linux": "tar.gz", "macos": "tar.gz", "windows": "zip"}
     sys_include = None  # Most standard system include dirs, if any
 
     rx_base_path = None  # Regex identifying "base" libraries (present on any declination of this system)
@@ -1562,6 +1561,7 @@ class SystemInfo:
         """The python that is either currently running us, or that created the venv we're running from"""
         import platform
         from pathlib import Path
+
         from runez.pyenv import PythonInstallation, PythonSimpleInspection
 
         path = Path(sys.executable)
@@ -2017,7 +2017,7 @@ class _LazyCache:
             r"([Tt \t](\d\d?):(\d\d?):(\d\d?)(\.\d*)?"
             r"([ \t]*(Z|[A-Z]{3}|[+-]\d\d?(:(\d\d?))?))?)?)"
         )
-        return re.compile(r"^\s*(%s)\s*$" % "|".join((base_number, base_date)))
+        return re.compile(rf"^\s*({base_number}|{base_date})\s*$")
 
     @cached_property
     def rx_duration(self):

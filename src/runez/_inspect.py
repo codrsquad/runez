@@ -5,10 +5,7 @@ import sys
 
 
 def simple_inspection():
-    return dict(
-        version=".".join(str(s) for s in sys.version_info[:3]),
-        machine=platform.machine(),
-    )
+    return {"version": ".".join(str(s) for s in sys.version_info[:3]), "machine": platform.machine()}
 
 
 if __name__ == "__main__":

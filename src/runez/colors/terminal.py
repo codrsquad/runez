@@ -125,7 +125,7 @@ class Ansi16Backend(PlainBackend):
         """Triplet of named bg, fg and style-s"""
         bg = NamedColors(
             cls=AnsiColor,
-            params=dict(ansi=self.ansi, flavor=self.flavor),
+            params={"ansi": self.ansi, "flavor": self.flavor},
             black=-0x000001,
             blue=-0x0000FF,
             brown=-0xA52A2A,
@@ -140,7 +140,7 @@ class Ansi16Backend(PlainBackend):
         )
         fg = NamedColors(
             cls=AnsiColor,
-            params=dict(ansi=self.ansi, flavor=self.flavor),
+            params={"ansi": self.ansi, "flavor": self.flavor},
             black=0x000000,
             blue=0x0000FF,
             brown=0x850A0A,

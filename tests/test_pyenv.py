@@ -51,7 +51,7 @@ def mk_python(basename, executable=True, content=None, machine=None):
 
     path = folder / ("python%s" % version.mm)
     if not content:
-        content = dict(version=str(version), machine=machine or runez.SYS_INFO.platform_id.arch)
+        content = {"version": str(version), "machine": machine or runez.SYS_INFO.platform_id.arch}
 
     if content == "failed":
         content = "echo failed\nexit 1"
@@ -76,7 +76,7 @@ def test_depot(temp_folder, logged):
     mk_python("miniforge3-22.11.1-4/9.11.2")
     mk_python("pypy-9.8.7/9.8.7")
     mk_python("8.5.4", content="invalid content")
-    mk_python("8.5.5", content=dict(version="invalid-version"))
+    mk_python("8.5.5", content={"version": "invalid-version"})
     mk_python("8.5.6", content="failed")
     mk_python("8.5.7", content="invalid-json")
     runez.symlink(".pyenv/versions/8.6.1", ".pyenv/versions/8.6", logger=None)

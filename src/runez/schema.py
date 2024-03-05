@@ -235,7 +235,7 @@ class Dict(Any):
                 return "value: %s" % problem
 
     def _converted(self, value):
-        return dict((self.key.converted(k), self.value.converted(v)) for k, v in value.items())
+        return {self.key.converted(k): self.value.converted(v) for k, v in value.items()}
 
 
 class Enum(Any):
@@ -358,7 +358,7 @@ class Struct(Any):
         Returns:
             (dict): This object serialized to a dict
         """
-        return dict((name, getattr(self, name)) for name in self.meta.attributes)
+        return {name: getattr(self, name) for name in self.meta.attributes}
 
     def set_from_dict(self, data, source=None):
         """

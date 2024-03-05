@@ -249,7 +249,7 @@ def dynamic_call(method, url):
 @EXAMPLE.mock(
     {
         "foo-bar": {"foo": "bar"},  # status 200 implied, payload is a dict
-        "bad-request": (400, dict(error="oops", msg="more info")),  # status 400, with sample error
+        "bad-request": (400, {"error": "oops", "msg": "more info"}),  # status 400, with sample error
         "server-crashed": (500, "failed"),  # status 500, with optional content as well
         "dynamic-a": dynamic_call,  # status and payload will come from function call
         "dynamic-b": dynamic_call,

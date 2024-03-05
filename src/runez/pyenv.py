@@ -255,7 +255,7 @@ class PypiStd:
     @classmethod
     def _versions_from_pypi(cls, releases, source=None):
         if isinstance(releases, dict):
-            for v, infos in releases.items():
+            for _, infos in releases.items():
                 for info in infos:
                     if not info.get("yanked"):
                         size = info.get("size")
@@ -497,7 +497,7 @@ class PythonDepot:
 
     def _find_python(self, spec):
         if isinstance(spec, str):
-            if spec.startswith("~") or spec.startswith(".") or "/" in spec or os.path.exists(spec):
+            if spec.startswith(("~", ".", "/")) or "/" in spec or os.path.exists(spec):
                 return PythonInstallation.from_path(Path(resolved_path(spec)), short_name=short(spec))
 
             elif spec == "invoker":
@@ -715,7 +715,7 @@ class Version:
             v = getattr(self, "_local_parts", None)
             if v is None:
                 v = self.local_part.split(".")
-                setattr(self, "_local_parts", v)
+                self._local_parts = v
 
             return v
 

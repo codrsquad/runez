@@ -491,5 +491,4 @@ class _TabularHeader:
             data[current.name].append(text)
             m = self.regex.search(line, wend + 1)
 
-        data = dict((k, joined(v)) for k, v in data.items())
-        return data
+        return {k: joined(v) for k, v in data.items()}

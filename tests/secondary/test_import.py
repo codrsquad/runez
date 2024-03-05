@@ -2,7 +2,7 @@
 Make sure 'from runez import *' (not recommended!) works correctly
 """
 
-from runez import *  # noqa
+from runez import *  # noqa: F403
 
 
 def test_import():
@@ -10,4 +10,4 @@ def test_import():
     assert len(names) > 10
     assert "short" in names
 
-    assert short("foo") == "foo"  # noqa
+    assert short("foo") == "foo"  # noqa: F405

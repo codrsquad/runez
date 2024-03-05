@@ -40,7 +40,7 @@ def with_behavior(strict=UNSET, extras=UNSET, hook=UNSET):
     Returns:
         (type): Internal temp class (compatible with `Serializable` metaclass) indicating how to handle Serializable type checking
     """
-    return BaseMetaInjector("_MBehavior", tuple(), {"behavior": DefaultBehavior(strict=strict, extras=extras, hook=hook)})
+    return BaseMetaInjector("_MBehavior", (), {"behavior": DefaultBehavior(strict=strict, extras=extras, hook=hook)})
 
 
 def is_serializable_descendant(base):
@@ -206,14 +206,13 @@ def json_sanitized(value, stringify=stringified, dt=str, none=False):
         value = sorted(value)
 
     if isinstance(value, dict):
-        return dict(
-            (
-                json_sanitized(none if k is None and isinstance(none, str) else k, stringify=stringify, dt=dt, none=none),
-                json_sanitized(v, stringify=stringify, dt=dt, none=none),
+        return {
+            json_sanitized(none if k is None and isinstance(none, str) else k, stringify=stringify, dt=dt, none=none): json_sanitized(
+                v, stringify=stringify, dt=dt, none=none
             )
             for k, v in value.items()
             if none or (k is not None and v is not None)
-        )
+        }
 
     if is_iterable(value):
         return [json_sanitized(v, stringify=stringify, dt=dt, none=none) for v in value]
@@ -376,7 +375,7 @@ class ClassMetaDescription:
                     self.attributes[key] = schema_type
                     by_type[schema_type.__class__].append(key)
 
-        self._by_type = dict((k, sorted(v)) for k, v in by_type.items())  # Sorted to make things deterministic
+        self._by_type = {k: sorted(v) for k, v in by_type.items()}  # Sorted to make things deterministic
         if self.attributes:
             SerializableDescendants.register(self)
 
@@ -623,7 +622,7 @@ class Serializable:
         Returns:
             (dict): This object serialized to a dict
         """
-        raw = dict((name, getattr(self, name)) for name in self._meta.attributes)
+        raw = {name: getattr(self, name) for name in self._meta.attributes}
         return json_sanitized(raw, stringify=stringify, dt=dt, none=none)
 
 

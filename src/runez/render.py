@@ -6,19 +6,19 @@ from runez.system import _R, AdaptedProperty, flattened, is_iterable, joined, sh
 from runez.system import SYS_INFO, UNSET, wcswidth
 
 
-NAMED_BORDERS = dict(
-    ascii="rstgrid,t:+++=,m:+++-",
-    compact="c:   ,h:   -",
-    colon="c: : ,h: : -",
-    dots="t:....,b::::.,c::::,h:.:..",
-    empty="",
-    framed="t:┍┯┑━,m:┝┿┥━,b:┕┷┙━,c:│││,h:╞╪╡═",
-    github="h:-|--,c:|||",
-    mysql="t:+++-,b:+++-,c:|||",
-    reddit="h:-|--,c: | ",
-    rst="t:  ==,b:  ==,c:  ",
-    rstgrid="mysql,h:+++=",
-)
+NAMED_BORDERS = {
+    "ascii": "rstgrid,t:+++=,m:+++-",
+    "compact": "c:   ,h:   -",
+    "colon": "c: : ,h: : -",
+    "dots": "t:....,b::::.,c::::,h:.:..",
+    "empty": "",
+    "framed": "t:┍┯┑━,m:┝┿┥━,b:┕┷┙━,c:│││,h:╞╪╡═",
+    "github": "h:-|--,c:|||",
+    "mysql": "t:+++-,b:+++-,c:|||",
+    "reddit": "h:-|--,c: | ",
+    "rst": "t:  ==,b:  ==,c:  ",
+    "rstgrid": "mysql,h:+++=",
+}
 
 
 class Align:
@@ -138,7 +138,7 @@ class PrettyBorder(Slotted):
         self.pad = to_int(value)
 
     def _get_defaults(self):
-        return dict(c=_PTBorderChars(), pad=1)
+        return {"c": _PTBorderChars(), "pad": 1}
 
     def _values_from_string(self, text):
         values = {}
@@ -192,7 +192,7 @@ class PrettyCustomizable:
 
     @staticmethod
     def merged(*chain):
-        values = dict(align=Align.left)
+        values = {"align": Align.left}
         for item in chain:
             if item is not None:
                 values.update(item.to_dict())
@@ -472,7 +472,7 @@ class _PTBorderChars(Slotted):
                 obj += [""] * missing
 
             first, mid, last, h = obj
-            return dict(first=first, mid=mid, last=last, h=h)
+            return {"first": first, "mid": mid, "last": last, "h": h}
 
         return super()._values_from_object(obj)
 

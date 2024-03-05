@@ -397,9 +397,9 @@ class _ConfigOption:
     def _get_values(self, value):
         value = flattened(value, split=self.split)
         values = [t.partition("=") for t in value if t]
-        values = dict((k, v) for k, _, v in values)
+        values = {k: v for k, _, v in values}
         if self.prefix:
-            values = dict((affixed(k, prefix=self.prefix), v) for k, v in values.items())
+            values = {affixed(k, prefix=self.prefix): v for k, v in values.items()}
 
         return values
 

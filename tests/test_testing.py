@@ -29,9 +29,7 @@ def sample_main():
             # Raise a generic exception
             raise Exception("crashed: %s" % args[1:])
 
-        if args[0] == "AssertionError":
-            assert False, "oops, something went wrong"
-
+        assert args[0] != "AssertionError", "oops, something went wrong"
         if args[0] == "exit":
             # exit without explicit code
             sys.exit(" ".join(args[1:]))

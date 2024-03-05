@@ -116,7 +116,7 @@ def test_capture(monkeypatch):
         logged.pop()
 
         # Test failure
-        with pytest.raises(Exception):
+        with pytest.raises(runez.system.AbortException):
             runez.run(CHATTER, "fail")
         assert "Run failed:" in logged.pop()
 

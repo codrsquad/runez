@@ -277,7 +277,7 @@ def test_sanitize():
     # `none=True` disables any filtering
     assert runez.serialize.json_sanitized(sample, none=True) == sample
 
-    now = datetime.datetime.now()
+    now = datetime.datetime.now(tz=runez.date.UTC)
     assert runez.serialize.json_sanitized(now) == str(now)
     assert runez.serialize.json_sanitized(now, dt=None) is now
     assert runez.serialize.json_sanitized([now]) == [str(now)]
