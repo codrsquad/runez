@@ -55,12 +55,12 @@ def test_abort(logged, monkeypatch):
     assert not logged
 
     monkeypatch.setattr(runez.system.logging.root, "handlers", [])
-    with pytest.raises(Exception):
+    with pytest.raises(runez.system.AbortException):
         # logger is UNSET -> log failure
         runez.abort("oops")
     assert "oops" in logged.pop()
 
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(runez.system.AbortException) as exc:
         # Message not logged, but part of raised exception
         runez.abort("oops", logger=None)
     assert "oops" in str(exc)
@@ -516,9 +516,9 @@ def test_shortening():
     assert runez.short([1, "b"]) == "[1, b]"
     assert runez.short((1, {"b": ["c", {"d", "e"}]})) == "(1, {b: [c, {d, e}]})"
 
-    complex = {"a \n b": [1, None, "foo \n ,", {"a2": runez.abort, "c": runez.Anchored}], None: datetime.date(2019, 1, 1)}
-    assert runez.short(complex) == "{None: 2019-01-01, a b: [1, None, foo ,, {a2: function 'abort', c: class runez.system.Anchored}]}"
-    assert runez.short(complex, size=32) == "{None: 2019-01-01, a b: [1, N..."
+    c = {"a \n b": [1, None, "foo \n ,", {"a2": runez.abort, "c": runez.Anchored}], None: datetime.date(2019, 1, 1)}
+    assert runez.short(c) == "{None: 2019-01-01, a b: [1, None, foo ,, {a2: function 'abort', c: class runez.system.Anchored}]}"
+    assert runez.short(c, size=32) == "{None: 2019-01-01, a b: [1, N..."
 
     assert runez.short(" some  text ", size=32) == "some text"
     assert runez.short(" some  text ", size=7) == "some..."
@@ -697,7 +697,6 @@ def test_wcswidth():
     assert runez.wcswidth("--\u05bf--") == 4
     assert runez.wcswidth("café") == 4
     assert runez.wcswidth("\u0410\u0488") == 1
-    # assert runez.wcswidth("ᬓᬨᬮ᭄") == 4
 
     assert runez.wcswidth("😊") == 2
     assert runez.wcswidth("⚡") == 2

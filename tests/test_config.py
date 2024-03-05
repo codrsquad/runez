@@ -51,7 +51,7 @@ def test_no_implementation():
     assert config.get("anything") is None
 
     with pytest.raises(ValueError):
-        config.add(object())  # noqa
+        config.add(object())
 
     assert str(config) == "empty"
 

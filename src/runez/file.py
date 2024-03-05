@@ -213,7 +213,7 @@ def ini_to_dict(path, keep_empty=False, fatal=False, logger=False):
                 section[key] = value
 
     if not keep_empty:
-        result = dict((k, v) for k, v in result.items() if k and v)
+        result = {k: v for k, v in result.items() if k and v}
 
     return result
 

@@ -59,7 +59,7 @@ def auto_import_siblings(skip=None, caller=None):
     import pkgutil
 
     imported = []
-    for loader, module_name, _ in pkgutil.walk_packages([caller.folder], prefix="%s." % caller.package_name):
+    for _, module_name, _ in pkgutil.walk_packages([caller.folder], prefix="%s." % caller.package_name):
         if _should_auto_import(module_name, skip):
             importlib.import_module(module_name)
             imported.append(module_name)

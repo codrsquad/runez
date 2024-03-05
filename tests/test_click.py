@@ -38,7 +38,7 @@ def my_group(debug):
     config = runez.config.CONFIG
     cd = config.get("g.cd")
     if cd:
-        logging.info("Changed folder to %s" % runez.short(cd))
+        logging.info("Changed folder to %s", runez.short(cd))
         runez.ensure_folder(cd)
         os.chdir(cd)
 
@@ -56,9 +56,7 @@ def echo(text):
     This part will be an {placeholder}
     """
     text = " ".join(text)
-    if text == "AssertionError":
-        assert False, "oops"
-
+    assert text != "AssertionError", "oops"
     msg = "%s, color: %s, %s values, g.a=%s" % (text, runez.color.is_coloring(), len(runez.config.CONFIG), runez.config.get("g.a"))
     msg += ", debug: %s, dryrun: %s, log: %s" % (runez.log.debug, runez.DRYRUN, runez.log.spec.file_location)
     print(msg)
@@ -276,7 +274,7 @@ def test_settings():
     assert len(s) == 3
     assert s["epilog"] == "some epilog"
     assert s["foo"] == "bar"
-    assert s["context_settings"] == dict(help_option_names=["-h", "--help"], max_content_width=140)
+    assert s["context_settings"] == {"help_option_names": ["-h", "--help"], "max_content_width": 140}
 
     s = runez.click.settings(help="-h --help --explain")
     assert s["context_settings"]["help_option_names"] == ["-h", "--help", "--explain"]

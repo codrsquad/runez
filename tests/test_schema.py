@@ -7,12 +7,12 @@ from runez.serialize import Serializable, SerializableDescendants, with_behavior
 
 
 def test_any():
-    any = Any()
-    assert any.problem(None) is None
-    assert any.problem("a") is None
-    assert any.problem(4) is None
-    assert any.problem([1, 2]) is None
-    assert any.problem(object()) is None
+    a = Any()
+    assert a.problem(None) is None
+    assert a.problem("a") is None
+    assert a.problem(4) is None
+    assert a.problem([1, 2]) is None
+    assert a.problem(object()) is None
 
 
 def test_boolean():

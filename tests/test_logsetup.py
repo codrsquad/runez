@@ -263,10 +263,10 @@ def test_formatted_text():
     assert _formatted_text("~/.cache/{foo}", {"foo": "bar"}) == os.path.expanduser("~/.cache/bar")
 
     # Verify that not all '{...}' text is considered a marker
-    props = dict(argv='{a} {"foo": "bar {a}"} {a}', a="{b}", b="b")
+    props = {"argv": '{a} {"foo": "bar {a}"} {a}', "a": "{b}", "b": "b"}
     assert _formatted_text(":: {argv} {a}", props) == ':: {a} {"foo": "bar {a}"} {a} b'
 
-    deep = dict(a="a", b="b", aa="{a}", bb="{b}", ab="{aa}{bb}", ba="{bb}{aa}", abba="{ab}{ba}", deep="{abba}")
+    deep = {"a": "a", "b": "b", "aa": "{a}", "bb": "{b}", "ab": "{aa}{bb}", "ba": "{bb}{aa}", "abba": "{ab}{ba}", "deep": "{abba}"}
     assert _formatted_text("{deep}", deep, max_depth=-1) == "{deep}"
     assert _formatted_text("{deep}", deep, max_depth=0) == "{deep}"
     assert _formatted_text("{deep}", deep, max_depth=1) == "{abba}"
@@ -276,11 +276,11 @@ def test_formatted_text():
     assert _formatted_text("{deep}", deep, max_depth=5) == "abba"
     assert _formatted_text("{deep}", deep, max_depth=6) == "abba"
 
-    recursive = dict(a="a{b}", b="b{c}", c="c{a}")
+    recursive = {"a": "a{b}", "b": "b{c}", "c": "c{a}"}
     assert _formatted_text("{a}", recursive) == "abc{a}"
     assert _formatted_text("{a}", recursive, max_depth=10) == "abcabcabca{b}"
 
-    cycle = dict(a="{b}", b="{a}")
+    cycle = {"a": "{b}", "b": "{a}"}
     assert _formatted_text("{a}", cycle, max_depth=0) == "{a}"
     assert _formatted_text("{a}", cycle, max_depth=1) == "{b}"
     assert _formatted_text("{a}", cycle, max_depth=2) == "{a}"
@@ -578,7 +578,7 @@ def next_progress_line(progress_spinner):
 
     ts += 1
     text = progress_spinner._state.get_line(ts)
-    setattr(progress_spinner, "_test_ts", ts)
+    progress_spinner._test_ts = ts
     return text
 
 

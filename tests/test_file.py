@@ -160,7 +160,7 @@ def test_ensure_folder(temp_folder, logged):
     assert not logged
 
     assert runez.touch("some-file", logger=None) == 1
-    with pytest.raises(Exception):
+    with pytest.raises(runez.system.AbortException):
         runez.ensure_folder("some-file")
     assert "Can't create folder" in logged.pop()
 
@@ -380,8 +380,8 @@ def test_pathlib(temp_folder):
     runez.ensure_folder(subfolder)
     assert subfolder.is_dir()
 
-    with pytest.raises(Exception):
-        runez.to_path("foo bar", no_spaces=Exception)
+    with pytest.raises(ValueError):
+        runez.to_path("foo bar", no_spaces=ValueError)
 
     with runez.CurrentFolder(subfolder, anchor=True):
         path = Path("foo")

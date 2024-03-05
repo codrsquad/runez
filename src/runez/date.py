@@ -67,7 +67,7 @@ class timezone(datetime.tzinfo):
 
 
 UTC = timezone(datetime.timedelta(0), "UTC")
-NAMED_TIMEZONES = dict(Z=UTC, UTC=UTC)
+NAMED_TIMEZONES = {"Z": UTC, "UTC": UTC}
 
 
 def date_from_epoch(epoch, in_ms=None):
@@ -358,7 +358,6 @@ def to_seconds(duration):
     v = m.group(1)
     seconds = to_seconds(duration.replace(v, ""))
 
-    # v = v.strip()
     if v.endswith("w"):
         seconds += int(v[:-1], 0) * SECONDS_IN_ONE_DAY * 7
 
@@ -432,7 +431,7 @@ def _date_from_text(text, epocher, tz=UNSET):
 
         return None
 
-    # _, number, _, _, y, m, d, _, hh, mm, ss, sf, _, tz, _, _ = match.groups()
+    # Groups: _, number, _, _, y, m, d, _, hh, mm, ss, sf, _, tz, _, _
     components = match.groups()
     if components[1]:
         return epocher(_float_from_text(components[1], lenient=True), tz=tz)

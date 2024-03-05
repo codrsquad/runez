@@ -67,7 +67,7 @@ class SomeClass:
 
 @AutoInstall("foo")
 def needs_foo(msg):
-    import foo  # noqa
+    import foo  # noqa: F401
 
     return "OK: %s" % msg
 

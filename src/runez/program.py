@@ -85,7 +85,7 @@ class PsInfo:
 
     @cached_property
     def ps_follow(self):
-        return dict(tmux=("tmux", "display-message", "-p", "#{client_pid}"))
+        return {"tmux": ("tmux", "display-message", "-p", "#{client_pid}")}
 
     @cached_property
     def followed_parent(self):
@@ -560,7 +560,7 @@ def require_installed(program, instructions=None, platform=None):
     """
     if which(program) is None:
         if not instructions:
-            instructions = dict(macos="run: `brew install {program}`", linux="run: `apt install {program}`")
+            instructions = {"macos": "run: `brew install {program}`", "linux": "run: `apt install {program}`"}
 
         if isinstance(instructions, dict):
             instructions = _install_instructions(instructions, platform or SYS_INFO.platform_id.platform)

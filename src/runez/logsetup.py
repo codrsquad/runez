@@ -526,7 +526,7 @@ class LogSpec(Slotted):
         return bool(self.locations)
 
     def _props(self, **additional):
-        r = dict(argv=self.argv, pid=self.pid)
+        r = {"argv": self.argv, "pid": self.pid}
         r.update(self.to_dict())
         r.update(additional)
         return r
@@ -702,7 +702,7 @@ class LogManager:
 
     # Spec defines how logs should be setup()
     # Best way to provide your spec is via: runez.log.setup(), for example:
-    #   runez.log.setup(rotate="size:50m")
+    # >>> runez.log.setup(rotate="size:50m")
     spec = LogSpec(_default_spec)
 
     # Thread-local / global context
@@ -950,7 +950,7 @@ class LogManager:
         return any(marker in used_formats for marker in flattened(markers, split=" "))
 
     @classmethod
-    def enable_faulthandler(cls, signum=getattr(signal, "SIGUSR1", None)):
+    def enable_faulthandler(cls, signum=UNSET):
         """Enable dumping thread stack traces when specified signals are received, similar to java's handling of SIGQUIT
 
         Note: this must be called from the surviving process in case of daemonization.
@@ -958,6 +958,9 @@ class LogManager:
         Args:
             signum (int | None): Signal number to register for full thread stack dump (use None to disable)
         """
+        if signum is UNSET:
+            signum = getattr(signal, "SIGUSR1", None)
+
         with cls._lock:
             if not signum:
                 cls._disable_faulthandler()
@@ -968,8 +971,8 @@ class LogManager:
 
             cls.faulthandler_signum = signum
             dump_file = cls.file_handler.stream
-            faulthandler.enable(file=dump_file, all_threads=True)  # noqa
-            faulthandler.register(signum, file=dump_file, all_threads=True, chain=False)  # noqa
+            faulthandler.enable(file=dump_file, all_threads=True)
+            faulthandler.register(signum, file=dump_file, all_threads=True, chain=False)
 
     @classmethod
     def override_spec(cls, **settings):
@@ -1055,10 +1058,10 @@ class LogManager:
     def _auto_enable_progress_handler(cls):
         if cls.progress.is_running:
             if ProgressHandler not in logging.root.handlers:
-                logging.root.handlers.append(ProgressHandler)  # noqa
+                logging.root.handlers.append(ProgressHandler)
 
         elif ProgressHandler in logging.root.handlers:
-            logging.root.handlers.remove(ProgressHandler)  # noqa
+            logging.root.handlers.remove(ProgressHandler)
 
     @classmethod
     def _update_used_formats(cls):
@@ -1292,7 +1295,7 @@ def _formatted_text(text, props, strict=False, max_depth=3):
     if not max_depth or not isinstance(max_depth, int) or max_depth <= 0:
         return text
 
-    result = dict((k, _format_recursive(k, v, definitions, max_depth)) for k, v in definitions.items())
+    result = {k: _format_recursive(k, v, definitions, max_depth) for k, v in definitions.items()}
     return text.format(**result)
 
 

@@ -370,7 +370,7 @@ class MockedHandlerStack:
     def response_for_url(self, method, url):
         spec = self.specs.get(url)
         if spec is None:
-            return MockResponse(404, dict(message="Default status code 404"))
+            return MockResponse(404, {"message": "Default status code 404"})
 
         if isinstance(spec, BaseException):
             raise spec
@@ -1025,7 +1025,7 @@ class RestClient:
         absolute_url = self.full_url(url)
         message = "%s %s" % (action or method, absolute_url)
         if _R.hdry(dryrun, logger, message):
-            return RestResponse(method, absolute_url, MockResponse(200, dict(message="dryrun %s" % message)))
+            return RestResponse(method, absolute_url, MockResponse(200, {"message": "dryrun %s" % message}))
 
         cache_key = cache_expire = None
         if self.cache_wrapper is not None:

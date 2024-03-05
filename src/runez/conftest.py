@@ -315,7 +315,7 @@ class ClickRunner:
                 if r.failed:
                     msg = "%s --help failed" % runez.short(script)
                     logging.error("%s\n%s", msg, r.full_output)
-                    assert False, msg
+                    raise AssertionError(msg)
 
     def run(self, *args, exe=None, main=UNSET, trace=UNSET):
         """
@@ -431,13 +431,11 @@ class ClickRunner:
         for message in expected:
             if message[0] == "!":
                 m = self.match(message[1:], **kwargs)
-                if m:
-                    assert False, "Unexpected match in output: %s" % m
+                assert not m, "Unexpected match in output: %s" % m
 
             else:
                 m = self.match(message, **kwargs)
-                if not m:
-                    assert False, "Not seen in output: %s" % message
+                assert m, "Not seen in output: %s" % message
 
     def expect_success(self, args, *expected, **kwargs):
         spec = RunSpec()
@@ -499,15 +497,11 @@ class ClickRunner:
 
             return result
 
-        if isinstance(main, str):
-            script = self._resolved_script(main)
-            if not script:
-                assert False, "Can't find script '%s', invalid main" % script
-
-            r = runez.run(sys.executable, script, *args, fatal=False)
-            return ClickWrapper(r.output, r.error, r.exit_code, r.exc_info)
-
-        assert False, "Can't invoke invalid main: %s" % main
+        assert isinstance(main, str), "Can't invoke invalid main: %s" % main
+        script = self._resolved_script(main)
+        assert script, "Can't find script '%s', invalid main" % main
+        r = runez.run(sys.executable, script, *args, fatal=False)
+        return ClickWrapper(r.output, r.error, r.exit_code, r.exc_info)
 
 
 class RunSpec(Slotted):
