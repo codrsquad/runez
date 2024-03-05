@@ -46,7 +46,7 @@ class CrashingWrite:
 
     def write(self, message):
         self.crash_counter += 1
-        raise Exception("oops, failed to write %s" % message)
+        raise RuntimeError("oops, failed to write %s" % message)
 
 
 @pytest.mark.skipif(runez.SYS_INFO.platform_id.is_windows, reason="Not supported on windows")
@@ -184,7 +184,7 @@ def test_capture(monkeypatch):
             assert "python failed: OSError(" in r.error
             assert r.output is None
 
-            with pytest.raises(OSError):
+            with pytest.raises(OSError, match="testing"):
                 runez.run("python", "--version")
 
         # Test convenience arg None filtering
@@ -242,7 +242,7 @@ def test_executable(temp_folder):
 def test_pids():
     assert not runez.check_pid(None)
     assert not runez.check_pid(0)
-    assert not runez.check_pid("foo")  # noqa, garbage given, don't crash
+    assert not runez.check_pid("foo")  # garbage given, don't crash
 
     assert runez.check_pid(os.getpid())
     assert not runez.check_pid(1)  # No privilege to do this (tests shouldn't run as root)
@@ -363,31 +363,22 @@ def test_ps_follow():
             assert p.cmd_basename == "some-test foo"
 
 
-def check_ri(platform, instructions=None):
-    with pytest.raises(Exception) as exc:
-        runez.program.require_installed("foo", instructions=instructions, platform=platform)
-
-    return str(exc)
-
-
 def test_require_installed(monkeypatch):
-    monkeypatch.setattr(runez.program, "which", lambda x: "/bin/foo")
+    monkeypatch.setattr(runez.program, "which", lambda _: "/bin/foo")
     assert runez.program.require_installed("foo") is None  # Does not raise
 
-    monkeypatch.setattr(runez.program, "which", lambda x: None)
-    r = check_ri("macos")
-    assert "foo is not installed, run: `brew install foo`" in r
+    monkeypatch.setattr(runez.program, "which", lambda _: None)
+    with pytest.raises(runez.system.AbortException, match="foo is not installed, run: `brew install foo`"):
+        runez.program.require_installed("foo", platform="macos")
 
-    r = check_ri("linux")
-    assert "foo is not installed, run: `apt install foo`" in r
+    with pytest.raises(runez.system.AbortException, match="foo is not installed, run: `apt install foo`"):
+        runez.program.require_installed("foo", platform="linux")
 
-    r = check_ri("macos", instructions="custom instructions")
-    assert "foo is not installed, custom instructions" in r
+    with pytest.raises(runez.system.AbortException, match="foo is not installed, custom instructions"):
+        runez.program.require_installed("foo", instructions="custom instructions", platform="macos")
 
-    r = check_ri("unknown-platform")
-    assert "foo is not installed:" in r
-    assert "- on macos: run: `brew install foo`" in r
-    assert "- on linux: run: `apt install foo`" in r
+    with pytest.raises(runez.system.AbortException, match="foo is not installed:\n- on "):
+        runez.program.require_installed("foo", platform="unknown-platform")
 
 
 def test_run_description():

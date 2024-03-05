@@ -3,7 +3,7 @@ Import this only from your test cases
 
 Example:
 
-    from runez.conftest import cli, isolated_log_setup, temp_folder
+    from runez.conftest import cli, temp_folder
 """
 
 import logging
@@ -65,9 +65,6 @@ def exception_raiser(exc=Exception):
         if isinstance(exc, str):
             raise Exception(exc)
 
-        if isinstance(exc, type) and issubclass(exc, BaseException):
-            raise exc()
-
         raise exc
 
     return _raise
@@ -85,7 +82,7 @@ def patch_env(monkeypatch, clear=True, uppercase=True, **values):
         values = {k.upper(): v for k, v in values.items()}
 
     if clear:
-        for k in os.environ.keys():
+        for k in os.environ:
             if k not in values:
                 monkeypatch.delenv(k)
 
@@ -149,7 +146,7 @@ class IsolatedLogSetup:
                 os.chdir(self.old_cwd)
 
 
-@pytest.fixture
+@pytest.fixture()
 def cli():
     """Convenience fixture for click CLI testing.
 
@@ -173,9 +170,6 @@ def cli():
         yield ClickRunner(context=context)
 
 
-# This just allows to get auto-complete to work in PyCharm
-cli = cli  # type: ClickRunner
-
 # Comes in handy for click apps with only one main entry point
 cli.default_main = None
 
@@ -183,28 +177,16 @@ cli.default_main = None
 cli.context = TempFolder
 
 
-@pytest.fixture
-def isolated_log_setup():
-    """Log settings restored"""
-    with IsolatedLogSetup() as tmp:
-        yield tmp
-
-
-@pytest.fixture
+@pytest.fixture()
 def logged():
     with CaptureOutput(seed_logging=True) as logged:
         yield logged
 
 
-@pytest.fixture
+@pytest.fixture()
 def temp_folder():
     with TempFolder() as tmp:
         yield tmp
-
-
-# This just allows to get auto-complete to work in PyCharm
-logged = logged  # type: TrackedOutput
-temp_folder = temp_folder  # type: str
 
 
 class WrappedHandler(_pytest.logging.LogCaptureHandler):
@@ -263,7 +245,7 @@ class ClickRunner:
 
     args: list = None  # Arguments used in last run()
     exit_code: int = None  # Exit code of last run()
-    logged: TrackedOutput = None  # Captured log from last run()
+    logged: TrackedOutput  # Captured log from last run()
     main: callable = None  # Optional, override default_main for this runner instance
     trace: bool = None  # Optional, enable trace logging for this runner instance
 

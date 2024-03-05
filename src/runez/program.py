@@ -149,14 +149,21 @@ class PsInfo:
 
     def parent_list(self, follow=True):
         """
-        Args:
-            follow (bool): If True, try and follow special processes like tmux
+        Parameters
+        ----------
+        follow: bool
+            If True, try and follow special processes like tmux
 
-        Returns:
-            (list[PsInfo]): List of parent processes
+        Returns
+        -------
+        list[PsInfo]
+            List of parent processes
         """
         p = self.followed_parent if follow else self.parent
-        return [p] + p.parent_list(follow=follow) if p else []
+        if not p:
+            return []
+
+        return [p, *p.parent_list(follow=follow)]
 
 
 def auto_shellify(args):
@@ -341,7 +348,7 @@ def run(
 
         fatal = False  # pragma: no cover, non-fatal mode in background process (there is no more console etc to report anything)
 
-    with _WrappedArgs([full_path] + args) as wrapped_args:
+    with _WrappedArgs([full_path, *args]) as wrapped_args:
         try:
             p, out, err = _run_popen(wrapped_args, popen_args, passthrough, fatal, stdout, stderr)
             result.output = decode(out, strip=strip)
@@ -730,7 +737,7 @@ class _WrappedArgs:
             with open(wrapper, "wt") as fh:
                 fh.write('exec "$@"\n')
 
-            args = ["/bin/sh", wrapper] + args
+            args = ["/bin/sh", wrapper, *args]
 
         return args
 

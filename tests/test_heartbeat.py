@@ -5,15 +5,17 @@ from runez.heartbeat import DEFAULT_FREQUENCY, Heartbeat, HeartbeatTask
 
 class Counter(HeartbeatTask):
     count = None
-    crash = False
+    crash = None
 
     def execute(self):
         if self.count is None:
             self.count = 1
+
         else:
             self.count += 1
-        if self.crash:
-            raise Exception("oops, just crashed")
+
+        if self.crash is not None:
+            raise self.crash
 
 
 def do_nothing():
@@ -23,7 +25,7 @@ def do_nothing():
 def test_heartbeat():
     task = Counter()
     crash = Counter(name="crasher")
-    crash.crash = True
+    crash.crash = ValueError("oops, just crashed")
 
     # Exercise case with no tasks
     assert len(Heartbeat.tasks) == 0

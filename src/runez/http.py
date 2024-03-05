@@ -29,6 +29,7 @@ import re
 import sys
 import urllib.parse
 from pathlib import Path
+from typing import ClassVar
 
 from runez.file import checksum, decompress, delete, ensure_folder, TempFolder, to_path
 from runez.system import _R, abort, DEV, find_caller, joined, short, stringified, SYS_INFO, UNSET
@@ -60,7 +61,7 @@ class CacheWrapper:
     """
 
     base_location = "~/.cache/{program_name}"
-    cachable_methods = {"GET": True, "POST": True}  # By default, cache only these REST methods
+    cachable_methods = ("GET", "POST")  # By default, cache only these REST methods
     default_expire = "1h"  # 1 hour
     size_limit = "2g"  # 2 GB
 
@@ -109,7 +110,6 @@ class CacheWrapper:
             size_limit (int | None): Max size in bytes for this cache
         """
         self.base_location = base_location
-        self.cachable_methods = dict(self.cachable_methods)
         self.default_expire = _R.lc.rm.to_seconds(default_expire)
         self.size_limit = _R.lc.rm.to_bytesize(size_limit)
         self.cache_backend = cache_backend
@@ -138,7 +138,7 @@ class CacheWrapper:
         Returns:
             (bool): True if this REST method call should be cached
         """
-        return self.cachable_methods.get(method)
+        return method in self.cachable_methods
 
     def delete(self, cache_key):
         """
@@ -394,7 +394,7 @@ class MockedHandlerStack:
 
 
 class MockCentral:
-    _stacks = {}
+    _stacks: ClassVar = {}
 
     @classmethod
     def get_stack(cls, handler, key):

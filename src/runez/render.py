@@ -477,7 +477,7 @@ class _PTBorderChars(Slotted):
         return super()._values_from_object(obj)
 
     def __repr__(self):
-        return self.represented_values(delimiter="", operator="", name_formatter=lambda x: "")
+        return self.represented_values(delimiter="", operator="", name_formatter=lambda _: "")
 
 
 class _PTTable:

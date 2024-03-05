@@ -124,7 +124,6 @@ class Any:
 
     def _problem(self, value):
         """To be re-defined by descendants, `value` is never `None`"""
-        return None
 
     def converted(self, value):
         """
@@ -249,6 +248,7 @@ class Enum(Any):
         """
         if hasattr(values, "split"):
             values = values.split()
+
         self.values = set(values)
         super().__init__(default=default)
 
@@ -332,11 +332,7 @@ class Struct(Any):
 
     def __eq__(self, other):
         if other is not None and other.__class__ is self.__class__:
-            for name in self.meta.attributes:
-                if not hasattr(other, name) or getattr(self, name) != getattr(other, name):
-                    return False
-
-            return True
+            return not any(not hasattr(other, x) or getattr(self, x) != getattr(other, x) for x in self.meta.attributes)
 
     def __ne__(self, other):
         return not (self == other)

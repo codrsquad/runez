@@ -65,7 +65,7 @@ def test_decompress(temp_folder, logged):
     runez.write("test/README.md", "hello", logger=None)
     runez.write("test/a/b", "c", logger=None)
     expected = dir_contents("test")
-    test_folder = runez.to_path("test/")
+    test_folder = runez.to_path(temp_folder) / "test"
     assert runez.filesize(test_folder) == 6
     assert runez.represented_bytesize(test_folder) == "6 B"
     assert runez.represented_bytesize(runez.to_path("no-such-file")) == "0 B"
@@ -156,8 +156,11 @@ def test_ensure_folder(temp_folder, logged):
     assert runez.ensure_folder(".") == 0
     assert not logged
 
-    assert runez.ensure_folder(".", clean=True) == 0
-    assert not logged
+    assert runez.ensure_folder("foo") == 1
+    assert "Created folder foo" in logged.pop()
+
+    assert runez.ensure_folder(".", clean=True) == 1
+    assert "Cleaned 1 " in logged.pop()
 
     assert runez.touch("some-file", logger=None) == 1
     with pytest.raises(runez.system.AbortException):
@@ -190,15 +193,16 @@ def test_ini_to_dict(temp_folder, logged):
     assert runez.file.ini_to_dict("foo") == {}
     assert not logged
 
-    with pytest.raises(runez.system.AbortException) as exc:
+    with pytest.raises(runez.system.AbortException, match="Can't read foo"):
         runez.file.ini_to_dict("foo", fatal=True)
-    assert "Can't read foo" in str(exc)
+
     assert "Can't read foo" in logged.pop()
 
     expected = {None: {"root": "some-value"}, "": {"ek": "ev"}, "s1": {"k1": "v1"}, "s2": {"k2": ""}}
-    runez.write("test.ini", SAMPLE_CONF, logger=None)
+    sample = "test.ini"
+    runez.write(sample, SAMPLE_CONF, logger=None)
 
-    actual = runez.file.ini_to_dict("test.ini", keep_empty=True, logger=None)
+    actual = runez.file.ini_to_dict(sample, keep_empty=True, logger=None)
     assert not logged
     assert actual == expected
 
@@ -374,13 +378,13 @@ def test_file_operations(temp_folder):
 
 
 def test_pathlib(temp_folder):
-    subfolder = Path("subfolder")
+    subfolder = runez.to_path(temp_folder) / "subfolder"
     assert runez.to_path(subfolder) is subfolder
     assert not subfolder.is_dir()
     runez.ensure_folder(subfolder)
     assert subfolder.is_dir()
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Refusing path with space"):
         runez.to_path("foo bar", no_spaces=ValueError)
 
     with runez.CurrentFolder(subfolder, anchor=True):

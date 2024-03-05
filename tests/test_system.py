@@ -83,7 +83,7 @@ def test_capped():
     assert runez.capped(None, maximum=10) == 10
     assert runez.capped(None, minimum=1, none_ok=True) is None
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="'None' is not acceptable"):
         runez.capped(None, minimum=1, key="testing")
 
     assert runez.capped(123, minimum=200) == 200
@@ -91,10 +91,10 @@ def test_capped():
     assert runez.capped(123, minimum=100, maximum=200) == 123
     assert runez.capped(123, minimum=100, maximum=110) == 110
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="132 is lower than minimum 200"):
         runez.capped(132, minimum=200, key="testing")
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="132 is greater than maximum 100"):
         runez.capped(132, maximum=100, key="testing")
 
 
@@ -156,22 +156,22 @@ def test_capture_scope():
 
 
 def test_current_folder(temp_folder):
-    sample = os.path.join(temp_folder, "sample")
-    assert os.getcwd() == temp_folder
+    assert temp_folder == os.getcwd()
+    sample = runez.to_path(temp_folder) / "sample"
     assert runez.ensure_folder("sample") == 1
 
     with runez.CurrentFolder("sample", anchor=False):
-        cwd = os.getcwd()
-        assert cwd == sample
+        cwd = runez.to_path(os.getcwd())
+        assert sample == cwd
         assert runez.short(os.path.join(cwd, "some-file")) == os.path.join("sample", "some-file")
 
     with runez.CurrentFolder("sample", anchor=True):
-        cwd = os.getcwd()
-        sample = os.path.join(temp_folder, "sample")
+        cwd = runez.to_path(os.getcwd())
         assert cwd == sample
         assert runez.short(os.path.join(cwd, "some-file")) == "some-file"
+        assert runez.short(cwd / "some-file") == "some-file"
 
-    assert os.getcwd() == temp_folder
+    assert temp_folder == os.getcwd()
 
 
 def test_decode():
@@ -405,7 +405,7 @@ def test_joined():
     assert runez.joined(1, gen(), "hello", [True, runez.UNSET, 5]) == "1 foo bar hello True 5"
     assert runez.joined(1, gen(), "hello", [True, runez.UNSET, 5], keep_empty=True) == "1 foo None bar hello True 5"
     assert runez.joined(1, 2, delimiter=",") == "1,2"
-    assert runez.joined(1, 2, stringify=lambda x: "foo") == "foo foo"
+    assert runez.joined(1, 2, stringify=lambda _: "foo") == "foo foo"
 
 
 def test_path_resolution(temp_folder):
@@ -416,7 +416,7 @@ def test_path_resolution(temp_folder):
     assert runez.quoted(["ls", os.path.join(temp_folder, "some-file") + " bar", "-a", " foo "]) == 'ls "some-file bar" -a " foo "'
 
 
-def test_platform_identification(monkeypatch):
+def test_platform_identification():
     current = PlatformId()
     assert str(current)
     assert current.arch  # Will depend on where we're running this
@@ -437,7 +437,7 @@ def test_platform_identification(monkeypatch):
     assert current.canonical_compress_extension("tar.bz2", short_form=True) == "bz2"
     assert current.canonical_compress_extension(".tar.gz", short_form=True) == "gz"
     assert current.canonical_compress_extension("tar.xz", short_form=True) == "xz"
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Invalid compression extension"):
         current.composed_basename("foo", extension="bar.zip")
 
     linux_arm = PlatformId("linux-arm64")
@@ -557,7 +557,7 @@ def test_stringified():
     assert runez.stringified(5) == "5"
     assert runez.stringified(b"foo") == "foo"
     assert runez.stringified([0, None, 1], none="null") == "[0, None, 1]"  # `none=` applies only to values (not items in lists etc...)
-    assert runez.stringified([1, 2], converter=lambda x: None) == "[1, 2]"  # If converter returns None, we keep the value
+    assert runez.stringified([1, 2], converter=lambda _: None) == "[1, 2]"  # If converter returns None, we keep the value
     assert runez.stringified(5, converter=lambda x: x) == "5"  # No-op converter
 
 

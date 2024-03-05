@@ -140,11 +140,10 @@ def test_command_with_stderr(cli):
 
 def sample_config(**attrs):
     attrs.setdefault("tracer", print)
-    c = runez.click._ConfigOption(attrs)
-    return c
+    return runez.click._ConfigOption(attrs)
 
 
-def test_config(isolated_log_setup, logged, monkeypatch):
+def test_config(logged, monkeypatch):
     # sys.argv is used as env var prefix when env=True is used
     runez.log.enable_trace(True)
     config = sample_config(env=True)(None, None, "")
@@ -220,7 +219,8 @@ def test_group(cli):
     assert cli.succeeded
     assert "Repeat provided text" in cli.logged
     assert "This part will be an epilog" in cli.logged
-    assert "Changed folder to foo" in cli.logged  # TODO: correct it so it doesn't get logged twice
+    assert "Changed folder to foo" in cli.logged
+
     # Verify that current folder was restored
     assert cli.context == os.getcwd()
     assert runez.system.AbortException is not SystemExit

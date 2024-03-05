@@ -72,7 +72,7 @@ def test_epoch():
 
 def test_represented_duration():
     assert runez.represented_duration(None) == "None"
-    assert runez.represented_duration("foo") == "foo"  # noqa, verifiy non-duration left as-is...
+    assert runez.represented_duration("foo") == "foo"  # verify non-duration left as-is...
     assert runez.represented_duration(runez.UNSET) == "UNSET"
 
     assert runez.represented_duration(0) == "0 seconds"
@@ -203,7 +203,7 @@ def test_to_seconds():
     assert runez.to_seconds("1 m2s") is None
     assert runez.to_seconds("1m 2") is None
     assert runez.to_seconds("1month") is None
-    assert runez.to_seconds([1]) is None  # noqa, verify no crash on bogus type
+    assert runez.to_seconds([1]) is None  # verify no crash on bogus type
 
     assert runez.to_seconds("") == 0
     assert runez.to_seconds(5) == 5

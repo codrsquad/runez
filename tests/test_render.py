@@ -18,11 +18,11 @@ def test_align():
     assert Align.cast(None, default=Align.right) is Align.right
     assert Align.cast(Align.right) is Align.right
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Invalid horizontal alignment 'foo'"):
         assert Align.cast("foo")
 
-    with pytest.raises(ValueError):
-        assert Align.cast("foo", "foo")
+    with pytest.raises(ValueError, match="Invalid default horizontal alignment"):
+        assert Align.cast("foo", "bar")
 
     assert Align.center("foo", 5) == " foo "
     assert Align.left("foo", 5) == "foo  "
@@ -117,8 +117,8 @@ def test_header():
 
 
 def test_pretty_table():
-    with pytest.raises(ValueError):
-        PrettyTable(object)  # Invalid header
+    with pytest.raises(ValueError, match="Invalid header"):
+        PrettyTable(object)
 
     t = PrettyTable()
     assert len(t.header) == 0

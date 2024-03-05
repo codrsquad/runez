@@ -124,7 +124,7 @@ class Configuration:
             front (bool): If True, add provider to front of list
         """
         if not isinstance(provider, ConfigProvider):
-            raise ValueError("Invalid config provider '%s'" % provider)
+            raise TypeError("Invalid config provider '%s'" % provider)
 
         i = self.provider_id_slot(provider)
         if i is not None:

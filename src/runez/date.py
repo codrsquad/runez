@@ -1,5 +1,6 @@
 import datetime
 import time
+from typing import ClassVar
 
 from runez.convert import _float_from_text
 from runez.system import _R, stringified, UNSET
@@ -23,9 +24,9 @@ class timezone(datetime.tzinfo):
     Supported timezone are simply: UTC, and explicit offsets like +01:00
     """
 
-    __singletons = {}  # Cached timezone objects per offset
+    __singletons: ClassVar = {}  # Cached timezone objects per offset
 
-    def __new__(cls, offset, name=None):
+    def __new__(cls, offset, *_):
         existing = cls.__singletons.get(offset)
         if existing is None:
             existing = super().__new__(cls)
@@ -56,13 +57,13 @@ class timezone(datetime.tzinfo):
         if isinstance(other, datetime.tzinfo):
             return self.offset == other.utcoffset(datetime.datetime.now(tz=UTC))
 
-    def utcoffset(self, dt):
+    def utcoffset(self, *_):
         return self.offset
 
-    def tzname(self, dt):
+    def tzname(self, *_):
         return self.name
 
-    def dst(self, dt):
+    def dst(self, *_):
         return self.offset
 
 

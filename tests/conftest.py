@@ -4,7 +4,7 @@ import pytest
 
 import runez
 from runez.__main__ import main
-from runez.conftest import cli, isolated_log_setup, IsolatedLogSetup, logged, temp_folder
+from runez.conftest import cli, IsolatedLogSetup, logged, temp_folder
 from runez.file import readlines
 from runez.http import GlobalHttpCalls
 from runez.logsetup import LogManager
@@ -18,7 +18,7 @@ runez.serialize.set_default_behavior(strict=False, extras=True)
 
 
 # This is here only to satisfy flake8, mentioning the imported fixtures so they're not declared "unused"
-assert all(s for s in [cli, isolated_log_setup, logged, temp_folder])
+assert all(s for s in [logged, temp_folder])
 
 
 class TempLog:
@@ -36,8 +36,7 @@ class TempLog:
 
     @property
     def logfile(self):
-        if LogManager.file_handler:
-            return short(LogManager.file_handler.baseFilename)
+        return short(LogManager.file_handler.baseFilename) if LogManager.file_handler else None
 
     def pop(self):
         content = ""
@@ -79,7 +78,7 @@ class TempLog:
         return len(self.tracked)
 
 
-@pytest.fixture
+@pytest.fixture()
 def temp_log():
     with IsolatedLogSetup():
         with CaptureOutput() as tracked:

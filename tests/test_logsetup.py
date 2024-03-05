@@ -79,6 +79,8 @@ def test_clean_handlers(temp_log):
     runez.log.setup(file_format=None)
     assert WrappedHandler.count_non_wrapped_handlers() == 1
     assert len(logging.root.handlers) == 1
+    assert temp_log.logfile == "pytest.log"
+    assert not temp_log.tracked
 
 
 def test_console(temp_log):
@@ -309,33 +311,36 @@ def test_locations(temp_log):
     os.chmod("foo/bar", 0o700)
     assert runez.log.file_handler is None
 
+    assert not temp_log.logfile
+
     runez.log.setup(locations=["{dev}/test-location.log"])
     assert runez.log.file_handler
+    assert temp_log.logfile.endswith("test-location.log")
 
     runez.log.setup(locations=["{project}/.venv/test-location.log"])
     assert runez.log.file_handler
 
 
 def test_log_rotate(temp_folder):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="missing kind"):
         runez.log.setup(rotate="foo", tmp=temp_folder)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="missing kind"):
         runez.logsetup._get_file_handler("test.log", "time", 0)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="unknown time spec"):
         runez.logsetup._get_file_handler("test.log", "time:unclear", 0)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="time range not an int"):
         runez.logsetup._get_file_handler("test.log", "time:h", 0)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="unknown time spec"):
         runez.logsetup._get_file_handler("test.log", "time:1h,something", 0)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="size not a bytesize"):
         runez.logsetup._get_file_handler("test.log", "size:not a number,3", 0)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="unknown type"):
         runez.logsetup._get_file_handler("test.log", "unknown:something", 0)
 
     assert runez.logsetup._get_file_handler("test.log", None, 0).__class__ is logging.FileHandler
@@ -358,7 +363,7 @@ def test_log_rotate(temp_folder):
     assert h.maxBytes == 10240
 
 
-def test_logspec(isolated_log_setup):
+def test_logspec():
     s1 = LogSpec(runez.log._default_spec, appname="pytest")
     s2 = LogSpec(runez.log._default_spec, appname="pytest")
     assert s1 == s2
@@ -591,7 +596,7 @@ def test_progress_grooming():
     assert next_progress_line(p) == " a b"
 
 
-def test_progress_operation(isolated_log_setup, logged):
+def test_progress_operation(temp_log):
     assert not runez.log.progress.is_running
     runez.log.progress.start()
     assert not runez.log.progress.is_running  # Does not start in test mode by default
@@ -600,7 +605,6 @@ def test_progress_operation(isolated_log_setup, logged):
     assert not runez.log.progress.is_running
 
     runez.log.setup()
-    logged.clear()
     with patch("runez.system.TerminalInfo.isatty", return_value=True):
         # Simulate progress with alternating foo/bar "spinner", using `str` to cover color code path
         p1 = runez.ProgressBar(total=3)
@@ -640,11 +644,11 @@ def test_progress_operation(isolated_log_setup, logged):
         runez.log.progress.stop()
         assert not runez.log.progress.is_running
 
-        assert "hello" in logged.stdout
-        assert "some error" in logged.stderr
+        assert "hello" in temp_log.stdout
+        assert "some error" in temp_log.stderr
 
         # Simulate progress without spinner
-        logged.clear()
+        temp_log.clear()
         runez.log.progress.start(frames=None)
         runez.log.progress.show("some progress")
         time.sleep(0.1)
@@ -652,6 +656,8 @@ def test_progress_operation(isolated_log_setup, logged):
         runez.log.progress.stop()
         time.sleep(0.1)
         assert not runez.log.progress.is_running
+        assert "hello" not in temp_log.stdout
+        assert "some progress" in temp_log.stderr
 
 
 class SampleClass:
@@ -702,7 +708,7 @@ def test_timeit(logged):
     sample.instance_func1("hello")
     assert "SampleClass.instance_func1() took " in logged.pop()
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="oops"):
         sample.instance_func1("hello", fail=True)
     assert "SampleClass.instance_func1() failed: oops" in logged.pop()
 

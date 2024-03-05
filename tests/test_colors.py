@@ -21,7 +21,7 @@ def test_colors():
     msg2 = runez.colored("hi", "dim")
     assert msg1 == msg2
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Unknown color"):
         runez.color.cast_style("foo")
 
     assert not runez.color.is_coloring()

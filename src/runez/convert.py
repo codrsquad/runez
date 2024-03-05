@@ -5,6 +5,7 @@ This is module should not import any other runez module, it's the lowest on the 
 import pathlib
 import re
 from collections import defaultdict
+from typing import ClassVar
 
 from runez.system import _R, flattened, joined, stringified
 
@@ -228,9 +229,9 @@ def identifiers(text):
 class Pluralizer:
     """Quick heuristic to pluralize most common english words"""
 
-    letter_based = {"s": "ses", "x": "xes", "y": "ies"}
-    suffix_based = {"ch": "ches", "fe": "ves", "man": "men", "sh": "shes"}
-    word_based = {"child": "children", "person": "people"}
+    letter_based: ClassVar = {"s": "ses", "x": "xes", "y": "ies"}
+    suffix_based: ClassVar = {"ch": "ches", "fe": "ves", "man": "men", "sh": "shes"}
+    word_based: ClassVar = {"child": "children", "person": "people"}
 
     @classmethod
     def find_letter_based(cls, singular):
@@ -362,13 +363,12 @@ def _int_from_text(text, base=None, default=None):
         return int(text, base=base)
 
     except ValueError:
-        if base is None:
-            if len(text) >= 3 and text[0] == "0":
-                if text[1] == "o":
-                    return _int_from_text(text, base=8, default=default)
+        if base is None and len(text) >= 3 and text[0] == "0":
+            if text[1] == "o":
+                return _int_from_text(text, base=8, default=default)
 
-                if text[1] == "x":
-                    return _int_from_text(text, base=16, default=default)
+            if text[1] == "x":
+                return _int_from_text(text, base=16, default=default)
 
     return default
 

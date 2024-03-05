@@ -85,11 +85,11 @@ def test_adapted_properties():
 
     s1a.prop1c = None  # caster should accept None
     assert s1a.prop1c is None
-    with pytest.raises(ValueError):  # but anything other than None must be an int
+    with pytest.raises(ValueError, match="invalid literal for int"):  # but anything other than None must be an int
         s1a.prop1c = "foo"
     assert s1a.prop1c is None
 
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="not 'NoneType'"):
         s1a.prop1d = None  # prop1d uses type=int, and int() does not accept None
 
     # prop3 and prop4 insist on ints
@@ -98,7 +98,7 @@ def test_adapted_properties():
     assert s1a.prop3 == 30
     assert s1a.prop4 == 40
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="invalid literal for int"):
         s1a.prop3 = "foo"
 
     # Verify properties stay bound to their object
@@ -118,9 +118,8 @@ def test_insights():
         name = "testing"
         age = 10
 
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(TypeError, match="should be instance"):
         runez.Slotted.fill_attributes(Foo, {})
-    assert "should be instance" in str(exc)
 
     foo = Foo()
     assert foo.name == "testing"
@@ -130,9 +129,8 @@ def test_insights():
     runez.Slotted.fill_attributes(foo, {"name": runez.UNSET})
     assert foo.name == "testing"  # back to class default
 
-    with pytest.raises(AttributeError) as exc:
+    with pytest.raises(AttributeError, match="Unknown Foo key 'bar'"):
         runez.Slotted.fill_attributes(foo, {"bar": 5})
-    assert "Unknown Foo key 'bar'" in str(exc)
 
 
 def test_slotted():

@@ -24,17 +24,18 @@ def test_auto_import_siblings():
     # Check that none of these invocations raise an exception
     caller = runez.system.find_caller(depth=1)  # Finds this test as caller
     assert str(caller) == "tests.test_inspector.test_auto_import_siblings"
+
+    # Pretend we're calling auto_import_siblings() from a __main__
+    caller.module_name = "__main__"
+    assert caller.is_main
     with pytest.raises(ImportError):
-        # Pretend we're calling auto_import_siblings() from a __main__
-        caller.module_name = "__main__"
-        assert caller.is_main
         auto_import_siblings(caller=caller)
 
+    # Pretend caller doesn't have a __package__
+    caller.package_name = None
+    caller.module_name = "foo"
+    assert not caller.is_main
     with pytest.raises(ImportError):
-        # Pretend caller doesn't have a __package__
-        caller.package_name = None
-        caller.module_name = "foo"
-        assert not caller.is_main
         auto_import_siblings(caller=caller)
 
     py_file_count = len(list(importable_test_py_files(runez.DEV.tests_folder))) - 1  # Remove one to not count tests/__init__.py itself

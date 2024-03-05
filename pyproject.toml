@@ -26,22 +26,21 @@ extend-select = [
     "INT", # flake8-gettext
     "PGH", # pygrep-hooks
     "PIE", # flake8-pie
-#    "PT", # flake8-pytest
-#    "PYI", # flake8-pyi
-#    "Q",   # flake8-quotes
-#    "RSE", # flake8-raise
+    "PT", # flake8-pytest
+    "PYI", # flake8-pyi
+    "Q",   # flake8-quotes
+    "RSE", # flake8-raise
 #    "RET", # flake8-return
-##    "RUF", # ruff-specific
-##    "S",   # flake8-bandit
-##    "SIM", # flake8-simplify
-##    "SLF", # flake8-self
-#    "SLOT", # flake8-slots
-#    "T10", # flake8-debugger
-#    "TID", # flake8-tidy-imports
-#    "TCH", # flake8-type-checking
-##    "TD", # flake8-todos
-##    "TRY", # tryceratops
-#    "W",   # pycodestyle warnings
+    "RUF", # ruff-specific
+#    "SIM", # flake8-simplify
+#    "SLF", # flake8-self
+    "SLOT", # flake8-slots
+    "T10", # flake8-debugger
+    "TID", # flake8-tidy-imports
+    "TCH", # flake8-type-checking
+    "TD", # flake8-todos
+#    "TRY", # tryceratops
+    "W",   # pycodestyle warnings
 ]
 
 [tool.ruff.lint.isort]
