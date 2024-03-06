@@ -1,6 +1,5 @@
 from setuptools import setup
 
-
 setup(
     name="runez",
     setup_requires="setupmeta",

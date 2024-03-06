@@ -515,7 +515,7 @@ class RestResponse:
             if msg:
                 return msg
 
-        except Exception:  # nosec
+        except Exception:  # noqa: S110
             pass
 
         return self.text

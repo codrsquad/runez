@@ -260,7 +260,7 @@ def make_executable(path, fatal=True, logger=UNSET, dryrun=UNSET):
         return abort("%s does not exist, can't make it executable" % short(path), return_value=-1, fatal=fatal, logger=logger)
 
     try:
-        os.chmod(path, 0o755)  # nosec
+        os.chmod(path, 0o755)  # noqa: S103
         _R.hlog(logger, "Made '%s' executable" % short(path))
         return 1
 
@@ -631,7 +631,7 @@ def _read_data(fd, length=1024):
 def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
     """Run subprocess.Popen(), capturing output accordingly"""
     if not passthrough:
-        p = subprocess.Popen(args, stdout=stdout, stderr=stderr, **popen_args)  # nosec
+        p = subprocess.Popen(args, stdout=stdout, stderr=stderr, **popen_args)  # noqa: S603
         if fatal is None and stdout is None and stderr is None:
             return p, None, None  # Don't wait on spawned process
 
@@ -655,7 +655,7 @@ def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
         stdout_buffer = BytesIO()
         stderr_buffer = BytesIO()
 
-    with subprocess.Popen(args, stdout=stdout_w, stderr=stderr_w, **popen_args) as p:  # nosec
+    with subprocess.Popen(args, stdout=stdout_w, stderr=stderr_w, **popen_args) as p:  # noqa: S603
         os.close(stdout_w)
         os.close(stderr_w)
         readable = [stdout_r, stderr_r]
@@ -703,7 +703,7 @@ def _safe_write(target, data, flush=None):
             if flush is not None:
                 flush.flush()
 
-        except Exception:  # nosec, don't consider run crashed if one of the channels we're passing through is failing
+        except Exception:  # noqa: S110, don't consider run crashed if one of the channels we're passing through is failing
             pass
 
 

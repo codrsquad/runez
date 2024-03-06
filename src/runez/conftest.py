@@ -20,8 +20,7 @@ from runez.colors import ActivateColors
 from runez.file import TempFolder
 from runez.logsetup import LogManager
 from runez.render import Header
-from runez.system import _R, CaptureOutput, DEV, Slotted, TempArgv, TrackedOutput
-from runez.system import flattened, LOG, quoted, short, stringified, UNSET
+from runez.system import _R, CaptureOutput, DEV, flattened, LOG, quoted, short, Slotted, stringified, TempArgv, TrackedOutput, UNSET
 
 try:
     from click import BaseCommand as _ClickCommand

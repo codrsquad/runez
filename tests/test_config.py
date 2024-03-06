@@ -4,7 +4,6 @@ import pytest
 
 import runez
 
-
 SAMPLES = runez.DEV.tests_path("sample")
 
 

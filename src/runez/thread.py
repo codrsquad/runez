@@ -2,7 +2,6 @@ import threading
 
 from runez.system import py_mimic
 
-
 THREAD_LOCAL = threading.local()
 
 

@@ -8,7 +8,6 @@ import runez
 from runez.http import RestClient
 from runez.pyenv import ArtifactInfo, PypiStd, PythonDepot, PythonSpec, Version
 
-
 PYPI_CLIENT = RestClient("https://example.com/pypi")
 
 

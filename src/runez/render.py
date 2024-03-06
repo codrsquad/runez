@@ -2,9 +2,7 @@ import os
 
 from runez.colors import ColorManager
 from runez.convert import to_int
-from runez.system import _R, AdaptedProperty, flattened, is_iterable, joined, short, Slotted, stringified
-from runez.system import SYS_INFO, UNSET, wcswidth
-
+from runez.system import _R, AdaptedProperty, flattened, is_iterable, joined, short, Slotted, stringified, SYS_INFO, UNSET, wcswidth
 
 NAMED_BORDERS = {
     "ascii": "rstgrid,t:+++=,m:+++-",

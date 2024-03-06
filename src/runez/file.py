@@ -614,7 +614,7 @@ def _untar(source, destination, simplify):
                 if not is_subfolder(member_path, extracted_source):  # pragma: no cover, don't have an exploit sample handy
                     raise Exception("Attempted Path Traversal in Tar File")
 
-            fh.extractall(extracted_source)  # nosec B202, taken care of
+            fh.extractall(extracted_source)  # noqa: S202, taken care of
 
         _move_extracted(extracted_source, destination, simplify)
 
@@ -628,7 +628,7 @@ def _unzip(source, destination, simplify):
     with TempFolder():
         extracted_source = to_path(source.name)
         with ZipFile(source) as fh:
-            fh.extractall(extracted_source)  # nosec B202, not a tarfile
+            fh.extractall(extracted_source)  # noqa: S202, not a tarfile
 
         _move_extracted(extracted_source, destination, simplify)
 
@@ -636,7 +636,7 @@ def _unzip(source, destination, simplify):
 def _zip(source, destination, arcname, fh=None):
     """Effective zip, behaving like tar+gzip for consistency"""
     if fh is None:
-        from zipfile import ZipFile, ZIP_DEFLATED
+        from zipfile import ZIP_DEFLATED, ZipFile
 
         source = to_path(source).absolute()
         destination = to_path(destination).absolute()
