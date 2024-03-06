@@ -11,7 +11,6 @@ import runez
 from runez.conftest import exception_raiser
 from runez.program import RunAudit, RunResult
 
-
 CHATTER = runez.DEV.tests_path("chatter")
 
 

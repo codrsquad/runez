@@ -9,7 +9,6 @@ from runez.http import RestClient, urljoin
 from runez.program import is_executable, run
 from runez.system import _R, cached_property, flattened, joined, ltattr, resolved_path, short, UNSET
 
-
 CPYTHON = "cpython"
 RX_PYTHON_BASENAME = re.compile(r"^python(\d(\.\d+)?)?$")
 

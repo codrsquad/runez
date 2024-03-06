@@ -10,7 +10,6 @@ from runez.http import GlobalHttpCalls
 from runez.logsetup import LogManager
 from runez.system import CaptureOutput, LOG, short, stringified
 
-
 cli.default_main = main
 GlobalHttpCalls.forbid()
 runez.date.DEFAULT_TIMEZONE = runez.date.UTC

@@ -12,7 +12,6 @@ from runez.ascii import AsciiAnimation, AsciiFrames
 from runez.conftest import WrappedHandler
 from runez.logsetup import _formatted_text, formatted, LogSpec
 
-
 LOG = logging.getLogger(__name__)
 
 

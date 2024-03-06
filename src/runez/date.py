@@ -5,7 +5,6 @@ from typing import ClassVar
 from runez.convert import _float_from_text
 from runez.system import _R, stringified, UNSET
 
-
 DEFAULT_TIMEZONE = None
 SECONDS_IN_ONE_MINUTE = 60
 SECONDS_IN_ONE_HOUR = 60 * SECONDS_IN_ONE_MINUTE

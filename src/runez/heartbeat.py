@@ -23,7 +23,6 @@ from typing import ClassVar, List
 
 from runez.system import LOG, ltattr
 
-
 DEFAULT_FREQUENCY = 60
 
 

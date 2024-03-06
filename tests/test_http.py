@@ -8,7 +8,6 @@ import pytest
 import runez
 from runez.http import ForbiddenHttpError, GlobalHttpCalls, MockResponse, RestClient, RestResponse, urljoin
 
-
 EXAMPLE = RestClient("https://example.com")
 
 

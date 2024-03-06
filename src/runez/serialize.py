@@ -11,7 +11,6 @@ from typing import ClassVar
 from runez.file import ensure_folder, parent_folder
 from runez.system import _R, abort, is_basetype, is_iterable, LOG, resolved_path, short, stringified, UNSET
 
-
 K_INDENTED_SEPARATORS = (",", ": ")
 K_COMPACT_SEPARATORS = (", ", ": ")
 

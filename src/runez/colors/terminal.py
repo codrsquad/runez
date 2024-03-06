@@ -3,7 +3,6 @@ import os
 from runez.colors import NamedColors, NamedStyles, PlainBackend, Renderable
 from runez.convert import to_int
 
-
 VALID_FLAVORS = {"dark", "light", "neutral"}
 
 

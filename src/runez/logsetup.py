@@ -16,9 +16,25 @@ from runez.ascii import AsciiAnimation
 from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone, represented_duration
 from runez.file import parent_folder
-from runez.system import _R, abort_if, cached_property, decode, DEV, find_caller, flattened, quoted, short, stringified, uncolored
-from runez.system import LOG, py_mimic, Slotted, SYS_INFO, ThreadGlobalContext, UNSET
-
+from runez.system import (
+    _R,
+    abort_if,
+    cached_property,
+    decode,
+    DEV,
+    find_caller,
+    flattened,
+    LOG,
+    py_mimic,
+    quoted,
+    short,
+    Slotted,
+    stringified,
+    SYS_INFO,
+    ThreadGlobalContext,
+    uncolored,
+    UNSET,
+)
 
 ORIGINAL_CF = logging.currentframe
 
