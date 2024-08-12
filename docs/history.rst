@@ -2,6 +2,12 @@
 History
 =======
 
+5.1.1 (2024-08-12)
+------------------
+
+* Find already scanned python installations by path
+
+
 5.1.0 (2024-02-28)
 ------------------
 

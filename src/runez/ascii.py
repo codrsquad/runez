@@ -5,14 +5,26 @@ from runez.system import flattened
 
 
 class AsciiAnimation:
-    """Contains a few progress spinner animation examples"""
+    """Progress spinner animations"""
 
     env_var = "SPINNER"  # Env var overriding which predefined spinner to use
     default = "dots"  # Default spinner to use
 
     @classmethod
     def available_names(cls, include_virtual=True):
-        """(list[str]): Available ascii animation names from this sample collection"""
+        """
+        Available ascii spinner animation names
+
+        Parameters
+        ----------
+        include_virtual : bool
+            If True, also include `random` and `off` (virtual names)
+
+        Returns
+        -------
+        List[str]
+            Available ascii animation names from this sample collection
+        """
         return sorted(k[3:] for k in dir(cls) if k.startswith("af_")) + (["random", "off"] if include_virtual else [])
 
     @classmethod
@@ -63,12 +75,19 @@ class AsciiAnimation:
     @classmethod
     def get_frames(cls, spec, default=None):
         """
-        Args:
-            spec (AsciiFrames | callable | str | None): What frame animation to use
-            default (AsciiFrames | callable | str | None): Default
+        Get frames from given spec, or default
 
-        Returns:
-            (AsciiFrames): First found: from env var, then given 'spec', then 'default, finally 'cls.default'
+        Parameters
+        ----------
+        spec : AsciiFrames or Callable or str or None
+            What frame animation to use
+        default : AsciiFrames or Callable or str or None
+            Default to use if `spec` is not usable
+
+        Returns
+        -------
+        AsciiFrames
+            First found: from env var, then given `spec`, then `default`, finally `cls.default`
         """
         if isinstance(spec, AsciiFrames):
             return spec
@@ -136,13 +155,16 @@ class AsciiAnimation:
 
 
 class AsciiFrames:
-    """Holds ascii animation frames, one-line animations of arbitrary size (should be playable in a loop for good visual effect)"""
-
     def __init__(self, frames, fps=10):
         """
-        Args:
-            frames: Frames composing the ascii animation
-            fps (int): Desired frames per second
+        Ascii animation frames, one-line animations of arbitrary size (should be playable in a loop for good visual effect).
+
+        Parameters
+        ----------
+        frames : AsciiFrames or Callable or str, optional
+            Frames composing the ascii animation
+        fps : int
+            Desired frames per second
         """
         self.frames = flattened(frames) or None
         self.fps = fps
