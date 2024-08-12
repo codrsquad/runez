@@ -152,7 +152,7 @@ def test_depot_adhoc(temp_folder):
 
     mk_python("./some-path/bin/13.1.2")
     assert str(depot.find_python("some-path/bin/python13.1")) == "some-path/bin/python13.1 [13.1.2]"
-    assert str(depot.find_python("./some-path/")) == "./some-path/ [13.1.2]"
+    assert str(depot.find_python("./some-path/")) == "some-path [13.1.2]"
     assert str(depot.find_python(runez.to_path("some-path"))) == "some-path [13.1.2]"
     assert str(depot.find_python("some-path/bin/python")) == "some-path/bin/python [13.1.2]"
     assert str(depot.find_python("some-path/bin")) == "some-path/bin [13.1.2]"
@@ -171,6 +171,7 @@ def test_depot_folder(temp_folder):
     assert depot.locations[0].preferred_python is python
     assert depot.find_python("8.5") is python
     assert depot.find_python("8.5.6") is python
+    assert str(depot.find_python(".pyenv/versions/8.5.6/bin/python8.5")) == "python8.5 [8.5.6]"
     assert str(depot.find_python("8.5.7")) == "8.5.7 [not available]"
 
 

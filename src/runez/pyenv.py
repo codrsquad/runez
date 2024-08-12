@@ -479,7 +479,7 @@ class PythonDepot:
             return spec
 
         if isinstance(spec, Path):
-            return PythonInstallation.from_path(spec, short_name=short(spec))
+            return self._from_path(spec)
 
         python = self._find_python(spec)
         if python is None:
@@ -490,10 +490,17 @@ class PythonDepot:
 
         return python
 
+    def _from_path(self, path: Path):
+        for p in self.available_pythons:
+            if p == path:
+                return p
+
+        return PythonInstallation.from_path(path, short_name=short(path))
+
     def _find_python(self, spec):
         if isinstance(spec, str):
             if spec.startswith(("~", ".", "/")) or "/" in spec or os.path.exists(spec):
-                return PythonInstallation.from_path(Path(resolved_path(spec)), short_name=short(spec))
+                return self._from_path(Path(resolved_path(spec)))
 
             elif spec == "invoker":
                 return self.invoker
@@ -817,6 +824,9 @@ class PythonInstallation:
         return self.representation()
 
     def __eq__(self, other):
+        if isinstance(other, Path):
+            return other == self.executable or other == self.real_exe
+
         return isinstance(other, PythonInstallation) and self.real_exe == other.real_exe
 
     def __lt__(self, other):
