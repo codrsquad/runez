@@ -77,7 +77,7 @@ class TempLog:
         return len(self.tracked)
 
 
-@pytest.fixture()
+@pytest.fixture
 def temp_log():
     with IsolatedLogSetup():
         with CaptureOutput() as tracked:

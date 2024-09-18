@@ -145,7 +145,7 @@ class IsolatedLogSetup:
                 os.chdir(self.old_cwd)
 
 
-@pytest.fixture()
+@pytest.fixture
 def cli():
     """Convenience fixture for click CLI testing.
 
@@ -176,13 +176,13 @@ cli.default_main = None
 cli.context = TempFolder
 
 
-@pytest.fixture()
+@pytest.fixture
 def logged():
     with CaptureOutput(seed_logging=True) as logged:
         yield logged
 
 
-@pytest.fixture()
+@pytest.fixture
 def temp_folder():
     with TempFolder() as tmp:
         yield tmp
