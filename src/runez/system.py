@@ -997,6 +997,20 @@ class CurrentFolder:
             Anchored.pop(self.destination)
 
 
+class OverrideDryrun:
+    """Context manager to temporarily override dryrun mode"""
+
+    def __init__(self, dryrun):
+        self.dryrun = dryrun
+
+    def __enter__(self):
+        self.prior = _R.set_dryrun(self.dryrun)
+        return self.prior
+
+    def __exit__(self, *_):
+        _R.set_dryrun(self.prior)
+
+
 class TrackedOutput:
     """Track captured output"""
 

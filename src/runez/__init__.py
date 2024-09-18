@@ -18,7 +18,7 @@ from runez.logsetup import LogManager as log, ProgressBar
 from runez.program import check_pid, is_executable, make_executable, PsInfo, run, shell, which
 from runez.serialize import from_json, read_json, represented_json, save_json, Serializable
 from runez.system import abort, abort_if, AdaptedProperty, cached_property, uncolored, Undefined, UNSET, wcswidth
-from runez.system import Anchored, CaptureOutput, CurrentFolder, Slotted, TempArgv, TrackedOutput
+from runez.system import Anchored, CaptureOutput, CurrentFolder, OverrideDryrun, Slotted, TempArgv, TrackedOutput
 from runez.system import capped, decode, DEV, flattened, joined, quoted, resolved_path, short, stringified, SYS_INFO
 from runez.system import first_line, get_version, is_basetype, is_iterable, ltattr
 
@@ -39,7 +39,7 @@ __all__ = [
     "check_pid", "is_executable", "make_executable", "PsInfo", "run", "shell", "which",
     "from_json", "read_json", "represented_json", "save_json", "Serializable",
     "abort", "abort_if", "AdaptedProperty", "cached_property", "uncolored", "Undefined", "UNSET", "wcswidth",
-    "Anchored", "CaptureOutput", "CurrentFolder", "Slotted", "TempArgv", "TrackedOutput",
+    "Anchored", "CaptureOutput", "CurrentFolder", "OverrideDryrun", "Slotted", "TempArgv", "TrackedOutput",
     "capped", "decode", "DEV", "flattened", "joined", "quoted", "resolved_path", "short", "stringified", "SYS_INFO",
     "first_line", "get_version", "is_basetype", "is_iterable", "ltattr"
 ]
