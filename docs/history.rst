@@ -2,7 +2,7 @@
 History
 =======
 
-5.1.2 (2024-09-18)
+5.2.0 (2024-09-18)
 ------------------
 
 * Added ``OverrideDryrun`` context manager
