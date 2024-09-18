@@ -572,8 +572,14 @@ def test_system():
         assert runez.DRYRUN is True
         assert prior1 is False
         with runez.OverrideDryrun(False) as prior2:
+            # Flip-flopping OK
             assert runez.DRYRUN is False
             assert prior2 is True
+
+            with runez.OverrideDryrun(False) as prior3:
+                # Overriding twice with the same value OK
+                assert runez.DRYRUN is False
+                assert prior3 is False
 
         assert runez.DRYRUN is True
 
