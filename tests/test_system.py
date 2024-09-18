@@ -567,6 +567,18 @@ def test_system():
     assert str(runez.system.PlatformInfo("Darwin 20.5.0 x86_64 i386")) == "Darwin/20.5.0; x86_64 i386"
     assert str(runez.system.PlatformInfo("Linux 5.10.25 x86_64 x86_64")) == "Linux/5.10.25; x86_64"
 
+    assert runez.DRYRUN is False
+    with runez.OverrideDryrun(True) as prior1:
+        assert runez.DRYRUN is True
+        assert prior1 is False
+        with runez.OverrideDryrun(False) as prior2:
+            assert runez.DRYRUN is False
+            assert prior2 is True
+
+        assert runez.DRYRUN is True
+
+    assert runez.DRYRUN is False
+
     ct = runez.DEV.current_test()
     assert ct
     assert not ct.is_main
