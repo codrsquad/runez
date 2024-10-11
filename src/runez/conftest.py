@@ -108,6 +108,7 @@ class IsolatedLogSetup:
         self.temp_folder = None
         self.abort_exception = None
         self.old_cwd = None
+        self.old_env_vars = None
 
     def __enter__(self):
         WrappedHandler.isolation += 1
@@ -126,6 +127,7 @@ class IsolatedLogSetup:
             self.abort_exception = runez.system.AbortException
             self.old_cwd = os.getcwd()
 
+        self.old_env_vars = dict(os.environ)
         return self.temp_folder and self.temp_folder.tmp_folder
 
     def __exit__(self, *_):
@@ -135,6 +137,15 @@ class IsolatedLogSetup:
         logging.root.handlers = self.old_handlers
         WrappedHandler.isolation -= 1
         LogManager.reset()
+        # Restore env vars as they were
+        for k in os.environ:
+            if k not in self.old_env_vars:
+                del os.environ[k]
+
+        for k, v in self.old_env_vars.items():
+            if os.environ.get(k) != v:
+                os.environ[k] = v
+
         if self.temp_folder:
             self.temp_folder.__exit__()
 

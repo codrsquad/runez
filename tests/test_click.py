@@ -62,6 +62,20 @@ def echo(text):
     print(msg)
 
 
+@my_group.command()
+@click.argument("env_vars", required=False)
+def setenv(env_vars):
+    for kv in runez.flattened(env_vars, split=","):
+        k, _, v = kv.partition("=")
+        if v:
+            logging.info("Setting env var %s=%s", k, v)
+            os.environ[k] = v
+
+        else:
+            logging.info("Deleting env var %s", k)
+            del os.environ[k]
+
+
 @runez.click.command()
 @runez.click.version(version="1.2.3")
 @runez.click.border("-b")
@@ -200,7 +214,7 @@ def test_config(logged, monkeypatch):
     assert "Adding config provider foo1 to front" in logged.stderr.pop()
 
 
-def test_group(cli):
+def test_group(cli, monkeypatch):
     assert runez.system.AbortException is not SystemExit
     cli.main = my_group
     runez.click.prettify_epilogs(my_group, formatter=my_formatter)
@@ -220,6 +234,24 @@ def test_group(cli):
     assert "Repeat provided text" in cli.logged
     assert "This part will be an epilog" in cli.logged
     assert "Changed folder to foo" in cli.logged
+
+    # Test env var restoration
+    assert os.environ.get("TT_A") is None
+    cli.run("setenv", "TT_A=foo")
+    assert cli.succeeded
+    assert "Setting env var TT_A=foo" in cli.logged
+    assert os.environ.get("TT_A") is None
+
+    monkeypatch.setenv("TT_A", "bar")
+    cli.run("setenv", "TT_A=foo")
+    assert cli.succeeded
+    assert "Setting env var TT_A=foo" in cli.logged
+    assert os.environ.get("TT_A") == "bar"
+
+    cli.run("setenv", "TT_A=")
+    assert cli.succeeded
+    assert "Deleting env var TT_A" in cli.logged
+    assert os.environ.get("TT_A") == "bar"
 
     # Verify that current folder was restored
     assert cli.context == os.getcwd()

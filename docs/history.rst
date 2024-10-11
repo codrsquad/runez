@@ -2,6 +2,12 @@
 History
 =======
 
+5.2.1 (2024-10-11)
+------------------
+
+* Restore env vars in ``IsolatedLogSetup`` context manager
+
+
 5.2.0 (2024-09-18)
 ------------------
 
