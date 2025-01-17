@@ -12,27 +12,34 @@ PYPI_CLIENT = RestClient("https://example.com/pypi")
 
 
 def test_artifact_info():
-    info = ArtifactInfo.from_basename("E.S.P.-Hadouken-0.2.1.tar.gz")
-    assert str(info) == "e-s-p-hadouken/E.S.P.-Hadouken-0.2.1.tar.gz"
-    assert info.category == "sdist"
-    assert not info.is_dirty
-    assert not info.is_wheel
-    assert info.package_name == "E.S.P.-Hadouken"
-    assert info.pypi_name == "e-s-p-hadouken"
-    assert info.tags is None
-    assert info.version == "0.2.1"
-    assert info.wheel_build_number is None
+    assert ArtifactInfo.from_basename("foo") is None
 
-    info = ArtifactInfo.from_basename("a_b-1!0.0.1-10-py3-none-any.whl", None)
-    assert str(info) == "a-b/a_b-1!0.0.1-10-py3-none-any.whl"
-    assert info.category == "wheel"
-    assert not info.is_dirty
-    assert info.is_wheel
-    assert info.package_name == "a_b"
-    assert info.pypi_name == "a-b"
-    assert info.tags == "py3-none-any"
-    assert info.version == "1!0.0.1"
-    assert info.wheel_build_number == "10"
+    info1 = ArtifactInfo.from_basename("E.S.P.-Hadouken-0.2.1.tar.gz")
+    assert str(info1) == "e-s-p-hadouken/E.S.P.-Hadouken-0.2.1.tar.gz"
+    assert info1.category == "sdist"
+    assert not info1.is_dirty
+    assert not info1.is_wheel
+    assert info1.package_name == "E.S.P.-Hadouken"
+    assert info1.pypi_name == "e-s-p-hadouken"
+    assert info1.tags is None
+    assert info1.version == "0.2.1"
+    assert info1.wheel_build_number is None
+
+    info2 = ArtifactInfo.from_basename("a_b-1!0.0.1-10-py3-none-any.whl", None)
+    assert str(info2) == "a-b/a_b-1!0.0.1-10-py3-none-any.whl"
+    assert info2.category == "wheel"
+    assert not info2.is_dirty
+    assert info2.is_wheel
+    assert info2.package_name == "a_b"
+    assert info2.pypi_name == "a-b"
+    assert info2.tags == "py3-none-any"
+    assert info2.version == "1!0.0.1"
+    assert info2.wheel_build_number == "10"
+
+    assert info1 != info2
+    assert info1 > info2
+    with pytest.raises(TypeError):
+        _ = info1 < "None"
 
 
 def mk_python(basename, executable=True, content=None, machine=None):
@@ -270,97 +277,6 @@ def test_pypi_standardized_naming():
     assert PypiStd.std_wheel_basename("") is None
     assert PypiStd.std_wheel_basename("a.b_-_1.5--c") == "a.b_1.5_c"
     assert PypiStd.std_wheel_basename("a.b_-___1.5--c") == "a.b_1.5_c"
-
-
-P_BLACK = """
-<html><head><title>Simple Index</title><meta name="api-version" value="2" /></head><body>
-<a href="/pypi/packages/pypi-public/black/black-18.3a0-py3-none-any.whl#sha256=..."</a><br/>
-<a href="/pypi/packages/pypi-public/black/black-18.3a0.tar.gz#sha256=...">black-18.3a0.tar.gz</a><br/>
-<a href="/pypi/packages/pypi-public/black/black-18.3a1-py3-none-any.whl#sha256=..."
-"""
-
-P_FUNKY = """
-href="funky-proj/funky.proj-1.3.0+dirty_custom-py3-none-any.whl#sha256=..."
-href="funky-proj/funky.proj-1.3.0_custom.tar.gz#sha256=..."
-"""
-
-P_PICKLEY = {
-    "info": {"version": "2.5.6.dev1"},
-    "releases": {
-        "2.5.3": [{"filename": "pickley-2.5.3-py2.py3-none-any.whl", "yanked": True}, {"filename": "oops-bad-filename"}],
-        "2.5.4": [{"filename": "pickley-2.5.4-py2.py3-none-any.whl", "upload_time": "2012-01-22T05:08:17"}],
-        "2.5.5": [{"filename": "pickley-2.5.5-py2.py3-none-any.whl"}, {"filename": "pickley-2.5.5.tar.gz"}],
-    },
-}
-
-P_SHELL_FUNCTOOLS = """
-<html><head><title>Simple Index</title><meta name="api-version" value="2" /></head><body>
-
-# 1.8.1 intentionally malformed
-<a href="/pypi/shell-functools/shell_functools-1.8.1!1-py2.py3-none-any.whl9#">shell_functools-1.8.1-py2.py3-none-any.whl</a><br/>
-<a href="/pypi/shell-functools/shell-functools-1.8.1!1.tar.gz#">shell-functools-1.8.1.tar.gz</a><br/>
-
-<a href="/pypi/shell-functools/shell_functools-1.9.9+local-py2.py3-none-any.whl#sha...">shell_functools-1.9.9-py2.py3-none-any.whl</a><br/>
-<a href="/pypi/shell-functools/shell-functools-1.9.9+local.tar.gz#sha256=ff...">shell-functools-1.9.9.tar.gz</a><br/>
-<a href="/pypi/shell-functools/shell_functools-1.9.11-py2.py3-none-any.whl#sha256=...">shell_functools-1.9.11-py2.py3-none-any.whl</a><br/>
-<a href="/pypi/shell-functools/shell-functools-1.9.11.tar.gz#sha256=ca...">shell-functools-1.9.11.tar.gz</a><br/>
-</body></html>
-"""
-
-
-@PYPI_CLIENT.mock(
-    {
-        "shell-functools/": P_SHELL_FUNCTOOLS,
-        "https://pypi.org/pypi/black/json": P_BLACK,
-        "https://pypi.org/pypi/foo/json": {"info": {"version": "1.2.3"}},
-        "https://pypi.org/pypi/pickley/json": P_PICKLEY,
-        "https://pypi.org/pypi/funky-proj/json": P_FUNKY,
-    }
-)
-def test_pypi_parsing():
-    assert PypiStd.pypi_response("-invalid-") is None
-    assert PypiStd.latest_pypi_version("shell_functools", index=PYPI_CLIENT.base_url) == Version("1.9.11")
-    assert PypiStd.latest_pypi_version("foo") == Version("1.2.3")  # Vanilla case
-    assert PypiStd.latest_pypi_version("pickley") == Version("2.5.5")  # Pre-release ignored
-    assert PypiStd.latest_pypi_version("pickley", include_prerelease=True) == Version("2.5.6.dev1")
-
-    assert sorted(PypiStd.ls_pypi("foo")) == []
-
-    sample = sorted(PypiStd.ls_pypi("shell-functools", client=PYPI_CLIENT, source="s1"))
-    assert len(sample) == 5
-    assert str(sample[0]) == "shell-functools/shell-functools-1.8.1!1.tar.gz"
-    assert sample[0].version == Version("1.8.1")
-    assert not sample[0].is_dirty
-    assert sample[0].category == "sdist"
-
-    pickley = sorted(PypiStd.ls_pypi("pickley", source="s1"))
-    assert len(pickley) == 3
-    assert pickley[0] < sample[0]  # Alphabetical sort for same-source artifacts
-    assert pickley[0].last_modified.year == 2012
-
-    assert sample[3].version == Version("1.9.11")
-    assert not sample[3].is_wheel
-    assert sample[4].version == Version("1.9.11")
-    assert sample[4].category == "wheel"
-    assert sample[4].is_wheel
-    assert sample[4].tags == "py2.py3-none-any"
-    assert sample[3] < sample[4]  # Source distribution before wheel
-    assert sample[3] != sample[4]
-
-    with pytest.raises(TypeError):
-        _ = sample[3] < "foo"
-
-    black = sorted(PypiStd.ls_pypi("black"))  # All versions are pre-releases
-    assert len(black) == 3
-    assert black[0].version.prerelease
-
-    funky = sorted(PypiStd.ls_pypi("funky-proj", source=None))
-    assert len(funky) == 2
-    assert funky[0].package_name == "funky.proj"
-    assert funky[0].pypi_name == "funky-proj"
-    assert funky[1].is_dirty
-    assert black[0] < funky[0]  # Alphabetical sort when both have no source
-    assert funky[0] < sample[4]  # Arbitrary: no-source sorts lowest...
 
 
 def test_spec():

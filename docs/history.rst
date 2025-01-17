@@ -2,6 +2,20 @@
 History
 =======
 
+5.3.0 (2025-01-17)
+------------------
+
+Removed legacy pypi listing functions from ``runez.pyenv``:
+
+* ``default_pypi_client()``
+
+* ``latest_pypi_version()``
+
+* ``ls_pypi()``
+
+* ``pypi_response()``
+
+
 5.2.1 (2024-10-11)
 ------------------
 

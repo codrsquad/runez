@@ -8,7 +8,7 @@ line-length = 140
 src = ["src"]
 
 [tool.ruff.lint]
-ignore = ["S101"]
+ignore = ["RUF021", "RUF022", "RUF023", "S101"]
 extend-select = [
 #    "A",   # flake8-builtins
 #    "ARG", # flake8-unused-arguments
