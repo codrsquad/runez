@@ -19,7 +19,7 @@ def my_formatter(text):
 
 
 @runez.click.group()
-@runez.click.version(message="%(prog)s, version %(version)s")
+@runez.click.version(message="%(prog)s, version %(version)s", prog_name="my-group")
 @runez.click.color()
 @runez.click.config("-c", prefix="g.")
 @runez.click.debug()

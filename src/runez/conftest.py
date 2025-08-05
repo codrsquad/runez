@@ -23,7 +23,7 @@ from runez.render import Header
 from runez.system import _R, CaptureOutput, DEV, flattened, LOG, quoted, short, Slotted, stringified, TempArgv, TrackedOutput, UNSET
 
 try:
-    from click import BaseCommand as _ClickCommand
+    from click import Command as _ClickCommand
     from click.testing import CliRunner as _CliRunner
 
 except ImportError:  # pragma: no cover, click used only if installed
@@ -424,7 +424,6 @@ class ClickRunner:
             if message[0] == "!":
                 m = self.match(message[1:], **kwargs)
                 assert not m, "Unexpected match in output: %s" % m
-
             else:
                 m = self.match(message, **kwargs)
                 assert m, "Not seen in output: %s" % message
