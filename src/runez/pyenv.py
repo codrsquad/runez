@@ -146,7 +146,7 @@ class PypiStd:
 class PythonSpec:
     """
     Internal canonical reference to a desired python installation, used to find python installations in `PythonDepot`
-    Examples: cpython:3, cpython:3.9, pypy:3.9
+    Examples: cpython:3, cpython:3.13, pypy:3.13
     """
 
     def __init__(self, family, version, is_min_spec=False):
@@ -280,7 +280,7 @@ class PythonDepot:
 
     Example usage:
         my_depot = PythonDepot("~/.pyenv/versions/**", "PATH")
-        p = my_depot.find_python("3.7")
+        p = my_depot.find_python("3.10")
     """
 
     _preferred_python = None  # type: PythonInstallation  # Preferred python to use, if configured
@@ -330,7 +330,7 @@ class PythonDepot:
     def find_python(self, spec):
         """
         Args:
-            spec (str | Path | PythonInstallation | PythonSpec | Version | None): Example: 3.7, py37, pypy:3.7, /usr/bin/python3
+            spec (str | Path | PythonInstallation | PythonSpec | Version | None): Example: 3.14, py314, pypy:3.14, /usr/bin/python3
 
         Returns:
             (PythonInstallation): Object representing python installation (may not be usable, see reported .problem)
@@ -619,7 +619,7 @@ class Version:
 
     @cached_property
     def mm(self):
-        """(str): <major>.<minor>, often used in python paths, like config-3.9"""
+        """(str): <major>.<minor>, often used in python paths, like config-3.13"""
         if self.minor is not None:
             return "%s.%s" % (self.major, self.minor)
 
@@ -919,7 +919,7 @@ class PythonInstallationLocationPathEnvVar(PythonInstallationLocation):
                 continue  # Ignore python installations from virtualenv
 
             general = []  # General symlinks, eg: `python3` and `python`
-            major_minors = []  # Major.minor symlinks, eg: `python3.7`
+            major_minors = []  # Major.minor symlinks, eg: `python3.14`
             for item in ls_dir(folder):
                 if is_executable(item):
                     m = RX_PYTHON_BASENAME.match(item.name)

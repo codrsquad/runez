@@ -392,18 +392,6 @@ def get_version(mod, default="0.0.0", fatal=False, logger=False):
             except Exception as e:
                 last_exception = e
 
-        else:
-            try:
-                # Remove when py3.7 support is dropped
-                import pkg_resources
-
-                d = pkg_resources.get_distribution(top_level)
-                if d and d.version:
-                    return d.version
-
-            except Exception as e:
-                last_exception = e
-
         m = sys.modules.get(name)
         if m is not None:
             v = getattr(m, "__version__", None) or getattr(m, "VERSION", None)
@@ -1185,7 +1173,7 @@ class Slotted:
         """Seed initial fields"""
         defaults = self._get_defaults()
         if not isinstance(defaults, dict):
-            defaults = {k: defaults for k in self.__slots__}
+            defaults = dict.fromkeys(self.__slots__, defaults)
 
         for name in self.__slots__:
             value = getattr(self, name, defaults.get(name))
@@ -1953,7 +1941,7 @@ class UnitRepresentation:
         """
         exponent = self.unit_exponent(unit)
         if exponent is not None:
-            return int(round(value * (base**exponent)))
+            return round(value * (base**exponent))
 
     def represented(self, size, base=None, delimiter="", unit="", exponent=0):
         """

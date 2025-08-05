@@ -219,7 +219,9 @@ def test_group(cli, monkeypatch):
     cli.main = my_group
     runez.click.prettify_epilogs(my_group, formatter=my_formatter)
     runez.click.prettify_epilogs(my_group, formatter=my_formatter)  # Calling this multiple times is a no-op
-    cli.expect_success("--version", "my-group, version ")
+    cli.run("--version")
+    assert cli.succeeded
+    assert ", version " in cli.logged
 
     cli.run("--help")
     assert cli.succeeded

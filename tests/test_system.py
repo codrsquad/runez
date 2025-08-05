@@ -197,10 +197,9 @@ def test_docker_detection(monkeypatch):
         info = SystemInfo()
         assert info.is_running_in_docker is False
 
-    if sys.version_info[:2] >= (3, 7):  # unittest.mock doesn't work correctly before 3.7
-        with patch("runez.system.open", mock_open(read_data="1: /docker/foo")):
-            info = SystemInfo()
-            assert info.is_running_in_docker is True
+    with patch("runez.system.open", mock_open(read_data="1: /docker/foo")):
+        info = SystemInfo()
+        assert info.is_running_in_docker is True
 
 
 def test_find_parent_folder(monkeypatch):
