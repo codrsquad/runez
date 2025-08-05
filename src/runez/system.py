@@ -392,18 +392,6 @@ def get_version(mod, default="0.0.0", fatal=False, logger=False):
             except Exception as e:
                 last_exception = e
 
-        else:
-            try:
-                # Remove when py3.7 support is dropped
-                import pkg_resources
-
-                d = pkg_resources.get_distribution(top_level)
-                if d and d.version:
-                    return d.version
-
-            except Exception as e:
-                last_exception = e
-
         m = sys.modules.get(name)
         if m is not None:
             v = getattr(m, "__version__", None) or getattr(m, "VERSION", None)

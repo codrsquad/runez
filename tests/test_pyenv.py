@@ -371,16 +371,16 @@ def test_spec_invalid():
     check_spec_invalid("cpython: 3")
     check_spec_invalid("cpython :3")
     check_spec_invalid("python:3")
-    check_spec_invalid("p3.9")
+    check_spec_invalid("p3.13")
     check_spec_invalid("pY3")
-    check_spec_invalid("3.9.9a")
-    check_spec_invalid("3.9.9++")
+    check_spec_invalid("3.13.9a")
+    check_spec_invalid("3.13.9++")
 
 
 def test_spec_list():
     assert not PythonSpec.to_list("a,b")
-    x = PythonSpec.to_list("3.10,py39")
-    assert x == [PythonSpec.from_text("3.10"), PythonSpec.from_text("3.9")]
+    x = PythonSpec.to_list("3.10,py313")
+    assert x == [PythonSpec.from_text("3.10"), PythonSpec.from_text("3.13")]
 
     x = PythonSpec.to_list(["3.10,py36", "foo,py37", 3.8])
     assert x == [PythonSpec.from_text("3.10"), PythonSpec.from_text("3.6"), PythonSpec.from_text("3.7"), PythonSpec.from_text("3.8")]

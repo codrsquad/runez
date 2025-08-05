@@ -107,18 +107,13 @@ class AutoInstall:
 
 
 class ImportTime:
-    """Measure average import time of a given top-level package, works with 3.7+ only"""
+    """Measure average import time of a given top-level package"""
 
     def __init__(self, module_name, iterations=3):
         self.module_name = module_name
         self.elapsed = None
         self.cumulative = None
         self.problem = None
-        v = SYS_INFO.invoker_python.full_version
-        if v < 3.7:
-            self.problem = "-Ximporttime is not available in python %s, can't measure import-time speed" % v
-            return
-
         cumulative = 0
         started = time.time()
         for _ in range(iterations):
