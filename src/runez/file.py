@@ -614,7 +614,7 @@ def _untar(source, destination, simplify):
                 if not is_subfolder(member_path, extracted_source):  # pragma: no cover, don't have an exploit sample handy
                     raise Exception("Attempted Path Traversal in Tar File")
 
-            fh.extractall(extracted_source)  # noqa: S202, taken care of
+            fh.extractall(extracted_source, filter="fully_trusted")  # noqa: S202, taken care of
 
         _move_extracted(extracted_source, destination, simplify)
 
