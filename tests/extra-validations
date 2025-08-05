@@ -92,7 +92,7 @@ def check_import_order():
 
 def get_node_value(node):
     """Human friendly short representation"""
-    if isinstance(node, ast.NameConstant):
+    if isinstance(node, ast.Constant):
         return node.value
 
     if isinstance(node, ast.Attribute):
@@ -100,12 +100,6 @@ def get_node_value(node):
 
     if isinstance(node, ast.Name):
         return node.id
-
-    if isinstance(node, ast.Num):
-        return node.n
-
-    if isinstance(node, ast.Str):
-        return node.s
 
     if isinstance(node, ast.Call):
         return node.func.id
@@ -172,10 +166,12 @@ def path_reference(path, lineno, function_name=None):
 
 
 def get_docstring(node: ast.FunctionDef):
-    """Docstring of a function defintion, this will crash if the function doesn't have one"""
+    """Docstring of a function definition, this will crash if the function doesn't have one"""
     first_statement = node.body[0]
-    if isinstance(first_statement, ast.Expr) and isinstance(first_statement.value, ast.Str):
-        return first_statement.value.s
+    if isinstance(first_statement, ast.Expr) and isinstance(first_statement.value, ast.Constant):
+        s = first_statement.value.value
+        if isinstance(s, str):
+            return s
 
 
 def expected_sig(path, node, sig):

@@ -165,7 +165,7 @@ def represented_duration(seconds, span=UNSET, delimiter=" "):
         span = abs(span)
 
     seconds = abs(seconds)
-    microseconds = 0 if span and seconds > 10 else int(round((seconds - int(seconds)) * 1000000))
+    microseconds = 0 if span and seconds > 10 else round((seconds - int(seconds)) * 1000000)
     seconds = int(seconds)
 
     result = []
@@ -404,7 +404,7 @@ def _date_from_components(components, tz=UNSET):
         hh = int(hh)
         mm = int(mm)
         ss = int(ss)
-        sf = int(round(float(sf or 0) * 1000000))
+        sf = round(float(sf or 0) * 1000000)
         return datetime.datetime(y, m, d, hh, mm, ss, sf, timezone_from_text(ctz or tz))
 
     except (ValueError, TypeError):

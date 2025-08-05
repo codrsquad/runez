@@ -1185,7 +1185,7 @@ class Slotted:
         """Seed initial fields"""
         defaults = self._get_defaults()
         if not isinstance(defaults, dict):
-            defaults = {k: defaults for k in self.__slots__}
+            defaults = dict.fromkeys(self.__slots__, defaults)
 
         for name in self.__slots__:
             value = getattr(self, name, defaults.get(name))
@@ -1953,7 +1953,7 @@ class UnitRepresentation:
         """
         exponent = self.unit_exponent(unit)
         if exponent is not None:
-            return int(round(value * (base**exponent)))
+            return round(value * (base**exponent))
 
     def represented(self, size, base=None, delimiter="", unit="", exponent=0):
         """

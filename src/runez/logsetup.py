@@ -138,26 +138,25 @@ class ProgressBar:
 
     def rendered(self):
         """Called in spinner thread (lock already acquired)"""
-        if self.n is None:
+        if self.n is None or not self.total:
             return None
 
-        if self.total:
-            percent = max(int(round(100.0 * self.n / self.total)), 0)
-            blanks = 0
-            if percent >= 100:
-                percent = 100
-                bar = self.full_char * self.columns
+        percent = max(round(100.0 * self.n / self.total), 0)
+        blanks = 0
+        if percent >= 100:
+            percent = 100
+            bar = self.full_char * self.columns
 
-            else:
-                full_chars = int(percent / self.per_char)
-                bar = self.full_char * full_chars
-                blanks = self.columns - full_chars
-                if self.per_frame:
-                    blanks -= 1
-                    fi = int((percent - full_chars * self.per_char) / self.per_frame)
-                    bar += self.frames[fi]
+        else:
+            full_chars = int(percent / self.per_char)
+            bar = self.full_char * full_chars
+            blanks = self.columns - full_chars
+            if self.per_frame:
+                blanks -= 1
+                fi = int((percent - full_chars * self.per_char) / self.per_frame)
+                bar += self.frames[fi]
 
-            return "%s%s%s%%" % (bar, self.blank_char * blanks, percent)
+        return "%s%s%s%%" % (bar, self.blank_char * blanks, percent)
 
     def _remove_parent(self, parent):
         if parent is self.parent:

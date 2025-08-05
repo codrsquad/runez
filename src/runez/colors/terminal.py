@@ -21,14 +21,14 @@ class AnsiCode:
             g = max(8, g)
             b = max(8, b)
 
-        return f(lm, int(round(r * ratio))), f(lm, int(round(g * ratio))), f(lm, int(round(b * ratio)))
+        return f(lm, round(r * ratio)), f(lm, round(g * ratio)), f(lm, round(b * ratio))
 
     @classmethod
     def ansi16(cls, offset, r, g, b, brighten):
         """Convert RGB to ANSI 16 color"""
-        r = int(round(r / 255.0))
-        g = int(round(g / 255.0)) << 1
-        b = int(round(b / 255.0)) << 2
+        r = round(r / 255.0)
+        g = round(g / 255.0) << 1
+        b = round(b / 255.0) << 2
         code = (90 if brighten else 30) + (r | g | b)
         return int(code) + offset - cls.fg_offset
 
