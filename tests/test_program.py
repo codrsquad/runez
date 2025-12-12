@@ -8,8 +8,9 @@ from unittest.mock import patch
 import pytest
 
 import runez
-from runez.conftest import exception_raiser
 from runez.program import RunAudit, RunResult
+
+from .conftest import exception_raiser
 
 CHATTER = runez.DEV.tests_path("chatter")
 

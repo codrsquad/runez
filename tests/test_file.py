@@ -9,7 +9,8 @@ from unittest.mock import patch
 import pytest
 
 import runez
-import runez.conftest
+
+from .conftest import exception_raiser
 
 SAMPLE_CONF = """
 # Sample .conf (or .ini file)
@@ -212,9 +213,9 @@ def test_ini_to_dict(temp_folder, logged):
 
 
 def test_failure(monkeypatch):
-    monkeypatch.setattr(io, "open", runez.conftest.exception_raiser())
-    monkeypatch.setattr(os, "unlink", runez.conftest.exception_raiser("bad unlink"))
-    monkeypatch.setattr(shutil, "copy", runez.conftest.exception_raiser())
+    monkeypatch.setattr(io, "open", exception_raiser())
+    monkeypatch.setattr(os, "unlink", exception_raiser(Exception("bad unlink")))
+    monkeypatch.setattr(shutil, "copy", exception_raiser())
     monkeypatch.setattr(os.path, "exists", lambda _: True)
     monkeypatch.setattr(os.path, "isfile", lambda _: True)
     monkeypatch.setattr(os.path, "getsize", lambda _: 10)

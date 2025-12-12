@@ -45,54 +45,6 @@ if sys.argv and "pycharm" in sys.argv[0].lower():  # pragma: no cover, ignore Py
 LogManager.override_spec(timezone="UTC", locations=["{tmp}/{basename}"])
 
 
-def exception_raiser(exc=Exception):
-    """
-    Convenience wrapper for monkeypatch
-    Example usage:
-        monkeypatch.setattr(io, "open", runez.conftest.exception_raiser(KeyboardInterrupt))
-        monkeypatch.setattr(os, "unlink", runez.conftest.exception_raiser("oops, unlink failed"))
-        monkeypatch.setattr(mymodule.MyClass, "myfunction", runez.conftest.exception_raiser(MyException("some message")))
-
-    Args:
-        exc (BaseException | type | str): Exception to raise
-
-    Returns:
-        (callable): Function that will raise given exception
-    """
-
-    def _raise(*_, **__):
-        if isinstance(exc, str):
-            raise Exception(exc)
-
-        raise exc
-
-    return _raise
-
-
-def patch_env(monkeypatch, clear=True, uppercase=True, **values):
-    """
-    Args:
-        monkeypatch (pytest.MonkeyPatch): Monkeypatch object (obtained from pytest fixture)
-        clear (bool): If True, clear all env vars (other than the ones given in 'values')
-        uppercase (bool): If True, uppercase all keys in 'values'
-        **values: Env vars to mock
-    """
-    if uppercase:
-        values = {k.upper(): v for k, v in values.items()}
-
-    if clear:
-        for k in os.environ:
-            if k not in values:
-                monkeypatch.delenv(k)
-
-    for k, v in values.items():
-        if v:
-            monkeypatch.setenv(k, v)
-
-        else:
-            monkeypatch.delenv(k, raising=False)
-
-
 class IsolatedLogSetup:
     """Allows to isolate changes to logging setup.
 

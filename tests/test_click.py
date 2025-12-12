@@ -11,7 +11,8 @@ import click
 import pytest
 
 import runez
-from runez.conftest import exception_raiser
+
+from .conftest import exception_raiser
 
 
 def my_formatter(text):

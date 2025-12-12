@@ -82,3 +82,10 @@ def temp_log():
     with IsolatedLogSetup():
         with CaptureOutput() as tracked:
             yield TempLog(tracked)
+
+
+def exception_raiser(exc=Exception):
+    def _raise(*_, **__):
+        raise exc
+
+    return _raise

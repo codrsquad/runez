@@ -10,6 +10,8 @@ import runez.conftest
 from runez.schema import determined_schema_type, Dict, Integer, List, String, Struct, UniqueIdentifier, ValidationException
 from runez.serialize import add_meta, ClassMetaDescription, same_type, SerializableDescendants, type_name, with_behavior
 
+from .conftest import exception_raiser
+
 
 @add_meta(ClassMetaDescription)
 class MetaSlotted:
@@ -154,7 +156,7 @@ def test_json(temp_folder, monkeypatch):
         assert not logged
 
         with monkeypatch.context() as m:
-            m.setattr(runez.serialize, "open", runez.conftest.exception_raiser(), raising=False)
+            m.setattr(runez.serialize, "open", exception_raiser(), raising=False)
             assert runez.save_json(data, "sample.json", fatal=False) == -1
             assert "Can't save" in logged.pop()
 
@@ -162,7 +164,7 @@ def test_json(temp_folder, monkeypatch):
         assert "Saved " in logged.pop()
 
         with monkeypatch.context() as m:
-            m.setattr(io, "open", runez.conftest.exception_raiser())
+            m.setattr(io, "open", exception_raiser())
             with pytest.raises(runez.system.AbortException) as exc:
                 runez.read_json("sample.json", fatal=True, logger=None)
             assert "Can't read sample.json" in str(exc)

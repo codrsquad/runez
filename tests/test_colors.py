@@ -1,3 +1,4 @@
+import os
 import sys
 from unittest.mock import patch
 
@@ -5,7 +6,23 @@ import pytest
 
 import runez
 from runez.colors import terminal
-from runez.conftest import patch_env
+
+
+def patch_env(monkeypatch, clear=True, uppercase=True, **values):
+    if uppercase:
+        values = {k.upper(): v for k, v in values.items()}
+
+    if clear:
+        for k in os.environ:
+            if k not in values:
+                monkeypatch.delenv(k)
+
+    for k, v in values.items():
+        if v:
+            monkeypatch.setenv(k, v)
+
+        else:
+            monkeypatch.delenv(k, raising=False)
 
 
 def test_colors():
