@@ -2,6 +2,12 @@
 History
 =======
 
+5.4.0 (2025-12-12)
+------------------
+
+* Modernized repo setup, use pyproject.toml, test with py3.14
+
+
 5.3.1 (2025-08-06)
 ------------------
 

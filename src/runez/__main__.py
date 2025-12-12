@@ -123,7 +123,7 @@ def cmd_passthrough():
     Run a program, capture its output as well as let it pass-through to stdout/stderr
     """
     parser = runez.cli.parser()
-    args, unknown = parser.parse_known_args()
+    _, unknown = parser.parse_known_args()
 
     unknown = runez.flattened(unknown, split=" ")
     if not unknown:
@@ -196,12 +196,13 @@ def cmd_progress_bar():
 
 
 def _get_mid(times):
+    elapsed = 0
     times = [t for t in times if t.elapsed]
     if times:
         times = sorted(times, key=lambda x: -x.elapsed)  # Don't fail if no elapsed available
-        return times[int(len(times) / 2)].elapsed
+        elapsed = times[int(len(times) / 2)].elapsed
 
-    return 0
+    return elapsed
 
 
 def main():
@@ -247,5 +248,5 @@ def _interesting_top_levels():
     return sorted(result)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

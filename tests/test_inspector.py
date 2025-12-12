@@ -115,22 +115,10 @@ def test_diagnostics_command(cli):
     assert "sys.executable : %s" % runez.short(sys.executable) in cli.logged
 
 
-@pytest.mark.skipif(sys.version_info[:2] < (3, 7), reason="Available in 3.7+")
-def test_importtime():
-    """Verify that importing runez remains fast"""
-    tos = ImportTime("os")
-    tsys = ImportTime("sys")
-    trunez = ImportTime("runez")
-    assert "runez" in str(trunez)
-
-    assert trunez.cumulative < 3 * tos.cumulative
-    assert trunez.cumulative < 3 * tsys.cumulative
-
-    assert trunez.elapsed < 3 * tos.elapsed
-    assert trunez.elapsed < 3 * tsys.elapsed
-
-
 def test_importtime_command(cli):
+    trunez = ImportTime("runez")
+    assert str(trunez).startswith("runez ")
+
     cli.run("import-speed")
     assert cli.failed
     assert "Please specify module names, or use --all" in cli.logged

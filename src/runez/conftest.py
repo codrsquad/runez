@@ -397,7 +397,6 @@ class ClickRunner:
             expected = expected.replace("...", ".+")
 
         if not isinstance(expected, str):
-            # Assume regex, no easy way to verify isinstance(expected, re.Pattern) for python < 3.7
             regex = expected
 
         elif regex:
