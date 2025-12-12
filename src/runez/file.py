@@ -26,7 +26,7 @@ def basename(path, extension_marker=os.extsep, follow=False):
 
         path = os.path.basename(path)
         if extension_marker and extension_marker in path:
-            pre, _, post = path.rpartition(extension_marker)
+            pre, _, _ = path.rpartition(extension_marker)
             if pre:
                 return pre
 

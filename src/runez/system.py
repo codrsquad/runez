@@ -257,7 +257,7 @@ def decode(value, strip=None):
         return None
 
     if isinstance(value, bytes):
-        value = value.decode("utf-8")
+        value = value.decode("utf-8", errors="replace")
 
     if strip:
         value = value.strip(strip if isinstance(strip, str) else None)

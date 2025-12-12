@@ -109,7 +109,7 @@ def test_decorator_allowed():
 def test_default_disabled():
     assert GlobalHttpCalls.is_forbidden() is True
     client = RestClient()
-    with pytest.raises(ForbiddenHttpError, match="https://example.com"):
+    with pytest.raises(ForbiddenHttpError, match=r"https://example.com"):
         client.head("https://example.com")
 
 

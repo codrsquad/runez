@@ -1,11 +1,41 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools", "setupmeta"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "runez"
+authors = [
+    {name = "Zoran Simic", email = "zoran@simicweb.com"},
+]
+description = "Friendly misc/utils/convenience library"
+readme = "README.rst"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Utilities",
+]
+dynamic = ["version"]
+
+[project.urls]
+Source = "https://github.com/codrsquad/runez"
 
 [tool.ruff]
 cache-dir = ".tox/.ruff_cache"
 line-length = 140
-src = ["src"]
 
 [tool.ruff.lint]
 ignore = ["RUF021", "RUF022", "RUF023", "S101"]
