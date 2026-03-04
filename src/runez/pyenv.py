@@ -9,7 +9,7 @@ from runez.program import is_executable, run
 from runez.system import _R, cached_property, flattened, joined, ltattr, resolved_path, short, UNSET
 
 CPYTHON = "cpython"
-RX_PYTHON_BASENAME = re.compile(r"^python(\d(\.\d+)?)?$")
+RX_PYTHON_BASENAME = re.compile(r"^python(\d(\.\d+)?)?(t?)$")
 
 
 class ArtifactInfo:
@@ -149,17 +149,19 @@ class PythonSpec:
     Examples: cpython:3, cpython:3.13, pypy:3.13
     """
 
-    def __init__(self, family, version, is_min_spec=False):
+    def __init__(self, family, version, is_min_spec=False, freethreading=False):
         """
         Args:
             family (str): Python family (cpython, conda, pypi, ...)
             version (Version | str): Desired version
             is_min_spec (bool): If True, match installations that are at least at `version`, e.g. cpython:3.10+
+            freethreading (bool): Whether this is a freethreaded version
         """
         self.family = family
         self.version = Version.from_object(version)
-        self.canonical = "%s:%s%s" % (family, version, "+" if is_min_spec else "")
+        self.canonical = "%s:%s%s%s" % (family, version, "t" if freethreading else "", "+" if is_min_spec else "")
         self.is_min_spec = is_min_spec
+        self.freethreading = freethreading
 
     def __repr__(self):
         return self.canonical
@@ -175,7 +177,7 @@ class PythonSpec:
 
     def satisfies(self, other):
         """Does this spec satisfy 'other'?"""
-        if isinstance(other, PythonSpec) and self.family == other.family:
+        if isinstance(other, PythonSpec) and self.family == other.family and self.freethreading == other.freethreading:
             if other.is_min_spec:
                 return self.version >= other.version
 
@@ -193,6 +195,8 @@ class PythonSpec:
         text = self.canonical
         if compact and (compact is True or self.family in compact):
             text = self.version.text
+            if self.freethreading:
+                text += "t"
             if self.is_min_spec:
                 text += "+"
 
@@ -207,22 +211,30 @@ class PythonSpec:
         Returns:
             (PythonSpec | None): Parsed spec from given object, if valid
         """
-        m = re.match(r"^(py|python|)(?P<version>\d+(\.\d+(.\w+)*)?)?(?P<min_spec>\+?)$", text)
+        m = re.match(r"^(py|python|)(?P<version>\d+(\.\d+(.\w+)*)?)?(?P<freethreading>t)?(?P<min_spec>\+?)$", text)
         if m:
             version = Version.from_tox_like(m.group("version"), default="3")
-            return cls(CPYTHON, version, is_min_spec=bool(m.group("min_spec"))) if version else None
+            return (
+                cls(CPYTHON, version, is_min_spec=bool(m.group("min_spec")), freethreading=bool(m.group("freethreading")))
+                if version
+                else None
+            )
 
         m = re.match(r"^(?P<family>cpython|conda|pypy):(?P<version>\d.*)$", text)
         if m:
             min_spec = False
+            freethreading = False
             version = m.group("version")
             if version.endswith("+"):
                 min_spec = True
                 version = version[:-1]
+            if version.endswith("t"):
+                freethreading = True
+                version = version[:-1]
 
             version = Version.from_tox_like(version)
             if version and version.is_valid:
-                return cls(m.group("family"), version, is_min_spec=min_spec)
+                return cls(m.group("family"), version, is_min_spec=min_spec, freethreading=freethreading)
 
     @classmethod
     def from_object(cls, value):

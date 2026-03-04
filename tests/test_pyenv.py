@@ -339,6 +339,10 @@ def test_spec():
     assert rc3plus.represented(compact=True) == "3.12.0rc3+"
     assert rc3plus.is_min_spec
 
+    freeth = PythonSpec.from_text("cpython:3.14t")
+    assert freeth.represented(compact=True) == "3.14t"
+    assert freeth.freethreading
+
 
 def test_spec_equivalent():
     def check_equivalent_specs(*text):
@@ -351,6 +355,7 @@ def test_spec_equivalent():
     check_equivalent_specs("3.10", "310", "py3.10", "py310", "python3.10", "python310", "cpython:3.10")
     check_equivalent_specs("3.10+", "310+", "py3.10+", "py310+", "python3.10+", "python310+", "cpython:3.10+")
     check_equivalent_specs("3777", "py3.777", "python3.777", "cpython:3.777")
+    check_equivalent_specs("python3.14t", "py314t", "cpython:3.14t")
 
 
 def test_spec_invalid():
