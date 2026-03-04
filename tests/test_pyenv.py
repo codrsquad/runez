@@ -57,7 +57,7 @@ def mk_python(basename, executable=True, content=None, machine=None):
 
     path = folder / ("python%s" % version.mm)
     if not content:
-        content = {"version": str(version), "machine": machine or runez.SYS_INFO.platform_id.arch}
+        content = {"version": str(version), "machine": machine or runez.SYS_INFO.platform_id.arch, "freethreading": False}
 
     if content == "failed":
         content = "echo failed\nexit 1"

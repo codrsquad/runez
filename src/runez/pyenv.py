@@ -682,6 +682,8 @@ class PythonInstallation:
         self.short_name = short_name or short(executable)
         self.real_exe, inspection = PythonSimpleInspection.exe_inspection(executable)
         self.inspection = inspection
+        if inspection.freethreading:
+            self.short_name += "t"
         self.problem = inspection.problem
         version = None
         if not self.problem:
@@ -792,7 +794,7 @@ class PythonInstallation:
     def full_spec(self):
         """Full spec, , e.g: cpython:3.11.6"""
         if self.full_version:
-            return PythonSpec(self.family, self.full_version)
+            return PythonSpec(self.family, self.full_version, freethreading=self.inspection.freethreading)
 
     @cached_property
     def mm(self):
@@ -984,10 +986,11 @@ class PythonSimpleInspection:
 
     _cached: ClassVar = {}
 
-    def __init__(self, version=None, machine=None, problem=None):
+    def __init__(self, version=None, machine=None, problem=None, freethreading=None):
         self.version = version
         self.machine = machine
         self.problem = problem
+        self.freethreading = freethreading
 
     def __repr__(self):
         return self.problem or f"{self.version} ({self.machine})"
