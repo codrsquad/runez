@@ -211,7 +211,7 @@ class PythonSpec:
         Returns:
             (PythonSpec | None): Parsed spec from given object, if valid
         """
-        m = re.match(r"^(py|python|)(?P<version>\d+(\.\d+(.\w+)*)?)?(?P<freethreading>t)?(?P<min_spec>\+?)$", text)
+        m = re.match(r"^(py|python|)(?P<version>\d+(\.\d+(.\w+?)*)?)?(?P<freethreading>t)?(?P<min_spec>\+?)$", text)
         if m:
             version = Version.from_tox_like(m.group("version"), default="3")
             return (
@@ -682,8 +682,6 @@ class PythonInstallation:
         self.short_name = short_name or short(executable)
         self.real_exe, inspection = PythonSimpleInspection.exe_inspection(executable)
         self.inspection = inspection
-        if inspection.freethreading:
-            self.short_name += "t"
         self.problem = inspection.problem
         version = None
         if not self.problem:

@@ -2,13 +2,11 @@
 import json
 import platform
 import sys
+import sysconfig
 
 
 def simple_inspection():
-    if hasattr(sys, "_is_gil_enabled"):
-        freethreading = not sys._is_gil_enabled()
-    else:
-        freethreading = False
+    freethreading = sysconfig.get_config_var("Py_GIL_DISABLED")
     return {"version": ".".join(str(s) for s in sys.version_info[:3]), "machine": platform.machine(), "freethreading": freethreading}
 
 
