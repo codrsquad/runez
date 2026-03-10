@@ -285,6 +285,10 @@ class PythonSpec:
 
         return CPYTHON
 
+    @property
+    def abi_suffix(self):
+        return "t" if self.freethreading else ""
+
 
 class PythonDepot:
     """

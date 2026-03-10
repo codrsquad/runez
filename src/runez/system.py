@@ -1408,7 +1408,7 @@ class PlatformId:
         if extension in self.supported_compression:
             return "tar.%s" % extension
 
-    def composed_basename(self, prefix, version=None, delimiter="-", extension=None):
+    def composed_basename(self, prefix, version=None, abi_suffix="", delimiter="-", extension=None):
         """
         Args:
             prefix (str | None): Prefix of artifact
@@ -1423,7 +1423,7 @@ class PlatformId:
         if not canonical_ext:
             raise ValueError("Invalid compression extension '%s'" % extension)
 
-        basename = joined(prefix, version, self.get_identifier(delimiter), delimiter=delimiter)
+        basename = joined(prefix, str(version)+abi_suffix, self.get_identifier(delimiter), delimiter=delimiter)
         return joined(basename, canonical_ext, delimiter=".")
 
     def get_identifier(self, delimiter="-"):
