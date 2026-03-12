@@ -1423,7 +1423,8 @@ class PlatformId:
         if not canonical_ext:
             raise ValueError("Invalid compression extension '%s'" % extension)
 
-        basename = joined(prefix, str(version)+abi_suffix, self.get_identifier(delimiter), delimiter=delimiter)
+        version_with_abi = (str(version) + abi_suffix) if version else None
+        basename = joined(prefix, version_with_abi, self.get_identifier(delimiter), delimiter=delimiter)
         return joined(basename, canonical_ext, delimiter=".")
 
     def get_identifier(self, delimiter="-"):
