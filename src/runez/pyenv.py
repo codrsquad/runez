@@ -264,8 +264,7 @@ class PythonSpec:
             (list[PythonSpec]): Corresponding list of PythonSpec-s
         """
         values = flattened(values, split=",", transform=PythonSpec.from_object)
-        values = [x for x in values if x and x.version]
-        return values
+        return [x for x in values if x and x.version]
 
     @classmethod
     def guess_family(cls, text):
@@ -381,7 +380,7 @@ class PythonDepot:
             if spec.startswith(("~", ".", "/")) or "/" in spec or os.path.exists(spec):
                 return self._from_path(Path(resolved_path(spec)))
 
-            elif spec == "invoker":
+            if spec == "invoker":
                 return self.invoker
 
             spec = PythonSpec.from_text(spec)
@@ -575,7 +574,7 @@ class Version:
 
     def __le__(self, other):
         other = Version.from_object(other)
-        return isinstance(other, Version) and self < other or self == other
+        return isinstance(other, Version) and (self < other or self == other)
 
     def __ge__(self, other):
         other = Version.from_object(other)

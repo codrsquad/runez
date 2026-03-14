@@ -10,6 +10,7 @@ import logging
 import os
 import re
 import sys
+from pathlib import Path
 
 import _pytest.logging
 import pytest
@@ -186,7 +187,8 @@ class WrappedHandler(_pytest.logging.LogCaptureHandler):
     @classmethod
     def clean_accumulated_logs(cls):
         """Reset pytest log accumulator"""
-        cls._current_instance.reset()
+        if cls._current_instance is not None:
+            cls._current_instance.reset()
 
 
 _pytest.logging.LogCaptureHandler = WrappedHandler
@@ -238,9 +240,6 @@ class ClickRunner:
         """Convenience shortcut to DEV.tests_folder"""
         return DEV.tests_folder
 
-    def assert_printed(self, expected):
-        self.logged.assert_printed(expected)
-
     def exercise_main(self, *entry_points):
         """Run --help on given entry point scripts, for code coverage.
 
@@ -275,28 +274,26 @@ class ClickRunner:
             args = args[0].split()
 
         self.args = flattened(args, shellify=True)
-        with IsolatedLogSetup(adjust_tmp=False):
-            with CaptureOutput(dryrun=_R.is_dryrun(), seed_logging=True, trace=_R.rdefault(trace, self.trace)) as logged:
-                self.logged = logged
-                with TempArgv(self.args, exe=exe):
-                    result = self._run_main(main, self.args)
-                    if isinstance(result.exception, AssertionError):
-                        raise result.exception
+        with (
+            IsolatedLogSetup(adjust_tmp=False),
+            CaptureOutput(dryrun=_R.is_dryrun(), seed_logging=True, trace=_R.rdefault(trace, self.trace)) as logged,
+        ):
+            self.logged = logged
+            with TempArgv(self.args, exe=exe):
+                result = self._run_main(main, self.args)
+                if isinstance(result.exception, AssertionError):
+                    raise result.exception
 
-                    if result.stdout:
-                        logged.stdout.buffer.write(result.stdout)
+                if result.stdout:
+                    logged.stdout.buffer.write(result.stdout)
 
-                    if result.stderr:
-                        logged.stderr.buffer.write(result.stderr)
+                if result.stderr:
+                    logged.stderr.buffer.write(result.stderr)
 
-                    if result.exception and not isinstance(result.exception, SystemExit):
-                        try:
-                            raise result.exception
+                if result.exception and not isinstance(result.exception, SystemExit):
+                    LOG.error("Exited with stacktrace:", exc_info=result.exception)
 
-                        except Exception:
-                            LOG.exception("Exited with stacktrace:")
-
-                    self.exit_code = result.exit_code
+                self.exit_code = result.exit_code
 
         if self.logged:
             WrappedHandler.clean_accumulated_logs()
@@ -394,7 +391,7 @@ class ClickRunner:
         self.expect_messages(*expected, **spec.to_dict())
 
     def _resolved_script(self, script):
-        if script.startswith("-") or os.path.exists(script):
+        if isinstance(script, Path) or script.startswith("-") or os.path.exists(script):
             return script
 
         path = self.project_path(script)
@@ -439,7 +436,7 @@ class ClickRunner:
 
             return result
 
-        assert isinstance(main, str), "Can't invoke invalid main: %s" % main
+        assert isinstance(main, (str, Path)), "Can't invoke invalid main: %s" % main
         script = self._resolved_script(main)
         assert script, "Can't find script '%s', invalid main" % main
         r = runez.run(sys.executable, script, *args, fatal=False)
@@ -447,7 +444,7 @@ class ClickRunner:
 
 
 class RunSpec(Slotted):
-    __slots__ = ["stdout", "stderr", "regex"]
+    __slots__ = ["regex", "stderr", "stdout"]
 
     def _get_defaults(self):
         return UNSET

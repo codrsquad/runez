@@ -2,6 +2,7 @@ import hashlib
 import io
 import logging
 import os
+import pathlib
 import shutil
 from pathlib import Path
 from unittest.mock import patch
@@ -132,7 +133,7 @@ def test_decompress(temp_folder, logged):
     assert dir_contents("unpacked-flat-zip") == expected
 
 
-def test_edge_cases():
+def test_edge_cases(temp_folder, monkeypatch, logged):
     # Don't crash for no-ops
     assert runez.copy(None, None) == 0
     assert runez.move(None, None) == 0
@@ -146,6 +147,11 @@ def test_edge_cases():
     assert not runez.file.is_younger("", None)
     assert not runez.file.is_younger("", 1)
     assert not runez.file.is_younger("/dev/null/not-there", 1)
+
+    runez.write("foo", "hi mom", logger=None)
+    assert runez.filesize("foo") == 6
+    with patch("pathlib.Path.stat", side_effect=Exception):
+        assert runez.filesize("foo") == 0
 
 
 def test_ensure_folder(temp_folder, logged):
@@ -212,29 +218,29 @@ def test_ini_to_dict(temp_folder, logged):
     assert actual == expected
 
 
-def test_failure(monkeypatch):
+def test_failure(temp_folder, monkeypatch):
     monkeypatch.setattr(io, "open", exception_raiser())
     monkeypatch.setattr(os, "unlink", exception_raiser(Exception("bad unlink")))
     monkeypatch.setattr(shutil, "copy", exception_raiser())
     monkeypatch.setattr(os.path, "exists", lambda _: True)
+    monkeypatch.setattr(pathlib.Path, "exists", lambda _: True)
     monkeypatch.setattr(os.path, "isfile", lambda _: True)
     monkeypatch.setattr(os.path, "getsize", lambda _: 10)
     with runez.CaptureOutput() as logged:
-        with patch("runez.file._do_delete"):
-            with patch("pathlib.Path.exists", return_value=True):
-                assert runez.copy("some-file", "bar", fatal=False) == -1
-                assert "Can't copy" in logged.pop()
+        with patch("runez.file._do_delete") as delete_mock:
+            assert runez.copy("some-file", "bar", fatal=False) == -1
+            assert delete_mock.call_count == 1
+            assert "Can't copy" in logged.pop()
 
         assert runez.delete("some-file", fatal=False) == -1
-        assert "Can't delete" in logged
-        assert "bad unlink" in logged.pop()
+        assert "Can't delete some-file: bad unlink" in logged.pop()
 
         assert runez.write("bar", "some content", fatal=False)
-        assert "Can't write" in logged.pop()
+        assert "Can't write to bar:" in logged.pop()
 
         if not runez.SYS_INFO.platform_id.is_windows:
             assert runez.make_executable("some-file", fatal=False) == -1
-            assert "Can't chmod" in logged.pop()
+            assert "Can't chmod some-file:" in logged.pop()
 
 
 def test_file_inspection(temp_folder, logged):

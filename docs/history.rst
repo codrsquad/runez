@@ -2,6 +2,39 @@
 History
 =======
 
+5.6.0 (2026-03-16)
+------------------
+
+* Turned on flake8-simplify and tryceratops, fixed corresponding issues
+
+* Added tests
+
+* Modernized GH actions and project metadata
+
+* Removed ``is_subfolder()`` from ``runez.file``
+
+* Removed ``assert_printed()`` from ``CapturedStream``, ``TrackedOutput``, and ``ClickRunner``
+
+* ``ClickRunner.run()`` now accepts ``pathlib.Path`` objects for ``main``/script args
+
+* Fixed operator precedence bug in ``Version.__le__()``
+
+* Fixed ``WrappedHandler.clean_accumulated_logs()`` crash when called before any test runs
+
+* ``stringified()`` uses ``errors="replace"`` when decoding bytes
+
+* ``make_executable()`` now preserves existing permission bits instead of hardcoding ``0o755``
+
+* Using ``extractall(filter="data")`` from stdlib for path traversal protection
+
+
+5.5.0 (2026-03-12)
+------------------
+
+* Added freethreading support to ``PythonSpec``: new ``freethreading`` parameter, ``abi_suffix`` property,
+  and "t" suffix parsing in spec strings
+
+
 5.4.0 (2025-12-12)
 ------------------
 

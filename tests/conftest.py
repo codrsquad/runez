@@ -79,9 +79,8 @@ class TempLog:
 
 @pytest.fixture
 def temp_log():
-    with IsolatedLogSetup():
-        with CaptureOutput() as tracked:
-            yield TempLog(tracked)
+    with IsolatedLogSetup(), CaptureOutput() as tracked:
+        yield TempLog(tracked)
 
 
 def exception_raiser(exc=Exception):

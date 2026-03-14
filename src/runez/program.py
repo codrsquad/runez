@@ -2,13 +2,15 @@
 Convenience methods for executing programs
 """
 
+import contextlib
 import errno
 import fcntl
 import os
 import pty
 import shutil
+import stat
 import struct
-import subprocess  # nosec
+import subprocess
 import sys
 import tempfile
 import termios
@@ -198,10 +200,12 @@ def check_pid(pid):
 
     try:
         os.kill(pid, 0)
-        return True
 
     except (OSError, TypeError):
         return False
+
+    else:
+        return True
 
 
 def daemonize():
@@ -253,19 +257,22 @@ def make_executable(path, fatal=True, logger=UNSET, dryrun=UNSET):
     if is_executable(path):
         return 0
 
-    if _R.hdry(dryrun, logger, "make %s executable" % short(path)):
+    if _R.hdry(dryrun, logger, f"make {short(path)} executable"):
         return 1
 
-    if not os.path.exists(path):
-        return abort("%s does not exist, can't make it executable" % short(path), return_value=-1, fatal=fatal, logger=logger)
+    path = _R.lc.rm.to_path(path)
+    if not path.exists():
+        return abort(f"{short(path)} does not exist, can't make it executable", return_value=-1, fatal=fatal, logger=logger)
 
     try:
-        os.chmod(path, 0o755)  # noqa: S103
-        _R.hlog(logger, "Made '%s' executable" % short(path))
-        return 1
+        path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+        _R.hlog(logger, f"Made '{short(path)}' executable")
 
     except Exception as e:
-        return abort("Can't chmod %s" % short(path), exc_info=e, return_value=-1, fatal=fatal, logger=logger)
+        return abort(f"Can't chmod {short(path)}", exc_info=e, return_value=-1, fatal=fatal, logger=logger)
+
+    else:
+        return 1
 
 
 def run(
@@ -539,9 +546,12 @@ def which(program, ignore_own_venv=False):
         if SYS_INFO.platform_id.is_windows:  # pragma: no cover
             fp = _windows_exe(fp)
 
-        if fp and (not ignore_own_venv or not SYS_INFO.venv_bin_folder or not fp.startswith(SYS_INFO.venv_bin_folder)):
-            if is_executable(fp):
-                return fp
+        if (
+            fp
+            and (not ignore_own_venv or not SYS_INFO.venv_bin_folder or not fp.startswith(SYS_INFO.venv_bin_folder))
+            and is_executable(fp)
+        ):
+            return fp
 
     program = os.path.join(os.getcwd(), program)
     if is_executable(program):
@@ -698,13 +708,11 @@ def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
 
 def _safe_write(target, data, flush=None):
     if target is not None and data is not None:
-        try:
+        with contextlib.suppress(Exception):
+            # Don't consider run crashed if one of the channels we're passing through is failing
             target.write(data)
             if flush is not None:
                 flush.flush()
-
-        except Exception:  # noqa: S110, don't consider run crashed if one of the channels we're passing through is failing
-            pass
 
 
 def _windows_exe(path):  # pragma: no cover

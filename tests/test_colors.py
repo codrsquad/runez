@@ -160,6 +160,18 @@ def test_no_color():
 
 
 def test_show_colors(cli):
+    # Exercise invoking via `-m`
+    cli.run("colors", "--no-color", main="-mrunez")
+    assert cli.succeeded
+    assert "Backend: plain" in cli.logged.stdout
+
+    # Exercise ad-hoc invocation
+    project = runez.to_path(runez.DEV.project_folder)
+    cli.run("colors", "--no-color", main=project / "src/runez/__main__.py")
+    assert cli.succeeded
+    assert "Backend: plain" in cli.logged.stdout
+
+    # Exercise usual invocation
     cli.run("colors")
     assert cli.succeeded
     assert "Backend: plain" in cli.logged.stdout

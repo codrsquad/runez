@@ -18,10 +18,11 @@ def mocked_input(x):
     return x
 
 
-def test_no_tty():
+def test_no_tty(logged):
     assert ask_once("test", "Please enter value: ") is None
-    with pytest.raises(runez.system.AbortException):
+    with pytest.raises(runez.system.AbortException, match="Can't prompt"):
         ask_once("test", "Please enter value: ", fatal=True)
+    assert "Can't prompt for test, not on a tty" in logged.pop()
 
 
 def test_with_tty(monkeypatch, logged):
@@ -48,7 +49,6 @@ def test_with_tty(monkeypatch, logged):
                 ask_once("test-invalid", "", base=tmp, serializer=custom_serializer, fatal=True)
             assert "No value provided" in logged.pop()  # Logged if fatal=True
 
-    with patch("runez.prompt.input", side_effect=KeyboardInterrupt):
+    with patch("runez.prompt.input", side_effect=KeyboardInterrupt), pytest.raises(Exception, match="Cancelled by user"):
         # Simulate CTRL+C
-        with pytest.raises(Exception, match="Cancelled by user"):
-            ask_once("test2", "test2", base=tmp, serializer=custom_serializer, fatal=True)
+        ask_once("test2", "test2", base=tmp, serializer=custom_serializer, fatal=True)

@@ -22,6 +22,7 @@ def importable_test_py_files(folder):
 
 def test_auto_import_siblings():
     # Check that none of these invocations raise an exception
+    assert runez.system.find_caller(depth=100) is None
     caller = runez.system.find_caller(depth=1)  # Finds this test as caller
     assert str(caller) == "tests.test_inspector.test_auto_import_siblings"
 
@@ -96,10 +97,9 @@ def test_auto_install(logged, monkeypatch):
         assert not logged
 
     # Mocked successful import
-    with patch.dict("sys.modules", foo=MagicMock()):
-        with patch("runez.inspector.run", return_value=runez.program.RunResult("OK", code=0)):
-            assert needs_foo("hello") == "OK: hello"
-            assert not logged
+    with patch.dict("sys.modules", foo=MagicMock()), patch("runez.inspector.run", return_value=runez.program.RunResult("OK", code=0)):
+        assert needs_foo("hello") == "OK: hello"
+        assert not logged
 
     # Ensure auto-installation is refused unless we have a venv
     monkeypatch.setattr(runez.SYS_INFO, "venv_bin_folder", None)

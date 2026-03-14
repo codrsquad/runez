@@ -39,11 +39,9 @@ class ThreadLocalSingleton:
                 ...
     """
 
-    def __new__(cls, *positional, **named):
+    def __new__(cls, *_, **__):
         # We could do singleton by combination of args, but outcome of that could be hard to grok for users
         # Not sure if there's a good use case for this (one where gotcha-factor is much lower than added value)
-        assert not positional, "Current limitation: positional args are not supported"
-        assert not named, "Current limitation: named args are not supported"
         key = "_ts%s.%s" % (cls.__module__, cls.__name__)
         existing = getattr(THREAD_LOCAL, key, None)
         if existing is None:

@@ -40,7 +40,7 @@ def test_border():
     assert PrettyBorder.cast("empty") == t1
 
     tc = PrettyBorder("compact")
-    assert str(tc) == "c:   ,h:   -,pad:1"
+    assert str(tc) == "c:   ,h: -  ,pad:1"
 
     # Exercise setting from object fields, for coverage
     tc2 = PrettyBorder("c:   ", h=Namespace(first=" ", mid=" ", last=" ", h="-"))
@@ -131,7 +131,7 @@ def test_pretty_table():
 
     t = PrettyTable("1,2,,3", border="pad:0")
     assert len(t.header.columns) == 4
-    t.add_rows("a b c".split(), "d e foo".split())
+    t.add_rows(("a", "b", "c"), ("d", "e", "foo"))
 
     t.header = 3  # Interpreted as 3 columns (but no header text)
     assert t.get_string() == "abc\ndefoo"

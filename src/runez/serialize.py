@@ -730,7 +730,9 @@ def save_json(data, path, stringify=stringified, dt=str, none=False, indent=2, s
                 fh.write("\n")
 
         _R.hlog(logger, "Saved %s" % short(path))
-        return 1
 
     except Exception as e:
         return abort("Can't save %s" % short(path), exc_info=e, return_value=-1, fatal=fatal, logger=logger)
+
+    else:
+        return 1

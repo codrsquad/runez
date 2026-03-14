@@ -22,6 +22,7 @@ Usage pattern:
     response = MY_CLIENT.get("api/v1/....", fatal=False, dryrun=False)
 """
 
+import contextlib
 import functools
 import json
 import os
@@ -261,7 +262,7 @@ class DataState:
         if self.fhandles is None:
             self.fhandles = []
 
-        fh = open(path, mode="rb")
+        fh = open(path, mode="rb")  # noqa: SIM115
         self.fhandles.append(fh)
         return fh
 
@@ -376,7 +377,8 @@ class MockedHandlerStack:
             raise spec
 
         if isinstance(spec, type) and issubclass(spec, BaseException):
-            raise spec("Simulated crash")
+            msg = "Simulated crash"
+            raise spec(msg)
 
         if callable(spec):
             spec = spec(method, url)
@@ -510,13 +512,10 @@ class RestResponse:
 
     def error_reason(self):
         """Meaningful error reason from 'response'"""
-        try:
+        with contextlib.suppress(Exception):
             msg = self.extract_message(self.json())
             if msg:
                 return msg
-
-        except Exception:  # noqa: S110
-            pass
 
         return self.text
 
@@ -526,7 +525,7 @@ class RestResponse:
         if not data:
             return None
 
-        if data and isinstance(data, str):
+        if isinstance(data, str):
             return data.strip()
 
         if isinstance(data, dict):
@@ -962,7 +961,7 @@ class RestClient:
         Returns:
             (CacheWrapper): Object wrapping this cache
         """
-        try:
+        with contextlib.suppress(ImportError):
             from diskcache import Cache
 
             if directory is UNSET:
@@ -980,9 +979,6 @@ class RestClient:
 
             cache_backend = Cache(directory=directory or None, size_limit=size_limit)
             return CacheWrapper(cache_backend, directory, default_expire, size_limit)
-
-        except ImportError:
-            return None
 
     def _protected_get(self, method, absolute_url, keyword_args):
         try:

@@ -693,10 +693,10 @@ def test_terminal(monkeypatch):
         assert t.columns == 10
         assert t.lines == 15
 
-    with patch.dict(os.environ, {"PYCHARM_HOSTED": "true"}, clear=True):
-        with patch("runez.DEV.current_test", return_value=None):  # simulate not running in test
-            t = TerminalInfo()
-            assert t.is_stdout_tty  # Now True
+    with patch.dict(os.environ, {"PYCHARM_HOSTED": "true"}, clear=True), patch("runez.DEV.current_test", return_value=None):
+        # simulate not running in test
+        t = TerminalInfo()
+        assert t.is_stdout_tty  # Now True
 
 
 def test_user_id(monkeypatch):

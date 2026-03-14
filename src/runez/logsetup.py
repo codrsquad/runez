@@ -316,7 +316,7 @@ class ProgressSpinner:
         with self._lock:
             self.is_running = False
             LogManager._auto_enable_progress_handler()
-            if self._has_progress_line:  # pragma: no cover (hard to cover in tests)
+            if self._has_progress_line:
                 self._clear_line()
                 self._has_progress_line = False
 
@@ -453,7 +453,7 @@ class LoggingSnapshot(Slotted):
     Take a snapshot of parts we're modifying in the 'logging' module, in order to be able to restore it as it was
     """
 
-    __slots__ = ["_srcfile", "critical", "fatal", "error", "exception", "warning", "info", "debug"]
+    __slots__ = ["_srcfile", "critical", "debug", "error", "exception", "fatal", "info", "warning"]
 
     def _seed(self):
         """Seed initial fields"""
@@ -487,11 +487,11 @@ class LogSpec(Slotted):
         "context_format",
         "default_logger",
         "dev",
-        "project",
         "file_format",
         "file_level",
         "file_location",
         "locations",
+        "project",
         "rotate",
         "rotate_count",
         "timezone",
@@ -612,13 +612,6 @@ class _ContextFilter(logging.Filter):
         return True
 
 
-def default_log_locations():
-    if SYS_INFO.platform_id.is_windows:  # pragma: no cover
-        return [os.path.join("{dev}", "log", "{basename}")]
-
-    return ["{dev}/log/{basename}", "/logs/{appname}/{basename}", "/var/log/{basename}"]
-
-
 class Timeit:
     """Measure how long a decorated function, or context, took took to run"""
 
@@ -708,7 +701,7 @@ class LogManager:
         file_format="%(asctime)s %(levelname)s %(message)s",
         file_level=logging.DEBUG,
         file_location=None,
-        locations=default_log_locations(),
+        locations=("{dev}/log/{basename}", "/logs/{appname}/{basename}", "/var/log/{basename}"),
         rotate=None,
         rotate_count=10,
         timezone=local_timezone(),

@@ -4,6 +4,8 @@ Base functionality used by other parts of `runez`.
 This class should not import any other `runez` class, to avoid circular deps.
 """
 
+import contextlib
+import importlib.metadata
 import inspect
 import logging
 import os
@@ -382,15 +384,13 @@ def get_version(mod, default="0.0.0", fatal=False, logger=False):
     if name and isinstance(name, str):
         top_level = name.partition(".")[0]
         last_exception = None
-        metadata_version = _metadata_version_function()
-        if metadata_version:
-            try:
-                v = metadata_version(top_level)
-                if v:
-                    return v
+        try:
+            v = importlib.metadata.version(top_level)
+            if v:
+                return v
 
-            except Exception as e:
-                last_exception = e
+        except Exception as e:
+            last_exception = e
 
         m = sys.modules.get(name)
         if m is not None:
@@ -431,7 +431,7 @@ def stringified(value, converter=None, none="None"):
         return value
 
     if isinstance(value, bytes):
-        return value.decode("utf-8")
+        return value.decode("utf-8", errors="replace")
 
     if converter is not None:
         converted = converter(value)
@@ -581,7 +581,7 @@ def short(value, size=UNSET, none="None", uncolor=False):
     text = stringified(value, converter=_prettified, none=none).strip()
     text = _R.lc.rx_spaces.sub(" ", text)
     text = Anchored.short(text)
-    if size is UNSET or isinstance(size, int) and size < 0:
+    if size is UNSET or (isinstance(size, int) and size < 0):
         size = SYS_INFO.terminal.columns
 
     if isinstance(size, int) and len(text) > size > 0:
@@ -691,11 +691,8 @@ class AdaptedProperty:
         self.default = default
         self.caster = caster
         self.type = type
-        assert caster is None or type is None, "Can't accept both 'caster' and 'type' for AdaptedProperty, pick one"
         if callable(validator):
             # 'validator' is available when used as decorator of the form: @AdaptedProperty
-            assert caster is None, "'caster' is not applicable to AdaptedProperty decorator"
-            assert type is None, "'type' is not applicable to AdaptedProperty decorator"
             self.validator = validator
             self.key = "__%s" % validator.__name__
             py_mimic(self, validator)
@@ -713,8 +710,6 @@ class AdaptedProperty:
 
     def __call__(self, validator):
         """Called when used as decorator of the form: @AdaptedProperty(default=...)"""
-        assert self.caster is None, "'caster' is not applicable to decorated properties"
-        assert self.type is None, "'type' is not applicable to decorated properties"
         self.validator = validator
         self.key = "__%s" % validator.__name__
         py_mimic(self, validator)
@@ -853,11 +848,6 @@ class CapturedStream:
 
         else:
             setattr(sys, self.name, self.original)
-
-    def assert_printed(self, expected):
-        """Assert that 'expected' matches current output exactly (modulo trailing spaces/newlines), and clear current capture"""
-        content = self.pop()
-        assert content == expected
 
     def pop(self):
         """Current content popped, useful for testing"""
@@ -1023,12 +1013,6 @@ class TrackedOutput:
 
     def contents(self):
         return "".join(s.contents() for s in self.captured)
-
-    def assert_printed(self, expected):
-        """Assert that 'expected' matches current stdout exactly (modulo trailing spaces/newlines), and clear current capture"""
-        self.stdout.assert_printed(expected)
-        if self.stderr is not None:
-            self.stderr.clear()
 
     def pop(self):
         """Current content popped, useful for testing"""
@@ -1259,9 +1243,13 @@ class DevInfo:
         return find_caller(regex=DevInfo.__ct_regex)
 
     @cached_property
-    def project_folder(self) -> str:
+    def project_folder(self) -> str | None:
         """Path to current development project, if we're running from a source compilation"""
-        return _validated_project_path(self.tests_folder, self.venv_folder)
+        for path in (self.tests_folder, self.venv_folder):
+            if path:
+                path = os.path.dirname(path)
+                if os.path.exists(os.path.join(path, "setup.py")) or os.path.exists(os.path.join(path, "pyproject.toml")):
+                    return path
 
     @cached_property
     def tests_folder(self) -> str:
@@ -1565,18 +1553,14 @@ class SystemInfo:
     @cached_property
     def is_running_in_docker(self):
         """Are we currently running in a docker container?"""
-        if os.path.exists("/.dockerenv") or os.environ.get("container"):
+        if os.path.exists("/.dockerenv") or os.environ.get("container"):  # noqa: SIM112
             return True
 
-        try:
-            with open("/proc/1/cgroup") as fh:
-                regex = re.compile(r"docker|buildkit|lxc|kubepod", re.IGNORECASE)
-                for line in fh:
-                    if line and regex.search(line):
-                        return True
-
-        except (OSError, IOError):
-            pass
+        with contextlib.suppress(OSError), open("/proc/1/cgroup") as fh:
+            regex = re.compile(r"docker|buildkit|lxc|kubepod", re.IGNORECASE)
+            for line in fh:
+                if line and regex.search(line):
+                    return True
 
         return False
 
@@ -2305,25 +2289,28 @@ def _keep_transform(value, keep_empty, shellify, transform, none):
 
 
 def _prettified(value):
-    if isinstance(value, list):
-        return "[%s]" % ", ".join(stringified(s, converter=_prettified) for s in value)
+    if value is not None and not isinstance(value, str):
+        if isinstance(value, list):
+            return "[%s]" % ", ".join(stringified(s, converter=_prettified) for s in value)
 
-    if isinstance(value, tuple):
-        return "(%s)" % ", ".join(stringified(s, converter=_prettified) for s in value)
+        if isinstance(value, tuple):
+            return "(%s)" % ", ".join(stringified(s, converter=_prettified) for s in value)
 
-    if isinstance(value, dict):
-        keys = sorted(value, key=lambda x: "%s" % x)
-        pairs = ("%s: %s" % (stringified(k, converter=_prettified), stringified(value[k], converter=_prettified)) for k in keys)
-        return "{%s}" % ", ".join(pairs)
+        if isinstance(value, dict):
+            keys = sorted(value, key=lambda x: "%s" % x)
+            pairs = ("%s: %s" % (stringified(k, converter=_prettified), stringified(value[k], converter=_prettified)) for k in keys)
+            return "{%s}" % ", ".join(pairs)
 
-    if isinstance(value, set):
-        return "{%s}" % ", ".join(stringified(s, converter=_prettified) for s in sorted(value, key=lambda x: "%s" % x))
+        if isinstance(value, set):
+            return "{%s}" % ", ".join(stringified(s, converter=_prettified) for s in sorted(value, key=lambda x: "%s" % x))
 
-    if isinstance(value, type):
-        return "class %s.%s" % (value.__module__, value.__name__)
+        if isinstance(value, type):
+            return "class %s.%s" % (value.__module__, value.__name__)
 
-    if callable(value):
-        return "function '%s'" % value.__name__
+        if callable(value):
+            return "function '%s'" % value.__name__
+
+    return value
 
 
 def _show_abort_message(message, exc_info, fatal, logger):
@@ -2344,24 +2331,6 @@ def _full_path(path, relative_path):
         path = os.path.join(path, *relative_path)
 
     return path
-
-
-def _metadata_version_function():
-    try:
-        from importlib.metadata import version  # requires py3.8+
-
-        return version
-
-    except ImportError:
-        return None
-
-
-def _validated_project_path(*paths):
-    for path in paths:
-        if path:
-            path = os.path.dirname(path)
-            if os.path.exists(os.path.join(path, "setup.py")) or os.path.exists(os.path.join(path, "pyproject.toml")):
-                return path
 
 
 class _CallerInfo:

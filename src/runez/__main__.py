@@ -2,6 +2,7 @@
 Set of sample commands illustrating behaviors of runez
 """
 
+import contextlib
 import logging
 import os
 import re
@@ -151,14 +152,11 @@ def cmd_progress_bar():
     args = parser.parse_args()
 
     process = None
-    try:
+    with contextlib.suppress(ImportError):
         import psutil
 
         process = psutil.Process(os.getpid())
         process.cpu_percent()
-
-    except ImportError:
-        pass
 
     runez.log.setup(console_format="%(levelname)s %(message)s", console_level=logging.INFO, trace="RUNEZ_DEBUG")
     if not args.no_spinner:
@@ -248,5 +246,5 @@ def _interesting_top_levels():
     return sorted(result)
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     main()

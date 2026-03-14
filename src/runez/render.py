@@ -126,8 +126,8 @@ class Header:
 
 
 class PrettyBorder(Slotted):
-    # top, mid, bottom, cell, header, header-cell
-    __slots__ = ["t", "m", "b", "c", "h", "hc", "pad"]
+    # bottom, cell, header, header-cell, mid, padding, top
+    __slots__ = ["b", "c", "h", "hc", "m", "pad", "t"]
 
     def __repr__(self):
         return self.represented_values(delimiter=",", operator=":")
@@ -337,8 +337,7 @@ class PrettyTable(PrettyCustomizable):
     def get_string(self):
         """Table rendered as a string"""
         t = _PTTable(self)
-        result = t.get_string()
-        return result
+        return t.get_string()
 
     @staticmethod
     def _single_diag(sources, border, align, style, missing, columns):
@@ -458,7 +457,7 @@ def render_line(container, columns, padding, pad, chars, cells=None):
 
 
 class _PTBorderChars(Slotted):
-    __slots__ = ["first", "mid", "last", "h"]
+    __slots__ = ["first", "h", "last", "mid"]
 
     def _values_from_string(self, text):
         return self._values_from_object(list(text))

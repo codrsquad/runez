@@ -124,7 +124,7 @@ def test_command(cli, monkeypatch):
 
     cli.run("--no-color")
     assert cli.succeeded
-    cli.assert_printed("border: reddit, color: False, a=b c=d, debug: None, dryrun: False, log: None")
+    assert "border: reddit, color: False, a=b c=d, debug: None, dryrun: False, log: None" in cli.logged.stdout
 
     cli.run("-x")
     assert cli.succeeded
@@ -132,13 +132,13 @@ def test_command(cli, monkeypatch):
 
     cli.run("--border github --color --debug --config=a=x -c c=y --log=foo")
     assert cli.succeeded
-    cli.assert_printed("border: github, color: True, a=x c=y, debug: True, dryrun: False, log: foo")
+    assert "border: github, color: True, a=x c=y, debug: True, dryrun: False, log: foo" in cli.logged.stdout
 
     monkeypatch.setenv("MY_PROG_A", "some-value")
     monkeypatch.delenv("LANG", raising=False)
     cli.run("")
     assert cli.succeeded
-    cli.assert_printed("border: reddit, color: None, a=some-value c=d, debug: None, dryrun: False, log: None")
+    assert "border: reddit, color: None, a=some-value c=d, debug: None, dryrun: False, log: None" in cli.logged.stdout
 
 
 def test_command_with_stderr(cli):
@@ -262,11 +262,11 @@ def test_group(cli, monkeypatch):
 
     cli.run("--color echo hello")
     assert cli.succeeded
-    cli.assert_printed("hello, color: True, 0 values, g.a=None, debug: False, dryrun: False, log: None")
+    assert "hello, color: True, 0 values, g.a=None, debug: False, dryrun: False, log: None" in cli.logged.stdout
 
     cli.run("--no-color --dryrun -ca=b --config c=d --log foo echo hello")
     assert cli.succeeded
-    cli.assert_printed("hello, color: False, 2 values, g.a=b, debug: False, dryrun: True, log: foo")
+    assert "hello, color: False, 2 values, g.a=b, debug: False, dryrun: True, log: foo" in cli.logged.stdout
 
     with pytest.raises(AssertionError):
         cli.run("echo", "AssertionError")

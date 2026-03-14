@@ -363,22 +363,26 @@ def test_ps_follow():
             assert p.cmd_basename == "some-test foo"
 
 
-def test_require_installed(monkeypatch):
+def test_require_installed(monkeypatch, logged):
     monkeypatch.setattr(runez.program, "which", lambda _: "/bin/foo")
     assert runez.program.require_installed("foo") is None  # Does not raise
 
     monkeypatch.setattr(runez.program, "which", lambda _: None)
     with pytest.raises(runez.system.AbortException, match="foo is not installed, run: `brew install foo`"):
         runez.program.require_installed("foo", platform="macos")
+    assert "not installed" in logged.pop()
 
     with pytest.raises(runez.system.AbortException, match="foo is not installed, run: `apt install foo`"):
         runez.program.require_installed("foo", platform="linux")
+    assert "not installed" in logged.pop()
 
     with pytest.raises(runez.system.AbortException, match="foo is not installed, custom instructions"):
         runez.program.require_installed("foo", instructions="custom instructions", platform="macos")
+    assert "not installed" in logged.pop()
 
     with pytest.raises(runez.system.AbortException, match="foo is not installed:\n- on "):
         runez.program.require_installed("foo", platform="unknown-platform")
+    assert "not installed" in logged.pop()
 
 
 def test_run_description():

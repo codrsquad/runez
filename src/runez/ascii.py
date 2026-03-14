@@ -34,12 +34,10 @@ class AsciiAnimation:
             return AsciiFrames(None)
 
         if name == "random":
-            import random
+            import secrets
 
             names = cls.available_names(include_virtual=False)
-            n = len(names)
-            n = max(0, min(n - 1, int(n * random.random())))  # noqa: S311 (irrelevant for crypto)
-            name = names[n]
+            name = secrets.choice(names)
 
         if name in cls.available_names():
             return getattr(cls, "af_%s" % name)()

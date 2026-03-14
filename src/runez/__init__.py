@@ -22,7 +22,7 @@ from runez.system import Anchored, CaptureOutput, CurrentFolder, OverrideDryrun,
 from runez.system import capped, decode, DEV, flattened, joined, quoted, resolved_path, short, stringified, SYS_INFO
 from runez.system import first_line, get_version, is_basetype, is_iterable, ltattr
 
-__all__ = [
+__all__ = [  # noqa: RUF022, grouped and sorted by provenance module
     "DRYRUN",
     "ascii", "click", "config", "date", "file", "program", "serialize", "system",
     "ActivateColors", "color",

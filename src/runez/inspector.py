@@ -160,8 +160,4 @@ def _should_auto_import(module_name, skip):
     Returns:
         (bool): True if we should auto-import `module_name`
     """
-    if not module_name.endswith("_"):
-        if skip and any(module_name.startswith(x) for x in skip):
-            return False
-
-        return True
+    return not module_name.endswith("_") and not (skip and any(module_name.startswith(x) for x in skip))

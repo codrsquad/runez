@@ -35,12 +35,6 @@ class Slotted2(runez.Slotted):
 
 
 def test_adapted_properties():
-    with pytest.raises(AssertionError):
-        runez.AdaptedProperty(validator=lambda x: x, caster=int)  # Can't have validator and caster at the same time
-
-    with pytest.raises(AssertionError):
-        runez.AdaptedProperty(caster=int, type=int)  # Can't specify both
-
     s1a = Slotted1()
 
     # Check class-level properties

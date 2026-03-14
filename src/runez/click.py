@@ -373,8 +373,7 @@ def _auto_complete_callback(attrs, func):
     if not attrs.get("expose_value", True) and attrs.get("callback") is None:
 
         def _callback(_ctx, _param, value):
-            value = func(value)
-            return value
+            return func(value)
 
         attrs["callback"] = _callback
 
