@@ -1,8 +1,24 @@
 import datetime
 import logging
 
+import pytest
+
 import runez
-from runez.schema import Any, Boolean, Date, Datetime, Dict, Enum, Float, Integer, List, String, Struct, UniqueIdentifier
+from runez.schema import (
+    Any,
+    Boolean,
+    Date,
+    Datetime,
+    Dict,
+    Enum,
+    Float,
+    Integer,
+    List,
+    String,
+    Struct,
+    UniqueIdentifier,
+    ValidationException,
+)
 from runez.serialize import Serializable, SerializableDescendants, with_behavior
 
 
@@ -144,7 +160,7 @@ def test_number():
     assert ff.converted("0o10") == 8.0
 
 
-class Car(Serializable, with_behavior(extras=(logging.info, "foo bar"))):
+class Car(Serializable, with_behavior(strict=True, extras=(logging.info, "foo bar"))):
     make = String
     serial = UniqueIdentifier
     year = Integer
@@ -191,8 +207,9 @@ def test_serializable(logged):
 
     assert str(Serializable._meta.behavior) == "lenient"
 
-    assert str(Car._meta.behavior) == "extras: function 'info', ignored extras: [foo, bar]"
-    assert str(SpecializedCar._meta.behavior) == "extras: function 'debug'"  # extras are NOT inherited
+    assert str(Car._meta.behavior) == "strict: class runez.schema.ValidationException, extras: function 'info', ignored extras: [foo, bar]"
+    # Verify that extras are NOT inherited
+    assert str(SpecializedCar._meta.behavior) == "strict: class runez.schema.ValidationException, extras: function 'debug'"
     assert Car._meta.attributes_by_type(String) == ["make", "serial"]
     assert Car._meta.attributes_by_type(Integer) == ["year"]
     assert SpecializedCar._meta.attributes_by_type(Integer) == ["year"]
@@ -217,6 +234,9 @@ def test_serializable(logged):
     assert "foo" not in logged
     assert "Extra content given for Car: baz" in logged.pop()
     assert car.to_dict() == {"serial": "bar"}
+
+    with pytest.raises(ValidationException, match=r"Can't deserialize Car.year: expecting int, got 'foo'"):
+        Car.from_dict({"year": "foo"})
 
     pp = Person()
     assert pp.age is None

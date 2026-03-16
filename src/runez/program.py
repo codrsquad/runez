@@ -24,7 +24,7 @@ from runez.system import _R, abort, cached_property, decode, flattened, quoted, 
 class PsInfo:
     """Summary info about a process, as given by `ps -f` command"""
 
-    info = None  # type: dict # Info returned by `ps`
+    info: dict | None = None  # Info returned by `ps`
 
     def __init__(self, pid=None):
         """
@@ -223,9 +223,10 @@ def daemonize():
         os._exit(0)
 
     devnull_fd = os.open(os.devnull, os.O_RDWR)
-    os.dup2(devnull_fd, sys.__stdin__.fileno())
-    os.dup2(devnull_fd, sys.__stdout__.fileno())
-    os.dup2(devnull_fd, sys.__stderr__.fileno())
+    for stream in (sys.__stdin__, sys.__stdout__, sys.__stderr__):
+        if stream is not None:
+            os.dup2(devnull_fd, stream.fileno())
+
     os.close(devnull_fd)
 
 
@@ -491,16 +492,17 @@ class RunResult:
         self.output = output
         self.error = error
         self.exit_code = code
-        self.exc_info = None  # Exception that occurred during the run, if any
-        self.pid = None  # Pid of spawned process, if any
+        self.exc_info: BaseException | None = None  # Exception that occurred during the run, if any
+        self.pid: int | None = None  # Pid of spawned process, if any
         self.audit = audit
 
     def __repr__(self):
         return "RunResult(exit_code=%s)" % self.exit_code
 
     def __eq__(self, other):
-        if isinstance(other, RunResult):
-            return self.output == other.output and self.error == other.error and self.exit_code == other.exit_code
+        return (
+            isinstance(other, RunResult) and self.output == other.output and self.error == other.error and self.exit_code == other.exit_code
+        )
 
     def __bool__(self):
         return self.exit_code == 0

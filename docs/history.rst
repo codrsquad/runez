@@ -27,6 +27,8 @@ History
 
 * Using ``extractall(filter="data")`` from stdlib for path traversal protection
 
+* Adapted type declarations, pyright reported issues went from 861 to 96
+
 
 5.5.0 (2026-03-12)
 ------------------

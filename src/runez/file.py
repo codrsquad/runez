@@ -5,6 +5,7 @@ import shutil
 import tempfile
 import time
 from pathlib import Path
+from typing import overload
 
 from runez.system import _R, abort, Anchored, decode, flattened, resolved_path, short, SYMBOLIC_TMP, SYS_INFO, UNSET
 
@@ -302,10 +303,18 @@ def readlines(path, first=None, errors="ignore", fatal=False, logger=False, tran
         _R.hlog(logger, message, exc_info=e)
 
 
+@overload
+def to_path(path: "str | Path", no_spaces=False) -> Path: ...
+
+
+@overload
+def to_path(path: None, no_spaces=False) -> None: ...
+
+
 def to_path(path, no_spaces=False):
     """
     Args:
-        path (str | Path): Path to convert
+        path (str | Path | None): Path to convert
         no_spaces (type | bool | None): If True-ish, abort if 'path' contains a space
 
     Returns:

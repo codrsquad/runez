@@ -17,10 +17,14 @@ Example:
 """
 
 import inspect
+from typing import TYPE_CHECKING
 
 from runez.convert import to_boolean, to_float, to_int
 from runez.date import to_date, to_datetime, UTC
 from runez.system import _R, stringified
+
+if TYPE_CHECKING:
+    from runez.serialize import ClassMetaDescription
 
 
 class ValidationException(Exception):
@@ -32,15 +36,19 @@ class ValidationException(Exception):
     def __str__(self):
         return self.message
 
+    @staticmethod
+    def raise_with_message(message: str):
+        raise ValidationException(message)
 
-def determined_schema_type(value, required=True):
+
+def determined_schema_type(value, required=True) -> "Any":
     """
     Args:
         value: Value given by user (as class attribute to describe their runez.Serializable schema)
         required (bool): If True, raise ValidationException() is no type could be determined
 
     Returns:
-        (Any | None): Associated schema type (descendant of Any), if one is applicable
+        (Any): Associated schema type (descendant of Any), if one is applicable
     """
     schema_type = _determined_schema_type(value)
     if required and schema_type is None:
@@ -122,7 +130,7 @@ class Any:
 
         return self._problem(value)
 
-    def _problem(self, value):
+    def _problem(self, value) -> str | None:
         """To be re-defined by descendants, `value` is never `None`"""
 
     def converted(self, value):
@@ -152,7 +160,7 @@ class _MetaSerializable(Any):
             meta: A runez.Serializable object, or its ._meta attribute
             default: Default to use (when no value is provided)
         """
-        self.meta = getattr(meta, "_meta", meta)
+        self.meta: "ClassMetaDescription" = getattr(meta, "_meta", meta)
         super().__init__(default=default)
 
     def _problem(self, value):
@@ -213,8 +221,8 @@ class Dict(Any):
             value: Optional constraint for values
             default: Default to use when no value was provided
         """
-        self.key = determined_schema_type(key)  # type: Any
-        self.value = determined_schema_type(value)  # type: Any
+        self.key = determined_schema_type(key)
+        self.value = determined_schema_type(value)
         super().__init__(default=default)
 
     def representation(self):
@@ -291,7 +299,7 @@ class List(Any):
             subtype: Optional constraint for values
             default: Default to use when no value was provided
         """
-        self.subtype = determined_schema_type(subtype)  # type: Any
+        self.subtype = determined_schema_type(subtype)
         super().__init__(default=default)
 
     def representation(self):
@@ -331,8 +339,11 @@ class Struct(Any):
         super().__init__(default=default)
 
     def __eq__(self, other):
-        if other is not None and other.__class__ is self.__class__:
-            return not any(not hasattr(other, x) or getattr(self, x) != getattr(other, x) for x in self.meta.attributes)
+        return (
+            other is not None
+            and other.__class__ is self.__class__
+            and not any(not hasattr(other, x) or getattr(self, x) != getattr(other, x) for x in self.meta.attributes)
+        )
 
     def __ne__(self, other):
         return not (self == other)
@@ -383,7 +394,7 @@ class UniqueIdentifier(Any):
         Args:
             subtype: Optional type constraint for this identifier (defaults to `String`)
         """
-        self.subtype = determined_schema_type(subtype or String)  # type: Any
+        self.subtype = determined_schema_type(subtype or String)
         super().__init__(default=None)
 
 

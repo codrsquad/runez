@@ -5,6 +5,7 @@ This class should not import any other `runez` class, to avoid circular deps.
 """
 
 import contextlib
+import functools
 import importlib.metadata
 import inspect
 import logging
@@ -15,7 +16,7 @@ import sys
 import threading
 import unicodedata
 from io import StringIO
-from typing import ClassVar
+from typing import Any, ClassVar
 
 ABORT_LOGGER = logging.error
 LOG = logging.getLogger("runez")
@@ -40,7 +41,8 @@ class Undefined:
 
 
 # Internal marker for values that are NOT set
-UNSET = Undefined()  # type: Undefined
+# Typed as Any so that pyright doesn't constrain parameter types when UNSET is used as a default value
+UNSET: Any = Undefined()
 
 
 def abort(message, code=1, exc_info=None, return_value=None, fatal=True, logger=UNSET):
@@ -118,11 +120,36 @@ def abort_if(condition, message=None, code=1, exc_info=None, logger=UNSET):
         abort(_R.actual_message(message or condition), code=code, exc_info=exc_info, logger=logger)
 
 
+class _PyMimicked:
+    """
+    Base class for descriptor objects that use ``py_mimic()`` to copy identity attributes from a wrapped function.
+
+    ``py_mimic()`` dynamically sets ``__name__``, ``__doc__``, ``__module__``, and ``__annotations__``
+    on the target object at runtime. Since pyright cannot infer attributes set via side effects,
+    this mixin declares them upfront so that static type checkers understand they exist.
+
+    Inherit from this class in any descriptor that calls ``py_mimic(self, func)`` in its ``__init__``.
+    """
+
+    __name__: str
+    __doc__: str | None
+    __module__: str
+    __annotations__: dict
+
+
 def py_mimic(target, source):
-    """Make 'target' mimic python definition of 'source'
-    Args:
-        target: Object to decorate
-        source: Object to mimic
+    """
+    Make ``target`` mimic the Python identity of ``source``.
+
+    Copies ``__annotations__``, ``__doc__``, ``__module__``, and ``__name__`` from ``source`` to ``target``.
+    This is similar to ``functools.update_wrapper``, but works on arbitrary objects (not just callables).
+
+    Parameters
+    ----------
+    target : _PyMimicked | object
+        Object to decorate (typically ``self`` in a descriptor's ``__init__``)
+    source : object
+        Object whose identity to copy (typically the wrapped function)
     """
     if target is not None and source is not None:
         target.__annotations__ = source.__annotations__
@@ -131,26 +158,27 @@ def py_mimic(target, source):
         target.__name__ = source.__name__
 
 
-class cached_property:
+class cached_property(functools.cached_property):
     """
-    A property that is only computed once per instance and then replaces itself with an ordinary attribute.
-    Same as https://pypi.org/project/cached-property/ (without having to add another dependency).
-    Deleting the attribute resets the property.
+    A ``cached_property`` that extends ``functools.cached_property`` with batch introspection utilities.
 
-    Threads/async is not supported on purpose (to keep things simple)
-    See docs/async-cached-property.md for how that can be added if/when needed.
+    The core caching behavior is identical to the stdlib version: on first access, the decorated method
+    is called and its return value is stored in the instance's ``__dict__``. Deleting the attribute
+    resets the property so it will be recomputed on next access.
+
+    This subclass adds static helper methods for working with cached properties in bulk:
+
+    - ``reset(target)``: clear all cached property values on an object (useful in tests/conftest)
+    - ``properties(target)``: yield names of all (cached) properties on an object
+    - ``to_dict(target)``: return a dict of property name/value pairs
     """
 
     def __init__(self, func):
-        self.__func__ = func
-        py_mimic(self, self.__func__)
-
-    def __get__(self, instance, owner):
-        if instance is None:
-            return self
-
-        value = instance.__dict__[self.__name__] = self.__func__(instance)
-        return value
+        super().__init__(func)
+        self.__annotations__ = func.__annotations__
+        self.__doc__ = func.__doc__
+        self.__module__ = func.__module__
+        self.__name__ = func.__name__
 
     @staticmethod
     def _walk_properties(target, cached_only=True):
@@ -328,7 +356,7 @@ def first_line(text, keep_empty=False, default=None):
     return default
 
 
-def flattened(*value, keep_empty=False, split=None, shellify=False, strip=None, transform=None, unique=False):
+def flattened(*value, keep_empty: str | bool | None = False, split=None, shellify=False, strip=None, transform=None, unique=False):
     """
     Args:
         value: Possibly nested arguments (sequence of lists, nested lists, ...)
@@ -417,7 +445,7 @@ def is_iterable(value):
     return isinstance(value, (list, tuple, set)) or inspect.isgenerator(value)
 
 
-def stringified(value, converter=None, none="None"):
+def stringified(value, converter=None, none: str | bool | None = "None"):
     """
     Args:
         value: Any object to turn into a string
@@ -456,7 +484,7 @@ def stringified(value, converter=None, none="None"):
     return "{}".format(value)
 
 
-def joined(*args, delimiter=" ", keep_empty=False, strip=None, stringify=stringified, unique=False):
+def joined(*args, delimiter=" ", keep_empty: str | bool | None = False, strip=None, stringify=stringified, unique=False):
     """
     >>> joined(1, " foo ", None, 2)
     '1  foo  2'
@@ -656,7 +684,7 @@ class AbortException(Exception):
     """
 
 
-class AdaptedProperty:
+class AdaptedProperty(_PyMimicked):
     """
     This decorator allows to define properties with regular get/set behavior,
     but the body of the decorated function can act as a validator, and can auto-convert given values
@@ -677,7 +705,7 @@ class AdaptedProperty:
         >>> assert my_object.width == 10
     """
 
-    __counter: ClassVar = [0]  # Simple counter for anonymous properties
+    __counter = 0  # Simple counter for anonymous properties
 
     def __init__(self, validator=None, default=None, doc=None, caster=None, type=None):
         """
@@ -703,7 +731,7 @@ class AdaptedProperty:
             self.validator = None
             self.__doc__ = doc
             if validator is None:
-                i = self.__counter[0] = self.__counter[0] + 1
+                i = self.__class__.__counter = self.__class__.__counter + 1
                 validator = "anon_prop_%s" % i
 
             self.key = "__%s" % validator
@@ -1029,6 +1057,8 @@ class TrackedOutput:
 class Slotted:
     """This class allows to easily initialize/set a descendant using named arguments"""
 
+    __slots__: tuple
+
     def __init__(self, *positionals, **named):
         """
         Args:
@@ -1116,8 +1146,8 @@ class Slotted:
             for name in self.__slots__:
                 self._set(name, settings.pop(name, UNSET))
 
-    def to_dict(self):
-        """dict: Key/value pairs of defined fields"""
+    def to_dict(self) -> dict:
+        """Key/value pairs of defined fields"""
         result = {}
         for name in self.__slots__:
             val = getattr(self, name, UNSET)
@@ -1150,8 +1180,7 @@ class Slotted:
                 yield val
 
     def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return all(getattr(self, x, None) == getattr(other, x, None) for x in self.__slots__)
+        return isinstance(other, self.__class__) and all(getattr(self, x, None) == getattr(other, x, None) for x in self.__slots__)
 
     def _seed(self):
         """Seed initial fields"""
@@ -1166,8 +1195,8 @@ class Slotted:
     def _set_field(self, name, value):
         setattr(self, name, value)
 
-    def _get_defaults(self):
-        """dict|Undefined|None: Optional defaults"""
+    def _get_defaults(self) -> dict | None:
+        """Optional defaults"""
 
     def _set(self, name, value):
         """
@@ -1195,8 +1224,8 @@ class Slotted:
             else:
                 self._set_field(name, value)
 
-    def _values_from_positional(self, positional):
-        """dict: Key/value pairs from a given position to set()"""
+    def _values_from_positional(self, positional) -> dict | None:
+        """Key/value pairs from a given position to set()"""
         if isinstance(positional, str):
             return self._values_from_string(positional)
 
@@ -1208,11 +1237,11 @@ class Slotted:
 
         return self._values_from_object(positional)
 
-    def _values_from_string(self, text):
-        """dict: Optional hook to allow descendants to extract key/value pairs from a string"""
+    def _values_from_string(self, text) -> dict | None:
+        """Optional hook to allow descendants to extract key/value pairs from a string"""
 
-    def _values_from_object(self, obj):
-        """dict: Optional hook to allow descendants to extract key/value pairs from an object"""
+    def _values_from_object(self, obj) -> dict | None:
+        """Optional hook to allow descendants to extract key/value pairs from an object"""
         if obj is not None:
             return {k: getattr(obj, k, UNSET) for k in self.__slots__}
 
@@ -1297,9 +1326,9 @@ class PlatformId:
     - Additionally, the binary also should be able to run from whatever folder it has been unpacked in (no global system settings needed)
     """
 
-    arch: str = None  # Example: arm64, x86_64
-    platform: str = None  # Example: linux, macos
-    subsystem: str = None  # Example: libc, musl (empty for macos/windows for now)
+    arch: str | None = None  # Example: arm64, x86_64
+    platform: str | None = None  # Example: linux, macos
+    subsystem: str | None = None  # Example: libc, musl (empty for macos/windows for now)
 
     default_subsystem = None  # Can this be auto-detected? (currently: users can optionally provide this, by setting this class field)
     platform_archive_type: ClassVar = {"linux": "tar.gz", "macos": "tar.gz", "windows": "zip"}
@@ -1730,8 +1759,8 @@ class TerminalInfo:
 class TerminalProgram:
     """Info on terminal program being currently used, if any"""
 
-    name = None  # type: str # Terminal program name
-    extra_info = None  # type: str # Extra info, if available
+    name: str | None = None  # Terminal program name
+    extra_info: str | None = None  # Extra info, if available
 
     def __init__(self, ps=None):
         for k in ("LC_TERMINAL", "TERM_PROGRAM"):

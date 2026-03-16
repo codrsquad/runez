@@ -127,7 +127,7 @@ class Header:
 
 class PrettyBorder(Slotted):
     # bottom, cell, header, header-cell, mid, padding, top
-    __slots__ = ["b", "c", "h", "hc", "m", "pad", "t"]
+    __slots__ = ("b", "c", "h", "hc", "m", "pad", "t")
 
     def __repr__(self):
         return self.represented_values(delimiter=",", operator=":")
@@ -305,7 +305,7 @@ class PrettyTable(PrettyCustomizable):
             style (str | runez.colors.Renderable | None): Desired default style (eg: dim, bold, etc)
             width (int | None): Desired width (defaults to detected terminal width)
         """
-        self.header = header  # type: PrettyHeader
+        self.header: PrettyHeader = header
         self.align = align
         self.border = border
         self.missing = missing
@@ -457,7 +457,7 @@ def render_line(container, columns, padding, pad, chars, cells=None):
 
 
 class _PTBorderChars(Slotted):
-    __slots__ = ["first", "h", "last", "mid"]
+    __slots__ = ("first", "h", "last", "mid")
 
     def _values_from_string(self, text):
         return self._values_from_object(list(text))

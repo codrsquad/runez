@@ -10,13 +10,14 @@ import sys
 import threading
 import time
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 from runez.ascii import AsciiAnimation
 from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone, represented_duration
 from runez.file import parent_folder
 from runez.system import (
+    _PyMimicked,
     _R,
     abort_if,
     cached_property,
@@ -94,7 +95,7 @@ class ProgressBar:
         self.frame_count = len(frames) - 2
         self.per_frame = self.per_char / self.frame_count if self.frame_count > 0 else None
         self.iterable = iterable
-        self.parent = None  # type: Optional[ProgressBar] # Parent progress bar, if any
+        self.parent: ProgressBar | None = None  # Parent progress bar, if any
         if total is None and hasattr(iterable, "__len__"):
             total = len(iterable)
 
@@ -169,11 +170,11 @@ class ProgressBar:
 class _SpinnerComponent:
     def __init__(self, fps, source, color, adapter=None):
         self.adapter = adapter
-        self.source = source  # type: callable
+        self.source = source
         self.color = color
         self.update_delay = 1.0 / fps
         self.next_update = 0
-        self.current_text = None  # type: Optional[str]
+        self.current_text: str | None = None
 
     def add_text(self, line, columns):
         """(int): size of text added to 'line' (lock already acquired)"""
@@ -253,13 +254,13 @@ class ProgressSpinner:
         self._current_line = None
         self._fps = 60.0  # Higher fps for _run(), to reduce flickering as much as possible
         self._has_progress_line = False
-        self._msg_show = None  # type: Optional[str] # Message coming from show() calls
-        self._msg_debug = None  # type: Optional[str] # Message coming from trace() or debug() calls
-        self._progress_bar = None  # type: Optional[ProgressBar]
-        self._state = None  # type: Optional[_SpinnerState]
-        self._stderr_write = None
-        self._stdout_write = None
-        self._thread = None  # type: Optional[threading.Thread] # Background daemon thread used to display progress
+        self._msg_show: str | None = None  # Message coming from show() calls
+        self._msg_debug: str | None = None  # Message coming from trace() or debug() calls
+        self._progress_bar: ProgressBar | None = None
+        self._state: _SpinnerState | None = None
+        self._stderr_write: Callable[[str], int] | None = None
+        self._stdout_write: Callable[[str], int] | None = None
+        self._thread: threading.Thread | None = None  # Background daemon thread used to display progress
 
     def show(self, message):
         """
@@ -320,10 +321,10 @@ class ProgressSpinner:
                 self._clear_line()
                 self._has_progress_line = False
 
-            if sys.stdout.write == self._on_stdout:
+            if self._stdout_write is not None and sys.stdout.write == self._on_stdout:
                 sys.stdout.write = self._stdout_write
 
-            if sys.stderr.write == self._on_stderr:
+            if self._stderr_write is not None and sys.stderr.write == self._on_stderr:
                 sys.stderr.write = self._stderr_write
 
             self._stderr_write = None
@@ -372,7 +373,7 @@ class ProgressSpinner:
         if SYS_INFO.terminal.isatty(stream):
             return getattr(stream, "write", None)
 
-    def _clean_write(self, write, message):
+    def _clean_write(self, write, message) -> int:
         """Output 'message' using 'write' function, ensure any pending progress line is cleared first"""
         if message:
             message = decode(message)
@@ -384,15 +385,17 @@ class ProgressSpinner:
                 if self._has_progress_line is False and message.endswith("\n"):
                     self._has_progress_line = None
 
-                write(message)
+                return write(message)
 
-    def _on_stdout(self, message):
+        return 0
+
+    def _on_stdout(self, s: str) -> int:
         """Intercepted print() or sys.stdout.write()"""
-        self._clean_write(self._stdout_write, message)
+        return self._clean_write(self._stdout_write, s)
 
-    def _on_stderr(self, message):
+    def _on_stderr(self, s: str) -> int:
         """Intercepted sys.stderr.write()"""
-        self._clean_write(self._stderr_write, message)
+        return self._clean_write(self._stderr_write, s)
 
     def _clear_line(self):
         """Called in spinner thread (lock already acquired)"""
@@ -400,7 +403,8 @@ class ProgressSpinner:
 
     def _write(self, text):
         """Called in any thread (lock already acquired)"""
-        self._stderr_write(text)
+        if self._stderr_write is not None:
+            self._stderr_write(text)
 
     def _run(self):
         """Background thread handling progress reporting and animation"""
@@ -453,7 +457,7 @@ class LoggingSnapshot(Slotted):
     Take a snapshot of parts we're modifying in the 'logging' module, in order to be able to restore it as it was
     """
 
-    __slots__ = ["_srcfile", "critical", "debug", "error", "exception", "fatal", "info", "warning"]
+    __slots__ = ("_srcfile", "critical", "debug", "error", "exception", "fatal", "info", "warning")
 
     def _seed(self):
         """Seed initial fields"""
@@ -478,7 +482,7 @@ class LogSpec(Slotted):
     """
 
     # See setup()'s docstring for meaning of each field
-    __slots__ = [
+    __slots__ = (
         "appname",
         "basename",
         "console_format",
@@ -496,7 +500,7 @@ class LogSpec(Slotted):
         "rotate_count",
         "timezone",
         "tmp",
-    ]
+    )
 
     @property
     def argv(self):
@@ -1189,7 +1193,7 @@ class LogManager:
             logging.log = _LogWrap.log
 
 
-class _LogWrap:
+class _LogWrap(_PyMimicked):
     """Allows to correctly report caller file/function/line from convenience calls such as logging.info()"""
 
     def __init__(self, level, exc_info=None):
@@ -1199,12 +1203,11 @@ class _LogWrap:
 
     @staticmethod
     def log(level, msg, *args, **kwargs):
-        getframe = getattr(sys, "_getframe", None)
         offset = kwargs.pop("_stack_offset", 1)
-        name = getframe(offset).f_globals.get("__name__")
+        name = sys._getframe(offset).f_globals.get("__name__")
         logger = logging.getLogger(name)
         try:
-            logging.currentframe = lambda: getframe(3 + offset)
+            logging.currentframe = lambda: sys._getframe(3 + offset)
             logger.log(level, msg, *args, **kwargs)
 
         finally:

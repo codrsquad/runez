@@ -87,8 +87,8 @@ class DefaultBehavior:
     (global default for that does not make sense).
     """
 
-    strict = False  # type: callable # Original default: don't strictly enforce type compatibility
-    extras = False  # type: callable  # Original default: don't report extra fields seen in deserialized data (ie: ignore them)
+    strict = False  # Original default: don't strictly enforce type compatibility
+    extras = False  # Original default: don't report extra fields seen in deserialized data (ie: ignore them)
 
     def __init__(self, strict=UNSET, extras=UNSET, hook=UNSET):
         """
@@ -156,14 +156,18 @@ class DefaultBehavior:
             if isinstance(self.strict, type) and issubclass(self.strict, Exception):
                 raise self.strict(msg)
 
-            self.strict(msg)
+            from runez.schema import ValidationException
+
+            handler = self.strict if callable(self.strict) else ValidationException.raise_with_message
+            handler(msg)
 
     def do_notify(self, message):
         if self.extras:
             if isinstance(self.extras, type) and issubclass(self.extras, Exception):
                 raise self.extras(message)
 
-            self.extras(message)
+            notifier = self.extras if callable(self.extras) else LOG.debug
+            notifier(message)
 
     def handle_extra(self, class_name, field_name):
         self.do_notify("'%s' is not an attribute of %s" % (field_name, class_name))
@@ -538,7 +542,7 @@ def add_meta(meta_type):
 class Serializable:
     """Serializable object"""
 
-    _meta = None  # type: ClassMetaDescription  # This describes fields and properties of descendant classes, populated via metaclass
+    _meta: ClassMetaDescription  # Describes fields and properties of descendant classes, populated via metaclass
 
     def __new__(cls, *_, **__):
         obj = super(Serializable, cls).__new__(cls)
@@ -546,8 +550,11 @@ class Serializable:
         return obj
 
     def __eq__(self, other):
-        if other is not None and other.__class__ is self.__class__:
-            return not any(not hasattr(other, x) or getattr(self, x) != getattr(other, x) for x in self._meta.attributes)
+        return (
+            other is not None
+            and other.__class__ is self.__class__
+            and not any(not hasattr(other, x) or getattr(self, x) != getattr(other, x) for x in self._meta.attributes)
+        )
 
     def __ne__(self, other):
         return not (self == other)

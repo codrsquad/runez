@@ -2,7 +2,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import ClassVar
+from typing import ClassVar, Optional
 
 from runez.file import ls_dir
 from runez.program import is_executable, run
@@ -298,7 +298,7 @@ class PythonDepot:
         p = my_depot.find_python("3.10")
     """
 
-    _preferred_python = None  # type: PythonInstallation  # Preferred python to use, if configured
+    _preferred_python: Optional["PythonInstallation"] = None  # Preferred python to use, if configured
 
     def __init__(self, *locations):
         """
@@ -419,12 +419,16 @@ class Version:
 
     text: str
 
-    def __init__(self, text, max_parts=5, canonical=False):
+    def __init__(self, text, max_parts=5, canonical: bool | None = False):
         """
-        Args:
-            text (str | None): Text to be parsed
-            max_parts (int): Maximum number of parts (components) to consider version valid
-            canonical (bool | None): None: loose parsing, False: strict parsing, version left as-is, True: Turn into canonical PEP-440
+        Parameters
+        ----------
+        text : str | None
+            Text to be parsed
+        max_parts : int
+            Maximum number of parts (components) to consider version valid
+        canonical : bool | None
+            None: loose parsing, False: strict parsing, version left as-is, True: Turn into canonical PEP-440
         """
         self.given_text = text
         self.given_components = None  # Components as given by 'text'
@@ -839,7 +843,7 @@ class PythonInstallationLocation:
 
     def __init__(self, location):
         self.location = location
-        self._preferred_python = UNSET  # type: PythonInstallation # Auto-selected preferred python from this location
+        self._preferred_python: PythonInstallation | None = UNSET  # Auto-selected preferred python from this location
 
     def __repr__(self):
         return short(self.location)

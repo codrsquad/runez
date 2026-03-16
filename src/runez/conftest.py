@@ -197,21 +197,21 @@ _pytest.logging.LogCaptureHandler = WrappedHandler
 class ClickWrapper:
     """Wrap click invoke, when click is available, otherwise just call provided function"""
 
-    def __init__(self, stdout, stderr, exit_code, exception):
-        self.stdout = stdout
-        self.stderr = stderr
-        self.exit_code = exit_code
-        self.exception = exception
+    def __init__(self, stdout=None, stderr=None, exit_code=None, exception=None):
+        self.stdout: str | None = stdout
+        self.stderr: str | None = stderr
+        self.exit_code: int | None = exit_code
+        self.exception: BaseException | None = exception
 
 
 class ClickRunner:
     """Allows to provide a test-friendly fixture around testing click entry-points"""
 
-    args: list = None  # Arguments used in last run()
-    exit_code: int = None  # Exit code of last run()
+    args: list | None = None  # Arguments used in last run()
+    exit_code: int | None = None  # Exit code of last run()
     logged: TrackedOutput  # Captured log from last run()
-    main: callable = None  # Optional, override default_main for this runner instance
-    trace: bool = None  # Optional, enable trace logging for this runner instance
+    main = None  # Optional, override default_main for this runner instance
+    trace: bool | None = None  # Optional, enable trace logging for this runner instance
 
     def __init__(self, context=None):
         """
@@ -403,19 +403,19 @@ class ClickRunner:
             return path
 
     def _run_main(self, main, args):
-        if _ClickCommand is not None and isinstance(main, _ClickCommand):
+        if _ClickCommand is not None and isinstance(main, _ClickCommand) and _CliRunner is not None:
             if "LANG" not in os.environ:
                 # Avoid click complaining about unicode for tests that mock env vars
-                os.environ["LANG"] = "en_US.UTF-8"
+                os.environ.setdefault("LANG", "en_US.UTF-8")
 
             runner = _CliRunner()
             r = runner.invoke(main, args=args)
-            return ClickWrapper(r.output, None, r.exit_code, r.exception)
+            return ClickWrapper(stdout=r.output, exit_code=r.exit_code, exception=r.exception)
 
         if callable(main):
-            result = ClickWrapper(None, None, None, None)
+            result = ClickWrapper()
             try:
-                result.stdout = main()
+                result.stdout = stringified(main())
                 result.exit_code = 0
 
             except AssertionError:
@@ -440,11 +440,11 @@ class ClickRunner:
         script = self._resolved_script(main)
         assert script, "Can't find script '%s', invalid main" % main
         r = runez.run(sys.executable, script, *args, fatal=False)
-        return ClickWrapper(r.output, r.error, r.exit_code, r.exc_info)
+        return ClickWrapper(stdout=r.output, stderr=r.error, exit_code=r.exit_code, exception=r.exc_info)
 
 
 class RunSpec(Slotted):
-    __slots__ = ["regex", "stderr", "stdout"]
+    __slots__ = ("regex", "stderr", "stdout")
 
     def _get_defaults(self):
         return UNSET

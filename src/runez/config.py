@@ -358,11 +358,11 @@ class ConfigProvider:
     def __repr__(self):
         return self.provider_id()
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 0
 
     @property
-    def values(self):
+    def values(self) -> dict | None:
         """dict: values in this provider"""
         return None
 
@@ -374,7 +374,7 @@ class ConfigProvider:
         """Id of this provider (there can only be one active at a time)"""
         return self.__class__.__name__.replace("Provider", "").lower()
 
-    def get(self, key):
+    def get(self, key) -> str | None:
         """
         Args:
             key (str): Key to lookup
