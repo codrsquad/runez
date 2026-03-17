@@ -154,6 +154,14 @@ def test_context(temp_log):
     logging.info("hello")
     assert temp_log.pop() == "UTC INFO - hello"
 
+    # Verify that filters get cleaned up if `%(context)s` is removed
+    runez.log.spec.console_format = "%(timezone)s %(levelname)s - %(message)s"
+    assert runez.log.context.filter
+    runez.log.setup()
+    assert runez.log.context.filter is None
+    logging.info("hello")
+    assert temp_log.pop() == "UTC INFO - hello"
+
     assert not runez.log.context.has_global()
     assert not runez.log.context.has_threadlocal()
 
@@ -512,8 +520,8 @@ def test_setup(temp_log, monkeypatch):
 def test_progress_bar():
     p = runez.ProgressBar(range(2))
     assert list(p) == [0, 1]
-    assert str(p) == "None/2"
-    assert p.rendered() is None
+    assert str(p) == "0/2"
+    assert p.rendered() == "        0%"
 
     with runez.ProgressBar(total=3, columns=4) as pb:
         assert pb.n == 0
@@ -526,15 +534,15 @@ def test_progress_bar():
         pb.update()
         assert pb.rendered() == "▉▉▉▉100%"
 
-    assert pb.n is None
-    assert pb.rendered() is None
+    assert pb.n == 0
+    assert pb.rendered() == "    0%"
 
 
 def test_progress_command(cli, monkeypatch):
-    cli.run("progress-bar", "-i10", "-d1", "--sleep", "0.01")
+    cli.run("progress-bar", "-v", "-i50", "-d1", "--sleep", "0.01")
     assert cli.succeeded
     assert "done" in cli.logged.stdout
-    assert "CPU usage" in cli.logged.stdout
+    assert "% CPU usage" in cli.logged.stdout
 
     monkeypatch.setitem(sys.modules, "psutil", None)
     cli.run("progress-bar", "-i10", "-d1", "--sleep", "0.01")

@@ -85,11 +85,11 @@ class ProgressBar:
         self.per_frame = self.per_char / self.frame_count if self.frame_count > 0 else None
         self.iterable = iterable
         self.parent: ProgressBar | None = None  # Parent progress bar, if any
-        if total is None and hasattr(iterable, "__len__"):
+        if not total and iterable and hasattr(iterable, "__len__"):
             total = len(iterable)
 
-        self.total = total
-        self.n = None
+        self.total = total or 1
+        self.n = 0
 
     def __repr__(self):
         return "%s/%s" % (self.n, self.total)
@@ -112,26 +112,21 @@ class ProgressBar:
 
     def start(self):
         """Start tracking progress with this progressbar"""
-        if self.n is None:
-            self.n = 0
-            LogManager.progress._add_progress_bar(self)
+        self.n = 0
+        LogManager.progress._add_progress_bar(self)
 
     def stop(self):
         """Stop / cleanup this progressbar"""
-        if self.n is not None:
-            self.n = None
-            LogManager.progress._remove_progress_bar(self)
+        self.n = 0
+        LogManager.progress._remove_progress_bar(self)
 
     def update(self, n=1):
         """Manually update the progress bar, advance progress by 'n'"""
         self.n += n
 
-    def rendered(self):
+    def rendered(self) -> str:
         """Called in spinner thread (lock already acquired)"""
-        if self.n is None or not self.total:
-            return None
-
-        percent = max(round(100.0 * self.n / self.total), 0)
+        percent = max(0, round(100.0 * self.n / max(1, self.total)))
         blanks = 0
         if percent >= 100:
             percent = 100
@@ -293,6 +288,7 @@ class ProgressSpinner:
                 return
 
             self._thread = None
+            self._state = None
 
         attempts = 10
         while attempts > 0:
@@ -330,10 +326,7 @@ class ProgressSpinner:
 
     def _get_message(self):
         """Called in spinner thread (lock already acquired)"""
-        if self._msg_show is not None:
-            return self._msg_show
-
-        return self._msg_debug
+        return self._msg_show or self._msg_debug
 
     def _get_progress(self):
         """Called in spinner thread (lock already acquired)"""
@@ -362,20 +355,17 @@ class ProgressSpinner:
         if SYS_INFO.terminal.isatty(stream):
             return getattr(stream, "write", None)
 
-    def _clean_write(self, write, message) -> int:
+    def _clean_write(self, write, message: str) -> int:
         """Output 'message' using 'write' function, ensure any pending progress line is cleared first"""
-        if message:
-            with self._lock:
-                if self._has_progress_line:
-                    self._clear_line()
-                    self._has_progress_line = False
+        with self._lock:
+            if self._has_progress_line:
+                self._clear_line()
+                self._has_progress_line = False
 
-                if self._has_progress_line is False and message.endswith("\n"):
-                    self._has_progress_line = None
+            if self._has_progress_line is False and message.endswith("\n"):
+                self._has_progress_line = None
 
-                return write(message)
-
-        return 0
+            return write(message)
 
     def _on_stdout(self, s: str) -> int:
         """Intercepted print() or sys.stdout.write()"""
@@ -397,24 +387,26 @@ class ProgressSpinner:
     def _run(self):
         """Background thread handling progress reporting and animation"""
         try:
-            sleep_delay = 1 / self._fps
-            frequency = int(self._fps / self._state.max_fps) - 1
-            countdown = 0
-            line = None
-            while self._thread:
-                time.sleep(sleep_delay)
-                countdown -= 1
-                if countdown < 0 or self._has_progress_line is None:
-                    with self._lock:
-                        if countdown < 0:
-                            countdown = frequency
-                            line = self._state.get_line(time.time())
+            state = self._state
+            if state is not None:
+                sleep_delay = 1 / self._fps
+                frequency = int(self._fps / state.max_fps) - 1
+                countdown = 0
+                line = None
+                while self._thread:
+                    time.sleep(sleep_delay)
+                    countdown -= 1
+                    if countdown < 0 or self._has_progress_line is None:
+                        with self._lock:
+                            if countdown < 0:
+                                countdown = frequency
+                                line = state.get_line(time.time())
 
-                        if line:
-                            self._clear_line()
-                            self._write(line)
-                            self._write("\r")
-                            self._has_progress_line = True
+                            if line:
+                                self._clear_line()
+                                self._write(line)
+                                self._write("\r")
+                                self._has_progress_line = True
 
         finally:
             self.is_running = False
@@ -607,10 +599,11 @@ class _ContextFilter(logging.Filter):
 class Timeit:
     """Measure how long a decorated function, or context, took took to run"""
 
+    function_name: str | None = None
+
     def __init__(self, function=None, color="bold", logger=UNSET, fmt="{function} took {elapsed}"):
         self.__func__ = None
-        self.function_name = None
-        self.start_time = None
+        self.start_time: float = 0
         self.color = color
         self.logger = logger
         self.fmt = fmt
@@ -619,7 +612,7 @@ class Timeit:
             self.__func__ = function
             self.function_name = "%s()" % function.__qualname__
 
-        else:
+        elif isinstance(function, str):
             self.function_name = function
 
     def __get__(self, instance, owner):
@@ -1113,7 +1106,9 @@ class LogManager:
             new_handler.setLevel(level)
 
         logging.root.addHandler(new_handler)
-        cls.handlers.append(new_handler)
+        if cls.handlers is not None:
+            cls.handlers.append(new_handler)
+
         return new_handler
 
     @classmethod
@@ -1155,12 +1150,14 @@ class LogManager:
         """
         if cls.is_using_format("%(context)"):
             cls.context.enable(True)
-            for handler in cls.handlers:
-                handler.addFilter(cls.context.filter)
+            if cls.context.filter is not None and cls.handlers is not None:
+                for handler in cls.handlers:
+                    handler.addFilter(cls.context.filter)
 
         else:
-            for handler in cls.handlers:
-                handler.removeFilter(cls.context.filter)
+            if cls.context.filter is not None and cls.handlers is not None:
+                for handler in cls.handlers:
+                    handler.removeFilter(cls.context.filter)
 
             cls.context.enable(False)
 

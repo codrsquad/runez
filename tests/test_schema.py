@@ -146,6 +146,21 @@ def test_list():
     assert sorted(ll.converted({1, "2"})) == [1, 2]
 
 
+def declare_bogus_class():
+    # Declare a bogus class (with strict=False, default), to verify that unknown types are ignored
+    class Bogus(Serializable):
+        a = object
+        b = object()
+
+    return Bogus
+
+
+def test_invalid():
+    bogus = declare_bogus_class()
+    m = bogus._meta
+    assert str(m) == "Bogus (0 attributes, 0 properties)"
+
+
 def test_number():
     ff = Float()
     assert str(ff) == "Float"
@@ -161,7 +176,7 @@ def test_number():
 
 
 class Car(Serializable, with_behavior(strict=True, extras=(logging.info, "foo bar"))):
-    make = String
+    make = str
     serial = UniqueIdentifier
     year = Integer
 
@@ -219,6 +234,7 @@ def test_serializable(logged):
     assert str(Person._meta.behavior) == "strict: function 'error', extras: function 'debug', hook: function 'info'"
     # `hook` is inherited
     assert str(GPerson._meta.behavior) == "strict: function 'error', extras: function 'debug', hook: function 'info'"
+    assert str(Person._meta.attributes["name"]) == "String (default: joe)"
 
     # Verify that most specific type wins (GPerson -> age)
     assert Person._meta.attributes_by_type(Integer) == ["fingerprint"]

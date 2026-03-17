@@ -7,13 +7,8 @@ Functions from this module must be explicitly imported, for example:
 """
 
 import importlib
-import sys
-import time
-from functools import wraps
 
-from runez.convert import to_int
-from runez.program import run
-from runez.system import abort_if, find_caller, py_mimic, SYS_INFO
+from runez.system import find_caller
 
 
 def auto_import_siblings(skip=None, caller=None):
@@ -65,90 +60,6 @@ def auto_import_siblings(skip=None, caller=None):
             imported.append(module_name)
 
     return imported
-
-
-class AutoInstall:
-    """
-    Decorator to trigger just-in-time pip installation of a requirement (if/when needed), example usage:
-
-        from runez.inspector import AutoInstall
-
-        @AutoInstall("requests")
-        def fetch(url):
-            import requests
-            ...
-    """
-
-    def __init__(self, top_level, package_name=None):
-        """Decorator creation"""
-        self.top_level = top_level
-        self.package_name = package_name or top_level
-
-    def ensure_installed(self):
-        """Ensure that self.top_level is installed (install it if need be)"""
-        try:
-            importlib.import_module(self.top_level)
-
-        except ImportError:
-            abort_if(not SYS_INFO.venv_bin_folder, "Can't auto-install '%s' outside of a virtual environment" % self.package_name)
-            r = run(sys.executable, "-mpip", "install", self.package_name, fatal=False, dryrun=False)
-            abort_if(r.failed, "Can't auto-install '%s': %s" % (self.package_name, r.full_output))
-
-    def __call__(self, target):
-        """Decorator invoked with decorated function 'target'"""
-
-        @wraps(target)
-        def inner(*args, **kwargs):
-            self.ensure_installed()
-            return target(*args, **kwargs)
-
-        py_mimic(target, inner)
-        return inner
-
-
-class ImportTime:
-    """Measure average import time of a given top-level package"""
-
-    def __init__(self, module_name, iterations=3):
-        self.module_name = module_name
-        self.elapsed = None
-        self.cumulative = None
-        self.problem = None
-        cumulative = 0
-        started = time.time()
-        for _ in range(iterations):
-            c = self._get_importtime()
-            if not c:
-                return
-
-            cumulative += c
-
-        self.elapsed = (time.time() - started) / iterations
-        self.cumulative = cumulative / iterations
-
-    def __repr__(self):
-        return "%s %.3g" % (self.module_name, self.elapsed or 0)
-
-    def __lt__(self, other):
-        if isinstance(other, ImportTime) and self.cumulative and other.cumulative:
-            return self.cumulative < other.cumulative
-
-    def _get_importtime(self):
-        result = run(sys.executable, "-Ximporttime", "-c", "import %s" % self.module_name, fatal=False)
-        if result.failed:
-            lines = result.error.splitlines()
-            self.problem = lines[-1] if lines else "-Ximporttime failed"
-            return None
-
-        cumulative = 0
-        for line in result.error.splitlines():  # python -Ximporttime outputs to stderr
-            items = line.split("|")
-            if items and len(items) > 1:
-                c = to_int(items[1])
-                if c:
-                    cumulative = max(cumulative, c)
-
-        return cumulative
 
 
 def _should_auto_import(module_name, skip):

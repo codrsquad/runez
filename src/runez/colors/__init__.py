@@ -168,13 +168,13 @@ class ColorManager:
 class Renderable:
     """A render-able (color or style) named object"""
 
-    def __init__(self, name):
+    def __init__(self, name: str):
         self.name = name
 
     def __repr__(self):
         return self.name
 
-    def __call__(self, text, size=None):
+    def __call__(self, text: str, size=None) -> str:
         """
         Allows for convenient call of the form:
 
@@ -185,7 +185,7 @@ class Renderable:
         text = short(text, size=size) if size else stringified(text)
         return self.rendered(text) if text else ""
 
-    def rendered(self, text):
+    def rendered(self, text: str) -> str:
         return text
 
 

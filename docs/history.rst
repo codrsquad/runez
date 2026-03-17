@@ -7,19 +7,29 @@ History
 
 * ``ClickRunner.default_main`` and ``ClickRunner.context_wrapper`` replace deprecated ``cli.default_main`` and ``cli.context``
 
-* Removed ``decode()`` from ``runez.system`` (python2 leftover, no longer needed)
+* Removed:
 
-* Removed ``strip=`` argument from ``runez.run()``
+    * ``runez.config`` from top-level imports (use ``from runez.config import ...`` directly if needed)
+
+    * ``strip=`` argument from ``runez.run()``
+
+    * ``is_subfolder()`` from ``runez.file``
+
+    * ``assert_printed()`` from ``CapturedStream``, ``TrackedOutput``, and ``ClickRunner``
+
+    * ``runez.AdaptedProperty``, ``runez.Slotted``
+
+    * ``runez.inspector.AutoInstall``
+
+    * ``runez.inspector.ImportTime``
+
+* Simplified ``runez.schema`` internals
 
 * Turned on flake8-simplify and tryceratops, fixed corresponding issues
 
 * Added tests
 
 * Modernized GH actions and project metadata
-
-* Removed ``is_subfolder()`` from ``runez.file``
-
-* Removed ``assert_printed()`` from ``CapturedStream``, ``TrackedOutput``, and ``ClickRunner``
 
 * ``ClickRunner.run()`` now accepts ``pathlib.Path`` objects for ``main``/script args
 
@@ -33,7 +43,7 @@ History
 
 * Using ``extractall(filter="data")`` from stdlib for path traversal protection
 
-* Adapted type declarations, pyright reported issues went from 861 to 32
+* Adapted type declarations, pyright now reports 0 errors
 
 
 5.5.0 (2026-03-12)

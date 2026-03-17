@@ -77,7 +77,7 @@ def abort(message, code=1, exc_info=None, return_value: _T = None, fatal=True, l
     Args:
         message (str): Message explaining why we're aborting
         code (int): Exit code used when runez.system.AbortException is set to SystemExit
-        exc_info (Exception): Exception info to pass on to logger
+        exc_info (BaseException): Exception info to pass on to logger
         return_value (Any): Value to return when `fatal` is not True
         fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), None to disable log chatter
@@ -275,6 +275,28 @@ def capped(value, minimum=None, maximum=None, key=None, none_ok=False):
     return value
 
 
+def decode(value: str | bytes, strip: str | bool | None = None) -> str:
+    """Python 2/3 friendly decoding of output.
+
+    Args:
+        value (str | bytes): The value to decode.
+        strip (str | bool | None): If provided, `strip()` the returned string.
+
+    Returns:
+        str: Decoded value, if applicable.
+    """
+    if isinstance(value, bytes):
+        value = value.decode("utf-8", errors="replace")
+
+    if strip is True:
+        value = value.strip()
+
+    elif isinstance(strip, str):
+        value = value.strip(strip)
+
+    return value
+
+
 def find_caller(depth=2, maximum=1000, need_file=True, need_package=False, regex=None):
     """
     Args:
@@ -296,11 +318,12 @@ def find_caller(depth=2, maximum=1000, need_file=True, need_package=False, regex
                 package = f.f_globals.get("__package__")
                 if package or not need_package:
                     name = f.f_globals.get("__name__")
-                    top_level = package and package.partition(".")[0]
-                    if name.endswith("__main__") or not top_level or (not top_level.startswith("_") and top_level not in ignored):
-                        filepath = f.f_globals.get("__file__")
-                        if (filepath or not need_file) and (regex is None or regex.match(name)):
-                            return _CallerInfo(f, depth, package, top_level, name, filepath)
+                    if name != "functools":
+                        top_level = package and package.partition(".")[0]
+                        if name.endswith("__main__") or not top_level or (not top_level.startswith("_") and top_level not in ignored):
+                            filepath = f.f_globals.get("__file__")
+                            if (filepath or not need_file) and (regex is None or regex.match(name)):
+                                return _CallerInfo(f, depth, package, top_level, name, filepath)
 
                 depth = depth + 1
 
@@ -425,7 +448,7 @@ def is_iterable(value):
     return isinstance(value, (list, tuple, set)) or inspect.isgenerator(value)
 
 
-def stringified(value, converter=None, none: str | bool | None = "None"):
+def stringified(value, converter=None, none: str | bool | None = "None") -> str:
     """
     Args:
         value: Any object to turn into a string
@@ -439,7 +462,7 @@ def stringified(value, converter=None, none: str | bool | None = "None"):
         return value
 
     if isinstance(value, bytes):
-        return value.decode("utf-8", errors="replace")
+        return decode(value)
 
     if converter is not None:
         converted = converter(value)
@@ -662,85 +685,6 @@ class AbortException(Exception):
     SystemExit: 1
     >>> runez.system.AbortException = saved  # Restoring to avoid confusing other tests
     """
-
-
-class AdaptedProperty(_PyMimicked):
-    """
-    This decorator allows to define properties with regular get/set behavior,
-    but the body of the decorated function can act as a validator, and can auto-convert given values
-
-    Example usage:
-        >>> from runez import AdaptedProperty
-        >>> class MyObject:
-        ...     age = AdaptedProperty(default=5)  # Anonymous property
-        ...
-        ...     @AdaptedProperty           # Simple adapted property
-        ...     def width(self, value):
-        ...         if value is not None:  # Implementation of this function acts as validator and adapter
-        ...             return int(value)  # Here we turn value into an int (will raise exception if not possible)
-        ...
-        >>> my_object = MyObject()
-        >>> assert my_object.age == 5  # Default value
-        >>> my_object.width = "10"     # Implementation of decorated function turns this into an int
-        >>> assert my_object.width == 10
-    """
-
-    __counter = 0  # Simple counter for anonymous properties
-
-    def __init__(self, validator=None, default=None, doc=None, caster=None, type=None):
-        """
-        Args:
-            validator (callable | str | None): Function to use to validate/adapt passed values, or name of property
-            default: Default value
-            doc (str): Docstring (applies to anonymous properties only)
-            caster (callable): Optional caster called for non-None values only (applies to anonymous properties only)
-            type (type): Optional type, must have initializer with one argument if provided
-        """
-        self.default = default
-        self.caster = caster
-        self.type = type
-        if callable(validator):
-            # 'validator' is available when used as decorator of the form: @AdaptedProperty
-            self.validator = validator
-            self.key = "__%s" % validator.__name__
-            py_mimic(self, validator)
-
-        else:
-            # 'validator' is NOT available when decorator of this form is used: @AdaptedProperty(default=...)
-            # or as an anonymous property form: my_prop = AdaptedProperty()
-            self.validator = None
-            self.__doc__ = doc
-            if validator is None:
-                i = self.__class__.__counter = self.__class__.__counter + 1
-                validator = "anon_prop_%s" % i
-
-            self.key = "__%s" % validator
-
-    def __call__(self, validator):
-        """Called when used as decorator of the form: @AdaptedProperty(default=...)"""
-        self.validator = validator
-        self.key = "__%s" % validator.__name__
-        py_mimic(self, validator)
-        return self
-
-    def __get__(self, instance, owner):
-        if instance is None:
-            return self  # We're being called by class
-
-        return getattr(instance, self.key, self.default)
-
-    def __set__(self, obj, value):
-        if self.validator is not None:
-            value = self.validator(obj, value)
-
-        elif self.type is not None:
-            if not isinstance(value, self.type):
-                value = self.type(value)
-
-        elif value is not None and self.caster is not None:
-            value = self.caster(value)
-
-        setattr(obj, self.key, value)
 
 
 class Anchored:
@@ -1985,12 +1929,6 @@ class _LazyCache:
         return runez
 
     @cached_property
-    def rm_schema(self):
-        import runez.schema
-
-        return runez.schema
-
-    @cached_property
     def rx_ansi_escape(self):
         return re.compile(r"\x1b(\[[;\d]*[A-Za-z]?)?")
 
@@ -2179,22 +2117,6 @@ class _R:
             return cls.lc.rm.DRYRUN
 
         return dryrun
-
-    @classmethod
-    def serializable(cls):
-        """Late-imported Serializable class"""
-        return cls.lc.rm.Serializable
-
-    @classmethod
-    def meta_description(cls, struct):
-        """
-        Args:
-            struct (runez.schema.Struct): Associated Struct
-
-        Returns:
-            (runez.serialize.ClassMetaDescription): Meta object describing given 'struct'
-        """
-        return cls.lc.rm.serialize.ClassMetaDescription(struct.__class__)
 
     @classmethod
     def set_dryrun(cls, dryrun):

@@ -1,8 +1,9 @@
+import inspect
 import os
 
 from runez.colors import ColorManager
 from runez.convert import to_int
-from runez.system import _R, AdaptedProperty, flattened, is_iterable, joined, short, Slotted, stringified, SYS_INFO, UNSET, wcswidth
+from runez.system import _R, flattened, joined, short, Slotted, stringified, SYS_INFO, UNSET, wcswidth
 
 NAMED_BORDERS = {
     "ascii": "rstgrid,t:+++=,m:+++-",
@@ -160,6 +161,36 @@ class PrettyBorder(Slotted):
         super()._set_field(name, value)
 
 
+class _AdaptedProperty:
+    """
+    This decorator allows to define properties with regular get/set behavior,
+    but the body of the decorated function can act as a validator, and can auto-convert given values
+    """
+
+    def __init__(self, key: str, caster=None, type=None):
+        """
+        Args:
+            caster (callable): Optional caster called for non-None values only (applies to anonymous properties only)
+            type (type): Optional type, must have initializer with one argument if provided
+        """
+        self.caster = caster
+        self.type = type
+        self.key = "_%s" % key
+
+    def __get__(self, instance, owner):
+        return getattr(instance, self.key, None)
+
+    def __set__(self, obj, value):
+        if self.type is not None:
+            if not isinstance(value, self.type):
+                value = self.type(value)
+
+        elif value is not None and self.caster is not None:
+            value = self.caster(value)
+
+        setattr(obj, self.key, value)
+
+
 class PrettyCustomizable:
     """
     Ancestor to customizable points, in reverse order of priority
@@ -168,9 +199,9 @@ class PrettyCustomizable:
     - header.column: applies to all cells within a column (including header cells)
     """
 
-    align = AdaptedProperty("align", caster=Align.cast, doc="Horizontal alignment to use (left, center or right)")
-    style = AdaptedProperty("style", caster=ColorManager.cast_style, doc="Style")
-    width = AdaptedProperty("width", caster=int, doc="Desired width")
+    align = _AdaptedProperty("align", caster=Align.cast)
+    style = _AdaptedProperty("style", caster=ColorManager.cast_style)
+    width = _AdaptedProperty("width", caster=int)
 
     def to_dict(self):
         result = {}
@@ -181,7 +212,7 @@ class PrettyCustomizable:
 
         return result
 
-    def formatted(self, text):
+    def formatted(self, text: str) -> str:
         style = self.style
         if style is not None:
             text = style(text)
@@ -292,8 +323,8 @@ class PrettyHeader(PrettyCustomizable):
 
 
 class PrettyTable(PrettyCustomizable):
-    border = AdaptedProperty("border", type=PrettyBorder, doc="Border to use")
-    header = AdaptedProperty("header", type=PrettyHeader, doc="Header")
+    border: PrettyBorder = _AdaptedProperty("border", type=PrettyBorder)  # type: ignore[assignment]
+    header: PrettyHeader = _AdaptedProperty("header", type=PrettyHeader)  # type: ignore[assignment]
 
     def __init__(self, header=None, align=None, border=None, missing="-", style=None, width=None):
         """
@@ -305,9 +336,9 @@ class PrettyTable(PrettyCustomizable):
             style (str | runez.colors.Renderable | None): Desired default style (eg: dim, bold, etc)
             width (int | None): Desired width (defaults to detected terminal width)
         """
-        self.header: PrettyHeader = header
+        self.header = header  # type: ignore[assignment] # converted by _AdaptedProperty.__set__
         self.align = align
-        self.border = border
+        self.border = border  # type: ignore[assignment]
         self.missing = missing
         self.style = style
         self.width = width
@@ -320,8 +351,8 @@ class PrettyTable(PrettyCustomizable):
     def rows(self):
         return self._rows
 
-    def formatted(self, value):
-        return stringified(value, none=self.missing)
+    def formatted(self, text: str | None) -> str:
+        return stringified(text, none=self.missing)
 
     def add_row(self, *values):
         """Add one row with given 'values'"""
@@ -334,13 +365,13 @@ class PrettyTable(PrettyCustomizable):
         for row in rows:
             self.add_row(row)
 
-    def get_string(self):
+    def get_string(self) -> str:
         """Table rendered as a string"""
         t = _PTTable(self)
         return t.get_string()
 
     @staticmethod
-    def _single_diag(sources, border, align, style, missing, columns):
+    def _single_diag(sources, border, align, style, missing, columns) -> str:
         table = PrettyTable(2, border=border)
         table.header[0].align = align
         table.header[1].style = style
@@ -353,10 +384,7 @@ class PrettyTable(PrettyCustomizable):
             if isinstance(source, dict):
                 source = sorted(source.items())
 
-            elif not is_iterable(source):
-                source = [source]
-
-            for row in source:
+            for row in _iterate(source):
                 if not isinstance(row, (tuple, list)):
                     row = (row, "")
 
@@ -504,7 +532,7 @@ class _PTTable:
 
         return row
 
-    def get_string(self):
+    def get_string(self) -> str:
         container = []
         columns = self.columns
         border = self.parent.border
@@ -574,12 +602,23 @@ class _PTCell:
         column.update_width(self.text_width)
 
     def rendered_text(self, size, padding):
-        text = self.text
+        text = str(self.text or "")
         if text:
             size += len(text) - wcswidth(text)
 
-        text = self.custom.align(text, size)
+        if self.custom.align is not None:
+            text = self.custom.align(text, size)
+
         return "%s%s%s" % (padding, text, padding)
+
+
+def _iterate(source):
+    """Iterate over given `source`"""
+    if isinstance(source, (list, tuple, set)) or inspect.isgenerator(source):
+        yield from source
+
+    else:
+        yield source
 
 
 def _represented_cell(text, missing_color):

@@ -22,6 +22,7 @@ Usage pattern:
     response = MY_CLIENT.get("api/v1/....", fatal=False, dryrun=False)
 """
 
+import abc
 import contextlib
 import functools
 import hashlib
@@ -31,13 +32,13 @@ import re
 import sys
 import urllib.parse
 from pathlib import Path
-from typing import ClassVar, Optional
+from typing import ClassVar
 
 from runez.file import checksum, decompress, delete, ensure_folder, TempFolder, to_path
 from runez.system import _R, abort, DEV, find_caller, joined, short, stringified, SYS_INFO, UNSET
 
 
-def urljoin(base, url):
+def urljoin(base, url) -> str:
     """Join base + url, considering that `base` is intended to be the base url of a REST end point"""
     if not base:
         return url
@@ -178,16 +179,16 @@ class GlobalHttpCalls:
 
     _original_urlopen = None
 
-    def __init__(self, allowed):
+    def __init__(self, allowed: bool):
         """We're used as a context manager"""
-        self.allowed = allowed
-        self.was_allowed = None
+        self.is_allowed = allowed
+        self.was_allowed = True
 
     def __repr__(self):
-        return "allowed" if self.allowed else "forbidden"
+        return "allowed" if self.is_allowed else "forbidden"
 
     def __enter__(self):
-        self.was_allowed = self.allow(self.allowed)
+        self.was_allowed = self.allow(self.is_allowed)
         return self
 
     def __exit__(self, *_):
@@ -199,7 +200,7 @@ class GlobalHttpCalls:
         raise ForbiddenHttpError(kwargs.get("url"))
 
     @classmethod
-    def is_forbidden(cls):
+    def is_forbidden(cls) -> bool:
         """Are outgoing http calls currently allowed?"""
         return cls._original_urlopen is not None
 
@@ -226,7 +227,7 @@ class GlobalHttpCalls:
         return inner
 
     @classmethod
-    def allow(cls, allowed=True):
+    def allow(cls, allowed=True) -> bool:
         """Allow outgoing http(s) calls"""
         from urllib3.connectionpool import HTTPConnectionPool
 
@@ -243,7 +244,7 @@ class GlobalHttpCalls:
         return was_allowed
 
     @classmethod
-    def forbid(cls):
+    def forbid(cls) -> bool:
         """Forbid outgoing http(s) calls"""
         return cls.allow(False)
 
@@ -328,8 +329,8 @@ class MockResponse:
 
 class MockedHandlerStack:
     def __init__(self):
-        self.handler = None
-        self.ms = None
+        self.handler: type[RestHandler] | None = None
+        self.ms: tuple[type, str] | None = None
         self.specs = {}
         self.spec_stack = []
         self.original_send_function = None
@@ -340,18 +341,20 @@ class MockedHandlerStack:
         nested = " [depth: %s]" % len(self.spec_stack) if self.spec_stack else ""
         return "%s mock %s, %s specs%s" % (name, status, len(self.specs), nested)
 
-    def register_handler(self, handler):
-        if self.handler:
+    def register_handler(self, handler: type["RestHandler"]) -> None:
+        if self.handler is not None:
             assert self.handler is handler, "Mocks targeting multiple handlers is not supported"
             return
 
         self.ms = handler.ms_adapter()
         self.handler = handler
 
-    def _intercept(self, *args, **kwargs):
+    def _intercept(self, *args, **kwargs) -> object:
+        assert self.handler is not None
         return self.handler.intercept(self, *args, **kwargs)
 
     def start(self, specs):
+        assert self.ms is not None
         if not self.spec_stack:
             assert self.original_send_function is None
             target, name = self.ms
@@ -362,6 +365,7 @@ class MockedHandlerStack:
         self.specs.update(specs)
 
     def stop(self):
+        assert self.ms is not None
         self.specs = self.spec_stack.pop()
         if not self.spec_stack:
             assert self.original_send_function is not None
@@ -418,7 +422,7 @@ class MockWrapper:
         self.handler = handler
         self.specs = specs or {}
         self.key = None
-        self.stack = None
+        self.stack: MockedHandlerStack | None = None
         if base_url:
             assert isinstance(base_url, str)
             assert isinstance(self.specs, dict)
@@ -433,8 +437,9 @@ class MockWrapper:
         self.stack.start(self.specs)
 
     def stop(self):
-        self.stack.stop()
-        self.stack = None
+        if self.stack is not None:
+            self.stack.stop()
+            self.stack = None
 
     def __call__(self, func):
         """
@@ -480,7 +485,7 @@ class RestResponse:
         self.method = method
         self.url = url
         self.raw_response = raw_response
-        self.status_code = raw_response.status_code
+        self.status_code = int(getattr(raw_response, "status_code", 0))
 
     def __repr__(self):
         return "<Response [%s]>" % self.status_code
@@ -578,11 +583,13 @@ class RestHandler:
         return MockWrapper(cls, base_url, specs)
 
     @classmethod
-    def new_session(cls, **session_spec) -> object | None:
-        """New session for 'session_spec'"""
+    @abc.abstractmethod
+    def new_session(cls, *args, **kwargs) -> object:
+        """New session"""
 
     @classmethod
-    def raw_response(cls, session, method, url, **passed_through):
+    @abc.abstractmethod
+    def raw_response(cls, session, method, url, **passed_through) -> object:
         """
         Args:
             session: Session as obtained via new_session() call from this handler
@@ -592,7 +599,8 @@ class RestHandler:
         """
 
     @classmethod
-    def to_rest_response(cls, method, url, raw_response) -> Optional["RestResponse"]:
+    @abc.abstractmethod
+    def to_rest_response(cls, method, url, raw_response) -> "RestResponse":
         """
         Args:
             method (str): Underlying method to call (GET, PUT, POST, etc)
@@ -604,11 +612,13 @@ class RestHandler:
         """
 
     @classmethod
-    def ms_adapter(cls) -> tuple | None:
+    @abc.abstractmethod
+    def ms_adapter(cls) -> tuple[type, str]:
         """A tuple of (adapter_class, send_function_name) used to intercept outgoing requests for mocking"""
 
     @classmethod
-    def intercept(cls, mock_caller, *args, **kwargs) -> object | None:
+    @abc.abstractmethod
+    def intercept(cls, mock_caller, *args, **kwargs) -> object:
         """
         Args:
             mock_caller (MockedHandlerStack): Mock caller to use for intercepting requests
@@ -741,7 +751,7 @@ class RestClient:
             url, headers=self.headers, timeout=self.timeout, user_agent=self.user_agent, handler=self.handler, session=self.session
         )
 
-    def full_url(self, url):
+    def full_url(self, url) -> str:
         """
         Args:
             url (str): Relative URL
@@ -751,7 +761,7 @@ class RestClient:
         """
         return urljoin(self.base_url, url)
 
-    def decompress(self, url, destination, simplify=False, fatal=True, logger=UNSET, dryrun=UNSET, **kwargs):
+    def decompress(self, url, destination, simplify=False, fatal=True, logger=UNSET, dryrun=UNSET, **kwargs) -> RestResponse:
         """
         Args:
             url (str): URL of .tar.gz to unpack (may be absolute, or relative to self.base_url)
@@ -775,7 +785,7 @@ class RestClient:
 
             return response
 
-    def download(self, url, destination, fatal=True, logger=UNSET, dryrun=UNSET, **kwargs):
+    def download(self, url, destination, fatal=True, logger=UNSET, dryrun=UNSET, **kwargs) -> RestResponse:
         """
         Args:
             url (str): URL of resource to download (may be absolute, or relative to self.base_url)
@@ -802,11 +812,12 @@ class RestClient:
                 if downloaded_checksum != hash_checksum:
                     delete(destination, fatal=False, logger=logger)
                     msg = "%s differs for %s: expecting %s, got %s" % (hash_algo, short(destination), hash_checksum, downloaded_checksum)
-                    return abort(msg, fatal=fatal, logger=logger)
+                    response.status_code = 400
+                    return abort(msg, fatal=fatal, return_value=response, logger=logger)
 
         return response
 
-    def get_response(self, url, fatal=False, logger=False, **kwargs):
+    def get_response(self, url, fatal=False, logger=False, **kwargs) -> RestResponse:
         """
         Args:
             url (str): Remote URL (may be absolute, or relative to self.base_url)
@@ -819,7 +830,7 @@ class RestClient:
         """
         return self._get_response("GET", url, fatal, logger, **kwargs)
 
-    def delete(self, url, fatal=True, logger=UNSET, dryrun=UNSET, **kwargs):
+    def delete(self, url, fatal=True, logger=UNSET, dryrun=UNSET, **kwargs) -> RestResponse:
         """Same as underlying .delete(), but respecting 'dryrun' mode
 
         Args:
@@ -969,7 +980,7 @@ class RestClient:
             (CacheWrapper): Object wrapping this cache
         """
         with contextlib.suppress(ImportError):
-            from diskcache import Cache
+            from diskcache import Cache  # type: ignore[import-not-found]  # optional dependency
 
             if directory is UNSET:
                 directory = None
@@ -1010,7 +1021,7 @@ class RestClient:
 
         return None, None, url
 
-    def _get_response(self, method, url, fatal, logger, dryrun=False, state=None, action=None, **kwargs):
+    def _get_response(self, method, url, fatal, logger, dryrun=False, state=None, action=None, **kwargs) -> RestResponse:
         """
         Args:
             method (str): Underlying method to call
@@ -1064,7 +1075,7 @@ class RestClient:
 
                 _R.hlog(logger, msg)
 
-            if cache_key is not None and response.ok and self.cache_wrapper.is_cachable_method(method):
+            if cache_key is not None and self.cache_wrapper is not None and response.ok and self.cache_wrapper.is_cachable_method(method):
                 self.cache_wrapper.set(cache_key, response, expire=cache_expire)
 
             return response

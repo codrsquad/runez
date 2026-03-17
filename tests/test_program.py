@@ -129,7 +129,7 @@ def test_capture(monkeypatch):
 
         if hasattr(subprocess.Popen, "__enter__"):
             # Simulate an EIO
-            with patch("runez.program._read_text", side_effect=simulate_os_error(errno.EIO)):
+            with patch("runez.program._read_data", side_effect=simulate_os_error(errno.EIO)):
                 r = runez.run(CHATTER, "fail", fatal=False, passthrough=True)
                 assert r.failed
                 assert r.exc_info is None
@@ -137,7 +137,7 @@ def test_capture(monkeypatch):
                 assert r.error == ""
 
             # Simulate an OSError
-            with patch("runez.program._read_text", side_effect=simulate_os_error(errno.EINTR)):
+            with patch("runez.program._read_data", side_effect=simulate_os_error(errno.EINTR)):
                 r = runez.run(CHATTER, "fail", fatal=False, passthrough=True)
                 assert r.failed
                 assert r.output is None

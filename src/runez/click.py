@@ -127,7 +127,6 @@ class Cli:
                 prog = short(caller.folder)
 
         epilog = PrettyTable(2)
-        epilog.header[0].style = "bold"
         for cmd, func in available_commands.items():
             epilog.add_row(" " + cmd, first_line(func.__doc__, default=""))
 

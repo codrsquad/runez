@@ -286,6 +286,7 @@ def readlines(path, first=None, errors="ignore", fatal=False, logger=False, tran
 
                 if transform:
                     line = transform(line)
+
                 yield line
                 first -= 1
 

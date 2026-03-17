@@ -11,6 +11,7 @@ import click
 import pytest
 
 import runez
+import runez.config
 
 from .conftest import exception_raiser
 

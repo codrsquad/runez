@@ -4,6 +4,7 @@ Convenient (but flexible) small configuration client
 Usage example:
 
     import runez
+    import runez.config
 
     # One time initialization, call this from your main()
     @runez.click.command()

@@ -39,4 +39,4 @@ jobs:
         python-version: "3.14"
 
     - uses: astral-sh/setup-uv@v7
-    - run: uvx --with tox-uv tox -e style
+    - run: uvx --with tox-uv tox -e style,typecheck

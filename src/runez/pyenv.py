@@ -159,7 +159,7 @@ class PythonSpec:
             freethreading (bool): Whether this is a freethreaded version
         """
         self.family = family
-        self.version: Version = Version.from_object(version)  # type: ignore[assignment]  # callers always provide a valid version
+        self.version = Version.from_object(version)
         self.canonical = "%s:%s%s%s" % (family, version, "t" if freethreading else "", "+" if is_min_spec else "")
         self.is_min_spec = is_min_spec
         self.freethreading = freethreading
@@ -179,7 +179,7 @@ class PythonSpec:
     def satisfies(self, other):
         """Does this spec satisfy 'other'?"""
         if isinstance(other, PythonSpec) and self.family == other.family and self.freethreading == other.freethreading:
-            if other.is_min_spec:
+            if other.is_min_spec and other.version is not None:
                 return self.version >= other.version
 
             return self.canonical.startswith(other.canonical)
@@ -194,10 +194,11 @@ class PythonSpec:
             (str): Textual representation of this spec
         """
         text = self.canonical
-        if compact and (compact is True or self.family in compact):
+        if compact and self.version is not None and (compact is True or self.family in compact):
             text = self.version.text
             if self.freethreading:
                 text += "t"
+
             if self.is_min_spec:
                 text += "+"
 
@@ -494,13 +495,13 @@ class Version:
                 return v
 
     @classmethod
-    def from_object(cls, obj):
+    def from_object(cls, obj) -> Optional["Version"]:
         """
         Args:
             obj: Object to turn into a Version, if possible
 
         Returns:
-            (Version | None): Corresponding version object, if valid
+            Corresponding version object, if valid
         """
         if obj:
             if isinstance(obj, Version):

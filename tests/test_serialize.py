@@ -7,7 +7,7 @@ import pytest
 
 import runez
 import runez.conftest
-from runez.schema import determined_schema_type, Dict, Integer, List, String, Struct, UniqueIdentifier, ValidationException
+from runez.schema import Integer, List, String, Struct, UniqueIdentifier, ValidationException
 from runez.serialize import add_meta, ClassMetaDescription, same_type, SerializableDescendants, type_name, with_behavior
 
 from .conftest import exception_raiser
@@ -68,30 +68,10 @@ def test_bogus_class():
     with pytest.raises(ValidationException):
 
         class Bogus(runez.Serializable):
-            """This class shouldn't have to unique identifiers"""
+            """This class shouldn't have 2 unique identifiers"""
 
             id1 = UniqueIdentifier
             id2 = UniqueIdentifier
-
-
-def test_determined_schema_type():
-    assert str(determined_schema_type("a")) == "String (default: a)"
-    assert str(determined_schema_type(5)) == "Integer (default: 5)"
-
-    assert str(determined_schema_type(str)) == "String"
-    assert str(determined_schema_type(int)) == "Integer"
-    assert str(determined_schema_type(dict)) == "Dict[Any, Any]"
-    assert str(determined_schema_type(list)) == "List[Any]"
-    assert str(determined_schema_type(set)) == "List[Any]"
-    assert str(determined_schema_type(tuple)) == "List[Any]"
-
-    assert str(determined_schema_type(List)) == "List[Any]"
-    assert str(determined_schema_type(List(Integer))) == "List[Integer]"
-    assert str(determined_schema_type(Dict(String, List(Integer)))) == "Dict[String, List[Integer]]"
-
-    with pytest.raises(ValidationException) as e:
-        determined_schema_type(object())
-    assert "Invalid schema definition" in str(e.value)
 
 
 def test_from_json():

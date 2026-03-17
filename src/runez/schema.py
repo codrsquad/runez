@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING
 
 from runez.convert import to_boolean, to_float, to_int
 from runez.date import to_date, to_datetime, UTC
-from runez.system import _R, stringified
+from runez.system import stringified
 
 if TYPE_CHECKING:
     from runez.serialize import ClassMetaDescription
@@ -37,61 +37,8 @@ class ValidationException(Exception):
         return self.message
 
     @staticmethod
-    def raise_with_message(message: str):
+    def raise_with_message(message: str):  # pragma: no cover, used as fallback
         raise ValidationException(message)
-
-
-def determined_schema_type(value, required=True) -> "Any":
-    """
-    Args:
-        value: Value given by user (as class attribute to describe their runez.Serializable schema)
-        required (bool): If True, raise ValidationException() is no type could be determined
-
-    Returns:
-        (Any): Associated schema type (descendant of Any), if one is applicable
-    """
-    schema_type = _determined_schema_type(value)
-    if required and schema_type is None:
-        raise ValidationException("Invalid schema definition '%s'" % value)
-
-    return schema_type
-
-
-def _determined_schema_type(value):
-    if value is None:
-        return Any()  # User used None as value, no more info to be had
-
-    if isinstance(value, Any):
-        return value  # User specified their schema explicitly
-
-    if inspect.isroutine(value):
-        return None  # Routine, not a schema type
-
-    if inspect.ismemberdescriptor(value):
-        return Any()  # Member descriptor (such as slot)
-
-    if isinstance(value, str):
-        return String(default=value)  # User gave a string as value, assume they mean string type, and use value as default
-
-    mapped = TYPE_MAP.get(value.__class__)
-    if mapped is not None:
-        return mapped(default=value)
-
-    if not isinstance(value, type):
-        value = value.__class__
-
-    if issubclass(value, str):
-        return String()
-
-    if issubclass(value, _R.serializable()):
-        return _MetaSerializable(value._meta)
-
-    if issubclass(value, Any):
-        return value()
-
-    mapped = TYPE_MAP.get(value)
-    if mapped is not None:
-        return mapped()
 
 
 class Any:
@@ -105,12 +52,13 @@ class Any:
         self.default = default
 
     def __repr__(self):
-        if self.default is None:
-            return self.representation()
+        rep = self.representation()
+        if self.default is not None:
+            rep = f"{rep} (default: {self.default})"
 
-        return "%s (default: %s)" % (self.representation(), self.default)
+        return rep
 
-    def representation(self):
+    def representation(self) -> str:
         """
         Returns:
             (str): Textual representation for this type constraint
@@ -154,13 +102,13 @@ class Any:
 class _MetaSerializable(Any):
     """Wraps descendants of `runez.Serializable` as schema fields (will be retired in the future)"""
 
-    def __init__(self, meta, default=None):
+    def __init__(self, meta: "ClassMetaDescription", default=None):
         """
         Args:
             meta: A runez.Serializable object, or its ._meta attribute
             default: Default to use (when no value is provided)
         """
-        self.meta: "ClassMetaDescription" = getattr(meta, "_meta", meta)
+        self.meta: ClassMetaDescription = getattr(meta, "_meta", meta)
         super().__init__(default=default)
 
     def _problem(self, value):
@@ -221,8 +169,8 @@ class Dict(Any):
             value: Optional constraint for values
             default: Default to use when no value was provided
         """
-        self.key = determined_schema_type(key)
-        self.value = determined_schema_type(value)
+        self.key = _determined_schema_type(key)
+        self.value = _determined_schema_type(value)
         super().__init__(default=default)
 
     def representation(self):
@@ -299,7 +247,7 @@ class List(Any):
             subtype: Optional constraint for values
             default: Default to use when no value was provided
         """
-        self.subtype = determined_schema_type(subtype)
+        self.subtype = _determined_schema_type(subtype)
         super().__init__(default=default)
 
     def representation(self):
@@ -332,9 +280,13 @@ class String(Any):
 class Struct(Any):
     """Represents a composed object, similar to `Serializable`, but not intended to be the root of any schema"""
 
+    _meta: "ClassMetaDescription"  # Class attribute set dynamically in __init__
+
     def __init__(self, default=None):
         if not hasattr(self.__class__, "_meta"):
-            self.__class__._meta = _R.meta_description(self)
+            from runez.serialize import ClassMetaDescription
+
+            self.__class__._meta = ClassMetaDescription(self.__class__)
 
         super().__init__(default=default)
 
@@ -394,7 +346,7 @@ class UniqueIdentifier(Any):
         Args:
             subtype: Optional type constraint for this identifier (defaults to `String`)
         """
-        self.subtype = determined_schema_type(subtype or String)
+        self.subtype = _determined_schema_type(subtype or String)
         super().__init__(default=None)
 
 
@@ -407,7 +359,48 @@ TYPE_MAP = {
 }
 
 
-def _schema_type_name(target):
+def _determined_schema_type(value) -> Any:
+    """
+    Args:
+        value: Value given by user (as class attribute to describe their runez.Serializable schema)
+
+    Returns:
+        (Any): Associated schema type (descendant of Any), if one is applicable
+    """
+    from runez.serialize import Serializable
+
+    if value is None:
+        return Any()  # User used None as value, no more info to be had
+
+    if isinstance(value, Any):
+        return value  # User specified their schema explicitly
+
+    if inspect.ismemberdescriptor(value):
+        return Any()  # Member descriptor (such as slot)
+
+    if isinstance(value, str):
+        return String(default=value)  # User gave a string as value, assume they mean string type, and use value as default
+
+    mapped = TYPE_MAP.get(value.__class__)
+    if mapped is not None:
+        return mapped(default=value)
+
+    if not isinstance(value, type):
+        value = value.__class__
+
+    if issubclass(value, str):
+        return String()
+
+    if issubclass(value, Serializable):
+        return _MetaSerializable(value._meta)
+
+    if issubclass(value, Any):
+        return value()
+
+    raise ValidationException("Invalid schema definition '%s'" % value)
+
+
+def _schema_type_name(target) -> str:
     meta = getattr(target, "meta", None)
     if meta is not None:
         return meta.name

@@ -153,7 +153,13 @@ def test_download(temp_folder, logged):
     assert list(runez.readlines("README.txt")) == ["Hello"]
 
     # With checksum validation
-    assert client.download("README.txt#sha256=a123", "README.txt", fatal=False) is None
+    assert not logged
+    r = client.download("README.txt#sha256=a123", "README.txt", fatal=False)
+    assert r.status_code == 400
+    assert "sha256 differs for README.txt: expecting a123, got" in logged.pop()
+    with pytest.raises(runez.system.AbortException, match="sha256 differs"):
+        client.download("README.txt#sha256=a123", "README.txt")
+
     assert "Deleted README.txt" in logged
     assert "sha256 differs for README.txt: expecting a123, got " in logged.pop()
 

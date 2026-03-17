@@ -14,11 +14,11 @@ import subprocess
 import sys
 import tempfile
 import termios
-from io import BytesIO
+from io import StringIO
 from select import select
 
 from runez.convert import parsed_tabular, to_int
-from runez.system import _R, abort, cached_property, flattened, quoted, resolved_path, short, SYS_INFO, uncolored, UNSET
+from runez.system import _R, abort, cached_property, decode, flattened, quoted, resolved_path, short, SYS_INFO, uncolored, UNSET
 
 
 class PsInfo:
@@ -286,6 +286,7 @@ def run(
     short_exe=UNSET,
     passthrough=False,
     path_env=None,
+    strip="\r\n",
     stdout=subprocess.PIPE,
     stderr=subprocess.PIPE,
     **popen_args,
@@ -302,6 +303,7 @@ def run(
         passthrough (bool | file | None): If True-ish, pass-through stderr/stdout in addition to capturing it
                                           as well as 'passthrough' itself if it has a write() function
         path_env (dict | None): Allows to inject PATH-like env vars, see `_added_env_paths()`
+        strip (str | bool | None): If provided, `strip()` the captured output [default: strip "\n" newlines]
         stdout (int | IO[Any] | None): Passed-through to subprocess.Popen, [default: subprocess.PIPE]
         stderr (int | IO[Any] | None): Passed-through to subprocess.Popen, [default: subprocess.PIPE]
         **popen_args: Passed through to `subprocess.Popen`
@@ -358,8 +360,8 @@ def run(
     with _WrappedArgs([full_path, *args]) as wrapped_args:
         try:
             p, out, err = _run_popen(wrapped_args, popen_args, passthrough, fatal, stdout, stderr)
-            result.output = (out or "").strip("\r\n")
-            result.error = (err or "").strip("\r\n")
+            result.output = decode(out or "", strip=strip)
+            result.error = decode(err or "", strip=strip)
             result.pid = p.pid
             result.exit_code = p.returncode
 
@@ -634,7 +636,7 @@ def _install_instructions(instructions_dict, platform):
     return text
 
 
-def _read_text(fd, length=1024):
+def _read_data(fd, length=1024):
     """Isolated as a function for test mocking"""
     return os.read(fd, length)
 
@@ -663,8 +665,8 @@ def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
 
     else:
         passthrough = None
-        stdout_buffer = BytesIO()
-        stderr_buffer = BytesIO()
+        stdout_buffer = StringIO()
+        stderr_buffer = StringIO()
 
     with subprocess.Popen(args, stdout=stdout_w, stderr=stderr_w, text=True, **popen_args) as p:  # noqa: S603
         os.close(stdout_w)
@@ -673,11 +675,12 @@ def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
         while readable:
             for fd in select(readable, [], [])[0]:
                 try:
-                    text = _read_text(fd)
-                    if not text:
+                    data = _read_data(fd)
+                    if not data:
                         readable.remove(fd)
                         continue
 
+                    text = decode(data)
                     _safe_write(passthrough, text)
                     if fd == stdout_r:
                         _safe_write(sys.stdout, text, flush=sys.stdout.buffer)
@@ -698,10 +701,10 @@ def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
     os.close(stdout_r)
     os.close(stderr_r)
     if stdout_buffer:
-        stdout_buffer = uncolored(stdout_buffer.getvalue().decode("utf-8", errors="replace"))
+        stdout_buffer = uncolored(decode(stdout_buffer.getvalue()))
 
     if stderr_buffer:
-        stderr_buffer = uncolored(stderr_buffer.getvalue().decode("utf-8", errors="replace"))
+        stderr_buffer = uncolored(decode(stderr_buffer.getvalue()))
 
     return p, stdout_buffer, stderr_buffer
 
