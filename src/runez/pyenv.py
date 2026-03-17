@@ -159,7 +159,7 @@ class PythonSpec:
             freethreading (bool): Whether this is a freethreaded version
         """
         self.family = family
-        self.version = Version.from_object(version)
+        self.version: Version = Version.from_object(version)  # type: ignore[assignment]  # callers always provide a valid version
         self.canonical = "%s:%s%s%s" % (family, version, "t" if freethreading else "", "+" if is_min_spec else "")
         self.is_min_spec = is_min_spec
         self.freethreading = freethreading
@@ -463,7 +463,7 @@ class Version:
             if pre:
                 rel = rel_num = None  # rc.post does not count as .post (but a .post.dev does)
 
-        components = [int(c) for c in m.group("main").split(".")]
+        components: list[int | str] = [int(c) for c in m.group("main").split(".")]
         if len(components) > max_parts:
             return  # Invalid version, too many parts
 
@@ -476,7 +476,7 @@ class Version:
         components.append(rel or "")
         self.components = tuple(components)
         if canonical is True:
-            self.text = self.pep_440
+            self.text = self.pep_440 or ""
 
     @classmethod
     def extracted_from_text(cls, text):

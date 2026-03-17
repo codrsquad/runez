@@ -24,6 +24,7 @@ Usage pattern:
 
 import contextlib
 import functools
+import hashlib
 import json
 import os
 import re
@@ -796,8 +797,8 @@ class RestClient:
             with open(destination, "wb") as fh:
                 fh.write(response.content)
 
-            if hash_checksum:
-                downloaded_checksum = checksum(destination, hash=hash_algo)
+            if hash_checksum and hash_algo and hasattr(hashlib, hash_algo):
+                downloaded_checksum = checksum(destination, hash=getattr(hashlib, hash_algo))
                 if downloaded_checksum != hash_checksum:
                     delete(destination, fatal=False, logger=logger)
                     msg = "%s differs for %s: expecting %s, got %s" % (hash_algo, short(destination), hash_checksum, downloaded_checksum)
