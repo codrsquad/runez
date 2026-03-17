@@ -74,7 +74,7 @@ class Heartbeat:
 
     _lock = threading.Lock()
     _thread = None  # Background daemon thread used to periodically execute the tasks
-    _last_execution = None  # Epoch when last task execution completed
+    _last_execution: float = 0  # Epoch when last task execution completed
     _sleep_delay = 1  # How many seconds we're currently sleeping until next task
 
     @classmethod

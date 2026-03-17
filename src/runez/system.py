@@ -16,7 +16,9 @@ import sys
 import threading
 import unicodedata
 from io import StringIO
-from typing import Any, ClassVar
+from typing import Any, Callable, ClassVar, TypeVar
+
+_T = TypeVar("_T")
 
 ABORT_LOGGER = logging.error
 LOG = logging.getLogger("runez")
@@ -45,7 +47,7 @@ class Undefined:
 UNSET: Any = Undefined()
 
 
-def abort(message, code=1, exc_info=None, return_value=None, fatal=True, logger=UNSET):
+def abort(message, code=1, exc_info=None, return_value: _T = None, fatal=True, logger=UNSET) -> _T:
     """General wrapper for optionally fatal calls
 
     >>> from runez import abort
@@ -273,28 +275,6 @@ def capped(value, minimum=None, maximum=None, key=None, none_ok=False):
     return value
 
 
-def decode(value, strip=None):
-    """Python 2/3 friendly decoding of output.
-
-    Args:
-        value (str | bytes | None): The value to decode.
-        strip (str | bool | None): If provided, `strip()` the returned string.
-
-    Returns:
-        str: Decoded value, if applicable.
-    """
-    if value is None:
-        return None
-
-    if isinstance(value, bytes):
-        value = value.decode("utf-8", errors="replace")
-
-    if strip:
-        value = value.strip(strip if isinstance(strip, str) else None)
-
-    return value
-
-
 def find_caller(depth=2, maximum=1000, need_file=True, need_package=False, regex=None):
     """
     Args:
@@ -394,7 +374,7 @@ def flattened(*value, keep_empty: str | bool | None = False, split=None, shellif
     return result
 
 
-def get_version(mod, default="0.0.0", fatal=False, logger=False):
+def get_version(mod, default="0.0.0", fatal=False, logger: bool | Callable | None = False):
     """
     Args:
         mod (module | str): Module, or module name to find version for (pass either calling module, or its .__name__)
@@ -1281,7 +1261,7 @@ class DevInfo:
                     return path
 
     @cached_property
-    def tests_folder(self) -> str:
+    def tests_folder(self) -> str | None:
         """Path to current development project's tests/ folder, if we're running from a source compilation"""
         if SYS_INFO.venv_bin_folder:
             ct = self.current_test()
@@ -1289,7 +1269,7 @@ class DevInfo:
                 return _R.find_parent_folder(ct.folder, {"tests", "test"})
 
     @cached_property
-    def venv_folder(self) -> str:
+    def venv_folder(self) -> str | None:
         """Path to current development venv, if we're running from one"""
         if SYS_INFO.venv_bin_folder:
             return _R.find_parent_folder(sys.prefix, {"venv", ".venv", ".virtualenvs", ".tox", "build"})
@@ -1326,9 +1306,9 @@ class PlatformId:
     - Additionally, the binary also should be able to run from whatever folder it has been unpacked in (no global system settings needed)
     """
 
-    arch: str | None = None  # Example: arm64, x86_64
-    platform: str | None = None  # Example: linux, macos
-    subsystem: str | None = None  # Example: libc, musl (empty for macos/windows for now)
+    arch: str = ""  # Example: arm64, x86_64 (populated in __init__)
+    platform: str = ""  # Example: linux, macos (populated in __init__)
+    subsystem: str | None = None  # Example: libc, musl (empty for macos/windows)
 
     default_subsystem = None  # Can this be auto-detected? (currently: users can optionally provide this, by setting this class field)
     platform_archive_type: ClassVar = {"linux": "tar.gz", "macos": "tar.gz", "windows": "zip"}
@@ -1354,7 +1334,7 @@ class PlatformId:
             if subsystem is None and len(given) > 2:
                 subsystem = given[2]
 
-        self.platform = platform or self.determine_current_platform()
+        self.platform = str(platform) if platform else self.determine_current_platform()
         self.arch = arch or self.determine_current_architecture()
         if subsystem is None:
             subsystem = self.determine_current_subsystem()
@@ -1450,7 +1430,7 @@ class PlatformId:
 
     def is_base_lib(self, *paths):
         """Does one of the given 'paths' match a base library? (present on any declination of this system)"""
-        return any(p and self.rx_base_path.match(str(p)) for p in paths)
+        return self.rx_base_path is not None and any(p and self.rx_base_path.match(str(p)) for p in paths)
 
     def is_system_lib(self, *paths):
         """Does one of the given 'paths' match a system library? (ie: installed in a system folder, not /usr/local and such)"""
@@ -1809,8 +1789,8 @@ class ThreadGlobalContext:
         """
         self._filter_type = filter_type
         self._lock = threading.RLock()
-        self._tpayload = None
-        self._gpayload = None
+        self._tpayload: threading.local | None = None
+        self._gpayload: dict | None = None
         self.filter = None
 
     def reset(self):
@@ -1840,14 +1820,14 @@ class ThreadGlobalContext:
     def set_threadlocal(self, **values):
         """Set current thread's logging context to specified `values`"""
         with self._lock:
-            self._ensure_threadlocal()
-            self._tpayload.log_context = values
+            tp = self._ensure_threadlocal()
+            tp.log_context = values
 
     def add_threadlocal(self, **values):
         """Add `values` to current thread's logging context"""
         with self._lock:
-            self._ensure_threadlocal()
-            self._tpayload.log_context.update(**values)
+            tp = self._ensure_threadlocal()
+            tp.log_context.update(**values)
 
     def remove_threadlocal(self, name):
         """
@@ -1875,8 +1855,8 @@ class ThreadGlobalContext:
     def add_global(self, **values):
         """Add `values` to global logging context"""
         with self._lock:
-            self._ensure_global()
-            self._gpayload.update(**values)
+            gp = self._ensure_global()
+            gp.update(**values)
 
     def remove_global(self, name):
         """
@@ -1910,20 +1890,24 @@ class ThreadGlobalContext:
 
             return result
 
-    def _ensure_threadlocal(self):
+    def _ensure_threadlocal(self) -> threading.local:
         if self._tpayload is None:
             self._tpayload = threading.local()
 
         if not hasattr(self._tpayload, "log_context"):
             self._tpayload.log_context = {}
 
-    def _ensure_global(self, values=None):
+        return self._tpayload
+
+    def _ensure_global(self, values=None) -> dict:
         """
         Args:
             values (dict): Ensure internal global tracking dict is created, seed it with `values` when provided (Default value = None)
         """
         if self._gpayload is None:
             self._gpayload = values or {}
+
+        return self._gpayload
 
 
 class UnitRepresentation:

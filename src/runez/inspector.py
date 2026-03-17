@@ -134,7 +134,7 @@ class ImportTime:
             return self.cumulative < other.cumulative
 
     def _get_importtime(self):
-        result = run(sys.executable, "-Ximporttime", "-c", "import %s" % self.module_name, fatal=None)
+        result = run(sys.executable, "-Ximporttime", "-c", "import %s" % self.module_name, fatal=False)
         if result.failed:
             lines = result.error.splitlines()
             self.problem = lines[-1] if lines else "-Ximporttime failed"

@@ -30,7 +30,7 @@ import re
 import sys
 import urllib.parse
 from pathlib import Path
-from typing import ClassVar
+from typing import ClassVar, Optional
 
 from runez.file import checksum, decompress, delete, ensure_folder, TempFolder, to_path
 from runez.system import _R, abort, DEV, find_caller, joined, short, stringified, SYS_INFO, UNSET
@@ -344,7 +344,7 @@ class MockedHandlerStack:
             assert self.handler is handler, "Mocks targeting multiple handlers is not supported"
             return
 
-        self.ms = handler.intercept(None)
+        self.ms = handler.ms_adapter()
         self.handler = handler
 
     def _intercept(self, *args, **kwargs):
@@ -577,7 +577,7 @@ class RestHandler:
         return MockWrapper(cls, base_url, specs)
 
     @classmethod
-    def new_session(cls, **session_spec):
+    def new_session(cls, **session_spec) -> object | None:
         """New session for 'session_spec'"""
 
     @classmethod
@@ -591,7 +591,7 @@ class RestHandler:
         """
 
     @classmethod
-    def to_rest_response(cls, method, url, raw_response):
+    def to_rest_response(cls, method, url, raw_response) -> Optional["RestResponse"]:
         """
         Args:
             method (str): Underlying method to call (GET, PUT, POST, etc)
@@ -603,14 +603,18 @@ class RestHandler:
         """
 
     @classmethod
-    def intercept(cls, mock_caller, *_, **__):
+    def ms_adapter(cls) -> tuple | None:
+        """A tuple of (adapter_class, send_function_name) used to intercept outgoing requests for mocking"""
+
+    @classmethod
+    def intercept(cls, mock_caller, *args, **kwargs) -> object | None:
         """
         Args:
-            mock_caller (MockedHandlerStack | None): If provided: effectively intercept, if None: return target+name of function to replace
+            mock_caller (MockedHandlerStack): Mock caller to use for intercepting requests
         """
 
     @classmethod
-    def user_agent(cls):
+    def user_agent(cls) -> str:
         """Default user agent to use"""
         return "%s/%s (%s)" % (SYS_INFO.program_name, SYS_INFO.program_version, SYS_INFO.platform_info)
 
@@ -665,12 +669,14 @@ class RequestsHandler(RestHandler):
         return RestResponse(method, url, raw_response)
 
     @classmethod
+    def ms_adapter(cls):
+        """A tuple of which class to use to create an adapter and name of `send` function"""
+        from requests.adapters import HTTPAdapter
+
+        return HTTPAdapter, "send"
+
+    @classmethod
     def intercept(cls, mock_caller, *args, **__):
-        if mock_caller is None:
-            from requests.adapters import HTTPAdapter
-
-            return HTTPAdapter, "send"
-
         from requests import Response
 
         request = args[0]

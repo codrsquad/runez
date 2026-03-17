@@ -575,7 +575,7 @@ class Serializable:
             (cls): Deserialized object
         """
         result = cls()
-        data = read_json(path, default=default, fatal=fatal or (default is None and cls._meta.behavior.strict), logger=logger)
+        data = read_json(path, default=default, fatal=fatal or bool(default is None and cls._meta.behavior.strict), logger=logger)
         result.set_from_dict(data, source=short(path))
         return result
 

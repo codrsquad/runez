@@ -425,8 +425,9 @@ def _date_from_text(text, epocher, tz=UNSET):
         if m:
             tz = UTC if tz is UNSET else tz
             offset = to_seconds(text)
-            now = datetime.datetime.now(tz=tz)
-            return to_datetime(to_epoch(now) - offset, tz=tz)
+            epoch = to_epoch(datetime.datetime.now(tz=tz))
+            if epoch is not None and offset is not None:
+                return to_datetime(epoch - offset, tz=tz)
 
         return None
 

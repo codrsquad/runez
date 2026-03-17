@@ -313,7 +313,7 @@ def wordified(text, delimiter="_", normalize=None):
     return delimiter.join(words(text, normalize=normalize))
 
 
-def words(text, normalize=None, split="_", decamel=False):
+def words(text, normalize=None, split: str | None = "_", decamel=False):
     """Words extracted from `text` (split on underscore character as well by default)
 
     Args:
@@ -408,7 +408,7 @@ class _TabularInterval:
         self.name = name
         self.start = start
         self.end = end
-        self.next = None
+        self.next: _TabularInterval | None = None
 
     def __repr__(self):  # pragma: no cover, for debugging
         return "%s [%s:%s]" % (self.name, self.start or "", self.end or "")

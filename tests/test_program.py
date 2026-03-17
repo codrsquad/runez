@@ -75,7 +75,7 @@ def test_capture(monkeypatch):
         assert runez.run(CHATTER, "hello", fatal=False) == RunResult("hello", "", 0)
         assert runez.run(CHATTER, "hello", fatal=True) == RunResult("hello", "", 0)
         assert "chatter hello" in logged.pop()
-        assert runez.run(CHATTER, stdout=None) == RunResult(None, "", 0)
+        assert runez.run(CHATTER, stdout=None) == RunResult("", "", 0)
         assert "Running:" in logged.pop()
 
         r = runez.run(CHATTER, "hello", fatal=True, passthrough=True)
@@ -83,7 +83,7 @@ def test_capture(monkeypatch):
 
         crasher = CrashingWrite()
         r = runez.run(CHATTER, "hello", fatal=True, passthrough=crasher)
-        assert r == RunResult(None, None, 0)
+        assert r == RunResult("", "", 0)
         assert crasher.crash_counter
         assert "hello" in logged.pop()
 
@@ -96,9 +96,9 @@ def test_capture(monkeypatch):
         assert r
         assert str(r) == "RunResult(exit_code=0)"
         assert r.succeeded
-        assert r.output is None
-        assert r.error is None
-        assert r.full_output is None
+        assert r.output == ""
+        assert r.error == ""
+        assert r.full_output == ""
 
         r = runez.run(CHATTER, "hello", path_env={"PATH": ":.", "CPPFLAGS": " -I/usr/local/opt/openssl/include"})
         assert str(r) == "RunResult(exit_code=0)"
@@ -129,7 +129,7 @@ def test_capture(monkeypatch):
 
         if hasattr(subprocess.Popen, "__enter__"):
             # Simulate an EIO
-            with patch("runez.program._read_data", side_effect=simulate_os_error(errno.EIO)):
+            with patch("runez.program._read_text", side_effect=simulate_os_error(errno.EIO)):
                 r = runez.run(CHATTER, "fail", fatal=False, passthrough=True)
                 assert r.failed
                 assert r.exc_info is None
@@ -137,7 +137,7 @@ def test_capture(monkeypatch):
                 assert r.error == ""
 
             # Simulate an OSError
-            with patch("runez.program._read_data", side_effect=simulate_os_error(errno.EINTR)):
+            with patch("runez.program._read_text", side_effect=simulate_os_error(errno.EINTR)):
                 r = runez.run(CHATTER, "fail", fatal=False, passthrough=True)
                 assert r.failed
                 assert r.output is None

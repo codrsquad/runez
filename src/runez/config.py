@@ -25,7 +25,7 @@ from runez.convert import to_boolean, to_bytesize, to_float, to_int
 from runez.file import readlines
 from runez.logsetup import LogManager
 from runez.serialize import from_json
-from runez.system import capped, decode, stringified, SYS_INFO
+from runez.system import capped, stringified, SYS_INFO
 
 
 class Configuration:
@@ -426,7 +426,7 @@ class PropsfsProvider(ConfigProvider):
         try:
             path = os.path.join(self.folder, key)
             with open(path) as fh:
-                return decode(fh.read())
+                return fh.read()
 
         except (OSError, IOError):
             return None

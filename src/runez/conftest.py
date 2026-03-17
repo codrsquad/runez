@@ -61,7 +61,7 @@ class IsolatedLogSetup:
         self.temp_folder = None
         self.abort_exception = None
         self.old_cwd = None
-        self.old_env_vars = None
+        self.old_env_vars: dict[str, str] = {}  # populated in __enter__
 
     def __enter__(self):
         WrappedHandler.isolation += 1
@@ -115,13 +115,13 @@ def cli():
 
     Example usage:
 
-        from runez.conftest import cli
+        from runez.conftest import ClickRunner
         from my_cli import main
 
-        cli.default_main = main  # Handy if you have only one main
+        ClickRunner.default_main = main  # Handy if you have only one main
 
         def test_help(cli):
-            cli.main = main  # Not needed if `cli.default_main` was set
+            cli.main = main  # Not needed if `ClickRunner.default_main` was set
             cli.run("--help")
             assert cli.succeeded
             assert cli.match("Usage:")
@@ -129,15 +129,17 @@ def cli():
             # or more specifically
             assert "Usage:" in cli.logged.stdout
     """
-    with cli.context() as context:
+    wrapper = ClickRunner.context_wrapper
+    deprecated_context = getattr(cli, "context", None)
+    if deprecated_context is not None:  # pragma: no cover, for temporary backwards compat
+        import warnings
+
+        msg = "Please use `ClickRunner.context_wrapper = ...` instead of `cli.context = ...`"
+        warnings.warn(msg, DeprecationWarning, stacklevel=1)
+        wrapper = deprecated_context
+
+    with wrapper() as context:
         yield ClickRunner(context=context)
-
-
-# Comes in handy for click apps with only one main entry point
-cli.default_main = None
-
-# Can be customized by users, wraps cli (fixture) runs in given context
-cli.context = TempFolder
 
 
 @pytest.fixture
@@ -207,6 +209,9 @@ class ClickWrapper:
 class ClickRunner:
     """Allows to provide a test-friendly fixture around testing click entry-points"""
 
+    default_main = None  # Class-level default main entry point, set from user's conftest.py
+    context_wrapper = TempFolder  # Class-level context manager to use for cli fixture runs
+
     args: list | None = None  # Arguments used in last run()
     exit_code: int | None = None  # Exit code of last run()
     logged: TrackedOutput  # Captured log from last run()
@@ -216,7 +221,7 @@ class ClickRunner:
     def __init__(self, context=None):
         """
         Args:
-            context (callable | None): Context (example: temp folder) this click run was invoked under
+            context: Active context instance (example: temp folder) this click run was invoked under
         """
         self.context = context
 
@@ -268,7 +273,16 @@ class ClickRunner:
             main (callable | None): Optional, override current self.main just for this run
             trace (bool): If True, enable trace logging
         """
-        main = _R.rdefault(main, self.main or cli.default_main)
+        main = _R.rdefault(main, self.main or ClickRunner.default_main)
+        if not main:  # pragma: no cover, for temporary backwards compat
+            # Backwards compatibility: grab deprecated `cli.default_main` if present
+            main = getattr(cli, "default_main", None)
+            if main:
+                import warnings
+
+                msg = "Please use `ClickRunner.default_main = ...` instead of `cli.default_main = ...`"
+                warnings.warn(msg, DeprecationWarning, stacklevel=2)
+
         if len(args) == 1 and hasattr(args[0], "split"):
             # Convenience: allow to provide full command as one string argument
             args = args[0].split()
@@ -284,10 +298,10 @@ class ClickRunner:
                 if isinstance(result.exception, AssertionError):
                     raise result.exception
 
-                if result.stdout:
+                if result.stdout and logged.stdout is not None:
                     logged.stdout.buffer.write(result.stdout)
 
-                if result.stderr:
+                if result.stderr and logged.stderr is not None:
                     logged.stderr.buffer.write(result.stderr)
 
                 if result.exception and not isinstance(result.exception, SystemExit):

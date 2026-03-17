@@ -2,8 +2,14 @@
 History
 =======
 
-5.6.0 (2026-03-16)
+5.6.0 (2026-03-17)
 ------------------
+
+* ``ClickRunner.default_main`` and ``ClickRunner.context_wrapper`` replace deprecated ``cli.default_main`` and ``cli.context``
+
+* Removed ``decode()`` from ``runez.system`` (python2 leftover, no longer needed)
+
+* Removed ``strip=`` argument from ``runez.run()``
 
 * Turned on flake8-simplify and tryceratops, fixed corresponding issues
 
@@ -27,7 +33,7 @@ History
 
 * Using ``extractall(filter="data")`` from stdlib for path traversal protection
 
-* Adapted type declarations, pyright reported issues went from 861 to 96
+* Adapted type declarations, pyright reported issues went from 861 to 35
 
 
 5.5.0 (2026-03-12)

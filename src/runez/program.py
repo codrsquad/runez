@@ -18,7 +18,7 @@ from io import BytesIO
 from select import select
 
 from runez.convert import parsed_tabular, to_int
-from runez.system import _R, abort, cached_property, decode, flattened, quoted, resolved_path, short, SYS_INFO, uncolored, UNSET
+from runez.system import _R, abort, cached_property, flattened, quoted, resolved_path, short, SYS_INFO, uncolored, UNSET
 
 
 class PsInfo:
@@ -189,7 +189,7 @@ def check_pid(pid):
     if SYS_INFO.platform_id.is_windows:  # pragma: no cover
         import ctypes
 
-        kernel32 = ctypes.windll.kernel32
+        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]  # Windows-only
         SYNCHRONIZE = 0x100000
         process = kernel32.OpenProcess(SYNCHRONIZE, 0, pid)
         if process:
@@ -286,7 +286,6 @@ def run(
     short_exe=UNSET,
     passthrough=False,
     path_env=None,
-    strip="\r\n",
     stdout=subprocess.PIPE,
     stderr=subprocess.PIPE,
     **popen_args,
@@ -303,7 +302,6 @@ def run(
         passthrough (bool | file | None): If True-ish, pass-through stderr/stdout in addition to capturing it
                                           as well as 'passthrough' itself if it has a write() function
         path_env (dict | None): Allows to inject PATH-like env vars, see `_added_env_paths()`
-        strip (str | bool | None): If provided, `strip()` the captured output [default: strip "\n" newlines]
         stdout (int | IO[Any] | None): Passed-through to subprocess.Popen, [default: subprocess.PIPE]
         stderr (int | IO[Any] | None): Passed-through to subprocess.Popen, [default: subprocess.PIPE]
         **popen_args: Passed through to `subprocess.Popen`
@@ -316,8 +314,9 @@ def run(
 
     args = flattened(args, shellify=True)
     full_path = which(program)
-    result = RunResult(audit=RunAudit(full_path or program, args, popen_args))
-    description = result.audit.run_description(short_exe=short_exe)
+    audit = RunAudit(full_path or program, args, popen_args)
+    result = RunResult(audit=audit)
+    description = audit.run_description(short_exe=short_exe)
     if background:
         description += " &"
 
@@ -327,7 +326,7 @@ def run(
         description = _R.colored(description, "bold")
 
     if _R.hdry(dryrun, logger, "run: %s" % description):
-        result.audit.dryrun = True
+        audit.dryrun = True
         result.exit_code = 0
         if stdout is not None:
             result.output = "[dryrun] %s" % description  # Properly simulate a successful run
@@ -359,8 +358,8 @@ def run(
     with _WrappedArgs([full_path, *args]) as wrapped_args:
         try:
             p, out, err = _run_popen(wrapped_args, popen_args, passthrough, fatal, stdout, stderr)
-            result.output = decode(out, strip=strip)
-            result.error = decode(err, strip=strip)
+            result.output = (out or "").strip("\r\n")
+            result.error = (err or "").strip("\r\n")
             result.pid = p.pid
             result.exit_code = p.returncode
 
@@ -481,13 +480,13 @@ class RunAudit:
 class RunResult:
     """Holds result of a runez.run()"""
 
-    def __init__(self, output=None, error=None, code=1, audit=None):
+    def __init__(self, output=None, error=None, code=1, audit: "RunAudit | None" = None):
         """
         Args:
             output (str | None): Captured output (on stdout), if any
             error (str | None): Captured error output (on stderr), if any
             code (int): Exit code
-            audit (RunAudit): Optional audit object recording what run this was related to
+            audit (RunAudit | None): Optional audit object recording what run this was related to
         """
         self.output = output
         self.error = error
@@ -635,7 +634,7 @@ def _install_instructions(instructions_dict, platform):
     return text
 
 
-def _read_data(fd, length=1024):
+def _read_text(fd, length=1024):
     """Isolated as a function for test mocking"""
     return os.read(fd, length)
 
@@ -643,12 +642,12 @@ def _read_data(fd, length=1024):
 def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
     """Run subprocess.Popen(), capturing output accordingly"""
     if not passthrough:
-        p = subprocess.Popen(args, stdout=stdout, stderr=stderr, **popen_args)  # noqa: S603
+        p = subprocess.Popen(args, stdout=stdout, stderr=stderr, text=True, **popen_args)  # noqa: S603
         if fatal is None and stdout is None and stderr is None:
             return p, None, None  # Don't wait on spawned process
 
         out, err = p.communicate()
-        return p, decode(out), decode(err)
+        return p, out, err
 
     # Capture output, but also let it pass-through as-is to the terminal
     stdout_r, stdout_w = pty.openpty()
@@ -667,27 +666,26 @@ def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
         stdout_buffer = BytesIO()
         stderr_buffer = BytesIO()
 
-    with subprocess.Popen(args, stdout=stdout_w, stderr=stderr_w, **popen_args) as p:  # noqa: S603
+    with subprocess.Popen(args, stdout=stdout_w, stderr=stderr_w, text=True, **popen_args) as p:  # noqa: S603
         os.close(stdout_w)
         os.close(stderr_w)
         readable = [stdout_r, stderr_r]
         while readable:
             for fd in select(readable, [], [])[0]:
                 try:
-                    data = _read_data(fd)
-                    if not data:
+                    text = _read_text(fd)
+                    if not text:
                         readable.remove(fd)
                         continue
 
-                    text = decode(data)
                     _safe_write(passthrough, text)
                     if fd == stdout_r:
                         _safe_write(sys.stdout, text, flush=sys.stdout.buffer)
-                        _safe_write(stdout_buffer, data)
+                        _safe_write(stdout_buffer, text)
 
                     else:
                         _safe_write(sys.stderr, text, flush=sys.stderr.buffer)
-                        _safe_write(stderr_buffer, data)
+                        _safe_write(stderr_buffer, text)
 
                 except OSError as e:
                     if e.errno != errno.EIO:  # On some OS-es, EIO means EOF
@@ -700,10 +698,10 @@ def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
     os.close(stdout_r)
     os.close(stderr_r)
     if stdout_buffer:
-        stdout_buffer = uncolored(decode(stdout_buffer.getvalue()))
+        stdout_buffer = uncolored(stdout_buffer.getvalue().decode("utf-8", errors="replace"))
 
     if stderr_buffer:
-        stderr_buffer = uncolored(decode(stderr_buffer.getvalue()))
+        stderr_buffer = uncolored(stderr_buffer.getvalue().decode("utf-8", errors="replace"))
 
     return p, stdout_buffer, stderr_buffer
 

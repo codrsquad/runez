@@ -13,13 +13,13 @@ from runez.system import DEV, short, Slotted, stringified, SYS_INFO, uncolored, 
 class ActivateColors:
     """Context manager to temporarily override coloring"""
 
-    def __init__(self, enable=True, flavor=None):
+    def __init__(self, enable: "bool | PlainBackend | type[PlainBackend] | str | None" = True, flavor=None):
         """
         Temporarily override coloring
 
         Parameters
         ----------
-        enable (bool | PlainBackend | type(PlainBackend) | str | None): Enable colored output
+        enable: Enable colored output
         flavor (str | None): Flavor to use (neutral, light or dark)
         """
         if enable is True and DEV.current_test():
@@ -28,13 +28,14 @@ class ActivateColors:
 
         self.enable = enable
         self.flavor = flavor
-        self.prev = None
 
     def __enter__(self):
-        self.prev = ColorManager.activate_colors(self.enable, flavor=self.flavor)
+        self.prev = ColorManager.backend, ColorManager.bg, ColorManager.fg, ColorManager.style
+        ColorManager.activate_colors(self.enable, flavor=self.flavor)
 
     def __exit__(self, *_):
-        ColorManager.backend, ColorManager.bg, ColorManager.fg, ColorManager.style = self.prev
+        if self.prev is not None:
+            ColorManager.backend, ColorManager.bg, ColorManager.fg, ColorManager.style = self.prev
 
 
 class PlainBackend:
@@ -148,10 +149,8 @@ class ColorManager:
         if enable is None:
             enable = SYS_INFO.terminal.is_stdout_tty
 
-        prev = cls.backend, cls.bg, cls.fg, cls.style
         cls.backend = _detect_backend(enable, flavor=flavor)
         cls.bg, cls.fg, cls.style = cls.backend.named_triplet()
-        return prev
 
     @classmethod
     def adjusted_size(cls, text, size=0):

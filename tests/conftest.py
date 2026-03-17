@@ -4,20 +4,19 @@ import pytest
 
 import runez
 from runez.__main__ import main
-from runez.conftest import cli, IsolatedLogSetup, logged, temp_folder
+from runez.conftest import cli, ClickRunner, IsolatedLogSetup, logged, temp_folder
 from runez.file import readlines
 from runez.http import GlobalHttpCalls
 from runez.logsetup import LogManager
 from runez.system import CaptureOutput, LOG, short, stringified
 
-cli.default_main = main
+# Re-export fixtures so pytest discovers them, and ruff knows they're intentional
+__all__ = ["cli", "logged", "temp_folder"]
+
+ClickRunner.default_main = main
 GlobalHttpCalls.forbid()
 runez.date.DEFAULT_TIMEZONE = runez.date.UTC
 runez.serialize.set_default_behavior(strict=False, extras=True)
-
-
-# This is here only to satisfy flake8, mentioning the imported fixtures so they're not declared "unused"
-assert all(s for s in [logged, temp_folder])
 
 
 class TempLog:

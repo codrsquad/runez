@@ -43,9 +43,9 @@ def sample_main():
 
 
 def test_cli_uninitialized(cli, monkeypatch):
-    from runez.conftest import cli as cli_fixture
+    from runez.conftest import ClickRunner
 
-    monkeypatch.setattr(cli_fixture, "default_main", None)
+    monkeypatch.setattr(ClickRunner, "default_main", None)
     with pytest.raises(AssertionError):
         # No main provided
         cli.run("hello no main")

@@ -86,10 +86,10 @@ def cmd_import_speed():
         if t.cumulative is None:
             continue
 
-        if fastest is None or (t.cumulative < fastest.cumulative):
+        if fastest is None or fastest.cumulative is None or t.cumulative < fastest.cumulative:
             fastest = t
 
-        if slowest is None or t.cumulative > slowest.cumulative:
+        if slowest is None or slowest.cumulative is None or t.cumulative > slowest.cumulative:
             slowest = t
 
     table = PrettyTable("Module,-X cumulative,Elapsed,Vs fastest,Note", border=args.border)
@@ -100,7 +100,7 @@ def cmd_import_speed():
             c = e = f = None
 
         else:
-            factor = t.elapsed / fastest.elapsed
+            factor = t.elapsed / fastest.elapsed if fastest else 0
             c = runez.represented_duration(t.cumulative / 1000000, span=-2)
             e = runez.represented_duration(t.elapsed, span=-2)
             f = "x%.2f" % factor

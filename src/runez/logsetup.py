@@ -21,7 +21,6 @@ from runez.system import (
     _R,
     abort_if,
     cached_property,
-    decode,
     DEV,
     find_caller,
     flattened,
@@ -69,20 +68,10 @@ def formatted(message, *args, **named_values):
 class ProgressHandler(logging.Handler):
     """Used to capture logging chatter and show it as progress"""
 
-    level = logging.DEBUG
-
-    @classmethod
-    def handle(cls, record):
+    def handle(self, record: logging.LogRecord) -> bool:
         """Intercept all log chatter and show it as progress message"""
         LogManager.progress._show_debug(record.getMessage())
-
-    @classmethod
-    def emit(cls, record):
-        """Not needed"""
-
-    @classmethod
-    def createLock(cls):
-        """Not needed"""
+        return True
 
 
 class ProgressBar:
@@ -376,7 +365,6 @@ class ProgressSpinner:
     def _clean_write(self, write, message) -> int:
         """Output 'message' using 'write' function, ensure any pending progress line is cleared first"""
         if message:
-            message = decode(message)
             with self._lock:
                 if self._has_progress_line:
                     self._clear_line()
@@ -741,6 +729,7 @@ class LogManager:
 
     _lock = threading.RLock()
     _logging_snapshot = LoggingSnapshot()
+    _progress_handler: Optional[ProgressHandler] = None
 
     @classmethod
     def set_debug(cls, debug):
@@ -909,7 +898,7 @@ class LogManager:
     def clean_handlers(cls):
         """Remove all non-runez logging handlers"""
         for h in list(logging.root.handlers):
-            if h is not cls.console_handler and h is not cls.file_handler and h is not ProgressHandler:
+            if h is not cls.console_handler and h is not cls.file_handler and h is not cls._progress_handler:
                 logging.root.removeHandler(h)
 
     @classmethod
@@ -1068,12 +1057,15 @@ class LogManager:
 
     @classmethod
     def _auto_enable_progress_handler(cls):
-        if cls.progress.is_running:
-            if ProgressHandler not in logging.root.handlers:
-                logging.root.handlers.append(ProgressHandler)
+        if cls._progress_handler is None:
+            cls._progress_handler = ProgressHandler(level=logging.DEBUG)
 
-        elif ProgressHandler in logging.root.handlers:
-            logging.root.handlers.remove(ProgressHandler)
+        if cls.progress.is_running:
+            if cls._progress_handler not in logging.root.handlers:
+                logging.root.handlers.append(cls._progress_handler)
+
+        elif cls._progress_handler in logging.root.handlers:
+            logging.root.handlers.remove(cls._progress_handler)
 
     @classmethod
     def _update_used_formats(cls):
@@ -1091,7 +1083,7 @@ class LogManager:
         target = cls.spec.console_stream
         existing = cls.console_handler
         if existing is None or _get_fmt(existing) != fmt or existing.level != level or existing.stream != target:
-            if existing is not None:
+            if existing is not None and cls.handlers is not None:
                 cls.handlers.remove(existing)
                 logging.root.removeHandler(existing)
 
@@ -1105,7 +1097,7 @@ class LogManager:
         target = cls.spec.usable_location()
         existing = cls.file_handler
         if existing is None or _get_fmt(existing) != fmt or existing.level != level or existing.baseFilename != target:
-            if existing is not None:
+            if existing is not None and cls.handlers is not None:
                 cls.handlers.remove(existing)
                 logging.root.removeHandler(existing)
 

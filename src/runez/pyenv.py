@@ -63,7 +63,8 @@ class ArtifactInfo:
         Returns:
             (ArtifactInfo | None): Parsed artifact info, if any
         """
-        is_wheel = wheel_build_number = tags = None
+        is_wheel = False
+        wheel_build_number = tags = None
         m = PypiStd.RX_SDIST.match(basename)
         if not m:
             m = PypiStd.RX_WHEEL.match(basename)
@@ -991,7 +992,7 @@ class PythonSimpleInspection:
 
     _cached: ClassVar = {}
 
-    def __init__(self, version=None, machine=None, problem=None, freethreading=None):
+    def __init__(self, version=None, machine=None, problem=None, freethreading=False):
         self.version = version
         self.machine = machine
         self.problem = problem
