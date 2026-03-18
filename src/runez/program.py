@@ -523,14 +523,22 @@ def which(program, ignore_own_venv=False):
 
     program = str(program)
     if os.path.basename(program) != program:
+        # Full path given: ok if it's an executable
         program = resolved_path(program)
         return program if is_executable(program) else None
+
+    if not ignore_own_venv:
+        # Look at our own venv first
+        venv_program = SYS_INFO.venv_bin_path(program)
+        if venv_program and is_executable(venv_program):
+            return venv_program
 
     for p in os.environ.get("PATH", "").split(os.pathsep):
         fp = os.path.join(p, program)
         if (not ignore_own_venv or not SYS_INFO.venv_bin_folder or not fp.startswith(SYS_INFO.venv_bin_folder)) and is_executable(fp):
             return fp
 
+    # Finally, look at current folder too
     program = os.path.join(os.getcwd(), program)
     if is_executable(program):
         return program

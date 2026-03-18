@@ -5,11 +5,11 @@ History
 5.6.0 (2026-03-18)
 ------------------
 
+* ``which()`` looks at current venv ``bin/`` folder first
+
 * ``ClickRunner.default_main`` and ``ClickRunner.context_wrapper`` replace deprecated ``cli.default_main`` and ``cli.context``
 
 * Removed:
-
-    * from top-level imports (use ``from runez.config import ...`` directly if needed)
 
     * ``assert_printed()`` from ``CapturedStream``, ``TrackedOutput``, and ``ClickRunner``
 
