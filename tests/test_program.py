@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pytest
 
 import runez
-from runez.program import RunAudit, RunResult
+from runez.program import PsInfo, RunAudit, RunResult
 
 from .conftest import exception_raiser
 
@@ -49,12 +49,11 @@ class CrashingWrite:
         raise RuntimeError("oops, failed to write %s" % message)
 
 
-@pytest.mark.skipif(runez.SYS_INFO.platform_id.is_windows, reason="Not supported on windows")
 def test_capture(monkeypatch):
     with runez.CurrentFolder(os.path.dirname(CHATTER)):
         # Check which finds programs in current folder
         assert runez.which("chatter") == CHATTER
-        assert runez.shell("chatter hello") == "hello"
+        assert runez.program.shell("chatter hello") == "hello"
 
     with runez.CaptureOutput(dryrun=True) as logged:
         # Dryrun mode doesn't fail (since it doesn't actually run the program)
@@ -203,7 +202,6 @@ def test_daemonize(*_):
     assert runez.program.daemonize() is None
 
 
-@pytest.mark.skipif(runez.SYS_INFO.platform_id.is_windows, reason="Not supported on windows")
 def test_executable(temp_folder):
     with runez.CaptureOutput(dryrun=True) as logged:
         assert runez.make_executable("some-file") == 1
@@ -256,15 +254,15 @@ def check_process_tree(pinfo, max_depth=10):
 
 
 def test_ps():
-    assert runez.PsInfo.from_pid(None) is None
-    assert runez.PsInfo.from_pid(0) is None
+    assert PsInfo.from_pid(None) is None
+    assert PsInfo.from_pid(0) is None
 
-    p = runez.PsInfo()
+    p = PsInfo()
     check_process_tree(p)
-    assert p == runez.PsInfo(0)
-    assert p == runez.PsInfo("0")
-    assert p == runez.PsInfo(os.getpid())
-    assert p == runez.PsInfo("%s" % os.getpid())
+    assert p == PsInfo(0)
+    assert p == PsInfo("0")
+    assert p == PsInfo(os.getpid())
+    assert p == PsInfo("%s" % os.getpid())
 
     info = p.info
     assert info["PID"] in str(p)
@@ -276,10 +274,10 @@ def test_ps():
     parent = p.parent
     assert parent.pid == p.ppid
 
-    # Verify that both variants (user name or uid number) for UID work
+    # Verify that both variants (username or uid number) for UID work
     uid = p.uid
     userid = p.userid
-    p = runez.PsInfo()
+    p = PsInfo()
     if runez.to_int(info["UID"]) is None:
         p.info["UID"] = uid
 
@@ -291,7 +289,7 @@ def test_ps():
 
     # Edge case: verify __eq__ based on pid
     p.pid = 0
-    assert p != runez.PsInfo(0)
+    assert p != PsInfo(0)
 
 
 def simulated_ps_output(pid, ppid, cmd):
@@ -303,11 +301,8 @@ def simulated_tmux(program, *args, **_):
     if program == "tmux":
         return RunResult(output="3", code=0)
 
-    if program == "id":
-        if args[0] == "-un":
-            return RunResult(output="root", code=0)
-
-        return RunResult(output="0", code=0)
+    if program == "id" and args[0] == "-un":
+        return RunResult(output="root", code=0)
 
     assert program == "ps"
     pid = args[1]
@@ -328,8 +323,8 @@ def simulated_tmux(program, *args, **_):
 
 def test_ps_follow():
     with patch("runez.program.run", side_effect=simulated_tmux):
-        assert runez.PsInfo.from_pid(-1) is None
-        bad_pid = runez.PsInfo(-1)
+        assert PsInfo.from_pid(-1) is None
+        bad_pid = PsInfo(-1)
         assert str(bad_pid) == "-1 None None"
         assert bad_pid.cmd is None
         assert bad_pid.cmd_basename is None
@@ -343,7 +338,7 @@ def test_ps_follow():
         assert bad_pid.parent_list(follow=True) == []
         assert bad_pid.parent_list(follow=False) == []
 
-        p = runez.PsInfo()
+        p = PsInfo()
         assert p.cmd == "/dev/null/some-test foo bar"
         assert p.cmd_basename == "/dev/null/some-test"  # Falls back to using 1st sequence with space as basename
         assert p.uid == 0
@@ -358,7 +353,7 @@ def test_ps_follow():
 
         with patch("runez.program.is_executable", side_effect=lambda x: x == "/dev/null/some-test foo"):
             # Edge case: verify that `ps` lack of quoting is properly detected
-            p = runez.PsInfo()
+            p = PsInfo()
             assert p.cmd == "/dev/null/some-test foo bar"
             assert p.cmd_basename == "some-test foo"
 
@@ -438,7 +433,6 @@ def test_which():
     assert pp == ps
 
 
-@pytest.mark.skipif(runez.SYS_INFO.platform_id.is_windows, reason="Not supported on windows")
 def test_wrapped_run(monkeypatch):
     original = ["python", "-mvenv", "foo"]
     monkeypatch.delenv("PYCHARM_HOSTED", raising=False)

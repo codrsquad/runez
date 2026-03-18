@@ -3,7 +3,7 @@ Friendly misc/utils/convenience library
 """
 
 # fmt: off
-from runez import ascii, click, date, file, program, serialize, system
+from runez import click, date, file, program, serialize, system
 from runez.colors import ActivateColors, ColorManager as color
 from runez.colors.named import black, blue, brown, gray, green, orange, plain, purple, red, teal, white, yellow
 from runez.colors.named import blink, bold, dim, invert, italic, strikethrough, underline
@@ -15,8 +15,8 @@ from runez.date import date_from_epoch, datetime_from_epoch, elapsed, local_time
 from runez.file import basename, checksum, ensure_folder, parent_folder, readlines, TempFolder, to_path, touch, write
 from runez.file import compress, copy, decompress, delete, filesize, ls_dir, move, symlink
 from runez.logsetup import LogManager as log, ProgressBar
-from runez.program import check_pid, is_executable, make_executable, PsInfo, run, shell, which
-from runez.serialize import from_json, read_json, represented_json, save_json, Serializable
+from runez.program import check_pid, is_executable, make_executable, run, shell, which
+from runez.serialize import from_json, json_sanitized, read_json, represented_json, save_json, Serializable
 from runez.system import abort, abort_if, cached_property, uncolored, Undefined, UNSET, wcswidth
 from runez.system import Anchored, CaptureOutput, CurrentFolder, OverrideDryrun, TempArgv, TrackedOutput
 from runez.system import capped, decode, DEV, flattened, joined, quoted, resolved_path, short, stringified, SYS_INFO
@@ -24,7 +24,7 @@ from runez.system import first_line, get_version, is_basetype, is_iterable, ltat
 
 __all__ = [  # noqa: RUF022, grouped and sorted by provenance module
     "DRYRUN",
-    "ascii", "click", "date", "file", "program", "serialize", "system",
+    "click", "date", "file", "program", "serialize", "system",
     "ActivateColors", "color",
     "black", "blue", "brown", "gray", "green", "orange", "plain", "purple", "red", "teal", "white", "yellow",
     "blink", "bold", "dim", "invert", "italic", "strikethrough", "underline",
@@ -36,8 +36,8 @@ __all__ = [  # noqa: RUF022, grouped and sorted by provenance module
     "basename", "checksum", "ensure_folder", "parent_folder", "readlines", "TempFolder", "to_path", "touch", "write",
     "compress", "copy", "decompress", "delete", "filesize", "ls_dir", "move", "symlink",
     "log", "ProgressBar",
-    "check_pid", "is_executable", "make_executable", "PsInfo", "run", "shell", "which",
-    "from_json", "read_json", "represented_json", "save_json", "Serializable",
+    "check_pid", "is_executable", "make_executable", "run", "shell", "which",
+    "from_json", "json_sanitized", "read_json", "represented_json", "save_json", "Serializable",
     "abort", "abort_if", "cached_property", "uncolored", "Undefined", "UNSET", "wcswidth",
     "Anchored", "CaptureOutput", "CurrentFolder", "OverrideDryrun", "TempArgv", "TrackedOutput",
     "capped", "decode", "DEV", "flattened", "joined", "quoted", "resolved_path", "short", "stringified", "SYS_INFO",

@@ -5,10 +5,9 @@ import pytest
 import runez
 from runez.__main__ import main
 from runez.conftest import cli, ClickRunner, IsolatedLogSetup, logged, temp_folder
-from runez.file import readlines
 from runez.http import GlobalHttpCalls
 from runez.logsetup import LogManager
-from runez.system import CaptureOutput, LOG, short, stringified
+from runez.system import CaptureOutput, short
 
 # Re-export fixtures so pytest discovers them, and ruff knows they're intentional
 __all__ = ["cli", "logged", "temp_folder"]
@@ -54,20 +53,10 @@ class TempLog:
                 found = [msg for msg in remaining if msg in line]
                 remaining.difference_update(found)
 
-        if remaining:
-            LOG.info("File contents:")
-            LOG.info("\n".join(readlines(LogManager.file_handler.baseFilename)))
-
         assert not remaining
 
     def clear(self):
         self.tracked.clear()
-
-    def __repr__(self):
-        return stringified(self.tracked)
-
-    def __str__(self):
-        return self.folder
 
     def __contains__(self, item):
         return item in self.tracked

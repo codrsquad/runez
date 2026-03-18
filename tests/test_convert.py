@@ -122,9 +122,6 @@ def tabulated_samples():
 
         lines.append(line)
 
-    if lines:
-        yield len(lines) - 1, "\n".join(lines)
-
 
 def test_tabulated_parsing():
     assert runez.parsed_tabular("  \nfoo") == []  # First line must have a header...

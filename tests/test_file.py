@@ -236,9 +236,8 @@ def test_failure(temp_folder, monkeypatch):
         assert runez.write("bar", "some content", fatal=False)
         assert "Can't write to bar:" in logged.pop()
 
-        if not runez.SYS_INFO.platform_id.is_windows:
-            assert runez.make_executable("some-file", fatal=False) == -1
-            assert "Can't chmod some-file:" in logged.pop()
+        assert runez.make_executable("some-file", fatal=False) == -1
+        assert "Can't chmod some-file:" in logged.pop()
 
 
 def test_file_inspection(temp_folder, logged):
@@ -415,8 +414,7 @@ def test_parent_folder():
     assert runez.parent_folder(None) is None
     assert runez.parent_folder("././some-file") == cwd
 
-    if not runez.SYS_INFO.platform_id.is_windows:
-        parent = runez.parent_folder("/logs/foo")
-        assert parent == "/logs"
-        assert runez.parent_folder(parent) == "/"
-        assert runez.parent_folder("/") == "/"
+    parent = runez.parent_folder("/logs/foo")
+    assert parent == "/logs"
+    assert runez.parent_folder(parent) == "/"
+    assert runez.parent_folder("/") == "/"

@@ -186,18 +186,6 @@ def check_pid(pid):
     if not pid:  # No support for kill pid 0, as that is not the intent of this function, and it's not cross-platform
         return False
 
-    if SYS_INFO.platform_id.is_windows:  # pragma: no cover
-        import ctypes
-
-        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]  # Windows-only
-        SYNCHRONIZE = 0x100000
-        process = kernel32.OpenProcess(SYNCHRONIZE, 0, pid)
-        if process:
-            kernel32.CloseHandle(process)
-            return True
-
-        return False
-
     try:
         os.kill(pid, 0)
 
@@ -238,9 +226,6 @@ def is_executable(path):
     Returns:
         (bool): True if file exists and is executable
     """
-    if SYS_INFO.platform_id.is_windows:  # pragma: no cover
-        return bool(_windows_exe(path))
-
     return path and os.path.isfile(path) and os.access(path, os.X_OK)
 
 
@@ -539,28 +524,16 @@ def which(program, ignore_own_venv=False):
     program = str(program)
     if os.path.basename(program) != program:
         program = resolved_path(program)
-        if SYS_INFO.platform_id.is_windows:  # pragma: no cover
-            return _windows_exe(program)
-
         return program if is_executable(program) else None
 
     for p in os.environ.get("PATH", "").split(os.pathsep):
         fp = os.path.join(p, program)
-        if SYS_INFO.platform_id.is_windows:  # pragma: no cover
-            fp = _windows_exe(fp)
-
-        if (
-            fp
-            and (not ignore_own_venv or not SYS_INFO.venv_bin_folder or not fp.startswith(SYS_INFO.venv_bin_folder))
-            and is_executable(fp)
-        ):
+        if (not ignore_own_venv or not SYS_INFO.venv_bin_folder or not fp.startswith(SYS_INFO.venv_bin_folder)) and is_executable(fp):
             return fp
 
     program = os.path.join(os.getcwd(), program)
     if is_executable(program):
         return program
-
-    return None
 
 
 def require_installed(program, instructions=None, platform=None):
@@ -718,20 +691,6 @@ def _safe_write(target, data, flush=None):
                 flush.flush()
 
 
-def _windows_exe(path):  # pragma: no cover
-    if path:
-        if os.path.isfile(path):
-            return path
-
-        for extension in (".exe", ".bat"):
-            fpath = path
-            if not fpath.lower().endswith(extension):
-                fpath += extension
-
-            if os.path.isfile(fpath):
-                return fpath
-
-
 class _WrappedArgs:
     """Context manager to temporarily work around https://youtrack.jetbrains.com/issue/PY-40692"""
 
@@ -741,7 +700,7 @@ class _WrappedArgs:
 
     def __enter__(self):
         args = self.args
-        needs_wrap = not SYS_INFO.platform_id.is_windows and "PYCHARM_HOSTED" in os.environ and len(args) > 1
+        needs_wrap = "PYCHARM_HOSTED" in os.environ and len(args) > 1
         if needs_wrap and "python" in args[0] and args[1][:2] in ("-m", "-X", "-c"):
             self.tmp_folder = os.path.realpath(tempfile.mkdtemp())
             wrapper = os.path.join(self.tmp_folder, "pydev-wrapper.sh")

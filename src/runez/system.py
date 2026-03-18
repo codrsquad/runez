@@ -1309,9 +1309,6 @@ class PlatformId:
             base_paths.append("@(rpath|executable_path|loader_path)/.+")  # Count relative libs as base
             base_paths.append(r"/usr/lib/libSystem\.B\.dylib")
 
-        elif self.is_windows:
-            base_paths.append(r"C:/Windows/System32/.*")
-
         self.rx_base_path = re.compile(r"^(%s)$" % joined(base_paths, delimiter="|"))
 
     def __repr__(self):
@@ -1394,10 +1391,6 @@ class PlatformId:
     def is_macos(self):
         return self.platform == "macos"
 
-    @property
-    def is_windows(self):
-        return self.platform == "windows"
-
     def determine_current_architecture(self):
         import platform
 
@@ -1432,7 +1425,7 @@ class PlatformInfo:
 
     def __init__(self, text=None):
         if text is None:
-            text = "Windows" if SYS_INFO.platform_id.is_windows else _R.lc.rm.shell("uname", "-msrp")
+            text = _R.lc.rm.shell("uname", "-msrp")
 
         self.os_name = text or "unknown-os"
         self.os_version = None
@@ -1459,7 +1452,7 @@ class SystemInfo:
     @cached_property
     def current_process(self):
         """Info on currently running process"""
-        return _R.lc.rm.PsInfo()
+        return _R.lc.rm.program.PsInfo()
 
     def diagnostics(self, argv=UNSET, exe=True, platform=True, term=UNSET, userid=UNSET, version=UNSET, via=" ⚡ "):
         """Usable by runez.render.PrettyTable.two_column_diagnostics()"""

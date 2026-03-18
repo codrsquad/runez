@@ -235,7 +235,6 @@ def test_deprecated():
     assert runez.log.tests_path() == runez.DEV.tests_path()  # deprecated
 
 
-@pytest.mark.skipif(runez.SYS_INFO.platform_id.is_windows, reason="No /dev/null on Windows")
 def test_file_location_not_writable(temp_log):
     runez.log.setup(
         greetings="Logging to: {location}",
@@ -437,13 +436,12 @@ def test_setup(temp_log, monkeypatch):
     assert runez.log.is_using_format("%(context) %(lineno)", fmt) is True
     assert runez.log.is_using_format("%(context)", "") is False
 
-    if not runez.SYS_INFO.platform_id.is_windows:
-        # signum=None is equivalent to disabling faulthandler
-        runez.log.enable_faulthandler(signum=None)
-        assert runez.log.faulthandler_signum is None
-        # We didn't call setup, so enabling faulthandler will do nothing
-        runez.log.enable_faulthandler()
-        assert runez.log.faulthandler_signum is None
+    # signum=None is equivalent to disabling faulthandler
+    runez.log.enable_faulthandler(signum=None)
+    assert runez.log.faulthandler_signum is None
+    # We didn't call setup, so enabling faulthandler will do nothing
+    runez.log.enable_faulthandler()
+    assert runez.log.faulthandler_signum is None
 
     cwd = os.getcwd()
     assert not runez.DRYRUN
@@ -503,10 +501,8 @@ def test_setup(temp_log, monkeypatch):
         assert "DEBUG - hello" in temp_log.stdout.pop()
         assert not temp_log.stderr
 
-        if not runez.SYS_INFO.platform_id.is_windows and runez.logsetup.faulthandler:
-            # Available only in python3
-            runez.log.enable_faulthandler()
-            assert runez.log.faulthandler_signum
+        runez.log.enable_faulthandler()
+        assert runez.log.faulthandler_signum
 
         assert runez.log.debug is True
         assert runez.DRYRUN is True

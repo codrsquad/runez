@@ -46,10 +46,11 @@ class SomeSerializable(runez.Serializable, with_behavior(strict=True)):
 
     @classmethod
     def do_something_on_class(cls, value):
+        """Simulating class function"""
         cls._called = value
 
-    def do_something_on_instance(cls, value):
-        cls._called = value
+    def do_something_on_instance(self, value):
+        self._called = value
 
     @property
     def int_prod(self):

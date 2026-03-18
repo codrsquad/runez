@@ -2,26 +2,26 @@
 History
 =======
 
-5.6.0 (2026-03-17)
+5.6.0 (2026-03-18)
 ------------------
 
 * ``ClickRunner.default_main`` and ``ClickRunner.context_wrapper`` replace deprecated ``cli.default_main`` and ``cli.context``
 
 * Removed:
 
-    * ``runez.config`` from top-level imports (use ``from runez.config import ...`` directly if needed)
-
-    * ``strip=`` argument from ``runez.run()``
-
-    * ``is_subfolder()`` from ``runez.file``
+    * from top-level imports (use ``from runez.config import ...`` directly if needed)
 
     * ``assert_printed()`` from ``CapturedStream``, ``TrackedOutput``, and ``ClickRunner``
 
-    * ``runez.AdaptedProperty``, ``runez.Slotted``
+    * ``runez.SYS_INFO.platform_id.is_windows``
 
     * ``runez.inspector.AutoInstall``
 
     * ``runez.inspector.ImportTime``
+
+* Not exposing in top-level ``runez`` import (use ``from runez.<submodule> import ...`` if needed):
+
+    * ``AdaptedProperty``, ``ascii``, ``config`` , ``is_subfolder``, ``PsInfo``, ``Slotted``
 
 * Simplified ``runez.schema`` internals
 
