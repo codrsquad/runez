@@ -68,13 +68,13 @@ class AnsiCode:
 class AnsiColor(Renderable):
     """Defines a color, with associated tty codes, plus a `name` that can potentially be used by other kinds of backends"""
 
-    def __init__(self, name, rgb, ansi=None, flavor=None):
+    def __init__(self, name: str, rgb: int, ansi: str, flavor: str):
         """
         Args:
-            name (str): Color name (example: blue)
-            rgb (int | None): RGB value (example: 0x0000ff)
-            ansi (str): Ansi codeset to use (ansi16, ansi256 or truecolor)
-            flavor (str): Flavor to use (neutral, light or dark)
+            name: Color name (example: blue)
+            rgb: RGB value (example: 0x0000ff)
+            ansi: Ansi codeset to use (ansi16, ansi256 or truecolor)
+            flavor: Flavor to use (neutral, light or dark)
         """
         super().__init__(name)
         self.rgb = rgb

@@ -4,6 +4,7 @@ Convenient (but flexible) small configuration client
 Usage example:
 
     import runez
+    import runez.config
 
     # One time initialization, call this from your main()
     @runez.click.command()
@@ -25,7 +26,7 @@ from runez.convert import to_boolean, to_bytesize, to_float, to_int
 from runez.file import readlines
 from runez.logsetup import LogManager
 from runez.serialize import from_json
-from runez.system import capped, decode, stringified, SYS_INFO
+from runez.system import capped, stringified, SYS_INFO
 
 
 class Configuration:
@@ -358,11 +359,11 @@ class ConfigProvider:
     def __repr__(self):
         return self.provider_id()
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 0
 
     @property
-    def values(self):
+    def values(self) -> dict | None:
         """dict: values in this provider"""
         return None
 
@@ -374,7 +375,7 @@ class ConfigProvider:
         """Id of this provider (there can only be one active at a time)"""
         return self.__class__.__name__.replace("Provider", "").lower()
 
-    def get(self, key):
+    def get(self, key) -> str | None:
         """
         Args:
             key (str): Key to lookup
@@ -426,7 +427,7 @@ class PropsfsProvider(ConfigProvider):
         try:
             path = os.path.join(self.folder, key)
             with open(path) as fh:
-                return decode(fh.read())
+                return fh.read()
 
         except (OSError, IOError):
             return None

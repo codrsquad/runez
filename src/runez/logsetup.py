@@ -10,17 +10,17 @@ import sys
 import threading
 import time
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 from runez.ascii import AsciiAnimation
 from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone, represented_duration
 from runez.file import parent_folder
 from runez.system import (
+    _PyMimicked,
     _R,
     abort_if,
     cached_property,
-    decode,
     DEV,
     find_caller,
     flattened,
@@ -68,20 +68,10 @@ def formatted(message, *args, **named_values):
 class ProgressHandler(logging.Handler):
     """Used to capture logging chatter and show it as progress"""
 
-    level = logging.DEBUG
-
-    @classmethod
-    def handle(cls, record):
+    def handle(self, record: logging.LogRecord) -> bool:
         """Intercept all log chatter and show it as progress message"""
         LogManager.progress._show_debug(record.getMessage())
-
-    @classmethod
-    def emit(cls, record):
-        """Not needed"""
-
-    @classmethod
-    def createLock(cls):
-        """Not needed"""
+        return True
 
 
 class ProgressBar:
@@ -94,12 +84,12 @@ class ProgressBar:
         self.frame_count = len(frames) - 2
         self.per_frame = self.per_char / self.frame_count if self.frame_count > 0 else None
         self.iterable = iterable
-        self.parent = None  # type: Optional[ProgressBar] # Parent progress bar, if any
-        if total is None and hasattr(iterable, "__len__"):
+        self.parent: ProgressBar | None = None  # Parent progress bar, if any
+        if not total and iterable and hasattr(iterable, "__len__"):
             total = len(iterable)
 
-        self.total = total
-        self.n = None
+        self.total = total or 1
+        self.n = 0
 
     def __repr__(self):
         return "%s/%s" % (self.n, self.total)
@@ -122,26 +112,21 @@ class ProgressBar:
 
     def start(self):
         """Start tracking progress with this progressbar"""
-        if self.n is None:
-            self.n = 0
-            LogManager.progress._add_progress_bar(self)
+        self.n = 0
+        LogManager.progress._add_progress_bar(self)
 
     def stop(self):
         """Stop / cleanup this progressbar"""
-        if self.n is not None:
-            self.n = None
-            LogManager.progress._remove_progress_bar(self)
+        self.n = 0
+        LogManager.progress._remove_progress_bar(self)
 
     def update(self, n=1):
         """Manually update the progress bar, advance progress by 'n'"""
         self.n += n
 
-    def rendered(self):
+    def rendered(self) -> str:
         """Called in spinner thread (lock already acquired)"""
-        if self.n is None or not self.total:
-            return None
-
-        percent = max(round(100.0 * self.n / self.total), 0)
+        percent = max(0, round(100.0 * self.n / max(1, self.total)))
         blanks = 0
         if percent >= 100:
             percent = 100
@@ -169,11 +154,11 @@ class ProgressBar:
 class _SpinnerComponent:
     def __init__(self, fps, source, color, adapter=None):
         self.adapter = adapter
-        self.source = source  # type: callable
+        self.source = source
         self.color = color
         self.update_delay = 1.0 / fps
         self.next_update = 0
-        self.current_text = None  # type: Optional[str]
+        self.current_text: str | None = None
 
     def add_text(self, line, columns):
         """(int): size of text added to 'line' (lock already acquired)"""
@@ -253,13 +238,13 @@ class ProgressSpinner:
         self._current_line = None
         self._fps = 60.0  # Higher fps for _run(), to reduce flickering as much as possible
         self._has_progress_line = False
-        self._msg_show = None  # type: Optional[str] # Message coming from show() calls
-        self._msg_debug = None  # type: Optional[str] # Message coming from trace() or debug() calls
-        self._progress_bar = None  # type: Optional[ProgressBar]
-        self._state = None  # type: Optional[_SpinnerState]
-        self._stderr_write = None
-        self._stdout_write = None
-        self._thread = None  # type: Optional[threading.Thread] # Background daemon thread used to display progress
+        self._msg_show: str | None = None  # Message coming from show() calls
+        self._msg_debug: str | None = None  # Message coming from trace() or debug() calls
+        self._progress_bar: ProgressBar | None = None
+        self._state: _SpinnerState | None = None
+        self._stderr_write: Callable[[str], int] | None = None
+        self._stdout_write: Callable[[str], int] | None = None
+        self._thread: threading.Thread | None = None  # Background daemon thread used to display progress
 
     def show(self, message):
         """
@@ -303,6 +288,7 @@ class ProgressSpinner:
                 return
 
             self._thread = None
+            self._state = None
 
         attempts = 10
         while attempts > 0:
@@ -320,10 +306,10 @@ class ProgressSpinner:
                 self._clear_line()
                 self._has_progress_line = False
 
-            if sys.stdout.write == self._on_stdout:
+            if self._stdout_write is not None and sys.stdout.write == self._on_stdout:
                 sys.stdout.write = self._stdout_write
 
-            if sys.stderr.write == self._on_stderr:
+            if self._stderr_write is not None and sys.stderr.write == self._on_stderr:
                 sys.stderr.write = self._stderr_write
 
             self._stderr_write = None
@@ -340,10 +326,7 @@ class ProgressSpinner:
 
     def _get_message(self):
         """Called in spinner thread (lock already acquired)"""
-        if self._msg_show is not None:
-            return self._msg_show
-
-        return self._msg_debug
+        return self._msg_show or self._msg_debug
 
     def _get_progress(self):
         """Called in spinner thread (lock already acquired)"""
@@ -372,27 +355,25 @@ class ProgressSpinner:
         if SYS_INFO.terminal.isatty(stream):
             return getattr(stream, "write", None)
 
-    def _clean_write(self, write, message):
+    def _clean_write(self, write, message: str) -> int:
         """Output 'message' using 'write' function, ensure any pending progress line is cleared first"""
-        if message:
-            message = decode(message)
-            with self._lock:
-                if self._has_progress_line:
-                    self._clear_line()
-                    self._has_progress_line = False
+        with self._lock:
+            if self._has_progress_line:
+                self._clear_line()
+                self._has_progress_line = False
 
-                if self._has_progress_line is False and message.endswith("\n"):
-                    self._has_progress_line = None
+            if self._has_progress_line is False and message.endswith("\n"):
+                self._has_progress_line = None
 
-                write(message)
+            return write(message)
 
-    def _on_stdout(self, message):
+    def _on_stdout(self, s: str) -> int:
         """Intercepted print() or sys.stdout.write()"""
-        self._clean_write(self._stdout_write, message)
+        return self._clean_write(self._stdout_write, s)
 
-    def _on_stderr(self, message):
+    def _on_stderr(self, s: str) -> int:
         """Intercepted sys.stderr.write()"""
-        self._clean_write(self._stderr_write, message)
+        return self._clean_write(self._stderr_write, s)
 
     def _clear_line(self):
         """Called in spinner thread (lock already acquired)"""
@@ -400,29 +381,32 @@ class ProgressSpinner:
 
     def _write(self, text):
         """Called in any thread (lock already acquired)"""
-        self._stderr_write(text)
+        if self._stderr_write is not None:
+            self._stderr_write(text)
 
     def _run(self):
         """Background thread handling progress reporting and animation"""
         try:
-            sleep_delay = 1 / self._fps
-            frequency = int(self._fps / self._state.max_fps) - 1
-            countdown = 0
-            line = None
-            while self._thread:
-                time.sleep(sleep_delay)
-                countdown -= 1
-                if countdown < 0 or self._has_progress_line is None:
-                    with self._lock:
-                        if countdown < 0:
-                            countdown = frequency
-                            line = self._state.get_line(time.time())
+            state = self._state
+            if state is not None:
+                sleep_delay = 1 / self._fps
+                frequency = int(self._fps / state.max_fps) - 1
+                countdown = 0
+                line = None
+                while self._thread:
+                    time.sleep(sleep_delay)
+                    countdown -= 1
+                    if countdown < 0 or self._has_progress_line is None:
+                        with self._lock:
+                            if countdown < 0:
+                                countdown = frequency
+                                line = state.get_line(time.time())
 
-                        if line:
-                            self._clear_line()
-                            self._write(line)
-                            self._write("\r")
-                            self._has_progress_line = True
+                            if line:
+                                self._clear_line()
+                                self._write(line)
+                                self._write("\r")
+                                self._has_progress_line = True
 
         finally:
             self.is_running = False
@@ -453,7 +437,7 @@ class LoggingSnapshot(Slotted):
     Take a snapshot of parts we're modifying in the 'logging' module, in order to be able to restore it as it was
     """
 
-    __slots__ = ["_srcfile", "critical", "debug", "error", "exception", "fatal", "info", "warning"]
+    __slots__ = ("_srcfile", "critical", "debug", "error", "exception", "fatal", "info", "warning")
 
     def _seed(self):
         """Seed initial fields"""
@@ -478,7 +462,7 @@ class LogSpec(Slotted):
     """
 
     # See setup()'s docstring for meaning of each field
-    __slots__ = [
+    __slots__ = (
         "appname",
         "basename",
         "console_format",
@@ -496,7 +480,7 @@ class LogSpec(Slotted):
         "rotate_count",
         "timezone",
         "tmp",
-    ]
+    )
 
     @property
     def argv(self):
@@ -615,10 +599,11 @@ class _ContextFilter(logging.Filter):
 class Timeit:
     """Measure how long a decorated function, or context, took took to run"""
 
+    function_name: str | None = None
+
     def __init__(self, function=None, color="bold", logger=UNSET, fmt="{function} took {elapsed}"):
         self.__func__ = None
-        self.function_name = None
-        self.start_time = None
+        self.start_time: float = 0
         self.color = color
         self.logger = logger
         self.fmt = fmt
@@ -627,7 +612,7 @@ class Timeit:
             self.__func__ = function
             self.function_name = "%s()" % function.__qualname__
 
-        else:
+        elif isinstance(function, str):
             self.function_name = function
 
     def __get__(self, instance, owner):
@@ -737,6 +722,7 @@ class LogManager:
 
     _lock = threading.RLock()
     _logging_snapshot = LoggingSnapshot()
+    _progress_handler: Optional[ProgressHandler] = None
 
     @classmethod
     def set_debug(cls, debug):
@@ -905,7 +891,7 @@ class LogManager:
     def clean_handlers(cls):
         """Remove all non-runez logging handlers"""
         for h in list(logging.root.handlers):
-            if h is not cls.console_handler and h is not cls.file_handler and h is not ProgressHandler:
+            if h is not cls.console_handler and h is not cls.file_handler and h is not cls._progress_handler:
                 logging.root.removeHandler(h)
 
     @classmethod
@@ -1064,12 +1050,15 @@ class LogManager:
 
     @classmethod
     def _auto_enable_progress_handler(cls):
-        if cls.progress.is_running:
-            if ProgressHandler not in logging.root.handlers:
-                logging.root.handlers.append(ProgressHandler)
+        if cls._progress_handler is None:
+            cls._progress_handler = ProgressHandler(level=logging.DEBUG)
 
-        elif ProgressHandler in logging.root.handlers:
-            logging.root.handlers.remove(ProgressHandler)
+        if cls.progress.is_running:
+            if cls._progress_handler not in logging.root.handlers:
+                logging.root.handlers.append(cls._progress_handler)
+
+        elif cls._progress_handler in logging.root.handlers:
+            logging.root.handlers.remove(cls._progress_handler)
 
     @classmethod
     def _update_used_formats(cls):
@@ -1087,7 +1076,7 @@ class LogManager:
         target = cls.spec.console_stream
         existing = cls.console_handler
         if existing is None or _get_fmt(existing) != fmt or existing.level != level or existing.stream != target:
-            if existing is not None:
+            if existing is not None and cls.handlers is not None:
                 cls.handlers.remove(existing)
                 logging.root.removeHandler(existing)
 
@@ -1101,7 +1090,7 @@ class LogManager:
         target = cls.spec.usable_location()
         existing = cls.file_handler
         if existing is None or _get_fmt(existing) != fmt or existing.level != level or existing.baseFilename != target:
-            if existing is not None:
+            if existing is not None and cls.handlers is not None:
                 cls.handlers.remove(existing)
                 logging.root.removeHandler(existing)
 
@@ -1117,7 +1106,9 @@ class LogManager:
             new_handler.setLevel(level)
 
         logging.root.addHandler(new_handler)
-        cls.handlers.append(new_handler)
+        if cls.handlers is not None:
+            cls.handlers.append(new_handler)
+
         return new_handler
 
     @classmethod
@@ -1159,12 +1150,14 @@ class LogManager:
         """
         if cls.is_using_format("%(context)"):
             cls.context.enable(True)
-            for handler in cls.handlers:
-                handler.addFilter(cls.context.filter)
+            if cls.context.filter is not None and cls.handlers is not None:
+                for handler in cls.handlers:
+                    handler.addFilter(cls.context.filter)
 
         else:
-            for handler in cls.handlers:
-                handler.removeFilter(cls.context.filter)
+            if cls.context.filter is not None and cls.handlers is not None:
+                for handler in cls.handlers:
+                    handler.removeFilter(cls.context.filter)
 
             cls.context.enable(False)
 
@@ -1189,7 +1182,7 @@ class LogManager:
             logging.log = _LogWrap.log
 
 
-class _LogWrap:
+class _LogWrap(_PyMimicked):
     """Allows to correctly report caller file/function/line from convenience calls such as logging.info()"""
 
     def __init__(self, level, exc_info=None):
@@ -1199,12 +1192,11 @@ class _LogWrap:
 
     @staticmethod
     def log(level, msg, *args, **kwargs):
-        getframe = getattr(sys, "_getframe", None)
         offset = kwargs.pop("_stack_offset", 1)
-        name = getframe(offset).f_globals.get("__name__")
+        name = sys._getframe(offset).f_globals.get("__name__")
         logger = logging.getLogger(name)
         try:
-            logging.currentframe = lambda: getframe(3 + offset)
+            logging.currentframe = lambda: sys._getframe(3 + offset)
             logger.log(level, msg, *args, **kwargs)
 
         finally:

@@ -5,8 +5,9 @@ import shutil
 import tempfile
 import time
 from pathlib import Path
+from typing import overload
 
-from runez.system import _R, abort, Anchored, decode, flattened, resolved_path, short, SYMBOLIC_TMP, SYS_INFO, UNSET
+from runez.system import _R, abort, Anchored, flattened, resolved_path, short, SYMBOLIC_TMP, SYS_INFO, UNSET
 
 
 def basename(path, extension_marker=os.extsep, follow=False):
@@ -33,29 +34,24 @@ def basename(path, extension_marker=os.extsep, follow=False):
     return path
 
 
-def checksum(path, hash=hashlib.sha256, blocksize=65536):
+def checksum(path, hash=hashlib.sha256, blocksize=65536) -> str:
     """
     Args:
         path (str | Path | None): Path to file
-        hash: Hash algorithm to use
-        blocksize (int):
+        hash (callable): Hash algorithm to use (eg hashlib.sha256)
+        blocksize (int): Read block size
 
     Returns:
         (str): Hex-digest
     """
-    if isinstance(hash, str):
-        hash = getattr(hashlib, hash)
-
-    if callable(hash):
-        hash = hash()
-
+    h = hash()
     with open(path, "rb") as fh:
         buf = fh.read(blocksize)
         while len(buf) > 0:
-            hash.update(buf)
+            h.update(buf)
             buf = fh.read(blocksize)
 
-    return hash.hexdigest()
+    return h.hexdigest()
 
 
 def copy(source, destination, ignore=None, overwrite=True, fatal=True, logger=UNSET, dryrun=UNSET):
@@ -288,9 +284,9 @@ def readlines(path, first=None, errors="ignore", fatal=False, logger=False, tran
                 if first == 0:
                     return
 
-                line = decode(line)
                 if transform:
                     line = transform(line)
+
                 yield line
                 first -= 1
 
@@ -302,10 +298,18 @@ def readlines(path, first=None, errors="ignore", fatal=False, logger=False, tran
         _R.hlog(logger, message, exc_info=e)
 
 
+@overload
+def to_path(path: "str | Path", no_spaces=False) -> Path: ...
+
+
+@overload
+def to_path(path: None, no_spaces=False) -> None: ...
+
+
 def to_path(path, no_spaces=False):
     """
     Args:
-        path (str | Path): Path to convert
+        path (str | Path | None): Path to convert
         no_spaces (type | bool | None): If True-ish, abort if 'path' contains a space
 
     Returns:
@@ -689,9 +693,7 @@ def _file_op(source, destination, func, overwrite, fatal, logger, dryrun, must_e
         if ignore is not None:
             if not callable(ignore):
                 given = ignore
-
-                def ignore(*_):
-                    return given
+                ignore = lambda *_: given  # noqa: E731
 
             extra["ignore"] = ignore
 

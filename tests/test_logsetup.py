@@ -154,6 +154,14 @@ def test_context(temp_log):
     logging.info("hello")
     assert temp_log.pop() == "UTC INFO - hello"
 
+    # Verify that filters get cleaned up if `%(context)s` is removed
+    runez.log.spec.console_format = "%(timezone)s %(levelname)s - %(message)s"
+    assert runez.log.context.filter
+    runez.log.setup()
+    assert runez.log.context.filter is None
+    logging.info("hello")
+    assert temp_log.pop() == "UTC INFO - hello"
+
     assert not runez.log.context.has_global()
     assert not runez.log.context.has_threadlocal()
 
@@ -227,7 +235,6 @@ def test_deprecated():
     assert runez.log.tests_path() == runez.DEV.tests_path()  # deprecated
 
 
-@pytest.mark.skipif(runez.SYS_INFO.platform_id.is_windows, reason="No /dev/null on Windows")
 def test_file_location_not_writable(temp_log):
     runez.log.setup(
         greetings="Logging to: {location}",
@@ -429,13 +436,12 @@ def test_setup(temp_log, monkeypatch):
     assert runez.log.is_using_format("%(context) %(lineno)", fmt) is True
     assert runez.log.is_using_format("%(context)", "") is False
 
-    if not runez.SYS_INFO.platform_id.is_windows:
-        # signum=None is equivalent to disabling faulthandler
-        runez.log.enable_faulthandler(signum=None)
-        assert runez.log.faulthandler_signum is None
-        # We didn't call setup, so enabling faulthandler will do nothing
-        runez.log.enable_faulthandler()
-        assert runez.log.faulthandler_signum is None
+    # signum=None is equivalent to disabling faulthandler
+    runez.log.enable_faulthandler(signum=None)
+    assert runez.log.faulthandler_signum is None
+    # We didn't call setup, so enabling faulthandler will do nothing
+    runez.log.enable_faulthandler()
+    assert runez.log.faulthandler_signum is None
 
     cwd = os.getcwd()
     assert not runez.DRYRUN
@@ -495,10 +501,8 @@ def test_setup(temp_log, monkeypatch):
         assert "DEBUG - hello" in temp_log.stdout.pop()
         assert not temp_log.stderr
 
-        if not runez.SYS_INFO.platform_id.is_windows and runez.logsetup.faulthandler:
-            # Available only in python3
-            runez.log.enable_faulthandler()
-            assert runez.log.faulthandler_signum
+        runez.log.enable_faulthandler()
+        assert runez.log.faulthandler_signum
 
         assert runez.log.debug is True
         assert runez.DRYRUN is True
@@ -512,8 +516,8 @@ def test_setup(temp_log, monkeypatch):
 def test_progress_bar():
     p = runez.ProgressBar(range(2))
     assert list(p) == [0, 1]
-    assert str(p) == "None/2"
-    assert p.rendered() is None
+    assert str(p) == "0/2"
+    assert p.rendered() == "        0%"
 
     with runez.ProgressBar(total=3, columns=4) as pb:
         assert pb.n == 0
@@ -526,15 +530,15 @@ def test_progress_bar():
         pb.update()
         assert pb.rendered() == "▉▉▉▉100%"
 
-    assert pb.n is None
-    assert pb.rendered() is None
+    assert pb.n == 0
+    assert pb.rendered() == "    0%"
 
 
 def test_progress_command(cli, monkeypatch):
-    cli.run("progress-bar", "-i10", "-d1", "--sleep", "0.01")
+    cli.run("progress-bar", "-v", "-i50", "-d1", "--sleep", "0.01")
     assert cli.succeeded
     assert "done" in cli.logged.stdout
-    assert "CPU usage" in cli.logged.stdout
+    assert "% CPU usage" in cli.logged.stdout
 
     monkeypatch.setitem(sys.modules, "psutil", None)
     cli.run("progress-bar", "-i10", "-d1", "--sleep", "0.01")

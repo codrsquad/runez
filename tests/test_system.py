@@ -175,7 +175,6 @@ def test_current_folder(temp_folder):
 
 
 def test_decode():
-    assert runez.decode(None) is None
     assert runez.decode(" something ") == " something "
     assert runez.decode(" something ", strip=True) == "something"
 
@@ -478,15 +477,6 @@ def test_platform_identification():
     assert m1.is_system_lib("/usr/lib/foo.so")
     assert m1.is_system_lib("/System/Library/foo.so")
 
-    win = PlatformId("windows-x86_64")
-    assert str(win) == "windows-x86_64"
-    assert win.canonical_compress_extension() == "zip"
-    assert win.is_windows
-    assert win.composed_basename("cpython", "1.2.3") == "cpython-1.2.3-windows-x86_64.zip"
-    assert win.composed_basename("foo", extension="gz") == "foo-windows-x86_64.tar.gz"
-    assert win.composed_basename("foo", extension="tar.gz") == "foo-windows-x86_64.tar.gz"
-    assert win.composed_basename("foo", extension="zip") == "foo-windows-x86_64.zip"
-
 
 def test_quoted():
     assert runez.quoted(None) == "None"
@@ -675,7 +665,7 @@ def test_terminal(monkeypatch):
 
     with patch.dict(os.environ, {"LC_TERMINAL": "", "TERM_PROGRAM": "", "TERM": ""}):
         # Simulate a known terminal
-        ps = runez.PsInfo()
+        ps = runez.program.PsInfo()
         ps.followed_parent.cmd = "/dev/null/tilix"
         ps.followed_parent.cmd_basename = "tilix"
         p = TerminalProgram(ps=ps)

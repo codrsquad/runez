@@ -4,6 +4,7 @@ Convenience methods for (de)serializing objects
 
 import collections
 import datetime
+import inspect
 import io
 import json
 from typing import ClassVar
@@ -87,8 +88,8 @@ class DefaultBehavior:
     (global default for that does not make sense).
     """
 
-    strict = False  # type: callable # Original default: don't strictly enforce type compatibility
-    extras = False  # type: callable  # Original default: don't report extra fields seen in deserialized data (ie: ignore them)
+    strict = False  # Original default: don't strictly enforce type compatibility
+    extras = False  # Original default: don't report extra fields seen in deserialized data (ie: ignore them)
 
     def __init__(self, strict=UNSET, extras=UNSET, hook=UNSET):
         """
@@ -97,13 +98,15 @@ class DefaultBehavior:
             extras (bool | callable | (callable, list)): See `with_behavior()`
             hook (callable): Called if provided at the end of ClassMetaDescription initialization
         """
+        from runez import schema
+
         if strict is UNSET:
             strict = self.strict
 
         if extras is UNSET:
             extras = self.extras
 
-        self.strict = _to_callable(strict, fallback=_R.lc.rm_schema.ValidationException)
+        self.strict = _to_callable(strict, fallback=schema.ValidationException)
         self.hook = _to_callable(hook)  # Called if provided at the end of ClassMetaDescription initialization
         self.ignored_extras = None  # Internal, populated if given `extras` is a `tuple(callable, list)`
 
@@ -137,10 +140,10 @@ class DefaultBehavior:
         return "lenient"
 
     @staticmethod
-    def behavior_from_bases(cls):
-        """Determine behavior from base classes of given `cls`"""
+    def behavior_from_bases(klass):
+        """Determine behavior from base classes of given `klass`"""
         strict = hook = UNSET
-        for base in reversed(cls.__bases__):
+        for base in reversed(klass.__bases__):
             meta = getattr(base, "_meta", None)
             if isinstance(meta, ClassMetaDescription) and meta.behavior is not None and is_serializable_descendant(base):
                 # Let `strict` and `hook` be inherited from parent classes (but not `Serializable` itself)
@@ -156,14 +159,18 @@ class DefaultBehavior:
             if isinstance(self.strict, type) and issubclass(self.strict, Exception):
                 raise self.strict(msg)
 
-            self.strict(msg)
+            from runez.schema import ValidationException
+
+            handler = self.strict if callable(self.strict) else ValidationException.raise_with_message
+            handler(msg)
 
     def do_notify(self, message):
         if self.extras:
             if isinstance(self.extras, type) and issubclass(self.extras, Exception):
                 raise self.extras(message)
 
-            self.extras(message)
+            notifier = self.extras if callable(self.extras) else LOG.debug
+            notifier(message)
 
     def handle_extra(self, class_name, field_name):
         self.do_notify("'%s' is not an attribute of %s" % (field_name, class_name))
@@ -345,35 +352,45 @@ class ClassMetaDescription:
     """Info on class attributes and properties"""
 
     def __init__(self, cls, mbehavior=None):
+        from runez import schema
+
         self.name = cls.__name__
         self.qualified_name = "%s.%s" % (cls.__module__, cls.__name__)
         self.cls = cls
         self.attributes = {}
         self.properties = []
-        self.behavior = mbehavior.behavior if mbehavior is not None else DefaultBehavior.behavior_from_bases(cls)
         self.unique_identifier = None
+        if mbehavior is not None and isinstance(mbehavior.behavior, DefaultBehavior):
+            self.behavior = mbehavior.behavior
+
+        else:
+            self.behavior = DefaultBehavior.behavior_from_bases(cls)
 
         by_type = collections.defaultdict(list)
         for key, value in scan_all_attributes(cls):
-            if not key.startswith("_"):
-                if value is not None and "property" in value.__class__.__name__:
-                    self.properties.append(key)
-                    continue
+            if key.startswith("_") or (value is not None and inspect.isroutine(value)):
+                continue
 
-                schema_module = _R.lc.rm_schema
-                schema_type = schema_module.determined_schema_type(value, required=False)
-                if schema_type is not None:
-                    if isinstance(schema_type, schema_module.UniqueIdentifier):
-                        if self.unique_identifier:
-                            raise schema_module.ValidationException(
-                                "Multiple unique ids specified for %s: %s and %s"
-                                % (self.qualified_name, self.unique_identifier, schema_type)
-                            )
-                        self.unique_identifier = key
-                        schema_type = schema_type.subtype
+            if value is not None and "property" in value.__class__.__name__:
+                self.properties.append(key)
+                continue
 
-                    self.attributes[key] = schema_type
-                    by_type[schema_type.__class__].append(key)
+            try:
+                schema_type = schema._determined_schema_type(value)
+
+            except schema.ValidationException:
+                continue
+
+            if isinstance(schema_type, schema.UniqueIdentifier):
+                if self.unique_identifier:
+                    msg = f"Multiple unique ids specified for {self.qualified_name}: {self.unique_identifier} and {schema_type}"
+                    raise schema.ValidationException(msg)
+
+                self.unique_identifier = key
+                schema_type = schema_type.subtype
+
+            self.attributes[key] = schema_type
+            by_type[schema_type.__class__].append(key)
 
         self._by_type = {k: sorted(v) for k, v in by_type.items()}  # Sorted to make things deterministic
         if self.attributes:
@@ -538,7 +555,7 @@ def add_meta(meta_type):
 class Serializable:
     """Serializable object"""
 
-    _meta = None  # type: ClassMetaDescription  # This describes fields and properties of descendant classes, populated via metaclass
+    _meta: ClassMetaDescription  # Describes fields and properties of descendant classes, populated via metaclass
 
     def __new__(cls, *_, **__):
         obj = super(Serializable, cls).__new__(cls)
@@ -546,8 +563,11 @@ class Serializable:
         return obj
 
     def __eq__(self, other):
-        if other is not None and other.__class__ is self.__class__:
-            return not any(not hasattr(other, x) or getattr(self, x) != getattr(other, x) for x in self._meta.attributes)
+        return (
+            other is not None
+            and other.__class__ is self.__class__
+            and not any(not hasattr(other, x) or getattr(self, x) != getattr(other, x) for x in self._meta.attributes)
+        )
 
     def __ne__(self, other):
         return not (self == other)
@@ -568,7 +588,7 @@ class Serializable:
             (cls): Deserialized object
         """
         result = cls()
-        data = read_json(path, default=default, fatal=fatal or (default is None and cls._meta.behavior.strict), logger=logger)
+        data = read_json(path, default=default, fatal=fatal or bool(default is None and cls._meta.behavior.strict), logger=logger)
         result.set_from_dict(data, source=short(path))
         return result
 
@@ -606,7 +626,7 @@ class Serializable:
         for name, schema_type in self._meta.attributes.items():
             setattr(self, name, schema_type.default)
 
-    def to_dict(self, stringify=stringified, dt=str, none=False):
+    def to_dict(self, stringify=stringified, dt=str, none=False) -> dict:
         """
         Args:
             stringify (callable | None): Function to use to stringify non-builtin types
@@ -620,7 +640,9 @@ class Serializable:
             (dict): This object serialized to a dict
         """
         raw = {name: getattr(self, name) for name in self._meta.attributes}
-        return json_sanitized(raw, stringify=stringify, dt=dt, none=none)
+        value = json_sanitized(raw, stringify=stringify, dt=dt, none=none)
+        assert isinstance(value, dict)
+        return value
 
 
 def from_json(value, default=None, fatal=False, logger=False):

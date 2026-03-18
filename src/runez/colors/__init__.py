@@ -11,22 +11,31 @@ from runez.system import DEV, short, Slotted, stringified, SYS_INFO, uncolored, 
 
 
 class ActivateColors:
-    """Context manager for temporarily overriding coloring"""
+    """Context manager to temporarily override coloring"""
 
-    def __init__(self, enable=True, flavor=None):
+    def __init__(self, enable: "bool | PlainBackend | type[PlainBackend] | str | None" = True, flavor=None):
+        """
+        Temporarily override coloring
+
+        Parameters
+        ----------
+        enable: Enable colored output
+        flavor (str | None): Flavor to use (neutral, light or dark)
+        """
         if enable is True and DEV.current_test():
             # This allows to have easily reproducible tests (same color backend used in tests by default)
             enable = "testing"
 
         self.enable = enable
         self.flavor = flavor
-        self.prev = None
 
     def __enter__(self):
-        self.prev = ColorManager.activate_colors(self.enable, flavor=self.flavor)
+        self.prev = ColorManager.backend, ColorManager.bg, ColorManager.fg, ColorManager.style
+        ColorManager.activate_colors(self.enable, flavor=self.flavor)
 
     def __exit__(self, *_):
-        ColorManager.backend, ColorManager.bg, ColorManager.fg, ColorManager.style = self.prev
+        if self.prev is not None:
+            ColorManager.backend, ColorManager.bg, ColorManager.fg, ColorManager.style = self.prev
 
 
 class PlainBackend:
@@ -61,10 +70,10 @@ class PlainBackend:
 class ColorManager:
     """Holds current global coloring backend and bg, fg color and style implementations"""
 
-    backend = None  # type: PlainBackend
-    bg = None  # type: NamedColors
-    fg = None  # type: NamedColors
-    style = None  # type: NamedStyles
+    backend: PlainBackend
+    bg: "NamedColors"
+    fg: "NamedColors"
+    style: "NamedStyles"
 
     @classmethod
     def cast_color(cls, name, source=None, strict=True):
@@ -134,16 +143,14 @@ class ColorManager:
     def activate_colors(cls, enable=None, flavor=None):
         """
         Args:
-            enable (bool | type(PlainBackend) | None): Set colored output on or off
+            enable (bool | PlainBackend | type(PlainBackend) | str | None): Set colored output on or off
             flavor (str | None): Flavor to use (neutral, light or dark)
         """
         if enable is None:
             enable = SYS_INFO.terminal.is_stdout_tty
 
-        prev = cls.backend, cls.bg, cls.fg, cls.style
         cls.backend = _detect_backend(enable, flavor=flavor)
         cls.bg, cls.fg, cls.style = cls.backend.named_triplet()
-        return prev
 
     @classmethod
     def adjusted_size(cls, text, size=0):
@@ -161,13 +168,13 @@ class ColorManager:
 class Renderable:
     """A render-able (color or style) named object"""
 
-    def __init__(self, name):
+    def __init__(self, name: str):
         self.name = name
 
     def __repr__(self):
         return self.name
 
-    def __call__(self, text, size=None):
+    def __call__(self, text: str, size=None) -> str:
         """
         Allows for convenient call of the form:
 
@@ -178,7 +185,7 @@ class Renderable:
         text = short(text, size=size) if size else stringified(text)
         return self.rendered(text) if text else ""
 
-    def rendered(self, text):
+    def rendered(self, text: str) -> str:
         return text
 
 
@@ -206,13 +213,18 @@ class NamedRenderables(Slotted):
 class NamedColors(NamedRenderables):
     """Set of registered named colors"""
 
-    __slots__ = ["black", "blue", "brown", "gray", "green", "orange", "plain", "purple", "red", "teal", "white", "yellow"]
+    __slots__ = ("black", "blue", "brown", "gray", "green", "orange", "plain", "purple", "red", "teal", "white", "yellow")
 
 
 class NamedStyles(NamedRenderables):
     """Set of registered named styles"""
 
-    __slots__ = ["blink", "bold", "dim", "invert", "italic", "strikethrough", "underline"]
+    __slots__ = ("blink", "bold", "dim", "invert", "italic", "strikethrough", "underline")
+
+
+# Initialize ColorManager with plain defaults (overridden by activate_colors() at import time)
+ColorManager.backend = PlainBackend()
+ColorManager.bg, ColorManager.fg, ColorManager.style = ColorManager.backend.named_triplet()
 
 
 def _detect_backend(enable, flavor=None):

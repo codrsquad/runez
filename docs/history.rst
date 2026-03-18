@@ -2,18 +2,34 @@
 History
 =======
 
-5.6.0 (2026-03-16)
+5.6.0 (2026-03-18)
 ------------------
+
+* ``which()`` looks at current venv ``bin/`` folder first
+
+* ``ClickRunner.default_main`` and ``ClickRunner.context_wrapper`` replace deprecated ``cli.default_main`` and ``cli.context``
+
+* Removed:
+
+    * ``assert_printed()`` from ``CapturedStream``, ``TrackedOutput``, and ``ClickRunner``
+
+    * ``runez.SYS_INFO.platform_id.is_windows``
+
+    * ``runez.inspector.AutoInstall``
+
+    * ``runez.inspector.ImportTime``
+
+* Not exposing in top-level ``runez`` import (use ``from runez.<submodule> import ...`` if needed):
+
+    * ``AdaptedProperty``, ``ascii``, ``config`` , ``is_subfolder``, ``PsInfo``, ``Slotted``
+
+* Simplified ``runez.schema`` internals
 
 * Turned on flake8-simplify and tryceratops, fixed corresponding issues
 
 * Added tests
 
 * Modernized GH actions and project metadata
-
-* Removed ``is_subfolder()`` from ``runez.file``
-
-* Removed ``assert_printed()`` from ``CapturedStream``, ``TrackedOutput``, and ``ClickRunner``
 
 * ``ClickRunner.run()`` now accepts ``pathlib.Path`` objects for ``main``/script args
 
@@ -26,6 +42,8 @@ History
 * ``make_executable()`` now preserves existing permission bits instead of hardcoding ``0o755``
 
 * Using ``extractall(filter="data")`` from stdlib for path traversal protection
+
+* Adapted type declarations, pyright now reports 0 errors
 
 
 5.5.0 (2026-03-12)

@@ -5,6 +5,7 @@ This class should not import any other `runez` class, to avoid circular deps.
 """
 
 import contextlib
+import functools
 import importlib.metadata
 import inspect
 import logging
@@ -15,7 +16,9 @@ import sys
 import threading
 import unicodedata
 from io import StringIO
-from typing import ClassVar
+from typing import Any, Callable, ClassVar, TypeVar
+
+_T = TypeVar("_T")
 
 ABORT_LOGGER = logging.error
 LOG = logging.getLogger("runez")
@@ -40,10 +43,11 @@ class Undefined:
 
 
 # Internal marker for values that are NOT set
-UNSET = Undefined()  # type: Undefined
+# Typed as Any so that pyright doesn't constrain parameter types when UNSET is used as a default value
+UNSET: Any = Undefined()
 
 
-def abort(message, code=1, exc_info=None, return_value=None, fatal=True, logger=UNSET):
+def abort(message, code=1, exc_info=None, return_value: _T = None, fatal=True, logger=UNSET) -> _T:
     """General wrapper for optionally fatal calls
 
     >>> from runez import abort
@@ -73,7 +77,7 @@ def abort(message, code=1, exc_info=None, return_value=None, fatal=True, logger=
     Args:
         message (str): Message explaining why we're aborting
         code (int): Exit code used when runez.system.AbortException is set to SystemExit
-        exc_info (Exception): Exception info to pass on to logger
+        exc_info (BaseException): Exception info to pass on to logger
         return_value (Any): Value to return when `fatal` is not True
         fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), None to disable log chatter
@@ -118,11 +122,36 @@ def abort_if(condition, message=None, code=1, exc_info=None, logger=UNSET):
         abort(_R.actual_message(message or condition), code=code, exc_info=exc_info, logger=logger)
 
 
+class _PyMimicked:
+    """
+    Base class for descriptor objects that use ``py_mimic()`` to copy identity attributes from a wrapped function.
+
+    ``py_mimic()`` dynamically sets ``__name__``, ``__doc__``, ``__module__``, and ``__annotations__``
+    on the target object at runtime. Since pyright cannot infer attributes set via side effects,
+    this mixin declares them upfront so that static type checkers understand they exist.
+
+    Inherit from this class in any descriptor that calls ``py_mimic(self, func)`` in its ``__init__``.
+    """
+
+    __name__: str
+    __doc__: str | None
+    __module__: str
+    __annotations__: dict
+
+
 def py_mimic(target, source):
-    """Make 'target' mimic python definition of 'source'
-    Args:
-        target: Object to decorate
-        source: Object to mimic
+    """
+    Make ``target`` mimic the Python identity of ``source``.
+
+    Copies ``__annotations__``, ``__doc__``, ``__module__``, and ``__name__`` from ``source`` to ``target``.
+    This is similar to ``functools.update_wrapper``, but works on arbitrary objects (not just callables).
+
+    Parameters
+    ----------
+    target : _PyMimicked | object
+        Object to decorate (typically ``self`` in a descriptor's ``__init__``)
+    source : object
+        Object whose identity to copy (typically the wrapped function)
     """
     if target is not None and source is not None:
         target.__annotations__ = source.__annotations__
@@ -131,26 +160,27 @@ def py_mimic(target, source):
         target.__name__ = source.__name__
 
 
-class cached_property:
+class cached_property(functools.cached_property):
     """
-    A property that is only computed once per instance and then replaces itself with an ordinary attribute.
-    Same as https://pypi.org/project/cached-property/ (without having to add another dependency).
-    Deleting the attribute resets the property.
+    A ``cached_property`` that extends ``functools.cached_property`` with batch introspection utilities.
 
-    Threads/async is not supported on purpose (to keep things simple)
-    See docs/async-cached-property.md for how that can be added if/when needed.
+    The core caching behavior is identical to the stdlib version: on first access, the decorated method
+    is called and its return value is stored in the instance's ``__dict__``. Deleting the attribute
+    resets the property so it will be recomputed on next access.
+
+    This subclass adds static helper methods for working with cached properties in bulk:
+
+    - ``reset(target)``: clear all cached property values on an object (useful in tests/conftest)
+    - ``properties(target)``: yield names of all (cached) properties on an object
+    - ``to_dict(target)``: return a dict of property name/value pairs
     """
 
     def __init__(self, func):
-        self.__func__ = func
-        py_mimic(self, self.__func__)
-
-    def __get__(self, instance, owner):
-        if instance is None:
-            return self
-
-        value = instance.__dict__[self.__name__] = self.__func__(instance)
-        return value
+        super().__init__(func)
+        self.__annotations__ = func.__annotations__
+        self.__doc__ = func.__doc__
+        self.__module__ = func.__module__
+        self.__name__ = func.__name__
 
     @staticmethod
     def _walk_properties(target, cached_only=True):
@@ -245,24 +275,24 @@ def capped(value, minimum=None, maximum=None, key=None, none_ok=False):
     return value
 
 
-def decode(value, strip=None):
+def decode(value: str | bytes, strip: str | bool | None = None) -> str:
     """Python 2/3 friendly decoding of output.
 
     Args:
-        value (str | bytes | None): The value to decode.
+        value (str | bytes): The value to decode.
         strip (str | bool | None): If provided, `strip()` the returned string.
 
     Returns:
         str: Decoded value, if applicable.
     """
-    if value is None:
-        return None
-
     if isinstance(value, bytes):
         value = value.decode("utf-8", errors="replace")
 
-    if strip:
-        value = value.strip(strip if isinstance(strip, str) else None)
+    if strip is True:
+        value = value.strip()
+
+    elif isinstance(strip, str):
+        value = value.strip(strip)
 
     return value
 
@@ -288,11 +318,12 @@ def find_caller(depth=2, maximum=1000, need_file=True, need_package=False, regex
                 package = f.f_globals.get("__package__")
                 if package or not need_package:
                     name = f.f_globals.get("__name__")
-                    top_level = package and package.partition(".")[0]
-                    if name.endswith("__main__") or not top_level or (not top_level.startswith("_") and top_level not in ignored):
-                        filepath = f.f_globals.get("__file__")
-                        if (filepath or not need_file) and (regex is None or regex.match(name)):
-                            return _CallerInfo(f, depth, package, top_level, name, filepath)
+                    if name != "functools":
+                        top_level = package and package.partition(".")[0]
+                        if name.endswith("__main__") or not top_level or (not top_level.startswith("_") and top_level not in ignored):
+                            filepath = f.f_globals.get("__file__")
+                            if (filepath or not need_file) and (regex is None or regex.match(name)):
+                                return _CallerInfo(f, depth, package, top_level, name, filepath)
 
                 depth = depth + 1
 
@@ -328,7 +359,7 @@ def first_line(text, keep_empty=False, default=None):
     return default
 
 
-def flattened(*value, keep_empty=False, split=None, shellify=False, strip=None, transform=None, unique=False):
+def flattened(*value, keep_empty: str | bool | None = False, split=None, shellify=False, strip=None, transform=None, unique=False):
     """
     Args:
         value: Possibly nested arguments (sequence of lists, nested lists, ...)
@@ -366,7 +397,7 @@ def flattened(*value, keep_empty=False, split=None, shellify=False, strip=None, 
     return result
 
 
-def get_version(mod, default="0.0.0", fatal=False, logger=False):
+def get_version(mod, default="0.0.0", fatal=False, logger: bool | Callable | None = False):
     """
     Args:
         mod (module | str): Module, or module name to find version for (pass either calling module, or its .__name__)
@@ -417,7 +448,7 @@ def is_iterable(value):
     return isinstance(value, (list, tuple, set)) or inspect.isgenerator(value)
 
 
-def stringified(value, converter=None, none="None"):
+def stringified(value, converter=None, none: str | bool | None = "None") -> str:
     """
     Args:
         value: Any object to turn into a string
@@ -431,7 +462,7 @@ def stringified(value, converter=None, none="None"):
         return value
 
     if isinstance(value, bytes):
-        return value.decode("utf-8", errors="replace")
+        return decode(value)
 
     if converter is not None:
         converted = converter(value)
@@ -456,7 +487,7 @@ def stringified(value, converter=None, none="None"):
     return "{}".format(value)
 
 
-def joined(*args, delimiter=" ", keep_empty=False, strip=None, stringify=stringified, unique=False):
+def joined(*args, delimiter=" ", keep_empty: str | bool | None = False, strip=None, stringify=stringified, unique=False):
     """
     >>> joined(1, " foo ", None, 2)
     '1  foo  2'
@@ -654,85 +685,6 @@ class AbortException(Exception):
     SystemExit: 1
     >>> runez.system.AbortException = saved  # Restoring to avoid confusing other tests
     """
-
-
-class AdaptedProperty:
-    """
-    This decorator allows to define properties with regular get/set behavior,
-    but the body of the decorated function can act as a validator, and can auto-convert given values
-
-    Example usage:
-        >>> from runez import AdaptedProperty
-        >>> class MyObject:
-        ...     age = AdaptedProperty(default=5)  # Anonymous property
-        ...
-        ...     @AdaptedProperty           # Simple adapted property
-        ...     def width(self, value):
-        ...         if value is not None:  # Implementation of this function acts as validator and adapter
-        ...             return int(value)  # Here we turn value into an int (will raise exception if not possible)
-        ...
-        >>> my_object = MyObject()
-        >>> assert my_object.age == 5  # Default value
-        >>> my_object.width = "10"     # Implementation of decorated function turns this into an int
-        >>> assert my_object.width == 10
-    """
-
-    __counter: ClassVar = [0]  # Simple counter for anonymous properties
-
-    def __init__(self, validator=None, default=None, doc=None, caster=None, type=None):
-        """
-        Args:
-            validator (callable | str | None): Function to use to validate/adapt passed values, or name of property
-            default: Default value
-            doc (str): Docstring (applies to anonymous properties only)
-            caster (callable): Optional caster called for non-None values only (applies to anonymous properties only)
-            type (type): Optional type, must have initializer with one argument if provided
-        """
-        self.default = default
-        self.caster = caster
-        self.type = type
-        if callable(validator):
-            # 'validator' is available when used as decorator of the form: @AdaptedProperty
-            self.validator = validator
-            self.key = "__%s" % validator.__name__
-            py_mimic(self, validator)
-
-        else:
-            # 'validator' is NOT available when decorator of this form is used: @AdaptedProperty(default=...)
-            # or as an anonymous property form: my_prop = AdaptedProperty()
-            self.validator = None
-            self.__doc__ = doc
-            if validator is None:
-                i = self.__counter[0] = self.__counter[0] + 1
-                validator = "anon_prop_%s" % i
-
-            self.key = "__%s" % validator
-
-    def __call__(self, validator):
-        """Called when used as decorator of the form: @AdaptedProperty(default=...)"""
-        self.validator = validator
-        self.key = "__%s" % validator.__name__
-        py_mimic(self, validator)
-        return self
-
-    def __get__(self, instance, owner):
-        if instance is None:
-            return self  # We're being called by class
-
-        return getattr(instance, self.key, self.default)
-
-    def __set__(self, obj, value):
-        if self.validator is not None:
-            value = self.validator(obj, value)
-
-        elif self.type is not None:
-            if not isinstance(value, self.type):
-                value = self.type(value)
-
-        elif value is not None and self.caster is not None:
-            value = self.caster(value)
-
-        setattr(obj, self.key, value)
 
 
 class Anchored:
@@ -1029,6 +981,8 @@ class TrackedOutput:
 class Slotted:
     """This class allows to easily initialize/set a descendant using named arguments"""
 
+    __slots__: tuple
+
     def __init__(self, *positionals, **named):
         """
         Args:
@@ -1116,8 +1070,8 @@ class Slotted:
             for name in self.__slots__:
                 self._set(name, settings.pop(name, UNSET))
 
-    def to_dict(self):
-        """dict: Key/value pairs of defined fields"""
+    def to_dict(self) -> dict:
+        """Key/value pairs of defined fields"""
         result = {}
         for name in self.__slots__:
             val = getattr(self, name, UNSET)
@@ -1150,8 +1104,7 @@ class Slotted:
                 yield val
 
     def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return all(getattr(self, x, None) == getattr(other, x, None) for x in self.__slots__)
+        return isinstance(other, self.__class__) and all(getattr(self, x, None) == getattr(other, x, None) for x in self.__slots__)
 
     def _seed(self):
         """Seed initial fields"""
@@ -1166,8 +1119,8 @@ class Slotted:
     def _set_field(self, name, value):
         setattr(self, name, value)
 
-    def _get_defaults(self):
-        """dict|Undefined|None: Optional defaults"""
+    def _get_defaults(self) -> dict | None:
+        """Optional defaults"""
 
     def _set(self, name, value):
         """
@@ -1195,8 +1148,8 @@ class Slotted:
             else:
                 self._set_field(name, value)
 
-    def _values_from_positional(self, positional):
-        """dict: Key/value pairs from a given position to set()"""
+    def _values_from_positional(self, positional) -> dict | None:
+        """Key/value pairs from a given position to set()"""
         if isinstance(positional, str):
             return self._values_from_string(positional)
 
@@ -1208,11 +1161,11 @@ class Slotted:
 
         return self._values_from_object(positional)
 
-    def _values_from_string(self, text):
-        """dict: Optional hook to allow descendants to extract key/value pairs from a string"""
+    def _values_from_string(self, text) -> dict | None:
+        """Optional hook to allow descendants to extract key/value pairs from a string"""
 
-    def _values_from_object(self, obj):
-        """dict: Optional hook to allow descendants to extract key/value pairs from an object"""
+    def _values_from_object(self, obj) -> dict | None:
+        """Optional hook to allow descendants to extract key/value pairs from an object"""
         if obj is not None:
             return {k: getattr(obj, k, UNSET) for k in self.__slots__}
 
@@ -1252,7 +1205,7 @@ class DevInfo:
                     return path
 
     @cached_property
-    def tests_folder(self) -> str:
+    def tests_folder(self) -> str | None:
         """Path to current development project's tests/ folder, if we're running from a source compilation"""
         if SYS_INFO.venv_bin_folder:
             ct = self.current_test()
@@ -1260,7 +1213,7 @@ class DevInfo:
                 return _R.find_parent_folder(ct.folder, {"tests", "test"})
 
     @cached_property
-    def venv_folder(self) -> str:
+    def venv_folder(self) -> str | None:
         """Path to current development venv, if we're running from one"""
         if SYS_INFO.venv_bin_folder:
             return _R.find_parent_folder(sys.prefix, {"venv", ".venv", ".virtualenvs", ".tox", "build"})
@@ -1297,9 +1250,9 @@ class PlatformId:
     - Additionally, the binary also should be able to run from whatever folder it has been unpacked in (no global system settings needed)
     """
 
-    arch: str = None  # Example: arm64, x86_64
-    platform: str = None  # Example: linux, macos
-    subsystem: str = None  # Example: libc, musl (empty for macos/windows for now)
+    arch: str = ""  # Example: arm64, x86_64 (populated in __init__)
+    platform: str = ""  # Example: linux, macos (populated in __init__)
+    subsystem: str | None = None  # Example: libc, musl (empty for macos/windows)
 
     default_subsystem = None  # Can this be auto-detected? (currently: users can optionally provide this, by setting this class field)
     platform_archive_type: ClassVar = {"linux": "tar.gz", "macos": "tar.gz", "windows": "zip"}
@@ -1325,7 +1278,7 @@ class PlatformId:
             if subsystem is None and len(given) > 2:
                 subsystem = given[2]
 
-        self.platform = platform or self.determine_current_platform()
+        self.platform = str(platform) if platform else self.determine_current_platform()
         self.arch = arch or self.determine_current_architecture()
         if subsystem is None:
             subsystem = self.determine_current_subsystem()
@@ -1355,9 +1308,6 @@ class PlatformId:
             self.rx_sys_lib = re.compile(r"^/(usr/lib\d*|System/Library)/.+$")
             base_paths.append("@(rpath|executable_path|loader_path)/.+")  # Count relative libs as base
             base_paths.append(r"/usr/lib/libSystem\.B\.dylib")
-
-        elif self.is_windows:
-            base_paths.append(r"C:/Windows/System32/.*")
 
         self.rx_base_path = re.compile(r"^(%s)$" % joined(base_paths, delimiter="|"))
 
@@ -1421,7 +1371,7 @@ class PlatformId:
 
     def is_base_lib(self, *paths):
         """Does one of the given 'paths' match a base library? (present on any declination of this system)"""
-        return any(p and self.rx_base_path.match(str(p)) for p in paths)
+        return self.rx_base_path is not None and any(p and self.rx_base_path.match(str(p)) for p in paths)
 
     def is_system_lib(self, *paths):
         """Does one of the given 'paths' match a system library? (ie: installed in a system folder, not /usr/local and such)"""
@@ -1440,10 +1390,6 @@ class PlatformId:
     @property
     def is_macos(self):
         return self.platform == "macos"
-
-    @property
-    def is_windows(self):
-        return self.platform == "windows"
 
     def determine_current_architecture(self):
         import platform
@@ -1479,7 +1425,7 @@ class PlatformInfo:
 
     def __init__(self, text=None):
         if text is None:
-            text = "Windows" if SYS_INFO.platform_id.is_windows else _R.lc.rm.shell("uname", "-msrp")
+            text = _R.lc.rm.shell("uname", "-msrp")
 
         self.os_name = text or "unknown-os"
         self.os_version = None
@@ -1506,7 +1452,7 @@ class SystemInfo:
     @cached_property
     def current_process(self):
         """Info on currently running process"""
-        return _R.lc.rm.PsInfo()
+        return _R.lc.rm.program.PsInfo()
 
     def diagnostics(self, argv=UNSET, exe=True, platform=True, term=UNSET, userid=UNSET, version=UNSET, via=" ⚡ "):
         """Usable by runez.render.PrettyTable.two_column_diagnostics()"""
@@ -1730,8 +1676,8 @@ class TerminalInfo:
 class TerminalProgram:
     """Info on terminal program being currently used, if any"""
 
-    name = None  # type: str # Terminal program name
-    extra_info = None  # type: str # Extra info, if available
+    name: str | None = None  # Terminal program name
+    extra_info: str | None = None  # Extra info, if available
 
     def __init__(self, ps=None):
         for k in ("LC_TERMINAL", "TERM_PROGRAM"):
@@ -1780,8 +1726,8 @@ class ThreadGlobalContext:
         """
         self._filter_type = filter_type
         self._lock = threading.RLock()
-        self._tpayload = None
-        self._gpayload = None
+        self._tpayload: threading.local | None = None
+        self._gpayload: dict | None = None
         self.filter = None
 
     def reset(self):
@@ -1811,14 +1757,14 @@ class ThreadGlobalContext:
     def set_threadlocal(self, **values):
         """Set current thread's logging context to specified `values`"""
         with self._lock:
-            self._ensure_threadlocal()
-            self._tpayload.log_context = values
+            tp = self._ensure_threadlocal()
+            tp.log_context = values
 
     def add_threadlocal(self, **values):
         """Add `values` to current thread's logging context"""
         with self._lock:
-            self._ensure_threadlocal()
-            self._tpayload.log_context.update(**values)
+            tp = self._ensure_threadlocal()
+            tp.log_context.update(**values)
 
     def remove_threadlocal(self, name):
         """
@@ -1846,8 +1792,8 @@ class ThreadGlobalContext:
     def add_global(self, **values):
         """Add `values` to global logging context"""
         with self._lock:
-            self._ensure_global()
-            self._gpayload.update(**values)
+            gp = self._ensure_global()
+            gp.update(**values)
 
     def remove_global(self, name):
         """
@@ -1881,20 +1827,24 @@ class ThreadGlobalContext:
 
             return result
 
-    def _ensure_threadlocal(self):
+    def _ensure_threadlocal(self) -> threading.local:
         if self._tpayload is None:
             self._tpayload = threading.local()
 
         if not hasattr(self._tpayload, "log_context"):
             self._tpayload.log_context = {}
 
-    def _ensure_global(self, values=None):
+        return self._tpayload
+
+    def _ensure_global(self, values=None) -> dict:
         """
         Args:
             values (dict): Ensure internal global tracking dict is created, seed it with `values` when provided (Default value = None)
         """
         if self._gpayload is None:
             self._gpayload = values or {}
+
+        return self._gpayload
 
 
 class UnitRepresentation:
@@ -1970,12 +1920,6 @@ class _LazyCache:
         import runez
 
         return runez
-
-    @cached_property
-    def rm_schema(self):
-        import runez.schema
-
-        return runez.schema
 
     @cached_property
     def rx_ansi_escape(self):
@@ -2166,22 +2110,6 @@ class _R:
             return cls.lc.rm.DRYRUN
 
         return dryrun
-
-    @classmethod
-    def serializable(cls):
-        """Late-imported Serializable class"""
-        return cls.lc.rm.Serializable
-
-    @classmethod
-    def meta_description(cls, struct):
-        """
-        Args:
-            struct (runez.schema.Struct): Associated Struct
-
-        Returns:
-            (runez.serialize.ClassMetaDescription): Meta object describing given 'struct'
-        """
-        return cls.lc.rm.serialize.ClassMetaDescription(struct.__class__)
 
     @classmethod
     def set_dryrun(cls, dryrun):

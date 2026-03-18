@@ -1,8 +1,24 @@
 import datetime
 import logging
 
+import pytest
+
 import runez
-from runez.schema import Any, Boolean, Date, Datetime, Dict, Enum, Float, Integer, List, String, Struct, UniqueIdentifier
+from runez.schema import (
+    Any,
+    Boolean,
+    Date,
+    Datetime,
+    Dict,
+    Enum,
+    Float,
+    Integer,
+    List,
+    String,
+    Struct,
+    UniqueIdentifier,
+    ValidationException,
+)
 from runez.serialize import Serializable, SerializableDescendants, with_behavior
 
 
@@ -130,6 +146,21 @@ def test_list():
     assert sorted(ll.converted({1, "2"})) == [1, 2]
 
 
+def declare_bogus_class():
+    # Declare a bogus class (with strict=False, default), to verify that unknown types are ignored
+    class Bogus(Serializable):
+        a = object
+        b = object()
+
+    return Bogus
+
+
+def test_invalid():
+    bogus = declare_bogus_class()
+    m = bogus._meta
+    assert str(m) == "Bogus (0 attributes, 0 properties)"
+
+
 def test_number():
     ff = Float()
     assert str(ff) == "Float"
@@ -144,8 +175,8 @@ def test_number():
     assert ff.converted("0o10") == 8.0
 
 
-class Car(Serializable, with_behavior(extras=(logging.info, "foo bar"))):
-    make = String
+class Car(Serializable, with_behavior(strict=True, extras=(logging.info, "foo bar"))):
+    make = str
     serial = UniqueIdentifier
     year = Integer
 
@@ -191,8 +222,9 @@ def test_serializable(logged):
 
     assert str(Serializable._meta.behavior) == "lenient"
 
-    assert str(Car._meta.behavior) == "extras: function 'info', ignored extras: [foo, bar]"
-    assert str(SpecializedCar._meta.behavior) == "extras: function 'debug'"  # extras are NOT inherited
+    assert str(Car._meta.behavior) == "strict: class runez.schema.ValidationException, extras: function 'info', ignored extras: [foo, bar]"
+    # Verify that extras are NOT inherited
+    assert str(SpecializedCar._meta.behavior) == "strict: class runez.schema.ValidationException, extras: function 'debug'"
     assert Car._meta.attributes_by_type(String) == ["make", "serial"]
     assert Car._meta.attributes_by_type(Integer) == ["year"]
     assert SpecializedCar._meta.attributes_by_type(Integer) == ["year"]
@@ -202,6 +234,7 @@ def test_serializable(logged):
     assert str(Person._meta.behavior) == "strict: function 'error', extras: function 'debug', hook: function 'info'"
     # `hook` is inherited
     assert str(GPerson._meta.behavior) == "strict: function 'error', extras: function 'debug', hook: function 'info'"
+    assert str(Person._meta.attributes["name"]) == "String (default: joe)"
 
     # Verify that most specific type wins (GPerson -> age)
     assert Person._meta.attributes_by_type(Integer) == ["fingerprint"]
@@ -217,6 +250,9 @@ def test_serializable(logged):
     assert "foo" not in logged
     assert "Extra content given for Car: baz" in logged.pop()
     assert car.to_dict() == {"serial": "bar"}
+
+    with pytest.raises(ValidationException, match=r"Can't deserialize Car.year: expecting int, got 'foo'"):
+        Car.from_dict({"year": "foo"})
 
     pp = Person()
     assert pp.age is None

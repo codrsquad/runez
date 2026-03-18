@@ -14,7 +14,7 @@ import subprocess
 import sys
 import tempfile
 import termios
-from io import BytesIO
+from io import StringIO
 from select import select
 
 from runez.convert import parsed_tabular, to_int
@@ -24,7 +24,7 @@ from runez.system import _R, abort, cached_property, decode, flattened, quoted, 
 class PsInfo:
     """Summary info about a process, as given by `ps -f` command"""
 
-    info = None  # type: dict # Info returned by `ps`
+    info: dict | None = None  # Info returned by `ps`
 
     def __init__(self, pid=None):
         """
@@ -186,18 +186,6 @@ def check_pid(pid):
     if not pid:  # No support for kill pid 0, as that is not the intent of this function, and it's not cross-platform
         return False
 
-    if SYS_INFO.platform_id.is_windows:  # pragma: no cover
-        import ctypes
-
-        kernel32 = ctypes.windll.kernel32
-        SYNCHRONIZE = 0x100000
-        process = kernel32.OpenProcess(SYNCHRONIZE, 0, pid)
-        if process:
-            kernel32.CloseHandle(process)
-            return True
-
-        return False
-
     try:
         os.kill(pid, 0)
 
@@ -223,9 +211,10 @@ def daemonize():
         os._exit(0)
 
     devnull_fd = os.open(os.devnull, os.O_RDWR)
-    os.dup2(devnull_fd, sys.__stdin__.fileno())
-    os.dup2(devnull_fd, sys.__stdout__.fileno())
-    os.dup2(devnull_fd, sys.__stderr__.fileno())
+    for stream in (sys.__stdin__, sys.__stdout__, sys.__stderr__):
+        if stream is not None:
+            os.dup2(devnull_fd, stream.fileno())
+
     os.close(devnull_fd)
 
 
@@ -237,9 +226,6 @@ def is_executable(path):
     Returns:
         (bool): True if file exists and is executable
     """
-    if SYS_INFO.platform_id.is_windows:  # pragma: no cover
-        return bool(_windows_exe(path))
-
     return path and os.path.isfile(path) and os.access(path, os.X_OK)
 
 
@@ -315,8 +301,9 @@ def run(
 
     args = flattened(args, shellify=True)
     full_path = which(program)
-    result = RunResult(audit=RunAudit(full_path or program, args, popen_args))
-    description = result.audit.run_description(short_exe=short_exe)
+    audit = RunAudit(full_path or program, args, popen_args)
+    result = RunResult(audit=audit)
+    description = audit.run_description(short_exe=short_exe)
     if background:
         description += " &"
 
@@ -326,7 +313,7 @@ def run(
         description = _R.colored(description, "bold")
 
     if _R.hdry(dryrun, logger, "run: %s" % description):
-        result.audit.dryrun = True
+        audit.dryrun = True
         result.exit_code = 0
         if stdout is not None:
             result.output = "[dryrun] %s" % description  # Properly simulate a successful run
@@ -358,8 +345,8 @@ def run(
     with _WrappedArgs([full_path, *args]) as wrapped_args:
         try:
             p, out, err = _run_popen(wrapped_args, popen_args, passthrough, fatal, stdout, stderr)
-            result.output = decode(out, strip=strip)
-            result.error = decode(err, strip=strip)
+            result.output = decode(out or "", strip=strip)
+            result.error = decode(err or "", strip=strip)
             result.pid = p.pid
             result.exit_code = p.returncode
 
@@ -480,27 +467,28 @@ class RunAudit:
 class RunResult:
     """Holds result of a runez.run()"""
 
-    def __init__(self, output=None, error=None, code=1, audit=None):
+    def __init__(self, output=None, error=None, code=1, audit: "RunAudit | None" = None):
         """
         Args:
             output (str | None): Captured output (on stdout), if any
             error (str | None): Captured error output (on stderr), if any
             code (int): Exit code
-            audit (RunAudit): Optional audit object recording what run this was related to
+            audit (RunAudit | None): Optional audit object recording what run this was related to
         """
         self.output = output
         self.error = error
         self.exit_code = code
-        self.exc_info = None  # Exception that occurred during the run, if any
-        self.pid = None  # Pid of spawned process, if any
+        self.exc_info: BaseException | None = None  # Exception that occurred during the run, if any
+        self.pid: int | None = None  # Pid of spawned process, if any
         self.audit = audit
 
     def __repr__(self):
         return "RunResult(exit_code=%s)" % self.exit_code
 
     def __eq__(self, other):
-        if isinstance(other, RunResult):
-            return self.output == other.output and self.error == other.error and self.exit_code == other.exit_code
+        return (
+            isinstance(other, RunResult) and self.output == other.output and self.error == other.error and self.exit_code == other.exit_code
+        )
 
     def __bool__(self):
         return self.exit_code == 0
@@ -535,29 +523,25 @@ def which(program, ignore_own_venv=False):
 
     program = str(program)
     if os.path.basename(program) != program:
+        # Full path given: ok if it's an executable
         program = resolved_path(program)
-        if SYS_INFO.platform_id.is_windows:  # pragma: no cover
-            return _windows_exe(program)
-
         return program if is_executable(program) else None
+
+    if not ignore_own_venv:
+        # Look at our own venv first
+        venv_program = SYS_INFO.venv_bin_path(program)
+        if venv_program and is_executable(venv_program):
+            return venv_program
 
     for p in os.environ.get("PATH", "").split(os.pathsep):
         fp = os.path.join(p, program)
-        if SYS_INFO.platform_id.is_windows:  # pragma: no cover
-            fp = _windows_exe(fp)
-
-        if (
-            fp
-            and (not ignore_own_venv or not SYS_INFO.venv_bin_folder or not fp.startswith(SYS_INFO.venv_bin_folder))
-            and is_executable(fp)
-        ):
+        if (not ignore_own_venv or not SYS_INFO.venv_bin_folder or not fp.startswith(SYS_INFO.venv_bin_folder)) and is_executable(fp):
             return fp
 
+    # Finally, look at current folder too
     program = os.path.join(os.getcwd(), program)
     if is_executable(program):
         return program
-
-    return None
 
 
 def require_installed(program, instructions=None, platform=None):
@@ -641,12 +625,12 @@ def _read_data(fd, length=1024):
 def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
     """Run subprocess.Popen(), capturing output accordingly"""
     if not passthrough:
-        p = subprocess.Popen(args, stdout=stdout, stderr=stderr, **popen_args)  # noqa: S603
+        p = subprocess.Popen(args, stdout=stdout, stderr=stderr, text=True, **popen_args)  # noqa: S603
         if fatal is None and stdout is None and stderr is None:
             return p, None, None  # Don't wait on spawned process
 
         out, err = p.communicate()
-        return p, decode(out), decode(err)
+        return p, out, err
 
     # Capture output, but also let it pass-through as-is to the terminal
     stdout_r, stdout_w = pty.openpty()
@@ -662,10 +646,10 @@ def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
 
     else:
         passthrough = None
-        stdout_buffer = BytesIO()
-        stderr_buffer = BytesIO()
+        stdout_buffer = StringIO()
+        stderr_buffer = StringIO()
 
-    with subprocess.Popen(args, stdout=stdout_w, stderr=stderr_w, **popen_args) as p:  # noqa: S603
+    with subprocess.Popen(args, stdout=stdout_w, stderr=stderr_w, text=True, **popen_args) as p:  # noqa: S603
         os.close(stdout_w)
         os.close(stderr_w)
         readable = [stdout_r, stderr_r]
@@ -681,11 +665,11 @@ def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
                     _safe_write(passthrough, text)
                     if fd == stdout_r:
                         _safe_write(sys.stdout, text, flush=sys.stdout.buffer)
-                        _safe_write(stdout_buffer, data)
+                        _safe_write(stdout_buffer, text)
 
                     else:
                         _safe_write(sys.stderr, text, flush=sys.stderr.buffer)
-                        _safe_write(stderr_buffer, data)
+                        _safe_write(stderr_buffer, text)
 
                 except OSError as e:
                     if e.errno != errno.EIO:  # On some OS-es, EIO means EOF
@@ -715,20 +699,6 @@ def _safe_write(target, data, flush=None):
                 flush.flush()
 
 
-def _windows_exe(path):  # pragma: no cover
-    if path:
-        if os.path.isfile(path):
-            return path
-
-        for extension in (".exe", ".bat"):
-            fpath = path
-            if not fpath.lower().endswith(extension):
-                fpath += extension
-
-            if os.path.isfile(fpath):
-                return fpath
-
-
 class _WrappedArgs:
     """Context manager to temporarily work around https://youtrack.jetbrains.com/issue/PY-40692"""
 
@@ -738,7 +708,7 @@ class _WrappedArgs:
 
     def __enter__(self):
         args = self.args
-        needs_wrap = not SYS_INFO.platform_id.is_windows and "PYCHARM_HOSTED" in os.environ and len(args) > 1
+        needs_wrap = "PYCHARM_HOSTED" in os.environ and len(args) > 1
         if needs_wrap and "python" in args[0] and args[1][:2] in ("-m", "-X", "-c"):
             self.tmp_folder = os.path.realpath(tempfile.mkdtemp())
             wrapper = os.path.join(self.tmp_folder, "pydev-wrapper.sh")

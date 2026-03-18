@@ -2,7 +2,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import ClassVar
+from typing import ClassVar, Optional
 
 from runez.file import ls_dir
 from runez.program import is_executable, run
@@ -63,7 +63,8 @@ class ArtifactInfo:
         Returns:
             (ArtifactInfo | None): Parsed artifact info, if any
         """
-        is_wheel = wheel_build_number = tags = None
+        is_wheel = False
+        wheel_build_number = tags = None
         m = PypiStd.RX_SDIST.match(basename)
         if not m:
             m = PypiStd.RX_WHEEL.match(basename)
@@ -178,7 +179,7 @@ class PythonSpec:
     def satisfies(self, other):
         """Does this spec satisfy 'other'?"""
         if isinstance(other, PythonSpec) and self.family == other.family and self.freethreading == other.freethreading:
-            if other.is_min_spec:
+            if other.is_min_spec and other.version is not None:
                 return self.version >= other.version
 
             return self.canonical.startswith(other.canonical)
@@ -193,10 +194,11 @@ class PythonSpec:
             (str): Textual representation of this spec
         """
         text = self.canonical
-        if compact and (compact is True or self.family in compact):
+        if compact and self.version is not None and (compact is True or self.family in compact):
             text = self.version.text
             if self.freethreading:
                 text += "t"
+
             if self.is_min_spec:
                 text += "+"
 
@@ -298,7 +300,7 @@ class PythonDepot:
         p = my_depot.find_python("3.10")
     """
 
-    _preferred_python = None  # type: PythonInstallation  # Preferred python to use, if configured
+    _preferred_python: Optional["PythonInstallation"] = None  # Preferred python to use, if configured
 
     def __init__(self, *locations):
         """
@@ -419,12 +421,16 @@ class Version:
 
     text: str
 
-    def __init__(self, text, max_parts=5, canonical=False):
+    def __init__(self, text, max_parts=5, canonical: bool | None = False):
         """
-        Args:
-            text (str | None): Text to be parsed
-            max_parts (int): Maximum number of parts (components) to consider version valid
-            canonical (bool | None): None: loose parsing, False: strict parsing, version left as-is, True: Turn into canonical PEP-440
+        Parameters
+        ----------
+        text : str | None
+            Text to be parsed
+        max_parts : int
+            Maximum number of parts (components) to consider version valid
+        canonical : bool | None
+            None: loose parsing, False: strict parsing, version left as-is, True: Turn into canonical PEP-440
         """
         self.given_text = text
         self.given_components = None  # Components as given by 'text'
@@ -458,7 +464,7 @@ class Version:
             if pre:
                 rel = rel_num = None  # rc.post does not count as .post (but a .post.dev does)
 
-        components = [int(c) for c in m.group("main").split(".")]
+        components: list[int | str] = [int(c) for c in m.group("main").split(".")]
         if len(components) > max_parts:
             return  # Invalid version, too many parts
 
@@ -471,7 +477,7 @@ class Version:
         components.append(rel or "")
         self.components = tuple(components)
         if canonical is True:
-            self.text = self.pep_440
+            self.text = self.pep_440 or ""
 
     @classmethod
     def extracted_from_text(cls, text):
@@ -489,13 +495,13 @@ class Version:
                 return v
 
     @classmethod
-    def from_object(cls, obj):
+    def from_object(cls, obj) -> Optional["Version"]:
         """
         Args:
             obj: Object to turn into a Version, if possible
 
         Returns:
-            (Version | None): Corresponding version object, if valid
+            Corresponding version object, if valid
         """
         if obj:
             if isinstance(obj, Version):
@@ -839,7 +845,7 @@ class PythonInstallationLocation:
 
     def __init__(self, location):
         self.location = location
-        self._preferred_python = UNSET  # type: PythonInstallation # Auto-selected preferred python from this location
+        self._preferred_python: PythonInstallation | None = UNSET  # Auto-selected preferred python from this location
 
     def __repr__(self):
         return short(self.location)
@@ -987,7 +993,7 @@ class PythonSimpleInspection:
 
     _cached: ClassVar = {}
 
-    def __init__(self, version=None, machine=None, problem=None, freethreading=None):
+    def __init__(self, version=None, machine=None, problem=None, freethreading=False):
         self.version = version
         self.machine = machine
         self.problem = problem

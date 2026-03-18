@@ -14,12 +14,13 @@ import errno
 import logging
 import os
 import sys
+import types
 
 try:
     import click
 
 except ImportError:  # pragma: no cover, click used only if installed
-    click = None
+    click: types.ModuleType = None  # type: ignore[assignment]
 
 import runez.config
 from runez.colors import ColorManager
@@ -126,7 +127,6 @@ class Cli:
                 prog = short(caller.folder)
 
         epilog = PrettyTable(2)
-        epilog.header[0].style = "bold"
         for cmd, func in available_commands.items():
             epilog.add_row(" " + cmd, first_line(func.__doc__, default=""))
 
@@ -134,7 +134,7 @@ class Cli:
         cls._prog = prog or package
         parser = cls.parser(epilog=epilog, help=caller.module_docstring, prog=prog)
         if cls.version and package:
-            parser.add_argument(*cls.version, action="version", version=get_version(package), help="Show version and exit")
+            parser.add_argument(*cls.version, action="version", version=get_version(package) or "0.0.0", help="Show version and exit")
 
         if cls.color:
             parser.add_argument(*cls.color, action="store_true", help="Do not use colors (even if on tty)")

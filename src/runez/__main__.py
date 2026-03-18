@@ -5,14 +5,11 @@ Set of sample commands illustrating behaviors of runez
 import contextlib
 import logging
 import os
-import re
 import sys
-import sysconfig
 import time
 
 import runez
 from runez.ascii import AsciiAnimation
-from runez.inspector import ImportTime
 from runez.render import NAMED_BORDERS, PrettyTable
 
 
@@ -59,63 +56,6 @@ def cmd_diagnostics():
     depot = PythonDepot(*locations)
     available = depot.representation()
     print(PrettyTable.two_column_diagnostics(runez.SYS_INFO.diagnostics(), available, border=args.border))
-
-
-def cmd_import_speed():
-    """Show average import time of top-level python packages installed in this venv"""
-    parser = runez.cli.parser()
-    parser.add_argument("--all", action="store_true", help="Show all.")
-    parser.add_argument("--border", choices=NAMED_BORDERS, default="reddit", help="Use custom border.")
-    parser.add_argument("--iterations", "-i", type=int, default=3, help="Number of measurements to average.")
-    parser.add_argument("name", nargs="*", help="Names of modules to show (by default: all).")
-    args = parser.parse_args()
-    names = runez.flattened(args.name, split=",")
-    if args.all:
-        names.extend(_interesting_top_levels())
-
-    if not names:
-        sys.exit("Please specify module names, or use --all")
-
-    names = sorted(set(names))
-    times = []
-    fastest = None
-    slowest = None
-    for name in names:
-        t = ImportTime(name, iterations=args.iterations)
-        times.append(t)
-        if t.cumulative is None:
-            continue
-
-        if fastest is None or (t.cumulative < fastest.cumulative):
-            fastest = t
-
-        if slowest is None or t.cumulative > slowest.cumulative:
-            slowest = t
-
-    table = PrettyTable("Module,-X cumulative,Elapsed,Vs fastest,Note", border=args.border)
-    table.header[3].align = "center"
-    mid = _get_mid(times)
-    for t in sorted(times):
-        if t.cumulative is None:
-            c = e = f = None
-
-        else:
-            factor = t.elapsed / fastest.elapsed
-            c = runez.represented_duration(t.cumulative / 1000000, span=-2)
-            e = runez.represented_duration(t.elapsed, span=-2)
-            f = "x%.2f" % factor
-            if t is fastest:
-                f = ""
-
-            elif t is slowest:
-                f = runez.red(f)
-
-            elif t.elapsed and t.elapsed > mid:
-                f = runez.orange(f)
-
-        table.add_row(t.module_name, c, e, f, t.problem or "")
-
-    print(table)
 
 
 def cmd_passthrough():
@@ -172,10 +112,10 @@ def cmd_progress_bar():
         else:
             runez.log.trace("At iteration %s" % i)
 
-        if args.verbose and i % 10 == 0:  # pragma: no cover
+        if args.verbose and i % 10 == 0:
             print("iteration %s" % runez.bold(i))
 
-        if i == 42:  # pragma: no cover
+        if i == 42:
             runez.log.progress.show("some progress msg")  # debug() and trace() messages don't appear any more after this
             for _ in runez.ProgressBar(range(10)):
                 time.sleep(0.1)
@@ -193,16 +133,6 @@ def cmd_progress_bar():
         time.sleep(args.sleep)
 
 
-def _get_mid(times):
-    elapsed = 0
-    times = [t for t in times if t.elapsed]
-    if times:
-        times = sorted(times, key=lambda x: -x.elapsed)  # Don't fail if no elapsed available
-        elapsed = times[int(len(times) / 2)].elapsed
-
-    return elapsed
-
-
 def main():
     runez.cli.run_cmds()
 
@@ -210,7 +140,6 @@ def main():
 def _show_fgcolors(bg=runez.plain, border=None):
     print("")
     table = PrettyTable("Color,Blink,Bold,Dim,Invert,Italic,Strikethrough,Underline", border=border)
-    table.header.style = "bold"
     for color in runez.color.fg:
         color_name = color.name
         text = color(color.name)
@@ -225,25 +154,6 @@ def _show_fgcolors(bg=runez.plain, border=None):
         table.add_row(line)
 
     print(table)
-
-
-def _interesting_top_levels():
-    """
-    Convenience for `-mrunez import-time --all` command
-    Return list of import top level names, ignoring things like top levels starting with an `_`, and other uninteresting libs
-    """
-    uninteresting = re.compile(r"^(_|pip|pkg_resources|pydev|pytest|setuptools).*$")
-    result = set()
-    base = sysconfig.get_path("purelib")
-    for item in runez.ls_dir(base):
-        if item.name.endswith(".dist-info") and item.is_dir():
-            top_levels = item / "top_level.txt"
-            if top_levels.exists():
-                for line in runez.readlines(top_levels):
-                    if line and not uninteresting.match(line):
-                        result.add(line)
-
-    return sorted(result)
 
 
 if __name__ == "__main__":

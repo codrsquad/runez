@@ -3,6 +3,7 @@ import os
 import pytest
 
 import runez
+import runez.config
 
 SAMPLES = runez.DEV.tests_path("sample")
 

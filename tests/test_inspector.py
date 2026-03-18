@@ -1,11 +1,10 @@
 import os
 import sys
-from unittest.mock import MagicMock, patch
 
 import pytest
 
 import runez
-from runez.inspector import auto_import_siblings, AutoInstall, ImportTime
+from runez.inspector import auto_import_siblings
 
 
 def importable_test_py_files(folder):
@@ -61,73 +60,11 @@ def test_auto_import_siblings():
     assert "tests.test_serialize" not in imported
 
 
-class SomeClass:
-    @AutoInstall("bar")
-    def needs_bar(self, msg):
-        return "OK: %s" % msg
-
-
-@AutoInstall("foo")
-def needs_foo(msg):
-    import foo  # noqa: F401
-
-    return "OK: %s" % msg
-
-
-def test_auto_install(logged, monkeypatch):
-    # Verify that an already present req is a no-op
-    AutoInstall("runez").ensure_installed()
-    assert not logged
-
-    # Verify failure to install raises abort exception
-    with patch("runez.inspector.run", return_value=runez.program.RunResult("failed")):
-        with pytest.raises(runez.system.AbortException):
-            needs_foo("hello")
-        assert "Can't auto-install 'foo': failed" in logged.pop()
-
-    # Verify successful install exercises function call
-    with patch("runez.inspector.run", return_value=runez.program.RunResult("OK", code=0)):
-        with pytest.raises(ImportError):  # 2nd import attempt raises ImportError (in this case, because we're trying a mocked 'foo')
-            needs_foo("hello")
-        assert not logged
-
-    # Full successful call
-    with patch("runez.inspector.run", return_value=runez.program.RunResult("OK", code=0)):
-        assert SomeClass().needs_bar("hello") == "OK: hello"
-        assert not logged
-
-    # Mocked successful import
-    with patch.dict("sys.modules", foo=MagicMock()), patch("runez.inspector.run", return_value=runez.program.RunResult("OK", code=0)):
-        assert needs_foo("hello") == "OK: hello"
-        assert not logged
-
-    # Ensure auto-installation is refused unless we have a venv
-    monkeypatch.setattr(runez.SYS_INFO, "venv_bin_folder", None)
-    with pytest.raises(runez.system.AbortException):
-        needs_foo("hello")
-    assert "Can't auto-install 'foo' outside of a virtual environment" in logged.pop()
-
-
 def test_diagnostics_command(cli):
     cli.run("--no-color", "diagnostics")
     assert cli.succeeded
     assert "platform : " in cli.logged
     assert "sys.executable : %s" % runez.short(sys.executable) in cli.logged
-
-
-def test_importtime_command(cli):
-    trunez = ImportTime("runez")
-    assert str(trunez).startswith("runez ")
-
-    cli.run("import-speed")
-    assert cli.failed
-    assert "Please specify module names, or use --all" in cli.logged
-
-    cli.run("import-speed -i1 --all runez foo_no_such_module runez")
-    assert cli.succeeded
-    lines = cli.logged.stdout.contents().splitlines()
-    assert len([s for s in lines if "runez" in s]) == 1
-    assert len([s for s in lines if "foo_no_such_module" in s]) == 1
 
 
 def test_passthrough(cli):

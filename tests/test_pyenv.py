@@ -189,6 +189,13 @@ def test_depot_path():
     assert depot.find_python(None) is depot.invoker
 
 
+def test_edge_cases():
+    invalid = PythonSpec("cpython", "invalid")
+    assert str(invalid) == "cpython:invalid"
+    assert invalid.abi_suffix == ""
+    assert invalid.version is None
+
+
 def test_empty_depot():
     depot = PythonDepot()
     assert depot.representation() == "No PythonDepot locations configured"
