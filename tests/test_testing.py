@@ -38,8 +38,15 @@ def sample_main():
             # Don't output anything
             sys.exit(0)
 
+        if args[0] == "return-str":
+            return "hello"
+
+        if args[0] == "return-None":
+            return None
+
     # Simulate some output
-    return "%s %s" % (os.path.basename(sys.argv[0]), " ".join(args))
+    print("%s %s" % (os.path.basename(sys.argv[0]), " ".join(args)))
+    return 0
 
 
 def test_cli_uninitialized(cli, monkeypatch):
@@ -70,6 +77,16 @@ def test_crash(cli):
     cli.expect_messages("some message", "!stacktrace")
 
     cli.expect_failure("Exception hello", "crashed...hello", "Exited with stacktrace:", "!this message shouldn't appear")
+
+    cli.run("return-str")
+    assert cli.failed
+    assert cli.exit_code == 1
+    assert cli.logged.stderr.contents() == "hello"
+
+    cli.run("return-None")
+    assert cli.succeeded
+    assert cli.exit_code == 0
+    assert not cli.logged
 
     cli.run(["successful hello"])
     assert cli.succeeded
@@ -178,12 +195,12 @@ def test_success(cli):
 
     cli.run("--dryrun hello", exe="bar/foo")
     assert cli.succeeded
-    assert cli.logged.stdout.contents() == "foo --dryrun hello"
+    assert cli.logged.stdout.contents() == "foo --dryrun hello\n"
     assert not cli.logged.stderr
 
     cli.run("--dryrun hello")
     assert cli.succeeded
-    assert cli.logged.stdout.contents() == "pytest --dryrun hello"
+    assert cli.logged.stdout.contents() == "pytest --dryrun hello\n"
     assert not cli.logged.stderr
     assert cli.match("el+", regex=True)
     assert not cli.match("EL+", regex=True)

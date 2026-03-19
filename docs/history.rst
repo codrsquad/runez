@@ -2,6 +2,12 @@
 History
 =======
 
+5.6.1 (2026-03-18)
+------------------
+
+* Correctly handle ``main()`` functions that return a ``str``
+
+
 5.6.0 (2026-03-18)
 ------------------
 
