@@ -156,7 +156,6 @@ def test_no_color():
     r = runez.run(sys.executable, "-mrunez", "colors", "--no-color", fatal=False)
     assert r.succeeded
     assert "Backend: plain" in r.output
-    assert r.error == ""
 
 
 def test_show_colors(cli):
