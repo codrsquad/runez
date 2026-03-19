@@ -429,8 +429,19 @@ class ClickRunner:
         if callable(main):
             result = ClickWrapper()
             try:
-                result.stdout = stringified(main())
-                result.exit_code = 0
+                return_value = main()
+                if return_value is None:
+                    # Usual case: most `main()` function return None
+                    result.exit_code = 0
+
+                elif isinstance(return_value, int):
+                    # `main()` function wants to exit with returned exit code
+                    result.exit_code = return_value
+
+                else:
+                    # Conventionally when `main()` returns a string, the string is output to stderr and `sys.exit(1)` is called
+                    result.stderr = stringified(return_value)
+                    result.exit_code = 1
 
             except AssertionError:
                 raise
