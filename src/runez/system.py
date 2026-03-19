@@ -4,6 +4,8 @@ Base functionality used by other parts of `runez`.
 This class should not import any other `runez` class, to avoid circular deps.
 """
 
+from __future__ import annotations
+
 import contextlib
 import functools
 import importlib.metadata

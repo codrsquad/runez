@@ -22,6 +22,8 @@ Usage pattern:
     response = MY_CLIENT.get("api/v1/....", fatal=False, dryrun=False)
 """
 
+from __future__ import annotations
+
 import abc
 import contextlib
 import functools

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import os
 import re
@@ -557,7 +559,7 @@ class Version:
                     if my_parts is None or other_parts is None:
                         return bool(other_parts)
 
-                    for mine, theirs in zip(my_parts, other_parts, strict=False):
+                    for mine, theirs in zip(my_parts, other_parts):
                         if mine == theirs:
                             continue
 

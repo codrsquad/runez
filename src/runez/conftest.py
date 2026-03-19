@@ -6,6 +6,8 @@ Example:
     from runez.conftest import cli, temp_folder
 """
 
+from __future__ import annotations
+
 import logging
 import os
 import re
@@ -288,10 +290,9 @@ class ClickRunner:
             args = args[0].split()
 
         self.args = flattened(args, shellify=True)
-        with (
-            IsolatedLogSetup(adjust_tmp=False),
-            CaptureOutput(dryrun=_R.is_dryrun(), seed_logging=True, trace=_R.rdefault(trace, self.trace)) as logged,
-        ):
+        with IsolatedLogSetup(adjust_tmp=False), CaptureOutput(
+            dryrun=_R.is_dryrun(), seed_logging=True, trace=_R.rdefault(trace, self.trace)
+        ) as logged:
             self.logged = logged
             with TempArgv(self.args, exe=exe):
                 result = self._run_main(main, self.args)

@@ -2,6 +2,8 @@
 This is module should not import any other runez module, it's the lowest on the import chain
 """
 
+from __future__ import annotations
+
 import pathlib
 import re
 from collections import defaultdict
