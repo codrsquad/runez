@@ -23,7 +23,6 @@ from typing import Any, Callable, ClassVar, TypeVar
 _T = TypeVar("_T")
 
 ABORT_LOGGER = logging.error
-LOG = logging.getLogger("runez")
 SYMBOLIC_TMP = "<tmp>"
 
 
@@ -49,7 +48,7 @@ class Undefined:
 UNSET: Any = Undefined()
 
 
-def abort(message, code=1, exc_info=None, return_value: _T = None, fatal=True, logger=UNSET) -> _T:
+def abort(message, code=1, exc_info=None, return_value: _T = None, fatal=True, logger=UNSET, stacklevel=1) -> _T:
     """General wrapper for optionally fatal calls
 
     >>> from runez import abort
@@ -66,14 +65,14 @@ def abort(message, code=1, exc_info=None, return_value: _T = None, fatal=True, l
         ...
     Exception: foo
     >>> # Not fatal, but will log/print message:
-    >>> abort("foo", return_value=False, fatal=False)  # Returns False
+    >>> abort("foo", return_value=False, fatal=False)
     False
     >>> abort("foo", fatal=False)  # Returns None
-    >>> abort("foo", return_value=-1, fatal=False)  # Returns -1
+    >>> abort("foo", return_value=-1, fatal=False)
     -1
     >>> # Not fatal, will not log/print any message:
     >>> abort("foo", fatal=None)  # Returns None
-    >>> abort("foo", return_value=-1, fatal=None)  # Returns -1
+    >>> abort("foo", return_value=-1, fatal=None)
     -1
 
     Args:
@@ -83,6 +82,7 @@ def abort(message, code=1, exc_info=None, return_value: _T = None, fatal=True, l
         return_value (Any): Value to return when `fatal` is not True
         fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), None to disable log chatter
+        stacklevel (int): Stack level for logging
 
     Returns:
         Given `return_value`
@@ -97,69 +97,32 @@ def abort(message, code=1, exc_info=None, return_value: _T = None, fatal=True, l
         exception = _R.abort_exception(override=fatal)
         if exception is SystemExit:
             # Ensure message shown if we raise SystemExit
-            _show_abort_message(message, exc_info, fatal, logger or ABORT_LOGGER)
+            _show_abort_message(message, exc_info, fatal, logger or ABORT_LOGGER, stacklevel + 1)
             raise SystemExit(code)
 
         if isinstance(exception, type) and issubclass(exception, BaseException):
-            _show_abort_message(message, exc_info, fatal, logger)
+            _show_abort_message(message, exc_info, fatal, logger, stacklevel + 1)
             raise exception(message)
 
     elif fatal is not None:
-        _show_abort_message(message, exc_info, fatal, logger)
+        _show_abort_message(message, exc_info, fatal, logger, stacklevel + 1)
 
     return return_value
 
 
-def abort_if(condition, message=None, code=1, exc_info=None, logger=UNSET):
+def abort_if(condition, message=None, code=1, exc_info=None, logger=UNSET, stacklevel=1):
     """Abort if 'condition' is True-ish
 
     Args:
-        condition (str | bool | None): Abort if True-ish
-        message (str): Message explaining why we're aborting (default: 'condition', which should be a string then)
-        code (int): Exit code used when runez.system.AbortException is set to SystemExit
-        exc_info (Exception): Exception info to pass on to logger
-        logger (callable | bool | None): Logger to use, True to print(), None to disable log chatter
+        condition (str | bool | None): Abort if True-ish.
+        message (str): Message explaining why we're aborting (default: 'condition', which should be a string then).
+        code (int): Exit code used when runez.system.AbortException is set to SystemExit.
+        exc_info (Exception): Exception info to pass on to logger.
+        logger (callable | bool | None): Logger to use, True to print(), None to disable log chatter.
+        stacklevel (int): Stack level for logging
     """
     if condition:
-        abort(_R.actual_message(message or condition), code=code, exc_info=exc_info, logger=logger)
-
-
-class _PyMimicked:
-    """
-    Base class for descriptor objects that use ``py_mimic()`` to copy identity attributes from a wrapped function.
-
-    ``py_mimic()`` dynamically sets ``__name__``, ``__doc__``, ``__module__``, and ``__annotations__``
-    on the target object at runtime. Since pyright cannot infer attributes set via side effects,
-    this mixin declares them upfront so that static type checkers understand they exist.
-
-    Inherit from this class in any descriptor that calls ``py_mimic(self, func)`` in its ``__init__``.
-    """
-
-    __name__: str
-    __doc__: str | None
-    __module__: str
-    __annotations__: dict
-
-
-def py_mimic(target, source):
-    """
-    Make ``target`` mimic the Python identity of ``source``.
-
-    Copies ``__annotations__``, ``__doc__``, ``__module__``, and ``__name__`` from ``source`` to ``target``.
-    This is similar to ``functools.update_wrapper``, but works on arbitrary objects (not just callables).
-
-    Parameters
-    ----------
-    target : _PyMimicked | object
-        Object to decorate (typically ``self`` in a descriptor's ``__init__``)
-    source : object
-        Object whose identity to copy (typically the wrapped function)
-    """
-    if target is not None and source is not None:
-        target.__annotations__ = source.__annotations__
-        target.__doc__ = source.__doc__
-        target.__module__ = source.__module__
-        target.__name__ = source.__name__
+        abort(_R.actual_message(message or condition), code=code, exc_info=exc_info, logger=logger, stacklevel=stacklevel + 1)
 
 
 class cached_property(functools.cached_property):
@@ -607,6 +570,7 @@ def short(value, size=UNSET, none="None", uncolor=False):
         value: Value to textually represent in a shortened form
         size (int | Undefined | None): Max chars (default: terminal width if available, otherwise 180)
         none (str): String to use to represent `None`
+        uncolor (bool): If True, remove coloring from text
 
     Returns:
         (str): Leading part of text, with at most 'size' chars (when specified)
@@ -629,10 +593,10 @@ def short(value, size=UNSET, none="None", uncolor=False):
     return text
 
 
-def uncolored(text):
+def uncolored(text: str | None) -> str:
     """
     Args:
-        text (str | unicode | None): Text to remove ANSI colors from
+        text (str | None): Text to remove ANSI colors from
 
     Returns:
         (str): Text without any ANSI color rendering
@@ -640,13 +604,13 @@ def uncolored(text):
     return _R.lc.rx_ansi_escape.sub("", stringified(text))
 
 
-def wcswidth(text):
+def wcswidth(text: str | None) -> int:
     """
     Args:
-        text (str | unicode | None): Text to examine
+        text (str | None): Text to examine
 
     Returns:
-        (int): Best effort unicode character width that would be occupied on a terminal
+        (int): Best effort Unicode character width that would be occupied on a terminal
     """
     if not text:
         return 0
@@ -989,7 +953,7 @@ class Slotted:
         """
         Args:
             *positionals: Optionally provide positional objects to extract values from, when possible
-            **named: Override one or more of this classes' fields (keys must refer to valid slots)
+            **named: Override one or more of these classes' fields (keys must refer to valid slots)
         """
         self._seed()
         self.set(*positionals, **named)
@@ -1229,7 +1193,7 @@ class DevInfo:
         return _full_path(self.tests_folder, relative_path)
 
     def venv_path(self, *relative_path) -> str:
-        """Full path relative to development venv (such as .venv, .tox etc) we're currently running from (if any)"""
+        """Full path relative to development venv (such as .venv, .tox etc.) we're currently running from (if any)"""
         return _full_path(self.venv_folder, relative_path)
 
 
@@ -1239,7 +1203,7 @@ DEV = DevInfo()
 class PlatformId:
     """
     Models identification of a target platform/architecture/system, designed for identifying binaries across 3 dimensions:
-    - platform (such as linux, macos, windows)
+    - platform (such as linux, macOS, windows)
     - arch (such as arm64, x86_64)
     - subsystem (such as libc, musl) - this can be empty for platform where it's not useful (ie: macos, windows)
 
@@ -1247,14 +1211,14 @@ class PlatformId:
     It is intended originally to provide a simple way of identifying portable pythons https://pypi.org/project/portable-python/
     The 3 dimensions (3rd one being optional) identifies where a truly "portable" binary can run
     A binary is "portable" if:
-    - It uses only the most common "base" shared libs (on linux: typically libc.so.6, librt.so.1 etc)
+    - It uses only the most common "base" shared libs (on linux: typically libc.so.6, librt.so.1 etc.)
     - Does not use any library (system lib or otherwise), everything else is statically linked into the executable
     - Additionally, the binary also should be able to run from whatever folder it has been unpacked in (no global system settings needed)
     """
 
     arch: str = ""  # Example: arm64, x86_64 (populated in __init__)
     platform: str = ""  # Example: linux, macos (populated in __init__)
-    subsystem: str | None = None  # Example: libc, musl (empty for macos/windows)
+    subsystem: str | None = None  # Example: libc, musl (empty for macOS/windows)
 
     default_subsystem = None  # Can this be auto-detected? (currently: users can optionally provide this, by setting this class field)
     platform_archive_type: ClassVar = {"linux": "tar.gz", "macos": "tar.gz", "windows": "zip"}
@@ -1382,7 +1346,7 @@ class PlatformId:
 
     @property
     def is_using_libc(self):
-        """Subsystem either explictly libs, or empty value on linux (making 3rd dimension optional there, implying libc)"""
+        """Subsystem either explicitly 'libc', or empty value on linux (making 3rd dimension optional there, implying libc)"""
         return self.subsystem == "libc" or (not self.subsystem and self.is_linux)
 
     @property
@@ -1402,7 +1366,7 @@ class PlatformId:
     def canonical_platform(name):
         name = name and name.lower()
         if name == "darwin":
-            # Using 'macos' to differentiate from iOS (which may be detected in the future)
+            # Using 'macOS' to differentiate from iOS (which may be detected in the future)
             name = "macos"
 
         elif name.startswith("linux"):
@@ -1955,7 +1919,7 @@ class _LazyCache:
 
     @cached_property
     def rx_words(self):
-        return re.compile(r"[^\w]+")
+        return re.compile(r"\W+")
 
     @cached_property
     def rx_tz(self):
@@ -2030,8 +1994,8 @@ class _R:
         Returns:
             'default', if we didn't abort
         """
-        abort_if(fatal, message, exc_info=exc_info, logger=logger)
-        _R.hlog(logger, message, exc_info=exc_info)
+        abort_if(fatal, message, exc_info=exc_info, logger=logger, stacklevel=3)
+        _R.hlog(logger, message, exc_info=exc_info, stacklevel=3)
         return default
 
     @classmethod
@@ -2051,38 +2015,38 @@ class _R:
             return True
 
     @classmethod
-    def hlog(cls, logger, message, exc_info=None):
+    def hlog(cls, logger, message, exc_info=None, stacklevel=2):
         """Handle optional logging calls via 'logger=' for IO-related non-returning-content functions, making them consistent.
         This allows to have less repeated code out there, find all places where we do this,
         and ensure they all respect the same convention.
 
         Args:
-            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+            logger (callable | bool | int | None): Logger to use, True to print(), False to trace(), None to disable log chatter
             message (str | callable): Message to log
-            exc_info: Optional exception info to pass-through to logger
+            exc_info: Optional exception info to pass through to logger
         """
-        if logger is None:
-            return
-
-        if logger is False:
-            cls.trace(_R.actual_message(message))
-            return
-
-        if logger is True or logger is print:
-            print(_R.actual_message(message))
-            return
-
         if logger is UNSET:
             logger = cls.lc.rm.log.spec.default_logger
 
-        if callable(logger):
-            msg = _R.actual_message(message)
-            if exc_info is None:
-                logger(msg)
-                return
+        if logger is None:
+            return
 
+        msg = _R.actual_message(message)
+        if logger is False:
+            cls.trace(msg)
+            return
+
+        if logger is True or logger is print:
+            print(msg)
+            return
+
+        if isinstance(logger, int):
+            logging.log(logger, msg, exc_info=exc_info, stacklevel=stacklevel + 1)
+            return
+
+        if callable(logger):
             try:
-                logger(msg, exc_info=exc_info)
+                logger(msg, exc_info=exc_info, stacklevel=stacklevel + 1)
 
             except TypeError:
                 logger(msg)  # In case provided caller does not accept exc_info=
@@ -2243,10 +2207,10 @@ def _prettified(value):
     return value
 
 
-def _show_abort_message(message, exc_info, fatal, logger):
+def _show_abort_message(message, exc_info, fatal, logger, stacklevel):
     if logger is not None:
         if logging.root.handlers:
-            _R.hlog(logger, message, exc_info=exc_info if fatal else None)
+            _R.hlog(logger, message, exc_info=exc_info if fatal else None, stacklevel=stacklevel + 1)
 
         else:
             sys.stderr.write("%s\n" % message)

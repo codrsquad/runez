@@ -2,6 +2,12 @@
 History
 =======
 
+5.6.3 (2026-03-23)
+------------------
+
+* Corrected log wrapping, accept level as default logger
+
+
 5.6.2 (2026-03-19)
 ------------------
 

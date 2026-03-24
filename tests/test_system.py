@@ -178,7 +178,7 @@ def test_decode():
     assert runez.decode(" something ") == " something "
     assert runez.decode(" something ", strip=True) == "something"
 
-    # len() depends on whether python was built with UCS-2 or UCS-4, we don't care here, just want to check decode() works OK with unicode
+    # len() depends on whether python was built with UCS-2 or UCS-4, we don't care here, just want to check decode() works OK with Unicode
     assert len(runez.decode(" lucky leaf ☘ is lucky 😀 ")) in (25, 26)
     assert len(runez.decode(" lucky leaf ☘ is lucky 😀 ", strip=True)) in (23, 24)
 

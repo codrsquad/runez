@@ -634,7 +634,7 @@ def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
         out, err = p.communicate()
         return p, out, err
 
-    # Capture output, but also let it pass-through as-is to the terminal
+    # Capture output, but also let it pass through as-is to the terminal
     stdout_r, stdout_w = pty.openpty()
     stderr_r, stderr_w = pty.openpty()
     term_size = struct.pack("HHHH", SYS_INFO.terminal.lines, SYS_INFO.terminal.columns, 0, 0)
