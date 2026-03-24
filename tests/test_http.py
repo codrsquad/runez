@@ -56,7 +56,7 @@ class MockBackend:
         "test/README.txt?a=b": "Hello",
     }
 )
-def test_cache(monkeypatch):
+def test_cache(monkeypatch, logged):
     c = RestClient.std_diskcache()
     assert c is None
 

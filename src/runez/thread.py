@@ -1,11 +1,9 @@
 import threading
 
-from runez.system import _PyMimicked, py_mimic
-
 THREAD_LOCAL = threading.local()
 
 
-class thread_local_property(_PyMimicked):
+class thread_local_property:
     """
     A property that is computed once per thread
     Use this in rare cases where you need just a property (or 2) to be thread local in a given object
@@ -16,7 +14,10 @@ class thread_local_property(_PyMimicked):
     def __init__(self, func):
         self.__func__ = func
         self.key = "_tp%s" % func.__qualname__
-        py_mimic(self, func)
+        self.__annotations__ = func.__annotations__
+        self.__doc__ = func.__doc__
+        self.__module__ = func.__module__
+        self.__name__ = func.__name__
 
     def __get__(self, instance, owner):
         if instance is None:

@@ -689,7 +689,7 @@ def _file_op(source, destination, func, overwrite, fatal, logger, dryrun, must_e
     try:
         # Ensure parent folder exists
         ensure_folder(parent_folder(destination), fatal=fatal, logger=None, dryrun=dryrun)
-        _R.hlog(logger, "%s%s" % (description[0].upper(), description[1:]))
+        _R.hlog(logger, "%s%s" % (description[0].upper(), description[1:]), stacklevel=3)
         if ignore is not None:
             if not callable(ignore):
                 given = ignore
@@ -700,7 +700,7 @@ def _file_op(source, destination, func, overwrite, fatal, logger, dryrun, must_e
         func(source, destination, **extra)
 
     except Exception as e:
-        return abort("Can't %s" % description, exc_info=e, return_value=-1, fatal=fatal, logger=logger)
+        return abort("Can't %s" % description, exc_info=e, return_value=-1, fatal=fatal, logger=logger, stacklevel=3)
 
     else:
         return 1

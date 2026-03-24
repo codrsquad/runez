@@ -17,11 +17,12 @@ Usage:
     Heartbeat.stop()        # When shutting down
 """
 
+import logging
 import threading
 import time
 from typing import ClassVar, List
 
-from runez.system import LOG, ltattr
+from runez.system import ltattr
 
 DEFAULT_FREQUENCY = 60
 
@@ -63,7 +64,7 @@ class HeartbeatTask:
 
 
 class Heartbeat:
-    """Daemon thread used to run periodical background tasks tasks like:
+    """Daemon thread used to run periodical background tasks like:
 
     - collecting CPU/RAM usage
     - sending metrics
@@ -147,7 +148,7 @@ class Heartbeat:
             task.execute()
 
         except Exception as e:
-            LOG.warning("HeartbeatTask %s crashed:", task.name, exc_info=e)
+            logging.warning("HeartbeatTask %s crashed:", task.name, exc_info=e)
 
         task.set_next_execution()
 

@@ -52,11 +52,12 @@ def test_auto_location_not_writable(temp_log):
             console_format="%(name)s f:%(filename)s mod:%(module)s func:%(funcName)s %(levelname)s - %(message)s",
             console_level=logging.DEBUG,
         )
-        logging.info("hello")
-        assert "runez f:logsetup.py mod:logsetup func:greet DEBUG" in temp_log.stderr
-        assert "INFO - hello" in temp_log.stderr
-        assert "Logging to: no usable locations" in temp_log.stderr
         assert runez.log.file_handler is None
+        logging.info("hello")
+        assert not temp_log.stdout
+        assert "DEBUG - Logging to: no usable locations from " in temp_log.stderr
+        expected = "tests.test_logsetup f:test_logsetup.py mod:test_logsetup func:test_auto_location_not_writable INFO - hello"
+        assert expected in temp_log.stderr
 
 
 def test_clean_handlers(temp_log):
@@ -167,26 +168,45 @@ def test_context(temp_log):
 
 
 def test_convenience(temp_log):
-    fmt = "f:%(filename)s mod:%(module)s func:%(funcName)s %(levelname)s %(message)s "
-    fmt += " path:%(pathname)s"
-    runez.log.setup(console_format=fmt, console_level=logging.DEBUG, file_format=None)
+    fmt = "f:%(filename)s mod:%(module)s func:%(funcName)s %(levelname)s %(message)s"
+    runez.log.setup(console_format=fmt, console_level=logging.INFO, file_format=None)
 
     assert temp_log.logfile is None
+    runez.write("some-file", "some content", logger=None)
+    assert not temp_log
+
+    runez.write("some-file", "some content")
+    assert not temp_log  # Because default level: DEBUG
+
+    runez.copy("some-file", "some-other-file", logger=LOG.info)
+    expected = "f:test_logsetup.py mod:test_logsetup func:test_convenience INFO Copy some-file -> some-other-file"
+    assert temp_log.stderr.pop().strip() == expected
+
     runez.write("some-file", "some content", logger=logging.info)
+    assert temp_log.stderr.pop().strip() == "f:test_logsetup.py mod:test_logsetup func:test_convenience INFO Wrote some-file"
     logging.info("hello")
+    assert temp_log.stderr.pop().strip() == "f:test_logsetup.py mod:test_logsetup func:test_convenience INFO hello"
     logging.exception("oops")
 
-    assert "f:system.py mod:system func:hlog INFO Wrote some-file" in temp_log.stderr
-    assert "f:test_logsetup.py mod:test_logsetup func:test_convenience INFO hello" in temp_log.stderr
-    assert "f:test_logsetup.py mod:test_logsetup func:test_convenience ERROR oops" in temp_log.stderr
-    temp_log.stderr.clear()
+    assert temp_log.stderr.pop().strip() == "f:test_logsetup.py mod:test_logsetup func:test_convenience ERROR oops\nNoneType: None"
+
+    logging.log(logging.DEBUG, "hello")
+    assert not temp_log
+
+    logging.log(logging.INFO, "hello")
+    assert temp_log.stderr.pop().strip() == "f:test_logsetup.py mod:test_logsetup func:test_convenience INFO hello"
 
     runez.write("some-file", "some content", logger=LOG.info)
+    assert temp_log.stderr.pop().strip() == "f:test_logsetup.py mod:test_logsetup func:test_convenience INFO Wrote some-file"
+
     LOG.info("hello")
+    assert temp_log.stderr.pop().strip() == "f:test_logsetup.py mod:test_logsetup func:test_convenience INFO hello"
+
     LOG.exception("oops")
-    assert "f:system.py mod:system func:hlog INFO Wrote some-file" in temp_log.stderr
-    assert "f:test_logsetup.py mod:test_logsetup func:test_convenience INFO hello" in temp_log.stderr
-    assert "f:test_logsetup.py mod:test_logsetup func:test_convenience ERROR oops" in temp_log.stderr
+    assert temp_log.stderr.pop().strip() == "f:test_logsetup.py mod:test_logsetup func:test_convenience ERROR oops\nNoneType: None"
+
+    runez.write("some-file", "some content", logger=logging.INFO)
+    assert temp_log.stderr.pop().strip() == "f:test_logsetup.py mod:test_logsetup func:test_convenience INFO Wrote some-file"
 
 
 def test_default(temp_log):
@@ -429,13 +449,6 @@ def test_no_context(temp_log):
 
 
 def test_setup(temp_log, monkeypatch):
-    fmt = "%(asctime)s %(context)s%(levelname)s - %(message)s"
-    assert runez.log.is_using_format("", fmt) is False
-    assert runez.log.is_using_format("%(lineno)", fmt) is False
-    assert runez.log.is_using_format("%(context)", fmt) is True
-    assert runez.log.is_using_format("%(context) %(lineno)", fmt) is True
-    assert runez.log.is_using_format("%(context)", "") is False
-
     # signum=None is equivalent to disabling faulthandler
     runez.log.enable_faulthandler(signum=None)
     assert runez.log.faulthandler_signum is None

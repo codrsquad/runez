@@ -19,15 +19,12 @@ from runez.convert import to_bytesize, to_int
 from runez.date import local_timezone, represented_duration
 from runez.file import parent_folder
 from runez.system import (
-    _PyMimicked,
     _R,
     abort_if,
     cached_property,
     DEV,
     find_caller,
     flattened,
-    LOG,
-    py_mimic,
     quoted,
     short,
     Slotted,
@@ -37,8 +34,6 @@ from runez.system import (
     uncolored,
     UNSET,
 )
-
-ORIGINAL_CF = logging.currentframe
 
 
 def formatted(message, *args, **named_values):
@@ -599,7 +594,7 @@ class _ContextFilter(logging.Filter):
 
 
 class Timeit:
-    """Measure how long a decorated function, or context, took took to run"""
+    """Measure how long a decorated function, or context, took to run"""
 
     function_name: str | None = None
 
@@ -682,7 +677,7 @@ class LogManager:
         console_level=logging.WARNING,
         console_stream=sys.stderr,
         context_format="[[%s]] ",
-        default_logger=LOG.debug,
+        default_logger=logging.debug,
         dev=None,  # Location of development venv where we're currently running from, if any
         project=None,  # Location of source checkout we're currently running from, if any
         file_format="%(asctime)s %(levelname)s %(message)s",
@@ -859,7 +854,7 @@ class LogManager:
             if clean_handlers:
                 cls.clean_handlers()
 
-            cls.greet(greetings)
+            cls.greet(greetings, stacklevel=2)
             if allow_root is UNSET:
                 allow_root = SYS_INFO.is_running_in_docker
 
@@ -870,8 +865,8 @@ class LogManager:
                     message = "\n%s\n%s\n%s\n\n" % (bars, message, bars)
 
                 message = _R.colored(message, "red")
-                abort_if(allow_root is None, message)
-                LOG.warning(message)
+                abort_if(allow_root is None, message, stacklevel=2)
+                logging.warning(message, stacklevel=2)
 
     @staticmethod
     def tests_path(*relative_path):
@@ -879,15 +874,14 @@ class LogManager:
         return DEV.tests_path(*relative_path)
 
     @classmethod
-    def greet(cls, greetings):
+    def greet(cls, greetings, stacklevel=1):
         """
         Args:
             greetings (str | None): Greetings message(s) to log
         """
         if greetings:
-            logger = cls.spec.default_logger
-            if callable(logger):
-                logger(_formatted_text(greetings, cls._props()))
+            msg = _formatted_text(greetings, cls._props())
+            _R.hlog(cls.spec.default_logger, msg, stacklevel=stacklevel + 1)
 
     @classmethod
     def clean_handlers(cls):
@@ -928,24 +922,6 @@ class LogManager:
             logging.getLogger(name).setLevel(level)
 
     @classmethod
-    def is_using_format(cls, markers, used_formats=None):
-        """
-        Args:
-            markers (str): Space separated list of markers to look for
-            used_formats (str): Formats to consider (default: cls.used_formats)
-
-        Returns:
-            (bool): True if any one of the 'markers' is seen in 'used_formats'
-        """
-        if used_formats is None:
-            used_formats = cls.used_formats
-
-        if not markers or not used_formats:
-            return False
-
-        return any(marker in used_formats for marker in flattened(markers, split=" "))
-
-    @classmethod
     def enable_faulthandler(cls, signum=UNSET):
         """Enable dumping thread stack traces when specified signals are received, similar to java's handling of SIGQUIT
 
@@ -977,11 +953,11 @@ class LogManager:
         cls.spec.set(**settings)
 
     @classmethod
-    def enable_trace(cls, spec, prefix=":: ", stream=UNSET):
+    def enable_trace(cls, spec, prefix: str | None = ":: ", stream=UNSET):
         """
         Args:
             spec (str | bool | None): If string given, enable tracing when corresponding env var is set to a non-empty value
-            prefix (str | None): Prefix to use for trace messages (default: ":: ")
+            prefix: Prefix to use for trace messages
             stream: Where to trace (by default: current 'console_stream' if configured, otherwise sys.stderr)
         """
         prior = cls.tracer
@@ -1033,6 +1009,17 @@ class LogManager:
             (bool): True if we were indeed in dryrun mode, and we logged the message
         """
         return _R.hdry(dryrun, logger, message)
+
+    @classmethod
+    def _is_using_format(cls, *markers: str) -> bool:
+        """
+        Args:
+            markers: Markers to look for
+
+        Returns:
+            (bool): True if any one of the 'markers' is seen in 'cls.used_formats'
+        """
+        return cls.used_formats is not None and any(f"%({marker})" in cls.used_formats for marker in markers)
 
     @classmethod
     def _props(cls):
@@ -1115,7 +1102,7 @@ class LogManager:
 
     @classmethod
     def _auto_fill_defaults(cls):
-        """Late auto-filled missing defaults (caller's value kept if provided)"""
+        """Late autofilled missing defaults (caller's value kept if provided)"""
         if not cls.spec.appname:
             cls.spec.appname = SYS_INFO.program_name
 
@@ -1139,18 +1126,20 @@ class LogManager:
 
         This is only useful if you:
         - actually use %(name) and care about it being correct
-        - you would still like to use the logging.info() etc shortcuts
+        - you would still like to use the logging.info() etc. shortcuts
 
         So basically you'd like to write this:
             import logging
+
             logging.info("hello")
 
         Instead of this:
             import logging
+
             LOG = logging.getLogger(__name__)
             LOG.info("hello")
         """
-        if cls.is_using_format("%(context)"):
+        if cls._is_using_format("context"):
             cls.context.enable(True)
             if cls.context.filter is not None and cls.handlers is not None:
                 for handler in cls.handlers:
@@ -1163,14 +1152,14 @@ class LogManager:
 
             cls.context.enable(False)
 
-        if cls.is_using_format("%(pathname) %(filename) %(funcName) %(module)"):
+        if cls._is_using_format("pathname", "filename", "funcName", "module"):
             logging._srcfile = cls._logging_snapshot._srcfile
 
         else:
             logging._srcfile = None
 
-        logging.logProcesses = cls.is_using_format("%(process)")
-        logging.logThreads = cls.is_using_format("%(thread) %(threadName)")
+        logging.logProcesses = cls._is_using_format("process")
+        logging.logThreads = cls._is_using_format("thread", "threadName")
 
         getframe = getattr(sys, "_getframe", None)
         if not isinstance(logging.info, _LogWrap) and getframe is not None:
@@ -1184,30 +1173,29 @@ class LogManager:
             logging.log = _LogWrap.log
 
 
-class _LogWrap(_PyMimicked):
+class _LogWrap:
     """Allows to correctly report caller file/function/line from convenience calls such as logging.info()"""
 
     def __init__(self, level, exc_info=None):
         self.level = level
         self.exc_info = exc_info
-        py_mimic(self, getattr(logging, logging.getLevelName(level).lower()))
+        original = getattr(logging, logging.getLevelName(level).lower())
+        self.__annotations__ = original.__annotations__
+        self.__doc__ = original.__doc__
+        self.__module__ = original.__module__
+        self.__name__ = original.__name__
 
     @staticmethod
-    def log(level, msg, *args, **kwargs):
-        offset = kwargs.pop("_stack_offset", 1)
-        name = sys._getframe(offset).f_globals.get("__name__")
+    def log(level, msg, *args, stacklevel=1, **kwargs):
+        name = sys._getframe(stacklevel).f_globals.get("__name__")
         logger = logging.getLogger(name)
-        try:
-            logging.currentframe = lambda: sys._getframe(3 + offset)
-            logger.log(level, msg, *args, **kwargs)
+        logger.log(level, msg, *args, stacklevel=stacklevel + 1, **kwargs)
 
-        finally:
-            logging.currentframe = ORIGINAL_CF
-
-    def __call__(self, msg, *args, **kwargs):
-        kwargs.setdefault("exc_info", self.exc_info)
-        kwargs.setdefault("_stack_offset", 2)
-        self.log(self.level, msg, *args, **kwargs)
+    def __call__(self, msg, *args, stacklevel=1, **kwargs):
+        exc_info = kwargs.pop("exc_info", self.exc_info)
+        name = sys._getframe(stacklevel).f_globals.get("__name__")
+        logger = logging.getLogger(name)
+        logger.log(self.level, msg, *args, exc_info=exc_info, stacklevel=stacklevel + 1, **kwargs)
 
 
 def _replace_and_pad(fmt, marker, replacement):

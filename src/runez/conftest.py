@@ -23,7 +23,7 @@ from runez.colors import ActivateColors
 from runez.file import TempFolder
 from runez.logsetup import LogManager
 from runez.render import Header
-from runez.system import _R, CaptureOutput, DEV, flattened, LOG, quoted, short, Slotted, stringified, TempArgv, TrackedOutput, UNSET
+from runez.system import _R, CaptureOutput, DEV, flattened, quoted, short, Slotted, stringified, TempArgv, TrackedOutput, UNSET
 
 try:
     from click import Command as _ClickCommand
@@ -306,14 +306,14 @@ class ClickRunner:
                     logged.stderr.buffer.write(result.stderr)
 
                 if result.exception and not isinstance(result.exception, SystemExit):
-                    LOG.error("Exited with stacktrace:", exc_info=result.exception)
+                    logging.error("Exited with stacktrace:", exc_info=result.exception)
 
                 self.exit_code = result.exit_code
 
         if self.logged:
             WrappedHandler.clean_accumulated_logs()
             title = Header.aerated("Captured output for: %s" % quoted(self.args), border="==")
-            LOG.info("\n%s\nmain: %s\nexit_code: %s\n%s\n", title, main, self.exit_code, self.logged)
+            logging.info("\n%s\nmain: %s\nexit_code: %s\n%s\n", title, main, self.exit_code, self.logged)
 
     @property
     def succeeded(self):
@@ -420,7 +420,7 @@ class ClickRunner:
     def _run_main(self, main, args):
         if _ClickCommand is not None and isinstance(main, _ClickCommand) and _CliRunner is not None:
             if "LANG" not in os.environ:
-                # Avoid click complaining about unicode for tests that mock env vars
+                # Avoid click complaining about Unicode for tests that mock env vars
                 os.environ.setdefault("LANG", "en_US.UTF-8")
 
             runner = _CliRunner()

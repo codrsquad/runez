@@ -7,10 +7,11 @@ import datetime
 import inspect
 import io
 import json
+import logging
 from typing import ClassVar
 
 from runez.file import ensure_folder, parent_folder
-from runez.system import _R, abort, is_basetype, is_iterable, LOG, resolved_path, short, stringified, UNSET
+from runez.system import _R, abort, is_basetype, is_iterable, resolved_path, short, stringified, UNSET
 
 K_INDENTED_SEPARATORS = (",", ": ")
 K_COMPACT_SEPARATORS = (", ", ": ")
@@ -31,7 +32,7 @@ def with_behavior(strict=UNSET, extras=UNSET, hook=UNSET):
 
         extras (bool | Exception | callable | (callable, list)):
             False: don't do anything when there are extra fields in deserialized data
-            True: call LOG.debug(reason) to report extra (not in schema) fields seen in data
+            True: call logging.debug(reason) to report extra (not in schema) fields seen in data
             Exception: raise given Exception(reason) when extra fields are seen in data
             callable: call callable(reason) when extra fields are seen in data
             (callable, list): call callable(reason), except for extras mentioned in list
@@ -68,7 +69,7 @@ def set_default_behavior(strict=UNSET, extras=UNSET):
                                               callable: call callable(reason) when schema is not respected
 
         extras (bool | Exception | callable): False: don't do anything when there are extra fields in deserialized data
-                                              True: call LOG.debug(reason) to report extra (not in schema) fields seen in data
+                                              True: call logging.debug(reason) to report extra (not in schema) fields seen in data
                                               Exception: raise given Exception(reason) when extra fields are seen in data
                                               callable: call callable(reason) when extra fields are seen in data
     """
@@ -118,7 +119,7 @@ class DefaultBehavior:
         else:
             self.ignored_extras = None
 
-        self.extras = _to_callable(extras, fallback=LOG.debug)
+        self.extras = _to_callable(extras, fallback=logging.debug)
 
     def __repr__(self):
         result = []
@@ -169,7 +170,7 @@ class DefaultBehavior:
             if isinstance(self.extras, type) and issubclass(self.extras, Exception):
                 raise self.extras(message)
 
-            notifier = self.extras if callable(self.extras) else LOG.debug
+            notifier = self.extras if callable(self.extras) else logging.debug
             notifier(message)
 
     def handle_extra(self, class_name, field_name):

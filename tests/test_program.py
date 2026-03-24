@@ -152,7 +152,7 @@ def test_capture(monkeypatch):
             runez.run(CHATTER, "fail", fatal=True, passthrough=True)
         assert "exited with code" in logged.pop()
 
-        # Verify that silent pass-through gets at least mention of exit code
+        # Verify that silent pass through gets at least mention of exit code
         with pytest.raises(SystemExit):
             runez.run(CHATTER, "silent-fail", fatal=SystemExit, passthrough=True)
         assert "exited with code" in logged.pop()
