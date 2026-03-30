@@ -358,6 +358,7 @@ TYPE_MAP = {
     list: List,
     set: List,
     tuple: List,
+    str: String,
 }
 
 
@@ -380,9 +381,6 @@ def _determined_schema_type(value) -> Any:
     if inspect.ismemberdescriptor(value):
         return Any()  # Member descriptor (such as slot)
 
-    if isinstance(value, str):
-        return String(default=value)  # User gave a string as value, assume they mean string type, and use value as default
-
     mapped = TYPE_MAP.get(value.__class__)
     if mapped is not None:
         return mapped(default=value)
@@ -390,8 +388,9 @@ def _determined_schema_type(value) -> Any:
     if not isinstance(value, type):
         value = value.__class__
 
-    if issubclass(value, str):
-        return String()
+    mapped = TYPE_MAP.get(value)
+    if mapped is not None:
+        return mapped()
 
     if issubclass(value, Serializable):
         return _MetaSerializable(value._meta)
