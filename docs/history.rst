@@ -2,6 +2,12 @@
 History
 =======
 
+5.6.5 (2026-03-30)
+------------------
+
+* Don't try to model source any longer in (seldom used) ``ArtifactInfo``
+
+
 5.6.4 (2026-03-30)
 ------------------
 
