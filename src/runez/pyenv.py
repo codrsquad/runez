@@ -97,8 +97,8 @@ class ArtifactInfo:
         return isinstance(other, ArtifactInfo) and self.basename == other.basename
 
     def __lt__(self, other):
-        """Ordered by source, then pypi_name, then version, then category"""
-        return ltattr(self, other, "source", "pypi_name", "version", "category", t=ArtifactInfo)
+        """Ordered by pypi_name, then version, then category"""
+        return ltattr(self, other, "pypi_name", "version", "category", t=ArtifactInfo)
 
     @property
     def category(self):
