@@ -13,9 +13,13 @@ import os
 import re
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import _pytest.logging
 import pytest
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 import runez.config
 import runez.system
@@ -211,13 +215,13 @@ class ClickWrapper:
 class ClickRunner:
     """Allows to provide a test-friendly fixture around testing click entry-points"""
 
-    default_main = None  # Class-level default main entry point, set from user's conftest.py
+    default_main: Callable | str | None = None  # Class-level default main entry point, set from user's conftest.py
     context_wrapper = TempFolder  # Class-level context manager to use for cli fixture runs
 
     args: list | None = None  # Arguments used in last run()
     exit_code: int | None = None  # Exit code of last run()
     logged: TrackedOutput  # Captured log from last run()
-    main = None  # Optional, override default_main for this runner instance
+    main: Callable | str | None = None  # Optional, override default_main for this runner instance
     trace: bool | None = None  # Optional, enable trace logging for this runner instance
 
     def __init__(self, context=None):
@@ -272,7 +276,7 @@ class ClickRunner:
         Args:
             *args: Command line args
             exe (str | None): Optional, override sys.argv[0] just for this run
-            main (callable | None): Optional, override current self.main just for this run
+            main (Callable | str | None): Optional, override current self.main just for this run
             trace (bool): If True, enable trace logging
         """
         main = _R.rdefault(main, self.main or ClickRunner.default_main)
