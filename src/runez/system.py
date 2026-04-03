@@ -18,7 +18,10 @@ import sys
 import threading
 import unicodedata
 from io import StringIO
-from typing import Any, Callable, ClassVar, TypeVar
+from typing import Any, Callable, ClassVar, TYPE_CHECKING, TypeVar
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 _T = TypeVar("_T")
 
@@ -413,7 +416,7 @@ def is_iterable(value):
     return isinstance(value, (list, tuple, set)) or inspect.isgenerator(value)
 
 
-def stringified(value, converter=None, none: str | bool | None = "None") -> str:
+def stringified(value, converter=None, none: object | None = "None") -> str:
     """
     Args:
         value: Any object to turn into a string
@@ -545,16 +548,17 @@ def quoted(*items, delimiter=" ", adapter=UNSET, keep_empty=True, strip=None, st
     return delimiter.join(result)
 
 
-def resolved_path(path, base=None):
+def resolved_path(path: str | Path, base=None) -> str:
     """
     Args:
-        path (str | pathlib.Path | None): Path to resolve
-        base (str | pathlib.Path | None): Base path to use to resolve relative paths (default: current working dir)
+        path: Path to resolve
+        base (str | Path | None): Base path to use to resolve relative paths (default: current working dir)
 
     Returns:
         (str): Absolute path
     """
-    if not path or str(path).startswith(SYMBOLIC_TMP):
+    path = str(path or "")
+    if not path or path.startswith(SYMBOLIC_TMP):
         return path
 
     path = os.path.expanduser(path)
@@ -675,7 +679,7 @@ class Anchored:
     def set(cls, *anchors):
         """
         Args:
-            *anchors (str | pathlib.Path | list | tuple): Optional paths to use as anchors for short()
+            *anchors (str | Path | list | tuple): Optional paths to use as anchors for short()
         """
         cls._paths = sorted((resolved_path(p) for p in flattened(anchors, unique=True)), reverse=True)
 
@@ -683,7 +687,7 @@ class Anchored:
     def add(cls, anchors):
         """
         Args:
-            anchors (str | pathlib.Path | list | tuple): Optional paths to use as anchors for short()
+            anchors (str | Path | list | tuple): Optional paths to use as anchors for short()
         """
         cls.set(cls._paths, anchors)
 
@@ -691,7 +695,7 @@ class Anchored:
     def pop(cls, anchors):
         """
         Args:
-            anchors (str | pathlib.Path | list | tuple): Optional paths to use as anchors for short()
+            anchors (str | Path | list | tuple): Optional paths to use as anchors for short()
         """
         for anchor in flattened(anchors, unique=True):
             anchor = resolved_path(anchor)
@@ -801,7 +805,7 @@ class CaptureOutput:
         Args:
             stdout (bool): Capture stdout?
             stderr (bool): Capture stderr?
-            anchors (str | pathlib.Path | list | None): Optional paths to use as anchors for `runez.short()`
+            anchors (str | Path | list | None): Optional paths to use as anchors for `runez.short()`
             dryrun (bool): Optionally override current dryrun setting
             seed_logging (bool): If True, ensure there is at least one logging handler configured
             trace (bool): If True, enable tracing

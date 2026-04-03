@@ -37,16 +37,13 @@ k2 =
 
 
 def test_basename():
-    assert runez.basename(None) is None
     assert runez.basename("") == ""
     assert runez.basename("/some-folder/bar", follow=True) == "bar"
-    assert runez.basename("/some-folder/.bar") == ".bar"
+    assert runez.basename(Path("/some-folder/.bar")) == ".bar"
     assert runez.basename("/some-folder/.bar.py") == ".bar"
     assert runez.basename("/some-folder/.bar.baz.py") == ".bar.baz"
     assert runez.basename("some-folder/bar.py") == "bar"
     assert runez.basename("some-folder/bar.baz.pyc") == "bar.baz"
-
-    assert runez.basename("some-folder/bar.py", extension_marker=None) == "bar.py"
 
 
 def test_checksum():
@@ -133,15 +130,11 @@ def test_decompress(temp_folder, logged):
 
 def test_edge_cases(temp_folder, monkeypatch, logged):
     # Don't crash for no-ops
-    assert runez.copy(None, None) == 0
-    assert runez.move(None, None) == 0
-    assert runez.symlink(None, None) == 0
-    assert runez.copy("some-file", "some-file") == 0
-    assert runez.move("some-file", "some-file") == 0
+    assert runez.copy(Path("some-file"), "some-file") == 0
+    assert runez.move("some-file", Path("some-file")) == 0
     assert runez.symlink("some-file", "some-file") == 0
     assert runez.delete("non-existing") == 0
 
-    assert runez.touch(None) == 0
     assert not runez.file.is_younger("", None)
     assert not runez.file.is_younger("", 1)
     assert not runez.file.is_younger("/dev/null/not-there", 1)
@@ -153,7 +146,6 @@ def test_edge_cases(temp_folder, monkeypatch, logged):
 
 
 def test_ensure_folder(temp_folder, logged):
-    assert runez.ensure_folder(None) == 0
     assert runez.ensure_folder("") == 0
     assert runez.ensure_folder(".") == 0
     assert not logged
@@ -191,7 +183,6 @@ def test_ensure_folder(temp_folder, logged):
 
 
 def test_ini_to_dict(temp_folder, logged):
-    assert runez.file.ini_to_dict(None) == {}
     assert runez.file.ini_to_dict("foo") == {}
     assert not logged
 
@@ -394,7 +385,7 @@ def test_pathlib(temp_folder):
         assert runez.short(path.absolute()) == "foo"
 
         assert runez.resolved_path(path)
-        assert runez.parent_folder(path) == os.path.join(temp_folder, "subfolder")
+        assert runez.parent_folder(path) == runez.to_path(temp_folder) / "subfolder"
         assert runez.touch(path) == 1
         assert runez.copy(path, Path("bar")) == 1
         assert runez.copy(Path("bar"), Path("baz")) == 1
@@ -409,12 +400,11 @@ def test_pathlib(temp_folder):
 
 
 def test_parent_folder():
-    cwd = os.getcwd()
+    cwd = Path(os.getcwd())
 
-    assert runez.parent_folder(None) is None
     assert runez.parent_folder("././some-file") == cwd
 
     parent = runez.parent_folder("/logs/foo")
-    assert parent == "/logs"
-    assert runez.parent_folder(parent) == "/"
-    assert runez.parent_folder("/") == "/"
+    assert parent == Path("/logs")
+    assert runez.parent_folder(parent) == Path("/")
+    assert runez.parent_folder("/") == Path("/")

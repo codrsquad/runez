@@ -2,6 +2,18 @@
 History
 =======
 
+5.7.0 (2026-04-02)
+------------------
+
+* Support py3.10+ only
+
+* Stronger typing for all methods in ``runez.file``
+
+* ``parent_folder()`` now returns a ``Path``
+
+* ``to_path()`` no longer accepts/returns ``None``
+
+
 5.6.5 (2026-03-30)
 ------------------
 
