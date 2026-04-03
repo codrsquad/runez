@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 import sys
@@ -56,6 +57,11 @@ def test_cli_uninitialized(cli, monkeypatch):
     with pytest.raises(AssertionError):
         # No main provided
         cli.run("hello no main")
+
+
+def test_bad_logging(logged):
+    with pytest.raises(TypeError, match="not enough arguments for format string"):
+        logging.info("oops forgot an arg: %s %s", "foo")
 
 
 def test_crash(cli):

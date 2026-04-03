@@ -7,7 +7,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from runez.system import _R, abort, Anchored, flattened, resolved_path, short, SYMBOLIC_TMP, SYS_INFO, UNSET
+from runez.system import _R, abort, Anchored, flattened, resolved_path, short, SYS_INFO, UNSET
 
 
 def basename(path: str | Path, extension_marker=os.extsep, follow=False) -> str:
@@ -434,14 +434,13 @@ class TempFolder:
 
     def __enter__(self):
         self.dryrun = _R.set_dryrun(self.dryrun)
-        if not _R.is_dryrun():
-            # Use realpath() to properly resolve for example symlinks on OSX temp paths
-            self.tmp_folder = os.path.realpath(tempfile.mkdtemp())
-            if self.follow:
-                self.old_cwd = os.getcwd()
-                os.chdir(self.tmp_folder)
+        # Use realpath() to properly resolve for example symlinks on OSX temp paths
+        self.tmp_folder = os.path.realpath(tempfile.mkdtemp())
+        if self.follow:
+            self.old_cwd = os.getcwd()
+            os.chdir(self.tmp_folder)
 
-        tmp = self.tmp_folder or SYMBOLIC_TMP
+        tmp = self.tmp_folder
         if self.anchor:
             Anchored.add(tmp)
 
@@ -450,7 +449,7 @@ class TempFolder:
     def __exit__(self, *_):
         _R.set_dryrun(self.dryrun)
         if self.anchor:
-            Anchored.pop(self.tmp_folder or SYMBOLIC_TMP)
+            Anchored.pop(self.tmp_folder)
 
         if self.old_cwd:
             os.chdir(self.old_cwd)

@@ -27,7 +27,7 @@ from runez.colors import ColorManager
 from runez.convert import affixed
 from runez.file import basename
 from runez.logsetup import LogManager
-from runez.system import find_caller, first_line, flattened, get_version, short, stringified, TempArgv, UNSET
+from runez.system import _R, find_caller, first_line, flattened, get_version, short, stringified, TempArgv, UNSET
 
 
 class Cli:
@@ -99,9 +99,9 @@ class Cli:
 
     @staticmethod
     def formatted_help(text):
-        text = text and text.strip()
         if text:
-            return "  %s" % "\n  ".join(x.strip() for x in text.splitlines())
+            text = "\n  ".join(x.strip() for x in text.strip().splitlines())
+            return f"  {text}"
 
     @classmethod
     def run_cmds(cls, prog=None):
@@ -130,7 +130,7 @@ class Cli:
         for cmd, func in available_commands.items():
             epilog.add_row(" " + cmd, first_line(func.__doc__, default=""))
 
-        epilog = "Available commands:\n%s" % epilog
+        epilog = f"Available commands:\n{epilog}"
         cls._prog = prog or package
         parser = cls.parser(epilog=epilog, help=caller.module_docstring, prog=prog)
         if cls.version and package:
@@ -167,7 +167,7 @@ class Cli:
                 func()
 
         except KeyboardInterrupt:  # pragma: no cover
-            sys.stderr.write("\nAborted\n")
+            _R.safe_write(sys.stderr, "\nAborted\n")
             sys.exit(1)
 
 
@@ -348,12 +348,13 @@ def protected_main(main, debug_stacktrace=False, no_stacktrace=None):
         return main()
 
     except KeyboardInterrupt:
-        sys.stderr.write(ColorManager.fg.red("\n\nAborted\n\n"))  # No need to show stack trace on a KeyboardInterrupt
+        msg = ColorManager.fg.red("Aborted")
+        _R.safe_write(sys.stderr, f"\n\n{msg}\n\n")  # No need to show stack trace on a KeyboardInterrupt
         sys.exit(1)
 
     except NotImplementedError as e:
-        msg = stringified(e) or "Not implemented yet"  # Convenience pretty-print of a `raise NotImplementedError(...)`
-        sys.stderr.write(ColorManager.fg.red("\n%s\n\n" % msg))
+        msg = ColorManager.fg.red(stringified(e) or "Not implemented yet")
+        _R.safe_write(sys.stderr, f"\n{msg}\n\n")  # Convenience pretty-print of a `raise NotImplementedError(...)`
         sys.exit(1)
 
     except Exception as e:

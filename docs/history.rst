@@ -2,10 +2,14 @@
 History
 =======
 
-5.7.0 (2026-04-02)
+5.7.1 (2026-04-03)
 ------------------
 
 * Support py3.10+ only
+
+* Simplified ``TempFolder()``
+
+* Avoid crashing when trying to flush log buffers at the end of test runs
 
 * Stronger typing for all methods in ``runez.file``
 

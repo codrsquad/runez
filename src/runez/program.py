@@ -4,7 +4,6 @@ Convenience methods for executing programs
 
 from __future__ import annotations
 
-import contextlib
 import errno
 import fcntl
 import os
@@ -496,11 +495,10 @@ class RunResult:
         return self.exit_code == 0
 
     @property
-    def full_output(self):
+    def full_output(self) -> str:
         """Full output, error first"""
-        if self.output is not None or self.error is not None:
-            output = "%s\n%s" % (self.error or "", self.output or "")
-            return output.strip()
+        output = f"{self.error or ''}\n{self.output or ''}"
+        return output.strip()
 
     @property
     def failed(self):
@@ -664,14 +662,14 @@ def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
                         continue
 
                     text = decode(data)
-                    _safe_write(passthrough, text)
+                    _R.safe_write(passthrough, text)
                     if fd == stdout_r:
-                        _safe_write(sys.stdout, text, flush=sys.stdout.buffer)
-                        _safe_write(stdout_buffer, text)
+                        _R.safe_write(sys.stdout, text, flush=True)
+                        _R.safe_write(stdout_buffer, text)
 
                     else:
-                        _safe_write(sys.stderr, text, flush=sys.stderr.buffer)
-                        _safe_write(stderr_buffer, text)
+                        _R.safe_write(sys.stderr, text, flush=True)
+                        _R.safe_write(stderr_buffer, text)
 
                 except OSError as e:
                     if e.errno != errno.EIO:  # On some OS-es, EIO means EOF
@@ -679,8 +677,8 @@ def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
 
                     readable.remove(fd)
 
-    sys.stdout.flush()
-    sys.stderr.flush()
+    _R.safe_write(sys.stdout, None, flush=True)
+    _R.safe_write(sys.stderr, None, flush=True)
     os.close(stdout_r)
     os.close(stderr_r)
     if stdout_buffer:
@@ -690,15 +688,6 @@ def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
         stderr_buffer = uncolored(decode(stderr_buffer.getvalue()))
 
     return p, stdout_buffer, stderr_buffer
-
-
-def _safe_write(target, data, flush=None):
-    if target is not None and data is not None:
-        with contextlib.suppress(Exception):
-            # Don't consider run crashed if one of the channels we're passing through is failing
-            target.write(data)
-            if flush is not None:
-                flush.flush()
 
 
 class _WrappedArgs:

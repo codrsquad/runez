@@ -709,7 +709,7 @@ def represented_json(data, stringify=stringified, dt=str, none=False, indent=2, 
     data = json_sanitized(data, stringify=stringify, dt=dt, none=none)
     rep = json.dumps(data, indent=indent, sort_keys=sort_keys, separators=K_INDENTED_SEPARATORS if indent else K_COMPACT_SEPARATORS)
     if indent:
-        return "%s\n" % rep
+        rep = _R.ensure_newline(rep)
 
     return rep
 

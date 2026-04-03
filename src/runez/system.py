@@ -26,7 +26,6 @@ if TYPE_CHECKING:
 _T = TypeVar("_T")
 
 ABORT_LOGGER = logging.error
-SYMBOLIC_TMP = "<tmp>"
 
 
 class Undefined:
@@ -557,8 +556,7 @@ def resolved_path(path: str | Path, base=None) -> str:
     Returns:
         (str): Absolute path
     """
-    path = str(path or "")
-    if not path or path.startswith(SYMBOLIC_TMP):
+    if not path:
         return path
 
     path = os.path.expanduser(path)
@@ -748,7 +746,7 @@ class CapturedStream:
         return len(self.contents())
 
     def captured_write(self, message):
-        self.buffer.write(message)
+        return self.buffer.write(message)
 
     def contents(self):
         """str: Contents of this capture"""
@@ -1966,6 +1964,30 @@ class _R:
 
     lc = _LazyCache()
 
+    @staticmethod
+    def safe_write(target, data, flush=None):
+        """
+        Safely write 'data' to 'target', ignore exceptions, this avoids crashing when trying to log on exit to closed handlers
+        """
+        if target is not None:
+            if data is not None:
+                with contextlib.suppress(Exception):
+                    target.write(data)
+
+            if flush is True:
+                flush = target
+
+        if flush is not None and hasattr(flush, "flush"):
+            with contextlib.suppress(Exception):
+                flush.flush()
+
+    @staticmethod
+    def ensure_newline(text):
+        if text and not text.endswith("\n"):
+            text += "\n"
+
+        return text
+
     @classmethod
     def abort_exception(cls, override=None):
         """AbortException can be modified from client"""
@@ -2217,7 +2239,7 @@ def _show_abort_message(message, exc_info, fatal, logger, stacklevel):
             _R.hlog(logger, message, exc_info=exc_info if fatal else None, stacklevel=stacklevel + 1)
 
         else:
-            sys.stderr.write("%s\n" % message)
+            _R.safe_write(sys.stderr, _R.ensure_newline(message))
 
 
 def _has_stream_handler():

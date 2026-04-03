@@ -70,11 +70,11 @@ def cmd_passthrough():
     if not unknown:
         sys.exit("Provide command to run")
 
-    print("-- Running: %s\n" % unknown)
+    print(f"-- Running: {unknown}\n")
     r = runez.run(*unknown, fatal=False, passthrough=True)
-    print("\n---- Captured: (exit code %s) ----" % r.exit_code)
-    print("\nstdout:\n%s" % (r.output or runez.dim("-empty-")))
-    print("\nstderr:\n%s" % (r.error or runez.dim("-empty-")))
+    print(f"\n---- Captured: (exit code {r.exit_code}) ----")
+    print(f"\nstdout:\n{r.output or runez.dim('-empty-')}")
+    print(f"\nstderr:\n{r.error or runez.dim('-empty-')}")
 
 
 def cmd_progress_bar():
