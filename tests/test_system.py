@@ -407,7 +407,7 @@ def test_joined():
 
 
 def test_path_resolution(temp_folder):
-    assert runez.resolved_path(None) is None
+    assert runez.resolved_path("") == ""
     assert runez.resolved_path("some-file") == os.path.join(temp_folder, "some-file")
     assert runez.resolved_path("some-file", base="bar") == os.path.join(temp_folder, "bar", "some-file")
 
