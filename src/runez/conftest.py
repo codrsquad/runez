@@ -12,6 +12,7 @@ import logging
 import os
 import re
 import sys
+import traceback
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -180,17 +181,15 @@ class WrappedHandler(_pytest.logging.LogCaptureHandler):
     def emit(self, record):
         if self.__class__.isolation == 0:
             stream = CaptureOutput.current_capture_buffer()
-            if stream is not None:
-                try:
-                    msg = self.format(record)
-                    stream.write(msg + "\n")
-                    self.flush()
+            if stream is None:
+                return super().emit(record)
 
-                except Exception:  # pragma: no cover
-                    self.handleError(record)
+            try:
+                msg = self.format(record)
+                _R.safe_write(stream, _R.ensure_newline(msg), flush=True)
 
-            else:
-                super().emit(record)
+            except Exception:
+                self.handleError(record)
 
     @classmethod
     def clean_accumulated_logs(cls):
@@ -305,13 +304,16 @@ class ClickRunner:
                     raise result.exception
 
                 if result.stdout and logged.stdout is not None:
-                    logged.stdout.buffer.write(result.stdout)
+                    _R.safe_write(logged.stdout.buffer, result.stdout)
 
                 if result.stderr and logged.stderr is not None:
-                    logged.stderr.buffer.write(result.stderr)
+                    _R.safe_write(logged.stderr.buffer, result.stderr)
 
                 if result.exception and not isinstance(result.exception, SystemExit):
-                    logging.error("Exited with stacktrace:", exc_info=result.exception)
+                    msg = traceback.format_exception(type(result.exception), result.exception, result.exception.__traceback__)
+                    msg = "".join(msg)
+                    msg = f"Exited with stacktrace: {msg}"
+                    _R.safe_write(sys.stderr, _R.ensure_newline(msg))
 
                 self.exit_code = result.exit_code
 

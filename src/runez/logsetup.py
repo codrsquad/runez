@@ -425,8 +425,8 @@ class TraceHandler:
         Args:
             message (str): Message to trace
         """
-        self.stream.write("%s%s%s" % (self.prefix or "", message, "\n" if not message.endswith("\n") else ""))
-        self.stream.flush()
+        message = f"{self.prefix or ''}{message}"
+        _R.safe_write(self.stream, _R.ensure_newline(message), flush=True)
 
 
 class LoggingSnapshot(Slotted):
@@ -862,7 +862,7 @@ class LogManager:
                 message = _formatted_text(cls.disallow_root_message, cls._props(), strict=False)
                 if message.endswith("!"):
                     bars = "=" * len(message)
-                    message = "\n%s\n%s\n%s\n\n" % (bars, message, bars)
+                    message = f"\n{bars}\n{message}\n{bars}\n\n"
 
                 message = _R.colored(message, "red")
                 abort_if(allow_root is None, message, stacklevel=2)
