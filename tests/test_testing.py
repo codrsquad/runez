@@ -16,7 +16,7 @@ def sample_main():
         args = runez.flattened(args, shellify=True)
         if args[0] == "TypeError":
             # Raise a TypeError
-            len(42)
+            raise TypeError("... oops ...")
 
         exit_code = runez.to_int(args[0])
         if exit_code is not None:
@@ -76,7 +76,7 @@ def test_crash(cli):
 
     cli.run("TypeError")
     assert cli.failed
-    assert cli.match("TypeError: ... has no len")
+    assert cli.match("TypeError: ... oops ...")
 
     cli.run("exit", "some message")
     assert cli.failed

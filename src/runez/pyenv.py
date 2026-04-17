@@ -186,7 +186,7 @@ class PythonSpec:
 
             return self.canonical.startswith(other.canonical)
 
-    def represented(self, color=None, compact=CPYTHON):
+    def represented(self, color=None, compact=CPYTHON) -> str:
         """
         Args:
             color (callable | None): Optional color to use
@@ -207,13 +207,13 @@ class PythonSpec:
         return _R.colored(text, color)
 
     @classmethod
-    def from_text(cls, text):
+    def from_text(cls, text: str) -> PythonSpec | None:
         """
         Args:
             text (str | None): Text to be converted into a PythonSpec() if possible, eg: 3.10, py310, python3.10, conda:3.10
 
         Returns:
-            (PythonSpec | None): Parsed spec from given object, if valid
+            Parsed spec from given object, if valid
         """
         m = re.match(r"^(py|python|)(?P<version>\d+(\.\d+(.\w+?)*)?)?(?P<freethreading>t)?(?P<min_spec>\+?)$", text)
         if m:
@@ -241,13 +241,13 @@ class PythonSpec:
                 return cls(m.group("family"), version, is_min_spec=min_spec, freethreading=freethreading)
 
     @classmethod
-    def from_object(cls, value):
+    def from_object(cls, value) -> PythonSpec | None:
         """
         Args:
             value: Value to transform into a PythonSpec, if possible
 
         Returns:
-            (PythonSpec | None): Parsed spec from given object, if valid
+            Parsed spec from given object, if valid
         """
         if not value or isinstance(value, PythonSpec):
             return value or None
@@ -259,25 +259,25 @@ class PythonSpec:
             return cls.from_text(str(value))
 
     @classmethod
-    def to_list(cls, values):
+    def to_list(cls, values) -> list[PythonSpec]:
         """
         Args:
             values: Values to transform into a list of PythonSpec-s
 
         Returns:
-            (list[PythonSpec]): Corresponding list of PythonSpec-s
+            Corresponding list of PythonSpec-s
         """
         values = flattened(values, split=",", transform=PythonSpec.from_object)
         return [x for x in values if x and x.version]
 
     @classmethod
-    def guess_family(cls, text):
+    def guess_family(cls, text: str | None) -> str:
         """
         Args:
-            text (str | None): Text to examine
+            text: Text to examine
 
         Returns:
-            (str): Guessed python family from given 'text' (typically path to installation)
+            Guessed python family from given 'text' (typically path to installation)
         """
         if text:
             if "forge" in text or "conda" in text:
@@ -543,7 +543,7 @@ class Version:
         raise ValueError("Invalid version %r" % obj)
 
     @classmethod
-    def from_tox_like(cls, text, default=None):
+    def from_tox_like(cls, text: str, default=None) -> Version | None:
         """Parse a version taking into account tox-like versions like '310' meaning '3.10'"""
         if text and re.match(r"^(\d\d+)$", text):
             return cls.from_object((text[0], text[1:]))
@@ -623,7 +623,7 @@ class Version:
         return len(self.given_components) if self.given_components else 0
 
     @cached_property
-    def local_parts(self):
+    def local_parts(self) -> list[str] | None:
         """Local parts are only needed when comparing versions that differ solely by local part..."""
         if self.local_part:
             v = getattr(self, "_local_parts", None)
