@@ -4,7 +4,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import ClassVar, Optional
+from typing import ClassVar
 
 from runez.file import ls_dir
 from runez.program import is_executable, run
@@ -54,16 +54,16 @@ class ArtifactInfo:
         self.size = size
 
     @classmethod
-    def from_basename(cls, basename, source=None, last_modified=None, size=None):
+    def from_basename(cls, basename: str, source=None, last_modified=None, size=None) -> ArtifactInfo:
         """
         Args:
-            basename (str): Basename to parse
+            basename: Basename to parse
             source: Optional arbitrary object to track provenance of ArtifactInfo
             last_modified (datetime.datetime | None): Timestamp when artifact was last modified, if available
             size (int | None): Size in bytes of artifact, if available
 
         Returns:
-            (ArtifactInfo | None): Parsed artifact info, if any
+            Parsed artifact info. Raises ValueError if `basename` is not a recognizable sdist/wheel name.
         """
         is_wheel = False
         wheel_build_number = tags = None
@@ -71,7 +71,7 @@ class ArtifactInfo:
         if not m:
             m = PypiStd.RX_WHEEL.match(basename)
             if not m:
-                return None
+                raise ValueError("Can't parse artifact info from basename: %r" % basename)
 
             wheel_build_number = m.group(4)
             tags = m.group(5)
@@ -302,7 +302,7 @@ class PythonDepot:
         p = my_depot.find_python("3.10")
     """
 
-    _preferred_python: Optional["PythonInstallation"] = None  # Preferred python to use, if configured
+    _preferred_python: PythonInstallation | None = None  # Preferred python to use, if configured
 
     def __init__(self, *locations):
         """
@@ -497,7 +497,7 @@ class Version:
                 return v
 
     @classmethod
-    def from_object(cls, obj) -> Optional["Version"]:
+    def from_object(cls, obj) -> Version | None:
         """
         Args:
             obj: Object to turn into a Version, if possible
@@ -517,7 +517,7 @@ class Version:
                 return v
 
     @classmethod
-    def required_from_object(cls, obj) -> "Version":
+    def required_from_object(cls, obj: Version | PythonSpec | str) -> Version:
         """
         Args:
             obj: Object to turn into a Version, raises a ValueError if not possible
@@ -528,22 +528,19 @@ class Version:
         Raises:
             ValueError: If not possible
         """
-        if not obj:
-            raise ValueError("Can't determine version for %r" % obj)
-
         if isinstance(obj, Version):
             v = obj
 
-        else:
-            if not isinstance(obj, str):
-                obj = joined(obj, delimiter=".")
+        elif isinstance(obj, PythonSpec):
+            v = obj.version
 
+        else:
             v = cls(obj)
 
-        if not v.is_valid:
-            raise ValueError("Invalid version %r" % obj)
+        if v and v.is_valid:
+            return v
 
-        return v
+        raise ValueError("Invalid version %r" % obj)
 
     @classmethod
     def from_tox_like(cls, text, default=None):

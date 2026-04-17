@@ -12,7 +12,8 @@ PYPI_CLIENT = RestClient("https://example.com/pypi")
 
 
 def test_artifact_info():
-    assert ArtifactInfo.from_basename("foo") is None
+    with pytest.raises(ValueError, match="Can't parse artifact info from basename: 'foo'"):
+        ArtifactInfo.from_basename("foo")
 
     info1 = ArtifactInfo.from_basename("E.S.P.-Hadouken-0.2.1.tar.gz")
     assert str(info1) == "e-s-p-hadouken/E.S.P.-Hadouken-0.2.1.tar.gz"
@@ -593,38 +594,26 @@ def test_version_from_object():
 
 
 def test_version_required_from_object():
-    # Valid Version instance is returned as-is
     v = Version("1.2.3")
     assert Version.required_from_object(v) is v
-
-    # Valid string
     assert Version.required_from_object("1.2.3") == Version("1.2.3")
-
-    # Non-string iterable -> joined on "."
-    assert Version.required_from_object((1, 2, 3)) == Version("1.2.3")
-    assert Version.required_from_object([1, 2, 3]) == Version("1.2.3")
-
-    # Falsy input -> ValueError mentions the original object
-    with pytest.raises(ValueError, match="Can't determine version for None"):
-        Version.required_from_object(None)
-
-    with pytest.raises(ValueError, match="Can't determine version for ''"):
-        Version.required_from_object("")
-
-    with pytest.raises(ValueError, match=r"Can't determine version for \[\]"):
-        Version.required_from_object([])
+    assert Version.required_from_object(PythonSpec("cpython", "1.2.3")) == Version("1.2.3")
 
     # Invalid Version instance -> ValueError
-    with pytest.raises(ValueError, match="Invalid version"):
+    with pytest.raises(ValueError, match="Invalid version foo"):
         Version.required_from_object(Version("foo"))
+
+    # Invalid version string
+    with pytest.raises(ValueError, match="Invalid version ''"):
+        Version.required_from_object("")
 
     # Invalid string -> ValueError
     with pytest.raises(ValueError, match="Invalid version 'foo'"):
         Version.required_from_object("foo")
 
-    # Non-string iterable that joins to an invalid version -> ValueError on the joined text
-    with pytest.raises(ValueError, match=r"Invalid version 'foo\.bar'"):
-        Version.required_from_object(["foo", "bar"])
+    invalid = PythonSpec("cpython", "invalid")
+    with pytest.raises(ValueError, match="Invalid version cpython:invalid"):
+        Version.required_from_object(invalid)
 
 
 def test_version_comparison():
