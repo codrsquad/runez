@@ -564,6 +564,69 @@ def test_version_extraction():
     assert p38.is_valid
 
 
+def test_version_from_object():
+    # Falsy input -> None
+    assert Version.from_object(None) is None
+    assert Version.from_object("") is None
+    assert Version.from_object([]) is None
+    assert Version.from_object(0) is None
+
+    # Valid Version instance is returned as-is
+    v = Version("1.2.3")
+    assert Version.from_object(v) is v
+
+    # Invalid Version instance -> None
+    assert Version.from_object(Version("foo")) is None
+
+    # Valid string
+    assert Version.from_object("1.2.3") == Version("1.2.3")
+
+    # Invalid string -> None
+    assert Version.from_object("foo") is None
+
+    # Non-string iterable -> joined on "."
+    assert Version.from_object((1, 2, 3)) == Version("1.2.3")
+    assert Version.from_object([1, 2, 3]) == Version("1.2.3")
+
+    # Non-string iterable that joins to an invalid version -> None
+    assert Version.from_object(["foo", "bar"]) is None
+
+
+def test_version_required_from_object():
+    # Valid Version instance is returned as-is
+    v = Version("1.2.3")
+    assert Version.required_from_object(v) is v
+
+    # Valid string
+    assert Version.required_from_object("1.2.3") == Version("1.2.3")
+
+    # Non-string iterable -> joined on "."
+    assert Version.required_from_object((1, 2, 3)) == Version("1.2.3")
+    assert Version.required_from_object([1, 2, 3]) == Version("1.2.3")
+
+    # Falsy input -> ValueError mentions the original object
+    with pytest.raises(ValueError, match="Can't determine version for None"):
+        Version.required_from_object(None)
+
+    with pytest.raises(ValueError, match="Can't determine version for ''"):
+        Version.required_from_object("")
+
+    with pytest.raises(ValueError, match=r"Can't determine version for \[\]"):
+        Version.required_from_object([])
+
+    # Invalid Version instance -> ValueError
+    with pytest.raises(ValueError, match="Invalid version"):
+        Version.required_from_object(Version("foo"))
+
+    # Invalid string -> ValueError
+    with pytest.raises(ValueError, match="Invalid version 'foo'"):
+        Version.required_from_object("foo")
+
+    # Non-string iterable that joins to an invalid version -> ValueError on the joined text
+    with pytest.raises(ValueError, match=r"Invalid version 'foo\.bar'"):
+        Version.required_from_object(["foo", "bar"])
+
+
 def test_version_comparison():
     v10rc5 = Version("1.0rc5")
     assert v10rc5 > "0.9"

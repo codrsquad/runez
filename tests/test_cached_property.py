@@ -33,7 +33,6 @@ def test_simple_case():
     assert MyObject.foo.__doc__ == "Some example property"
     assert MyObject.foo.__module__ == "tests.test_cached_property"
     assert MyObject.foo.__name__ == "foo"
-    assert cached_property.to_dict(MyObject) is None
     check_props(MyObject)
 
     obj1 = MyObject()

@@ -517,6 +517,35 @@ class Version:
                 return v
 
     @classmethod
+    def required_from_object(cls, obj) -> "Version":
+        """
+        Args:
+            obj: Object to turn into a Version, raises a ValueError if not possible
+
+        Returns:
+            Corresponding version object
+
+        Raises:
+            ValueError: If not possible
+        """
+        if not obj:
+            raise ValueError("Can't determine version for %r" % obj)
+
+        if isinstance(obj, Version):
+            v = obj
+
+        else:
+            if not isinstance(obj, str):
+                obj = joined(obj, delimiter=".")
+
+            v = cls(obj)
+
+        if not v.is_valid:
+            raise ValueError("Invalid version %r" % obj)
+
+        return v
+
+    @classmethod
     def from_tox_like(cls, text, default=None):
         """Parse a version taking into account tox-like versions like '310' meaning '3.10'"""
         if text and re.match(r"^(\d\d+)$", text):
