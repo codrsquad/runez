@@ -575,6 +575,7 @@ def test_version_from_object():
     # Valid Version instance is returned as-is
     v = Version("1.2.3")
     assert Version.from_object(v) is v
+    assert Version.from_object(PythonSpec("cpython", "1.2.3")) == Version("1.2.3")
 
     # Invalid Version instance -> None
     assert Version.from_object(Version("foo")) is None
@@ -591,29 +592,6 @@ def test_version_from_object():
 
     # Non-string iterable that joins to an invalid version -> None
     assert Version.from_object(["foo", "bar"]) is None
-
-
-def test_version_required_from_object():
-    v = Version("1.2.3")
-    assert Version.required_from_object(v) is v
-    assert Version.required_from_object("1.2.3") == Version("1.2.3")
-    assert Version.required_from_object(PythonSpec("cpython", "1.2.3")) == Version("1.2.3")
-
-    # Invalid Version instance -> ValueError
-    with pytest.raises(ValueError, match="Invalid version foo"):
-        Version.required_from_object(Version("foo"))
-
-    # Invalid version string
-    with pytest.raises(ValueError, match="Invalid version ''"):
-        Version.required_from_object("")
-
-    # Invalid string -> ValueError
-    with pytest.raises(ValueError, match="Invalid version 'foo'"):
-        Version.required_from_object("foo")
-
-    invalid = PythonSpec("cpython", "invalid")
-    with pytest.raises(ValueError, match="Invalid version cpython:invalid"):
-        Version.required_from_object(invalid)
 
 
 def test_version_comparison():

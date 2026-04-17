@@ -497,7 +497,7 @@ class Version:
                 return v
 
     @classmethod
-    def from_object(cls, obj) -> Version | None:
+    def from_object(cls, obj: Version | PythonSpec | tuple | list | float | str | None) -> Version | None:
         """
         Args:
             obj: Object to turn into a Version, if possible
@@ -509,38 +509,12 @@ class Version:
             if isinstance(obj, Version):
                 return obj if obj.is_valid else None
 
-            if not isinstance(obj, str):
-                obj = joined(obj, delimiter=".")
+            if isinstance(obj, PythonSpec):
+                return obj.version if obj.version and obj.version.is_valid else None
 
-            v = cls(obj)
+            v = cls(obj if isinstance(obj, str) else joined(obj, delimiter="."))
             if v.is_valid:
                 return v
-
-    @classmethod
-    def required_from_object(cls, obj: Version | PythonSpec | str) -> Version:
-        """
-        Args:
-            obj: Object to turn into a Version, raises a ValueError if not possible
-
-        Returns:
-            Corresponding version object
-
-        Raises:
-            ValueError: If not possible
-        """
-        if isinstance(obj, Version):
-            v = obj
-
-        elif isinstance(obj, PythonSpec):
-            v = obj.version
-
-        else:
-            v = cls(obj)
-
-        if v and v.is_valid:
-            return v
-
-        raise ValueError("Invalid version %r" % obj)
 
     @classmethod
     def from_tox_like(cls, text: str, default=None) -> Version | None:
