@@ -462,7 +462,7 @@ def stringified(value, converter=None, none: object | None = "None") -> str:
     return "{}".format(value)
 
 
-def joined(*args, delimiter=" ", keep_empty: str | bool | None = False, strip=None, stringify=stringified, unique=False):
+def joined(*args, delimiter=" ", keep_empty: str | bool | None = False, strip=None, stringify=stringified, unique=False) -> str:
     """
     >>> joined(1, " foo ", None, 2)
     '1  foo  2'
@@ -574,7 +574,7 @@ def resolved_path(path: str | Path, base=None) -> str:
     return os.path.abspath(path)
 
 
-def short(value, size=UNSET, none="None", uncolor=False):
+def short(value, size=UNSET, none="None", uncolor=False) -> str:
     """
     Args:
         value: Value to textually represent in a shortened form
