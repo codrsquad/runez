@@ -12,7 +12,7 @@ import sys
 import threading
 import time
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
-from typing import Callable, List, Optional
+from typing import Callable, Protocol
 
 from runez.ascii import AsciiAnimation
 from runez.convert import to_bytesize, to_int
@@ -426,6 +426,14 @@ class ProgressSpinner:
             self.stop()
 
 
+class Traceable(Protocol):
+    """Anything that can receive trace messages — typically a `TraceHandler`, but any object with a
+    compatible `.trace(message)` method can be plugged into `LogManager.tracer`.
+    """
+
+    def trace(self, message: str) -> None: ...
+
+
 class TraceHandler:
     """
     Allows to optionally provide trace logging, typically activated by an env var, like:
@@ -722,12 +730,12 @@ class LogManager:
 
     # Below fields should be read-only for outside users, do not modify these
     debug = False
-    console_handler: Optional[logging.StreamHandler] = None
-    file_handler: Optional[logging.FileHandler] = None  # File we're currently logging to (if any)
-    handlers: Optional[List[logging.Handler]] = None
-    tracer: Optional[TraceHandler] = None
-    used_formats: Optional[str] = None
-    faulthandler_signum: Optional[int] = None
+    console_handler: logging.StreamHandler | None = None
+    file_handler: logging.FileHandler | None = None  # File we're currently logging to (if any)
+    handlers: list[logging.Handler] | None = None
+    tracer: Traceable | None = None
+    used_formats: str | None = None
+    faulthandler_signum: int | None = None
     trace_env_var = "TRACE_DEBUG"
 
     # Convenience decorator/context logging how long a function or section of code took to run
@@ -735,7 +743,7 @@ class LogManager:
 
     _lock = threading.RLock()
     _logging_snapshot = LoggingSnapshot()
-    _progress_handler: Optional[ProgressHandler] = None
+    _progress_handler: ProgressHandler | None = None
 
     @classmethod
     def set_debug(cls, debug):
@@ -969,12 +977,15 @@ class LogManager:
         cls.spec.set(**settings)
 
     @classmethod
-    def enable_trace(cls, spec, prefix: str | None = ":: ", stream=UNSET):
+    def enable_trace(cls, spec, prefix: str | None = ":: ", stream=UNSET) -> Traceable | None:
         """
         Args:
             spec (str | bool | None): If string given, enable tracing when corresponding env var is set to a non-empty value
             prefix: Prefix to use for trace messages
             stream: Where to trace (by default: current 'console_stream' if configured, otherwise sys.stderr)
+
+        Returns:
+            Prior tracer (if any), so caller can restore it
         """
         prior = cls.tracer
         if spec is not UNSET:
