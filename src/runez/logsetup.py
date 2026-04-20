@@ -25,6 +25,7 @@ from runez.system import (
     DEV,
     find_caller,
     flattened,
+    OptionalColor,
     quoted,
     short,
     Slotted,
@@ -149,7 +150,7 @@ class ProgressBar:
 
 
 class _SpinnerComponent:
-    def __init__(self, fps, source, color, adapter=None):
+    def __init__(self, fps, source, color: OptionalColor, adapter=None):
         self.adapter = adapter
         self.source = source
         self.color = color
@@ -187,15 +188,23 @@ class _SpinnerComponent:
 
 
 class _SpinnerState:
-    def __init__(self, parent, frames, max_columns, message_color, progress_color, spinner_color):
+    def __init__(
+        self,
+        parent,
+        frames,
+        max_columns,
+        message_color: OptionalColor,
+        progress_color: OptionalColor,
+        spinner_color: OptionalColor,
+    ):
         """
         Args:
             parent (ProgressSpinner): Parent object
             frames (AsciiFrames): Frames to use for spinner
             max_columns (int | None): Optional max number of columns to use
-            message_color (str | callable | None): Optional color to use for the message
-            progress_color (callable | None): Optional color to use for the spinner
-            spinner_color (callable | None): Optional color to use for the spinner
+            message_color: Optional color to use for the message
+            progress_color: Optional color to use for the progress bar
+            spinner_color: Optional color to use for the spinner
         """
         self.columns = SYS_INFO.terminal.columns - 2
         if max_columns and max_columns > 0:
@@ -251,15 +260,22 @@ class ProgressSpinner:
         with self._lock:
             self._msg_show = message
 
-    def start(self, frames=UNSET, max_columns=140, message_color="dim", progress_color="teal", spinner_color=None):
+    def start(
+        self,
+        frames=UNSET,
+        max_columns=140,
+        message_color: OptionalColor = "dim",
+        progress_color: OptionalColor = "teal",
+        spinner_color: OptionalColor = None,
+    ):
         """Start a background thread to handle spinner, if stderr is a tty
 
         Args:
             frames (AsciiFrames | callable | str | None): Frames to use for spinner animation
             max_columns (int | None): Maximum number of terminal columns to use for progress line
-            message_color (str | callable | None): Optional color to use for the message part
-            progress_color (callable | None): Optional color to use for the progress bar
-            spinner_color (callable | None): Optional color to use for the animated spinner
+            message_color: Optional color to use for the message part
+            progress_color: Optional color to use for the progress bar
+            spinner_color: Optional color to use for the animated spinner
         """
         with self._lock:
             if self._thread is None:
@@ -598,7 +614,7 @@ class Timeit:
 
     function_name: str | None = None
 
-    def __init__(self, function=None, color="bold", logger=UNSET, fmt="{function} took {elapsed}"):
+    def __init__(self, function=None, color: OptionalColor = "bold", logger=UNSET, fmt="{function} took {elapsed}"):
         self.__func__ = None
         self.start_time: float = 0
         self.color = color

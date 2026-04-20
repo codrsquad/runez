@@ -25,6 +25,9 @@ if TYPE_CHECKING:
 
 _T = TypeVar("_T")
 
+# Accepted forms for a "color" argument: a color/style name, a color callable (e.g. runez.red), or None (no coloring)
+OptionalColor = Callable | str | None
+
 ABORT_LOGGER = logging.error
 
 
@@ -2010,7 +2013,7 @@ class _R:
         return message() if callable(message) else message
 
     @classmethod
-    def colored(cls, text, color, is_coloring=UNSET):
+    def colored(cls, text, color: OptionalColor, is_coloring=UNSET):
         """Colored 'text' with 'color', 'is_coloring' can be used to override current coloring setting"""
         return cls.lc.rm.color.colored(text, color, is_coloring=is_coloring)
 

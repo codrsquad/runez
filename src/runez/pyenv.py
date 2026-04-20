@@ -8,7 +8,7 @@ from typing import ClassVar
 
 from runez.file import ls_dir
 from runez.program import is_executable, run
-from runez.system import _R, cached_property, flattened, joined, ltattr, resolved_path, short, UNSET
+from runez.system import _R, cached_property, flattened, joined, ltattr, OptionalColor, resolved_path, short, UNSET
 
 CPYTHON = "cpython"
 RX_PYTHON_BASENAME = re.compile(r"^python(\d(\.\d+)?)?(t?)$")
@@ -186,11 +186,11 @@ class PythonSpec:
 
             return self.canonical.startswith(other.canonical)
 
-    def represented(self, color=None, compact=CPYTHON) -> str:
+    def represented(self, color: OptionalColor = None, compact: str | list | set | tuple | bool | None = CPYTHON) -> str:
         """
         Args:
-            color (callable | None): Optional color to use
-            compact (str | list | set | tuple | bool | None): Show version only, if `self.family` is mentioned in `compact`
+            color: Optional color to use
+            compact: Show version only, if `self.family` is mentioned in `compact`
 
         Returns:
             (str): Textual representation of this spec

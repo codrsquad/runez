@@ -7,7 +7,9 @@ Example usage:
     'hello'
 """
 
-from runez.system import DEV, short, Slotted, stringified, SYS_INFO, uncolored, UNSET
+from typing import Callable
+
+from runez.system import DEV, OptionalColor, short, Slotted, stringified, SYS_INFO, uncolored, UNSET
 
 
 class ActivateColors:
@@ -76,10 +78,10 @@ class ColorManager:
     style: "NamedStyles"
 
     @classmethod
-    def cast_color(cls, name, source=None, strict=True):
+    def cast_color(cls, name: OptionalColor, source=None, strict=True) -> Callable | None:
         """
         Args:
-            name (str | callable): Color name to find (returned as-is if already a callable)
+            name: Color name to find (returned as-is if already a callable)
             source (NamedRenderables | None): Restrict to given source (otherwise searched in fg and style)
             strict (bool): If True, raise ValueError if color could not be found
 
@@ -110,11 +112,11 @@ class ColorManager:
         return cls.cast_color(name, source=cls.style, strict=strict)
 
     @classmethod
-    def colored(cls, text, color, is_coloring=UNSET):
+    def colored(cls, text, color: OptionalColor, is_coloring=UNSET):
         """
         Args:
             text: Text to color.
-            color (str | callable | None): Color to use
+            color: Color to use
             is_coloring (bool | runez.Undefined): If provided, overrides current coloring state
 
         Returns:
