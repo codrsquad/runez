@@ -12,7 +12,7 @@ import sys
 import threading
 import time
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
-from typing import Callable, List, Optional
+from typing import Callable, Protocol
 
 from runez.ascii import AsciiAnimation
 from runez.convert import to_bytesize, to_int
@@ -25,6 +25,7 @@ from runez.system import (
     DEV,
     find_caller,
     flattened,
+    OptionalColor,
     quoted,
     short,
     Slotted,
@@ -149,7 +150,7 @@ class ProgressBar:
 
 
 class _SpinnerComponent:
-    def __init__(self, fps, source, color, adapter=None):
+    def __init__(self, fps, source, color: OptionalColor, adapter=None):
         self.adapter = adapter
         self.source = source
         self.color = color
@@ -187,15 +188,23 @@ class _SpinnerComponent:
 
 
 class _SpinnerState:
-    def __init__(self, parent, frames, max_columns, message_color, progress_color, spinner_color):
+    def __init__(
+        self,
+        parent,
+        frames,
+        max_columns,
+        message_color: OptionalColor,
+        progress_color: OptionalColor,
+        spinner_color: OptionalColor,
+    ):
         """
         Args:
             parent (ProgressSpinner): Parent object
             frames (AsciiFrames): Frames to use for spinner
             max_columns (int | None): Optional max number of columns to use
-            message_color (str | callable | None): Optional color to use for the message
-            progress_color (callable | None): Optional color to use for the spinner
-            spinner_color (callable | None): Optional color to use for the spinner
+            message_color: Optional color to use for the message
+            progress_color: Optional color to use for the progress bar
+            spinner_color: Optional color to use for the spinner
         """
         self.columns = SYS_INFO.terminal.columns - 2
         if max_columns and max_columns > 0:
@@ -251,15 +260,22 @@ class ProgressSpinner:
         with self._lock:
             self._msg_show = message
 
-    def start(self, frames=UNSET, max_columns=140, message_color="dim", progress_color="teal", spinner_color=None):
+    def start(
+        self,
+        frames=UNSET,
+        max_columns=140,
+        message_color: OptionalColor = "dim",
+        progress_color: OptionalColor = "teal",
+        spinner_color: OptionalColor = None,
+    ):
         """Start a background thread to handle spinner, if stderr is a tty
 
         Args:
             frames (AsciiFrames | callable | str | None): Frames to use for spinner animation
             max_columns (int | None): Maximum number of terminal columns to use for progress line
-            message_color (str | callable | None): Optional color to use for the message part
-            progress_color (callable | None): Optional color to use for the progress bar
-            spinner_color (callable | None): Optional color to use for the animated spinner
+            message_color: Optional color to use for the message part
+            progress_color: Optional color to use for the progress bar
+            spinner_color: Optional color to use for the animated spinner
         """
         with self._lock:
             if self._thread is None:
@@ -408,6 +424,14 @@ class ProgressSpinner:
         finally:
             self.is_running = False
             self.stop()
+
+
+class Traceable(Protocol):
+    """Anything that can receive trace messages — typically a `TraceHandler`, but any object with a
+    compatible `.trace(message)` method can be plugged into `LogManager.tracer`.
+    """
+
+    def trace(self, message: str) -> None: ...
 
 
 class TraceHandler:
@@ -598,7 +622,7 @@ class Timeit:
 
     function_name: str | None = None
 
-    def __init__(self, function=None, color="bold", logger=UNSET, fmt="{function} took {elapsed}"):
+    def __init__(self, function=None, color: OptionalColor = "bold", logger=UNSET, fmt="{function} took {elapsed}"):
         self.__func__ = None
         self.start_time: float = 0
         self.color = color
@@ -706,12 +730,12 @@ class LogManager:
 
     # Below fields should be read-only for outside users, do not modify these
     debug = False
-    console_handler: Optional[logging.StreamHandler] = None
-    file_handler: Optional[logging.FileHandler] = None  # File we're currently logging to (if any)
-    handlers: Optional[List[logging.Handler]] = None
-    tracer: Optional[TraceHandler] = None
-    used_formats: Optional[str] = None
-    faulthandler_signum: Optional[int] = None
+    console_handler: logging.StreamHandler | None = None
+    file_handler: logging.FileHandler | None = None  # File we're currently logging to (if any)
+    handlers: list[logging.Handler] | None = None
+    tracer: Traceable | None = None
+    used_formats: str | None = None
+    faulthandler_signum: int | None = None
     trace_env_var = "TRACE_DEBUG"
 
     # Convenience decorator/context logging how long a function or section of code took to run
@@ -719,7 +743,7 @@ class LogManager:
 
     _lock = threading.RLock()
     _logging_snapshot = LoggingSnapshot()
-    _progress_handler: Optional[ProgressHandler] = None
+    _progress_handler: ProgressHandler | None = None
 
     @classmethod
     def set_debug(cls, debug):
@@ -953,12 +977,15 @@ class LogManager:
         cls.spec.set(**settings)
 
     @classmethod
-    def enable_trace(cls, spec, prefix: str | None = ":: ", stream=UNSET):
+    def enable_trace(cls, spec, prefix: str | None = ":: ", stream=UNSET) -> Traceable | None:
         """
         Args:
             spec (str | bool | None): If string given, enable tracing when corresponding env var is set to a non-empty value
             prefix: Prefix to use for trace messages
             stream: Where to trace (by default: current 'console_stream' if configured, otherwise sys.stderr)
+
+        Returns:
+            Prior tracer (if any), so caller can restore it
         """
         prior = cls.tracer
         if spec is not UNSET:

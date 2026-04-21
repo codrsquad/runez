@@ -12,7 +12,8 @@ PYPI_CLIENT = RestClient("https://example.com/pypi")
 
 
 def test_artifact_info():
-    assert ArtifactInfo.from_basename("foo") is None
+    with pytest.raises(ValueError, match="Can't parse artifact info from basename: 'foo'"):
+        ArtifactInfo.from_basename("foo")
 
     info1 = ArtifactInfo.from_basename("E.S.P.-Hadouken-0.2.1.tar.gz")
     assert str(info1) == "e-s-p-hadouken/E.S.P.-Hadouken-0.2.1.tar.gz"
@@ -193,7 +194,7 @@ def test_edge_cases():
     invalid = PythonSpec("cpython", "invalid")
     assert str(invalid) == "cpython:invalid"
     assert invalid.abi_suffix == ""
-    assert invalid.version is None
+    assert not invalid.version.is_valid
 
 
 def test_empty_depot():
@@ -562,6 +563,35 @@ def test_version_extraction():
     p38 = Version.extracted_from_text("Python 3.8.6")
     assert str(p38) == "3.8.6"
     assert p38.is_valid
+
+
+def test_version_from_object():
+    # Falsy input -> None
+    assert Version.from_object(None) is None
+    assert Version.from_object("") is None
+    assert Version.from_object([]) is None
+    assert Version.from_object(0) is None
+
+    # Valid Version instance is returned as-is
+    v = Version("1.2.3")
+    assert Version.from_object(v) is v
+    assert Version.from_object(PythonSpec("cpython", "1.2.3")) == Version("1.2.3")
+
+    # Invalid Version instance -> None
+    assert Version.from_object(Version("foo")) is None
+
+    # Valid string
+    assert Version.from_object("1.2.3") == Version("1.2.3")
+
+    # Invalid string -> None
+    assert Version.from_object("foo") is None
+
+    # Non-string iterable -> joined on "."
+    assert Version.from_object((1, 2, 3)) == Version("1.2.3")
+    assert Version.from_object([1, 2, 3]) == Version("1.2.3")
+
+    # Non-string iterable that joins to an invalid version -> None
+    assert Version.from_object(["foo", "bar"]) is None
 
 
 def test_version_comparison():

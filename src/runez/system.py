@@ -18,12 +18,15 @@ import sys
 import threading
 import unicodedata
 from io import StringIO
-from typing import Any, Callable, ClassVar, TYPE_CHECKING, TypeVar
+from typing import Any, Callable, ClassVar, Iterator, Literal, NoReturn, overload, TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 _T = TypeVar("_T")
+
+# Accepted forms for a "color" argument: a color/style name, a color callable (e.g. runez.red), or None (no coloring)
+OptionalColor = Callable | str | None
 
 ABORT_LOGGER = logging.error
 
@@ -50,7 +53,17 @@ class Undefined:
 UNSET: Any = Undefined()
 
 
-def abort(message, code=1, exc_info=None, return_value: _T = None, fatal=True, logger=UNSET, stacklevel=1) -> _T:
+@overload
+def abort(message, code=1, exc_info=None, return_value=None, *, logger=UNSET, stacklevel=1) -> NoReturn: ...
+@overload
+def abort(message, code=1, exc_info=None, return_value=None, *, fatal: Literal[True] = True, logger=UNSET, stacklevel=1) -> NoReturn: ...
+@overload
+def abort(message, code=1, exc_info=None, return_value: _T = None, *, fatal: Literal[False] | None, logger=UNSET, stacklevel=1) -> _T: ...
+@overload
+def abort(message, code=1, exc_info=None, return_value=None, *, fatal: type[BaseException], logger=UNSET, stacklevel=1) -> NoReturn: ...
+def abort(
+    message, code=1, exc_info=None, return_value: _T = None, fatal: bool | type[BaseException] | None = True, logger=UNSET, stacklevel=1
+) -> _T:
     """General wrapper for optionally fatal calls
 
     >>> from runez import abort
@@ -150,23 +163,22 @@ class cached_property(functools.cached_property):
         self.__name__ = func.__name__
 
     @staticmethod
-    def _walk_properties(target, cached_only=True):
-        if target is not None:
-            parent_class = target if isinstance(target, type) else target.__class__
-            for k, v in vars(parent_class).items():
-                is_cached = isinstance(v, cached_property)
-                if is_cached or (not cached_only and isinstance(v, property)):
-                    yield is_cached, k
+    def _walk_properties(target: object, cached_only=True) -> Iterator[tuple[bool, str]]:
+        parent_class = target if isinstance(target, type) else target.__class__
+        for k, v in vars(parent_class).items():
+            is_cached = isinstance(v, cached_property)
+            if is_cached or (not cached_only and isinstance(v, property)):
+                yield is_cached, k
 
     @staticmethod
-    def properties(target, cached_only=True):
+    def properties(target: object, cached_only=True) -> Iterator[str]:
         """
         Args:
             target: Target object or class to examine
             cached_only (bool): If True, yield only names of `cached_property` objects (otherwise: also include regular `property`)
 
-        Returns:
-            Yield all (cached) properties of given `target`, if any
+        Yields:
+            All (cached) properties of given `target`, if any
         """
         for _, property_name in cached_property._walk_properties(target, cached_only=cached_only):
             yield property_name
@@ -180,10 +192,10 @@ class cached_property(functools.cached_property):
                     delattr(target, property_name)
 
     @staticmethod
-    def to_dict(target, cached_only=True, existing_only=True, none=False, transform=None):
+    def to_dict(target: object, cached_only=True, existing_only=True, none=False, transform: Callable | None = None) -> dict:
         """
         Args:
-            target: Target object to examine
+            target: Target instance to examine
             cached_only (bool): If True, restrict to `cached_property` fields only (otherwise: also include regular `property`)
             existing_only (bool): True: yield only computed cached properties (yield all otherwise)
             none (bool): False: filter out `None` keys/values, True: no filtering, keep `None` keys/values as-is
@@ -192,18 +204,17 @@ class cached_property(functools.cached_property):
         Returns:
             (dict): Key/value pairs of properties in `target`
         """
-        if target is not None and not isinstance(target, type):
-            result = {}
-            for is_cached, property_name in cached_property._walk_properties(target, cached_only=cached_only):
-                if not existing_only or not is_cached or property_name in target.__dict__:
-                    value = getattr(target, property_name)
-                    if transform is not None:
-                        value = transform(value)
+        result = {}
+        for is_cached, property_name in cached_property._walk_properties(target, cached_only=cached_only):
+            if not existing_only or not is_cached or property_name in target.__dict__:
+                value = getattr(target, property_name)
+                if transform is not None:
+                    value = transform(value)
 
-                    if none or value is not None:
-                        result[property_name] = value
+                if none or value is not None:
+                    result[property_name] = value
 
-            return result
+        return result
 
 
 def capped(value, minimum=None, maximum=None, key=None, none_ok=False):
@@ -454,7 +465,7 @@ def stringified(value, converter=None, none: object | None = "None") -> str:
     return "{}".format(value)
 
 
-def joined(*args, delimiter=" ", keep_empty: str | bool | None = False, strip=None, stringify=stringified, unique=False):
+def joined(*args, delimiter=" ", keep_empty: str | bool | None = False, strip=None, stringify=stringified, unique=False) -> str:
     """
     >>> joined(1, " foo ", None, 2)
     '1  foo  2'
@@ -566,7 +577,7 @@ def resolved_path(path: str | Path, base=None) -> str:
     return os.path.abspath(path)
 
 
-def short(value, size=UNSET, none="None", uncolor=False):
+def short(value, size=UNSET, none="None", uncolor=False) -> str:
     """
     Args:
         value: Value to textually represent in a shortened form
@@ -2002,7 +2013,7 @@ class _R:
         return message() if callable(message) else message
 
     @classmethod
-    def colored(cls, text, color, is_coloring=UNSET):
+    def colored(cls, text, color: OptionalColor, is_coloring=UNSET):
         """Colored 'text' with 'color', 'is_coloring' can be used to override current coloring setting"""
         return cls.lc.rm.color.colored(text, color, is_coloring=is_coloring)
 

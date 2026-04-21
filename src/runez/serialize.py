@@ -690,7 +690,7 @@ def read_json(path, default=None, fatal=False, logger=False):
         return _R.habort(default, fatal, logger, "Can't read %s" % short(path), exc_info=e)
 
 
-def represented_json(data, stringify=stringified, dt=str, none=False, indent=2, sort_keys=True):
+def represented_json(data, stringify=stringified, dt=str, none=False, indent: int | None = 2, sort_keys=True) -> str:
     """
     Args:
         data (object | None): Data to serialize

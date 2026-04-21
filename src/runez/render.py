@@ -5,7 +5,7 @@ import os
 
 from runez.colors import ColorManager
 from runez.convert import to_int
-from runez.system import _R, flattened, joined, short, Slotted, stringified, SYS_INFO, UNSET, wcswidth
+from runez.system import _R, flattened, joined, OptionalColor, short, Slotted, stringified, SYS_INFO, UNSET, wcswidth
 
 NAMED_BORDERS = {
     "ascii": "rstgrid,t:+++=,m:+++-",
@@ -405,7 +405,14 @@ class PrettyTable(PrettyCustomizable):
 
     @staticmethod
     def two_column_diagnostics(
-        *sources, align="right", border=UNSET, columns=UNSET, delimiter="\n\n", missing="orange", style="bold", title_color="blue"
+        *sources,
+        align="right",
+        border=UNSET,
+        columns=UNSET,
+        delimiter="\n\n",
+        missing: OptionalColor = "orange",
+        style: OptionalColor = "bold",
+        title_color: OptionalColor = "blue",
     ):
         """
         Args:
@@ -414,9 +421,9 @@ class PrettyTable(PrettyCustomizable):
             border (str): Border for the PrettyTable used to render the two-column diagnostics
             columns (int | None): Optional max number of columns in output (default: terminal width)
             delimiter (str): Delimiter to use between sub-diagnostics sections
-            missing (str | callable | None): Color to use to represent missing values
-            style (callable | None): Style for 2nd column
-            title_color (str | callable | None): Color to use for titles of sub-diagnostics sections
+            missing: Color to use to represent missing values
+            style: Style for 2nd column
+            title_color: Color to use for titles of sub-diagnostics sections
 
         Returns:
             (PrettyTable): Rendered PrettyTable showing diagnostics info
@@ -623,7 +630,7 @@ def _iterate(source):
         yield source
 
 
-def _represented_cell(text, missing_color):
+def _represented_cell(text, missing_color: OptionalColor):
     if text is None:
         return _R.colored("-missing-", missing_color)
 

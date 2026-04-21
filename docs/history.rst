@@ -2,6 +2,61 @@
 History
 =======
 
+5.8.0 (2026-04-21)
+------------------
+
+Breaking changes worth highlighting:
+
+* ``ArtifactInfo.from_basename()`` raises ``ValueError`` on unparseable input (was ``None``).
+  Callers that depended on the ``None`` branch need to catch ``ValueError`` instead.
+
+* ``PythonSpec.version`` is never ``None`` anymore. Code checking ``spec.version is None`` should switch to
+  ``not spec.is_valid`` (or ``not spec.version.is_valid``).
+
+* ``cached_property.to_dict(cls)`` no longer returns ``None`` for a class — the method now requires an
+  instance. If any caller passed the class as a "no cached values" sentinel, they need to adjust.
+
+* ``PythonSpec.from_object(Version("foo"))`` used to return a spec with an invalid version; now returns
+  ``None``.
+
+Non-breaking additions:
+
+* ``runez.OptionalColor``, ``Traceable``, ``Version.required_from_object()``, ``PythonSpec.is_valid``
+
+* ``abort()`` overloads — purely a typing improvement, runtime behavior unchanged
+
+More details:
+
+* Stronger and more consistent type annotations across the library (``pyenv``, ``system``, ``logsetup``,
+  ``colors``, ``render``, ``serialize``); modernized to ``X | None`` / ``list[X]`` style throughout
+
+* Added ``runez.OptionalColor`` type alias (``Callable | str | None``) for parameters accepting a color name,
+  color callable, or ``None``
+
+* Added ``Traceable`` protocol in ``runez.logsetup`` for objects exposing a ``.trace(message)`` method
+
+* ``abort()`` now has proper ``@overload``-ed signatures: ``NoReturn`` when fatal, otherwise returns
+  ``return_value`` with a preserved generic type
+
+* ``Version.required_from_object()``: new classmethod that raises ``ValueError`` when a version can't be
+  determined (companion to ``Version.from_object()`` which returns ``None``)
+
+* ``Version.from_object()``, ``PythonSpec.from_object()`` and ``PythonSpec.from_text()`` now share a
+  consistent contract: a returned object is guaranteed to be valid, otherwise ``None`` is returned
+
+* ``PythonSpec.is_valid`` property added as a shortcut for ``spec.version.is_valid``
+
+* ``PythonSpec.__init__`` now accepts ``Version | str`` (tighter input typing)
+
+* ``ArtifactInfo.from_basename()`` return type narrowed to ``ArtifactInfo`` (no longer ``| None``)
+
+* ``cached_property.to_dict()``: ``target`` must now be an instance (not a class, not ``None``); always
+  returns a ``dict``
+
+* ``cached_property.properties()`` and ``cached_property._walk_properties()``: annotated as
+  ``Iterator[...]`` generators
+
+
 5.7.1 (2026-04-03)
 ------------------
 

@@ -85,7 +85,7 @@ max-complexity = 20
 "src/runez/conftest.py" = ["S101"]
 "src/runez/http.py" = ["S101"]
 "src/runez/serialize.py" = ["S101"]
-"tests/**" = ["ARG001", "S"]
+"tests/**" = ["ARG001", "S", "TRY003"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"

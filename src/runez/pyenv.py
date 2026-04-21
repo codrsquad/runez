@@ -4,11 +4,11 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import ClassVar, Optional
+from typing import ClassVar
 
 from runez.file import ls_dir
 from runez.program import is_executable, run
-from runez.system import _R, cached_property, flattened, joined, ltattr, resolved_path, short, UNSET
+from runez.system import _R, cached_property, flattened, joined, ltattr, OptionalColor, resolved_path, short, UNSET
 
 CPYTHON = "cpython"
 RX_PYTHON_BASENAME = re.compile(r"^python(\d(\.\d+)?)?(t?)$")
@@ -54,16 +54,16 @@ class ArtifactInfo:
         self.size = size
 
     @classmethod
-    def from_basename(cls, basename, source=None, last_modified=None, size=None):
+    def from_basename(cls, basename: str, source=None, last_modified=None, size=None) -> ArtifactInfo:
         """
         Args:
-            basename (str): Basename to parse
+            basename: Basename to parse
             source: Optional arbitrary object to track provenance of ArtifactInfo
             last_modified (datetime.datetime | None): Timestamp when artifact was last modified, if available
             size (int | None): Size in bytes of artifact, if available
 
         Returns:
-            (ArtifactInfo | None): Parsed artifact info, if any
+            Parsed artifact info. Raises ValueError if `basename` is not a recognizable sdist/wheel name.
         """
         is_wheel = False
         wheel_build_number = tags = None
@@ -71,7 +71,7 @@ class ArtifactInfo:
         if not m:
             m = PypiStd.RX_WHEEL.match(basename)
             if not m:
-                return None
+                raise ValueError("Can't parse artifact info from basename: %r" % basename)
 
             wheel_build_number = m.group(4)
             tags = m.group(5)
@@ -152,16 +152,21 @@ class PythonSpec:
     Examples: cpython:3, cpython:3.13, pypy:3.13
     """
 
-    def __init__(self, family, version, is_min_spec=False, freethreading=False):
+    version: Version
+
+    def __init__(self, family: str, version: Version | str, is_min_spec=False, freethreading=False):
         """
         Args:
-            family (str): Python family (cpython, conda, pypi, ...)
-            version (Version | str): Desired version
+            family: Python family (cpython, conda, pypi, ...)
+            version: Desired version
             is_min_spec (bool): If True, match installations that are at least at `version`, e.g. cpython:3.10+
             freethreading (bool): Whether this is a freethreaded version
         """
+        if not isinstance(version, Version):
+            version = Version(version)
+
         self.family = family
-        self.version = Version.from_object(version)
+        self.version = version
         self.canonical = "%s:%s%s%s" % (family, version, "t" if freethreading else "", "+" if is_min_spec else "")
         self.is_min_spec = is_min_spec
         self.freethreading = freethreading
@@ -181,22 +186,22 @@ class PythonSpec:
     def satisfies(self, other):
         """Does this spec satisfy 'other'?"""
         if isinstance(other, PythonSpec) and self.family == other.family and self.freethreading == other.freethreading:
-            if other.is_min_spec and other.version is not None:
+            if other.is_min_spec:
                 return self.version >= other.version
 
             return self.canonical.startswith(other.canonical)
 
-    def represented(self, color=None, compact=CPYTHON):
+    def represented(self, color: OptionalColor = None, compact: str | list | set | tuple | bool | None = CPYTHON) -> str:
         """
         Args:
-            color (callable | None): Optional color to use
-            compact (str | list | set | tuple | bool | None): Show version only, if `self.family` is mentioned in `compact`
+            color: Optional color to use
+            compact: Show version only, if `self.family` is mentioned in `compact`
 
         Returns:
             (str): Textual representation of this spec
         """
         text = self.canonical
-        if compact and self.version is not None and (compact is True or self.family in compact):
+        if compact and (compact is True or self.family in compact):
             text = self.version.text
             if self.freethreading:
                 text += "t"
@@ -207,22 +212,22 @@ class PythonSpec:
         return _R.colored(text, color)
 
     @classmethod
-    def from_text(cls, text):
+    def from_text(cls, text: str) -> PythonSpec | None:
         """
         Args:
             text (str | None): Text to be converted into a PythonSpec() if possible, eg: 3.10, py310, python3.10, conda:3.10
 
         Returns:
-            (PythonSpec | None): Parsed spec from given object, if valid
+            Parsed spec from given text; a returned PythonSpec is guaranteed to be valid (`is_valid` is True),
+            otherwise None is returned.
         """
         m = re.match(r"^(py|python|)(?P<version>\d+(\.\d+(.\w+?)*)?)?(?P<freethreading>t)?(?P<min_spec>\+?)$", text)
         if m:
             version = Version.from_tox_like(m.group("version"), default="3")
-            return (
-                cls(CPYTHON, version, is_min_spec=bool(m.group("min_spec")), freethreading=bool(m.group("freethreading")))
-                if version
-                else None
-            )
+            if version is not None and version.is_valid:
+                return cls(CPYTHON, version, is_min_spec=bool(m.group("min_spec")), freethreading=bool(m.group("freethreading")))
+
+            return None
 
         m = re.match(r"^(?P<family>cpython|conda|pypy):(?P<version>\d.*)$", text)
         if m:
@@ -237,47 +242,49 @@ class PythonSpec:
                 version = version[:-1]
 
             version = Version.from_tox_like(version)
-            if version and version.is_valid:
+            if version is not None and version.is_valid:
                 return cls(m.group("family"), version, is_min_spec=min_spec, freethreading=freethreading)
 
     @classmethod
-    def from_object(cls, value):
+    def from_object(cls, value) -> PythonSpec | None:
         """
         Args:
             value: Value to transform into a PythonSpec, if possible
 
         Returns:
-            (PythonSpec | None): Parsed spec from given object, if valid
+            Parsed spec from given object; a returned PythonSpec is guaranteed to be valid (`is_valid` is True),
+            otherwise None is returned.
         """
-        if not value or isinstance(value, PythonSpec):
-            return value or None
+        if not value:
+            return None
+
+        if isinstance(value, PythonSpec):
+            return value if value.is_valid else None
 
         if isinstance(value, Version):
-            return cls(CPYTHON, value)
+            return cls(CPYTHON, value) if value.is_valid else None
 
-        if value:
-            return cls.from_text(str(value))
+        return cls.from_text(str(value))
 
     @classmethod
-    def to_list(cls, values):
+    def to_list(cls, values) -> list[PythonSpec]:
         """
         Args:
             values: Values to transform into a list of PythonSpec-s
 
         Returns:
-            (list[PythonSpec]): Corresponding list of PythonSpec-s
+            Corresponding list of PythonSpec-s (only valid specs are retained)
         """
-        values = flattened(values, split=",", transform=PythonSpec.from_object)
-        return [x for x in values if x and x.version]
+        return flattened(values, split=",", transform=PythonSpec.from_object)
 
     @classmethod
-    def guess_family(cls, text):
+    def guess_family(cls, text: str | None) -> str:
         """
         Args:
-            text (str | None): Text to examine
+            text: Text to examine
 
         Returns:
-            (str): Guessed python family from given 'text' (typically path to installation)
+            Guessed python family from given 'text' (typically path to installation)
         """
         if text:
             if "forge" in text or "conda" in text:
@@ -292,6 +299,11 @@ class PythonSpec:
     def abi_suffix(self):
         return "t" if self.freethreading else ""
 
+    @property
+    def is_valid(self) -> bool:
+        """Is this spec's `.version` a valid one?"""
+        return self.version.is_valid
+
 
 class PythonDepot:
     """
@@ -302,7 +314,7 @@ class PythonDepot:
         p = my_depot.find_python("3.10")
     """
 
-    _preferred_python: Optional["PythonInstallation"] = None  # Preferred python to use, if configured
+    _preferred_python: PythonInstallation | None = None  # Preferred python to use, if configured
 
     def __init__(self, *locations):
         """
@@ -497,27 +509,28 @@ class Version:
                 return v
 
     @classmethod
-    def from_object(cls, obj) -> Optional["Version"]:
+    def from_object(cls, obj: Version | PythonSpec | tuple | list | float | str | None) -> Version | None:
         """
         Args:
             obj: Object to turn into a Version, if possible
 
         Returns:
-            Corresponding version object, if valid
+            Corresponding Version; a returned Version is guaranteed to be valid (`is_valid` is True),
+            otherwise None is returned.
         """
         if obj:
             if isinstance(obj, Version):
                 return obj if obj.is_valid else None
 
-            if not isinstance(obj, str):
-                obj = joined(obj, delimiter=".")
+            if isinstance(obj, PythonSpec):
+                return obj.version if obj.version.is_valid else None
 
-            v = cls(obj)
+            v = cls(obj if isinstance(obj, str) else joined(obj, delimiter="."))
             if v.is_valid:
                 return v
 
     @classmethod
-    def from_tox_like(cls, text, default=None):
+    def from_tox_like(cls, text: str, default=None) -> Version | None:
         """Parse a version taking into account tox-like versions like '310' meaning '3.10'"""
         if text and re.match(r"^(\d\d+)$", text):
             return cls.from_object((text[0], text[1:]))
@@ -597,7 +610,7 @@ class Version:
         return len(self.given_components) if self.given_components else 0
 
     @cached_property
-    def local_parts(self):
+    def local_parts(self) -> list[str] | None:
         """Local parts are only needed when comparing versions that differ solely by local part..."""
         if self.local_part:
             v = getattr(self, "_local_parts", None)
@@ -830,8 +843,10 @@ class PythonInstallation:
             (bool): True if this python installation satisfies it
         """
         if given_spec and self.family == given_spec.family and not self.problem:
+            # `full_spec` and `mm_spec` are either both set or both None (both derive from `full_version`)
             spec = self.full_spec if given_spec.version.given_components_count > 2 else self.mm_spec
-            return spec.satisfies(given_spec)
+            if spec is not None:
+                return spec.satisfies(given_spec)
 
 
 class PythonInstallationLocation:
