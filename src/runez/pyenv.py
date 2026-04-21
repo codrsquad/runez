@@ -152,16 +152,21 @@ class PythonSpec:
     Examples: cpython:3, cpython:3.13, pypy:3.13
     """
 
-    def __init__(self, family, version, is_min_spec=False, freethreading=False):
+    version: Version
+
+    def __init__(self, family: str, version: Version | str, is_min_spec=False, freethreading=False):
         """
         Args:
-            family (str): Python family (cpython, conda, pypi, ...)
-            version (Version | str): Desired version
+            family: Python family (cpython, conda, pypi, ...)
+            version: Desired version
             is_min_spec (bool): If True, match installations that are at least at `version`, e.g. cpython:3.10+
             freethreading (bool): Whether this is a freethreaded version
         """
+        if not isinstance(version, Version):
+            version = Version(version)
+
         self.family = family
-        self.version = Version.from_object(version)
+        self.version = version
         self.canonical = "%s:%s%s%s" % (family, version, "t" if freethreading else "", "+" if is_min_spec else "")
         self.is_min_spec = is_min_spec
         self.freethreading = freethreading
@@ -181,7 +186,7 @@ class PythonSpec:
     def satisfies(self, other):
         """Does this spec satisfy 'other'?"""
         if isinstance(other, PythonSpec) and self.family == other.family and self.freethreading == other.freethreading:
-            if other.is_min_spec and other.version is not None:
+            if other.is_min_spec:
                 return self.version >= other.version
 
             return self.canonical.startswith(other.canonical)
@@ -196,7 +201,7 @@ class PythonSpec:
             (str): Textual representation of this spec
         """
         text = self.canonical
-        if compact and self.version is not None and (compact is True or self.family in compact):
+        if compact and (compact is True or self.family in compact):
             text = self.version.text
             if self.freethreading:
                 text += "t"
@@ -213,16 +218,16 @@ class PythonSpec:
             text (str | None): Text to be converted into a PythonSpec() if possible, eg: 3.10, py310, python3.10, conda:3.10
 
         Returns:
-            Parsed spec from given object, if valid
+            Parsed spec from given text; a returned PythonSpec is guaranteed to be valid (`is_valid` is True),
+            otherwise None is returned.
         """
         m = re.match(r"^(py|python|)(?P<version>\d+(\.\d+(.\w+?)*)?)?(?P<freethreading>t)?(?P<min_spec>\+?)$", text)
         if m:
             version = Version.from_tox_like(m.group("version"), default="3")
-            return (
-                cls(CPYTHON, version, is_min_spec=bool(m.group("min_spec")), freethreading=bool(m.group("freethreading")))
-                if version
-                else None
-            )
+            if version is not None and version.is_valid:
+                return cls(CPYTHON, version, is_min_spec=bool(m.group("min_spec")), freethreading=bool(m.group("freethreading")))
+
+            return None
 
         m = re.match(r"^(?P<family>cpython|conda|pypy):(?P<version>\d.*)$", text)
         if m:
@@ -237,7 +242,7 @@ class PythonSpec:
                 version = version[:-1]
 
             version = Version.from_tox_like(version)
-            if version and version.is_valid:
+            if version is not None and version.is_valid:
                 return cls(m.group("family"), version, is_min_spec=min_spec, freethreading=freethreading)
 
     @classmethod
@@ -247,16 +252,19 @@ class PythonSpec:
             value: Value to transform into a PythonSpec, if possible
 
         Returns:
-            Parsed spec from given object, if valid
+            Parsed spec from given object; a returned PythonSpec is guaranteed to be valid (`is_valid` is True),
+            otherwise None is returned.
         """
-        if not value or isinstance(value, PythonSpec):
-            return value or None
+        if not value:
+            return None
+
+        if isinstance(value, PythonSpec):
+            return value if value.is_valid else None
 
         if isinstance(value, Version):
-            return cls(CPYTHON, value)
+            return cls(CPYTHON, value) if value.is_valid else None
 
-        if value:
-            return cls.from_text(str(value))
+        return cls.from_text(str(value))
 
     @classmethod
     def to_list(cls, values) -> list[PythonSpec]:
@@ -265,10 +273,9 @@ class PythonSpec:
             values: Values to transform into a list of PythonSpec-s
 
         Returns:
-            Corresponding list of PythonSpec-s
+            Corresponding list of PythonSpec-s (only valid specs are retained)
         """
-        values = flattened(values, split=",", transform=PythonSpec.from_object)
-        return [x for x in values if x and x.version]
+        return flattened(values, split=",", transform=PythonSpec.from_object)
 
     @classmethod
     def guess_family(cls, text: str | None) -> str:
@@ -291,6 +298,11 @@ class PythonSpec:
     @property
     def abi_suffix(self):
         return "t" if self.freethreading else ""
+
+    @property
+    def is_valid(self) -> bool:
+        """Is this spec's `.version` a valid one?"""
+        return self.version.is_valid
 
 
 class PythonDepot:
@@ -503,14 +515,15 @@ class Version:
             obj: Object to turn into a Version, if possible
 
         Returns:
-            Corresponding version object, if valid
+            Corresponding Version; a returned Version is guaranteed to be valid (`is_valid` is True),
+            otherwise None is returned.
         """
         if obj:
             if isinstance(obj, Version):
                 return obj if obj.is_valid else None
 
             if isinstance(obj, PythonSpec):
-                return obj.version if obj.version and obj.version.is_valid else None
+                return obj.version if obj.version.is_valid else None
 
             v = cls(obj if isinstance(obj, str) else joined(obj, delimiter="."))
             if v.is_valid:
@@ -830,8 +843,10 @@ class PythonInstallation:
             (bool): True if this python installation satisfies it
         """
         if given_spec and self.family == given_spec.family and not self.problem:
+            # `full_spec` and `mm_spec` are either both set or both None (both derive from `full_version`)
             spec = self.full_spec if given_spec.version.given_components_count > 2 else self.mm_spec
-            return spec.satisfies(given_spec)
+            if spec is not None:
+                return spec.satisfies(given_spec)
 
 
 class PythonInstallationLocation:

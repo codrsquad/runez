@@ -194,7 +194,7 @@ def test_edge_cases():
     invalid = PythonSpec("cpython", "invalid")
     assert str(invalid) == "cpython:invalid"
     assert invalid.abi_suffix == ""
-    assert invalid.version is None
+    assert not invalid.version.is_valid
 
 
 def test_empty_depot():
