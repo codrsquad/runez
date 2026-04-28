@@ -534,7 +534,7 @@ def _do_delete(path, islink, fatal):
         os.unlink(path)
 
     else:
-        shutil.rmtree(path, ignore_errors=not fatal)
+        shutil.rmtree(path, ignore_errors=False)
 
 
 def _move(source, destination):
