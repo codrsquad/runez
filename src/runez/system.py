@@ -549,7 +549,10 @@ def quoted(*items, delimiter=" ", adapter=UNSET, keep_empty=True, strip=None, st
         if adapter:
             text = adapter(text)
 
-        if text and " " in text:
+        if not text:
+            continue
+
+        if " " in text:
             sep = "'" if '"' in text else '"'
             text = "%s%s%s" % (sep, text, sep)
 
