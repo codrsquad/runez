@@ -319,7 +319,7 @@ def run(
         if stdout is not None:
             result.output = "[dryrun] %s" % description  # Properly simulate a successful run
 
-        if stdout is not None:
+        if stderr is not None:
             result.error = ""
 
         return result

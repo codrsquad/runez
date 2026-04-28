@@ -62,7 +62,7 @@ class timezone(datetime.tzinfo):
         return self.name
 
     def dst(self, *_):
-        return self.offset
+        return datetime.timedelta(0)
 
 
 UTC = timezone(datetime.timedelta(0), "UTC")
@@ -348,6 +348,10 @@ def to_seconds(duration):
 
     m = _R.lc.rx_duration.match(duration)
     if not m:
+        v = to_float(duration)
+        if v is not None:
+            return v
+
         dt = to_datetime(duration)
         if dt is not None:
             return elapsed(dt)
@@ -403,7 +407,7 @@ def _date_from_components(components, tz=UNSET):
         hh = int(hh)
         mm = int(mm)
         ss = int(ss)
-        sf = round(float(sf or 0) * 1000000)
+        sf = min(round(float(sf or 0) * 1000000), 999999)
         return datetime.datetime(y, m, d, hh, mm, ss, sf, timezone_from_text(ctz or tz))
 
     except (ValueError, TypeError):
