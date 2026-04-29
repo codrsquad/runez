@@ -828,7 +828,7 @@ class PythonInstallation:
     def mm_spec(self):
         """Major/minor spec, e.g: cpython:3.11"""
         if self.mm:
-            return PythonSpec(self.family, self.mm)
+            return PythonSpec(self.family, self.mm, freethreading=self.inspection.freethreading)
 
     @cached_property
     def machine(self):

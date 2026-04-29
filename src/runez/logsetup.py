@@ -967,8 +967,9 @@ class LogManager:
 
             cls.faulthandler_signum = signum
             dump_file = cls.file_handler.stream
-            faulthandler.enable(file=dump_file, all_threads=True)
-            faulthandler.register(signum, file=dump_file, all_threads=True, chain=False)
+            if dump_file is not None:
+                faulthandler.enable(file=dump_file, all_threads=True)
+                faulthandler.register(signum, file=dump_file, all_threads=True, chain=False)
 
     @classmethod
     def override_spec(cls, **settings):
