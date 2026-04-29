@@ -369,10 +369,27 @@ def test_freethreading_satisfies(temp_folder):
 
     # Confirm a depot won't hand a freethreaded binary to a non-freethreaded spec
     depot = PythonDepot(".pyenv/versions/**")
+    depot.invoker = None  # Don't let the running interpreter satisfy specs from outside the depot
     assert depot.find_python("3.14").problem  # no non-freethreaded 3.14 available
     found = depot.find_python("3.14t")
     assert not found.problem
     assert found.inspection.freethreading
+
+    # Confirm the invoker fallback also respects the freethreading boundary
+    mk_python("3.14.1", content={"version": "3.14.1", "machine": arch, "freethreading": False})
+    nft_path = runez.to_path(".pyenv/versions/3.14.1/bin/python3.14")
+    nft_install = PythonInstallation(nft_path)
+    assert not nft_install.inspection.freethreading
+
+    ft_depot = PythonDepot()  # no locations, only invoker
+    ft_depot.invoker = install  # freethreaded invoker
+    assert not ft_depot.find_python("3.14t").problem  # invoker satisfies 3.14t
+    assert ft_depot.find_python("3.14").problem  # invoker does NOT satisfy non-freethreaded 3.14
+
+    nft_depot = PythonDepot()
+    nft_depot.invoker = nft_install  # non-freethreaded invoker
+    assert not nft_depot.find_python("3.14").problem  # invoker satisfies 3.14
+    assert nft_depot.find_python("3.14t").problem  # invoker does NOT satisfy 3.14t
 
 
 def test_spec_equivalent():
