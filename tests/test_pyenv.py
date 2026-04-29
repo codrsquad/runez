@@ -354,6 +354,27 @@ def test_spec():
     assert freeth.freethreading
 
 
+def test_freethreading_satisfies(temp_folder):
+    # A freethreaded installation must not satisfy a non-freethreaded spec (and vice versa)
+    arch = runez.SYS_INFO.platform_id.arch
+    mk_python("3.14.0", content={"version": "3.14.0", "machine": arch, "freethreading": True})
+    from runez.pyenv import PythonInstallation
+
+    path = runez.to_path(".pyenv/versions/3.14.0/bin/python3.14")
+    install = PythonInstallation(path)
+    assert install.inspection.freethreading
+    assert install.mm_spec.freethreading
+    assert not install.satisfies(PythonSpec.from_text("3.14"))
+    assert install.satisfies(PythonSpec.from_text("3.14t"))
+
+    # Confirm a depot won't hand a freethreaded binary to a non-freethreaded spec
+    depot = PythonDepot(".pyenv/versions/**")
+    assert depot.find_python("3.14").problem  # no non-freethreaded 3.14 available
+    found = depot.find_python("3.14t")
+    assert not found.problem
+    assert found.inspection.freethreading
+
+
 def test_spec_equivalent():
     def check_equivalent_specs(*text):
         specs = [PythonSpec.from_text(x) for x in text]
