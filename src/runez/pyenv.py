@@ -168,8 +168,8 @@ class PythonSpec:
         self.family = family
         self.version = version
         self.canonical = "%s:%s%s%s" % (family, version, "t" if freethreading else "", "+" if is_min_spec else "")
-        self.is_min_spec = is_min_spec
-        self.freethreading = freethreading
+        self.is_min_spec = bool(is_min_spec)
+        self.freethreading = bool(freethreading)
 
     def __repr__(self):
         return self.canonical
@@ -1014,7 +1014,7 @@ class PythonSimpleInspection:
         self.version = version
         self.machine = machine
         self.problem = problem
-        self.freethreading = freethreading
+        self.freethreading = bool(freethreading)
 
     def __repr__(self):
         return self.problem or f"{self.version} ({self.machine})"

@@ -6,7 +6,7 @@ import pytest
 
 import runez
 from runez.http import RestClient
-from runez.pyenv import ArtifactInfo, PypiStd, PythonDepot, PythonSpec, Version
+from runez.pyenv import ArtifactInfo, PypiStd, PythonDepot, PythonInstallation, PythonSpec, Version
 
 PYPI_CLIENT = RestClient("https://example.com/pypi")
 
@@ -45,7 +45,7 @@ def test_artifact_info():
 
 def mk_python(basename, executable=True, content=None, machine=None):
     if basename[0].isdigit():
-        version = Version(basename)
+        version = Version.extracted_from_text(basename)
         folder = runez.to_path(".pyenv/versions") / basename / "bin"
 
     else:
@@ -354,15 +354,54 @@ def test_spec():
     assert freeth.freethreading
 
 
+def test_freethreading_inspection_normalization(temp_folder):
+    """Verify that threaded / non-threaded lookups are done correctly."""
+    arch = runez.SYS_INFO.platform_id.arch
+
+    # Use uncommon major version to avoid colliding with real python installations on current machine
+    mk_python("8.14.0", content={"version": "8.14.0", "machine": arch, "freethreading": None})
+    mk_python("8.14.1", content={"version": "8.14.1", "machine": arch})  # missing 'freethreading' key
+    mk_python("8.14.2", content={"version": "8.14.2", "machine": arch, "freethreading": 0})
+    mk_python("8.14.3", content={"version": "8.14.3", "machine": arch, "freethreading": 1})
+
+    for v in ("8.14.0", "8.14.1", "8.14.2"):
+        path = runez.to_path(".pyenv/versions/%s/bin/python8.14" % v)
+        install = PythonInstallation(path)
+        # Regardless of how freethreading is reported (None, missing, 0), a regular install
+        # must be considered non-freethreaded and must satisfy a non-freethreaded spec
+        assert not install.inspection.freethreading, "%s should be non-freethreaded" % v
+        assert not install.mm_spec.freethreading, "%s mm_spec should be non-freethreaded" % v
+        assert install.satisfies(PythonSpec.from_text("8.14")), "%s should satisfy '8.14'" % v
+        assert not install.satisfies(PythonSpec.from_text("8.14t")), "%s should not satisfy '8.14t'" % v
+
+    # Confirm `1` is treated as freethreaded (matching how Py_GIL_DISABLED is actually reported)
+    ft_path = runez.to_path(".pyenv/versions/8.14.3/bin/python8.14")
+    ft_install = PythonInstallation(ft_path)
+    assert ft_install.inspection.freethreading is True
+    assert ft_install.satisfies(PythonSpec.from_text("8.14t"))
+    assert not ft_install.satisfies(PythonSpec.from_text("8.14"))
+
+    # Depot must find the correct freethreaded specs
+    depot = PythonDepot(".pyenv/versions/**")
+
+    regular_814 = depot.find_python("8.14")
+    assert regular_814.full_version == "8.14.2"
+    assert regular_814.inspection.freethreading is False
+
+    threaded_814 = depot.find_python("8.14t")
+    assert threaded_814.full_version == "8.14.3"
+    assert threaded_814.inspection.freethreading is True
+
+
 def test_freethreading_satisfies(temp_folder):
     # A freethreaded installation must not satisfy a non-freethreaded spec (and vice versa)
     arch = runez.SYS_INFO.platform_id.arch
-    mk_python("3.14.0", content={"version": "3.14.0", "machine": arch, "freethreading": True})
+    mk_python("3.14.0t", content={"version": "3.14.0", "machine": arch, "freethreading": True})
     from runez.pyenv import PythonInstallation
 
-    path = runez.to_path(".pyenv/versions/3.14.0/bin/python3.14")
+    path = runez.to_path(".pyenv/versions/3.14.0t/bin/python3.14")
     install = PythonInstallation(path)
-    assert install.inspection.freethreading
+    assert install.inspection.freethreading is True
     assert install.mm_spec.freethreading
     assert not install.satisfies(PythonSpec.from_text("3.14"))
     assert install.satisfies(PythonSpec.from_text("3.14t"))
@@ -370,16 +409,18 @@ def test_freethreading_satisfies(temp_folder):
     # Confirm a depot won't hand a freethreaded binary to a non-freethreaded spec
     depot = PythonDepot(".pyenv/versions/**")
     depot.invoker = None  # Don't let the running interpreter satisfy specs from outside the depot
-    assert depot.find_python("3.14").problem  # no non-freethreaded 3.14 available
-    found = depot.find_python("3.14t")
-    assert not found.problem
-    assert found.inspection.freethreading
+    regular_314 = depot.find_python("3.14")
+    assert regular_314.problem == "not available"
+    assert regular_314.inspection.freethreading is False
+    threaded_314 = depot.find_python("3.14t")
+    assert not threaded_314.problem
+    assert threaded_314.inspection.freethreading is True
 
     # Confirm the invoker fallback also respects the freethreading boundary
     mk_python("3.14.1", content={"version": "3.14.1", "machine": arch, "freethreading": False})
     nft_path = runez.to_path(".pyenv/versions/3.14.1/bin/python3.14")
     nft_install = PythonInstallation(nft_path)
-    assert not nft_install.inspection.freethreading
+    assert nft_install.inspection.freethreading is False
 
     ft_depot = PythonDepot()  # no locations, only invoker
     ft_depot.invoker = install  # freethreaded invoker
