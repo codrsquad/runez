@@ -351,7 +351,7 @@ def test_spec():
     freeth = PythonSpec.from_text("cpython:3.14t")
     assert freeth.abi_suffix == "t"
     assert freeth.represented(compact=True) == "3.14t"
-    assert freeth.freethreading
+    assert freeth.freethreading is True
 
 
 def test_freethreading_inspection_normalization(temp_folder):
@@ -369,8 +369,8 @@ def test_freethreading_inspection_normalization(temp_folder):
         install = PythonInstallation(path)
         # Regardless of how freethreading is reported (None, missing, 0), a regular install
         # must be considered non-freethreaded and must satisfy a non-freethreaded spec
-        assert not install.inspection.freethreading, "%s should be non-freethreaded" % v
-        assert not install.mm_spec.freethreading, "%s mm_spec should be non-freethreaded" % v
+        assert install.inspection.freethreading is False, "%s should be non-freethreaded" % v
+        assert install.mm_spec.freethreading is False, "%s mm_spec should be non-freethreaded" % v
         assert install.satisfies(PythonSpec.from_text("8.14")), "%s should satisfy '8.14'" % v
         assert not install.satisfies(PythonSpec.from_text("8.14t")), "%s should not satisfy '8.14t'" % v
 
@@ -402,7 +402,7 @@ def test_freethreading_satisfies(temp_folder):
     path = runez.to_path(".pyenv/versions/3.14.0t/bin/python3.14")
     install = PythonInstallation(path)
     assert install.inspection.freethreading is True
-    assert install.mm_spec.freethreading
+    assert install.mm_spec.freethreading is True
     assert not install.satisfies(PythonSpec.from_text("3.14"))
     assert install.satisfies(PythonSpec.from_text("3.14t"))
 
