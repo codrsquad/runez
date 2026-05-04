@@ -6,7 +6,7 @@ import sysconfig
 
 
 def simple_inspection():
-    # `Py_GIL_DISABLED` is None on regular CPython builds and 1 on freethreaded builds — normalize to bool
+    # `Py_GIL_DISABLED` is None on regular CPython builds and 1 on freethreaded builds, normalize to bool
     freethreading = bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
     return {"version": ".".join(str(s) for s in sys.version_info[:3]), "machine": platform.machine(), "freethreading": freethreading}
 

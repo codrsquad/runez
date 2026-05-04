@@ -243,6 +243,17 @@ def test_inspect():
     assert '"version":' in r.output
 
 
+def test_inspect_is_ascii_only():
+    # `_inspect.py` may be invoked by arbitrary (possibly Py2) python binaries, so it must stay
+    # ASCII-only: a stray non-ASCII byte raises SyntaxError under Py2 unless an encoding is declared.
+    import runez._inspect
+
+    inspect_path = runez.to_path(runez._inspect.__file__)
+    src_text = inspect_path.read_text()
+    src_bytes = inspect_path.read_bytes()
+    assert src_bytes.decode("ascii") == src_text  # raises UnicodeDecodeError if any non-ASCII byte sneaks in
+
+
 def test_invoker():
     import runez.pyenv
 
