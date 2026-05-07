@@ -21,12 +21,8 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - uses: astral-sh/setup-uv@v7
+    - uses: astral-sh/setup-uv@v8.1.0
     - run: uvx --with tox-uv tox -e py
-    - uses: codecov/codecov-action@v5
-      with:
-        files: .tox/test-reports/coverage.xml
-        flags: python-${{ matrix.python-version }}
 
   linters:
 
@@ -38,5 +34,19 @@ jobs:
       with:
         python-version: "3.14"
 
-    - uses: astral-sh/setup-uv@v7
+    - uses: astral-sh/setup-uv@v8.1.0
     - run: uvx --with tox-uv tox -e style,typecheck
+
+  ripple-effect:
+
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v6
+    - uses: actions/setup-python@v6
+      with:
+        python-version: "3.14"
+
+    - uses: astral-sh/setup-uv@v8.1.0
+    - run: uvx ripple-effect run
