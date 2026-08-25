@@ -19,6 +19,8 @@ first and `.github/workflows/` second.
 - [Contributing](./contributing.md) — get a local venv going, run the tests, read coverage.
 - [CI and code quality](./ci/index.md) — how the pipeline is wired, and the tool-version and
   linter policies that keep it from breaking on its own.
+- [Type checkers](./typecheckers/index.md) — an in-progress side-by-side comparison of seven
+  checkers, and why the repo currently carries no `# type: ignore` markers.
 - [Async cached_property](./async-cached-property.md) — a parked design: an async-capable
   `@runez.cached_property` that was written and tested but deliberately not shipped.
 - [History](./history.rst) — the changelog.

@@ -36,6 +36,19 @@ Source = "https://github.com/codrsquad/runez"
 pythonVersion = "3.10"
 include = ["src"]
 
+[tool.pytype]
+inputs = ["src"]
+output = ".tox/pytype"
+python_version = "3.10"
+
+[tool.mypy]  # also read by zuban
+python_version = "3.10"
+files = ["src"]
+
+[tool.pyrefly]
+python-version = "3.10"
+project-includes = ["src"]
+
 [tool.ty.environment]
 python-version = "3.10"
 
