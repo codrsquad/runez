@@ -36,6 +36,12 @@ Source = "https://github.com/codrsquad/runez"
 pythonVersion = "3.10"
 include = ["src"]
 
+[tool.ty.environment]
+python-version = "3.10"
+
+[tool.ty.src]
+include = ["src"]
+
 [tool.ruff]
 cache-dir = ".tox/.ruff_cache"
 line-length = 140

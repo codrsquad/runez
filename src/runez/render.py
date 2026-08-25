@@ -325,8 +325,8 @@ class PrettyHeader(PrettyCustomizable):
 
 
 class PrettyTable(PrettyCustomizable):
-    border: PrettyBorder = _AdaptedProperty("border", type=PrettyBorder)  # type: ignore[assignment]
-    header: PrettyHeader = _AdaptedProperty("header", type=PrettyHeader)  # type: ignore[assignment]
+    border: PrettyBorder = _AdaptedProperty("border", type=PrettyBorder)
+    header: PrettyHeader = _AdaptedProperty("header", type=PrettyHeader)
 
     def __init__(self, header=None, align=None, border=None, missing="-", style=None, width=None):
         """
@@ -338,9 +338,9 @@ class PrettyTable(PrettyCustomizable):
             style (str | runez.colors.Renderable | None): Desired default style (eg: dim, bold, etc)
             width (int | None): Desired width (defaults to detected terminal width)
         """
-        self.header = header  # type: ignore[assignment] # converted by _AdaptedProperty.__set__
+        self.header = header  # converted by _AdaptedProperty.__set__
         self.align = align
-        self.border = border  # type: ignore[assignment]
+        self.border = border
         self.missing = missing
         self.style = style
         self.width = width

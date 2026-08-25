@@ -982,7 +982,7 @@ class RestClient:
             (CacheWrapper): Object wrapping this cache
         """
         with contextlib.suppress(ImportError):
-            from diskcache import Cache  # type: ignore[import-not-found]  # optional dependency
+            from diskcache import Cache  # optional dependency
 
             if directory is UNSET:
                 directory = None

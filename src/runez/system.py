@@ -58,12 +58,14 @@ def abort(message, code=1, exc_info=None, return_value=None, *, logger=UNSET, st
 @overload
 def abort(message, code=1, exc_info=None, return_value=None, *, fatal: Literal[True] = True, logger=UNSET, stacklevel=1) -> NoReturn: ...
 @overload
-def abort(message, code=1, exc_info=None, return_value: _T = None, *, fatal: Literal[False] | None, logger=UNSET, stacklevel=1) -> _T: ...
+def abort(message, code=1, exc_info=None, *, fatal: Literal[False] | None, logger=UNSET, stacklevel=1) -> None: ...
+@overload
+def abort(message, code=1, exc_info=None, *, return_value: _T, fatal: Literal[False] | None, logger=UNSET, stacklevel=1) -> _T: ...
 @overload
 def abort(message, code=1, exc_info=None, return_value=None, *, fatal: type[BaseException], logger=UNSET, stacklevel=1) -> NoReturn: ...
 def abort(
-    message, code=1, exc_info=None, return_value: _T = None, fatal: bool | type[BaseException] | None = True, logger=UNSET, stacklevel=1
-) -> _T:
+    message, code=1, exc_info=None, return_value=None, fatal: bool | type[BaseException] | None = True, logger=UNSET, stacklevel=1
+) -> Any:
     """General wrapper for optionally fatal calls
 
     >>> from runez import abort

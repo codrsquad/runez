@@ -20,7 +20,7 @@ try:
     import click
 
 except ImportError:  # pragma: no cover, click used only if installed
-    click: types.ModuleType = None  # type: ignore[assignment]
+    click: types.ModuleType = None
 
 import runez.config
 from runez.colors import ColorManager
