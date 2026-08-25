@@ -42,7 +42,7 @@ write down the reasoning here.
 
 ## The line-up
 
-Seven checkers, chosen to cover distinct engines rather than distinct configurations — several
+Six checkers, chosen to cover distinct engines rather than distinct configurations — several
 share a lineage, and seeing where relatives diverge is part of the point.
 
 | Checker | Lineage | Notes |
@@ -53,9 +53,9 @@ share a lineage, and seeing where relatives diverge is part of the point.
 | basedpyright | fork of pyright | pyright's engine with much stricter defaults |
 | pyrefly | Meta, successor to pyre | |
 | ty | Astral | pre-1.0, expect churn |
-| pytype | Google | infers types for unannotated code instead of trusting declarations |
 
-This set will be trimmed once we know which ones are actually telling us different things.
+This set will be trimmed further once we know which ones are actually telling us different things.
+Candidates already dropped, and why, are in [abandoned](./abandoned.md).
 
 ## Running them
 
@@ -75,5 +75,6 @@ in how aggressively they warn about merely-unannotated code as opposed to actual
 
 As each checker is worked through, it gets its own page here recording what it found and what that
 turned out to mean. The cross-checker synthesis — the agreement and divergence sets, and the
-recommendation — lands in a results page once there is something to synthesise. Nothing is written
-up yet; this page is the intent.
+recommendation — lands in a results page once there is something to synthesise. A checker that gets
+dropped moves to [abandoned](./abandoned.md) with the reason, so the evaluation isn't redone later.
+Beyond that page, nothing is written up yet; this one is the intent.
