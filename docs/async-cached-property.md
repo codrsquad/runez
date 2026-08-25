@@ -52,6 +52,7 @@ class cached_property:
             return self
 
         if self.is_async:
+
             @wraps(instance)
             @asyncio.coroutine
             def wrapper():
@@ -81,7 +82,6 @@ class cached_property:
     def _future_value(self, instance):
         # Replacement for _compute_value() in asyncio case
         return asyncio.ensure_future(self.__func__(instance))
-
 ```
 
 - add this to `tests/requirements.txt`:
@@ -101,7 +101,6 @@ from runez.system import cached_property
 
 
 class MyObject:
-
     _global_counter = 1  # Used as a global counter
 
     @cached_property
