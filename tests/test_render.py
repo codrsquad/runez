@@ -42,6 +42,11 @@ def test_border():
     tc = PrettyBorder("compact")
     assert str(tc) == "c:   ,h: -  ,pad:1"
 
+    # The github border must render as valid github markdown: outer pipes on the separator row too
+    t = PrettyTable("a,b", border="github")
+    t.add_row(1, 2)
+    assert t.get_string() == "| a | b |\n|---|---|\n| 1 | 2 |"
+
     # Exercise setting from object fields, for coverage
     tc2 = PrettyBorder("c:   ", h=Namespace(first=" ", mid=" ", last=" ", h="-"))
     assert tc2 == tc

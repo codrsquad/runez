@@ -14,7 +14,7 @@ NAMED_BORDERS = {
     "dots": "t:....,b::::.,c::::,h:.:..",
     "empty": "",
     "framed": "t:┍┯┑━,m:┝┿┥━,b:┕┷┙━,c:│││,h:╞╪╡═",
-    "github": "h:-|--,c:|||",
+    "github": "h:|||-,c:|||",
     "mysql": "t:+++-,b:+++-,c:|||",
     "reddit": "h:-|--,c: | ",
     "rst": "t:  ==,b:  ==,c:  ",
