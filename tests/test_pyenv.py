@@ -183,11 +183,18 @@ def test_depot_folder(temp_folder):
     assert str(depot.find_python("8.5.7")) == "8.5.7 [not available]"
 
 
-def test_depot_path():
+def test_depot_path(temp_folder, monkeypatch):
     depot = PythonDepot("PATH")
     assert depot.available_pythons
     assert depot.preferred_python is None
     assert depot.find_python(None) is depot.invoker
+
+    mk_python("./venv/bin/3.15.1")
+    mk_python("./venv-other/bin/3.15.2")
+    monkeypatch.setenv("VIRTUAL_ENV", os.path.join(temp_folder, "venv"))
+    monkeypatch.setenv("PATH", os.pathsep.join([os.path.join(temp_folder, "venv", "bin"), os.path.join(temp_folder, "venv-other", "bin")]))
+    depot = PythonDepot("PATH")
+    assert {str(p.full_version) for p in depot.available_pythons} == {"3.15.2"}
 
 
 def test_edge_cases():
