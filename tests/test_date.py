@@ -207,6 +207,7 @@ def test_to_seconds():
 
     assert runez.to_seconds("") == 0
     assert runez.to_seconds(5) == 5
+    assert runez.to_seconds("5") == 5
     assert runez.to_seconds("1d1h5s") == 90005
     assert runez.to_seconds("1h  2s") == 3602
     assert runez.to_seconds(" 1h 2s ") == 3602

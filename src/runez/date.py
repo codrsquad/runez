@@ -2,7 +2,7 @@ import datetime
 import time
 from typing import ClassVar
 
-from runez.convert import _float_from_text
+from runez.convert import _float_from_text, to_float
 from runez.system import _R, stringified, UNSET
 
 DEFAULT_TIMEZONE = None
