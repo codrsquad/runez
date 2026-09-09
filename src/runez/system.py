@@ -1381,6 +1381,9 @@ class PlatformId:
     @staticmethod
     def canonical_platform(name):
         name = name and name.lower()
+        if not name:
+            return name
+
         if name == "darwin":
             # Using 'macOS' to differentiate from iOS (which may be detected in the future)
             name = "macos"
