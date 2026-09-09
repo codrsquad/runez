@@ -1507,11 +1507,26 @@ class SystemInfo:
         """Info on the platform we're currently running on"""
         return PlatformInfo()
 
-    @cached_property
+    @property
     def program_name(self):
         """(str): Best effort determination of currently running program name"""
         name = os.path.basename(self.program_path)
-        if name and name.endswith(".py"):
+        if name == "__main__.py":
+            main = sys.modules.get("__main__")
+            package = getattr(main, "__package__", None)
+            if not package:
+                spec = getattr(main, "__spec__", None)
+                package = getattr(spec, "name", None)
+
+            if not package:
+                original_argv = getattr(sys, "orig_argv", None) or ()
+                with contextlib.suppress(ValueError, IndexError):
+                    package = original_argv[original_argv.index("-m") + 1]
+
+            if package:
+                name = package.partition(".")[0]
+
+        elif name and name.endswith(".py"):
             caller = find_caller()
             if caller and caller.package_name:
                 name = caller.package_name.partition(".")[0]
@@ -1561,6 +1576,8 @@ class TempArgv:
     def __init__(self, args, exe=None):
         if exe is None:
             exe = sys.argv[0] if sys.argv and sys.argv[0] else sys.executable
+            if os.path.basename(exe) == "__main__.py":
+                exe = SYS_INFO.program_name
 
         self.args = args
         self.exe = exe

@@ -27,7 +27,7 @@ from runez.colors import ColorManager
 from runez.convert import affixed
 from runez.file import basename
 from runez.logsetup import LogManager
-from runez.system import _R, find_caller, first_line, flattened, get_version, short, stringified, TempArgv, UNSET
+from runez.system import _R, find_caller, first_line, flattened, get_version, short, stringified, SYS_INFO, TempArgv, UNSET
 
 
 class Cli:
@@ -409,7 +409,11 @@ class _ConfigOption:
         self._add_dict(c, self.name, self._get_values(value))
 
         if self.env:
-            env_prefix = self.env if isinstance(self.env, str) else basename(sys.argv[0]).upper()
+            program_name = basename(sys.argv[0])
+            if program_name == "__main__":
+                program_name = SYS_INFO.program_name
+
+            env_prefix = self.env if isinstance(self.env, str) else program_name.upper()
             if not env_prefix.endswith("_"):
                 env_prefix += "_"
 
