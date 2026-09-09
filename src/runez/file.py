@@ -549,8 +549,12 @@ def _symlink(source, destination):
     src = source.absolute()
     dest = destination.absolute()
     if str(src.parent).startswith(str(dest.parent)):
-        # Make relative symlinks automatically when applicable
-        source = src.relative_to(dest.parent)
+        try:
+            # Make relative symlinks automatically when applicable
+            source = src.relative_to(dest.parent)
+
+        except ValueError:
+            source = src
 
     os.symlink(source, destination)
 
@@ -649,7 +653,8 @@ def _file_op(source: str | Path, destination: str | Path, func, overwrite, fatal
     indicator = "<-" if action == "symlink" else "->"
     description = f"{action} {short(source)} {indicator} {short(destination)}"
     pdest = resolved_path(destination)
-    if str(parent_folder(source)).startswith(pdest):
+    with contextlib.suppress(ValueError):
+        parent_folder(source).relative_to(to_path(pdest))
         message = f"Can't {description}: source contained in destination"
         return abort(message, return_value=-1, fatal=fatal, logger=logger)
 

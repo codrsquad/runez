@@ -324,6 +324,14 @@ def test_file_operations(temp_folder):
     assert os.path.islink("dangling-symlink2")
 
     runez.write("README.md", "hello")
+    runez.write("foobar/source", "prefixed sibling")
+    runez.ensure_folder("foo")
+    runez.symlink("foobar/source", "foo/link")
+    assert os.path.exists("foo/link")
+    assert list(runez.readlines("foo/link", first=1, fatal=True)) == ["prefixed sibling"]
+    assert runez.copy("foobar/source", "foo/copied") == 1
+    assert list(runez.readlines("foo/copied", first=1, fatal=True)) == ["prefixed sibling"]
+
     runez.copy("README.md", "sample1/README.md")
     runez.copy("sample1", "sample2")
     runez.move("sample1/README.md", "sample1/foo")
