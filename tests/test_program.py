@@ -322,7 +322,7 @@ def simulated_tmux(program, *args, **_):
 
 
 def test_ps_follow():
-    with patch("runez.program.run", side_effect=simulated_tmux):
+    with patch("runez.program.os.getpid", return_value=12345), patch("runez.program.run", side_effect=simulated_tmux):
         assert PsInfo.from_pid(-1) is None
         bad_pid = PsInfo(-1)
         assert str(bad_pid) == "-1 None None"
@@ -338,7 +338,12 @@ def test_ps_follow():
         assert bad_pid.parent_list(follow=True) == []
         assert bad_pid.parent_list(follow=False) == []
 
+        good_pid = PsInfo.from_pid(12345)
+        assert good_pid is not None
+        assert good_pid.pid == 12345
+
         p = PsInfo()
+        assert p == good_pid
         assert p.cmd == "/dev/null/some-test foo bar"
         assert p.cmd_basename == "/dev/null/some-test"  # Falls back to using 1st sequence with space as basename
         assert p.uid == 0
