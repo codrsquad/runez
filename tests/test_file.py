@@ -153,8 +153,10 @@ def test_ensure_folder(temp_folder, logged):
     assert runez.ensure_folder("foo") == 1
     assert "Created folder foo" in logged.pop()
 
-    assert runez.ensure_folder(".", clean=True) == 1
-    assert "Cleaned 1 " in logged.pop()
+    with pytest.raises(runez.system.AbortException, match="Refusing to recreate current folder"):
+        runez.ensure_folder(".", clean=True)
+    assert "Refusing to recreate current folder" in logged.pop()
+    assert runez.delete("foo", logger=None) == 1
 
     assert runez.touch("some-file", logger=None) == 1
     with pytest.raises(runez.system.AbortException):
@@ -173,13 +175,13 @@ def test_ensure_folder(temp_folder, logged):
     assert "Created folder" not in logged
     assert "Touched some-dir/a/b" in logged.pop()
     assert runez.ensure_folder("some-dir", clean=True, dryrun=True) == 1
-    assert "Would clean 1 file from some-dir" in logged.pop()
+    assert "Would create some-dir" in logged.pop()
 
     assert runez.touch("some-dir/b", logger=False) == 1
     assert not logged
 
-    assert runez.ensure_folder("some-dir", clean=True) == 2
-    assert "Cleaned 2 files from some-dir" in logged
+    assert runez.ensure_folder("some-dir", clean=True) == 1
+    assert "Created folder some-dir" in logged
 
 
 def test_ensure_folder_clean_leaf(temp_folder, logged):
