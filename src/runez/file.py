@@ -106,7 +106,8 @@ def ensure_folder(path: str | Path, clean=False, fatal=True, logger=UNSET, dryru
 
     Args:
         path: Path to file or folder
-        clean (bool): True: If True, ensure folder is clean (delete any file/folder it may have)
+        clean (bool): If false, create the directory only if missing, and preserve an existing directory and its contents otherwise.
+            If true, empty out an existing real directory in place, or replace a file or symlink with a new empty directory.
         fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun (bool | UNSET | None): Optionally override current dryrun setting
@@ -118,20 +119,27 @@ def ensure_folder(path: str | Path, clean=False, fatal=True, logger=UNSET, dryru
     if not path:
         return 0
 
+    islink = os.path.islink(path)
     if os.path.isdir(path):
         if not clean:
             return 0
 
-        cleaned = 0
-        for fname in os.listdir(path):
-            cleaned += delete(os.path.join(path, fname), fatal=fatal, logger=None, dryrun=dryrun)
+        if not islink:
+            cleaned = 0
+            for fname in os.listdir(path):
+                cleaned += delete(os.path.join(path, fname), fatal=fatal, logger=None, dryrun=dryrun)
 
-        if cleaned:
-            msg = "%s from %s" % (_R.lc.rm.plural(cleaned, "file"), short(path))
-            if not _R.hdry(dryrun, logger, "clean %s" % msg):
-                _R.hlog(logger, "Cleaned %s" % msg)
+            if cleaned:
+                msg = "%s from %s" % (_R.lc.rm.plural(cleaned, "file"), short(path))
+                if not _R.hdry(dryrun, logger, "clean %s" % msg):
+                    _R.hlog(logger, "Cleaned %s" % msg)
 
-        return cleaned
+            return cleaned
+
+    if clean and os.path.lexists(path):
+        deleted = delete(path, fatal=fatal, logger=None, dryrun=dryrun)
+        if deleted < 0:
+            return deleted
 
     if _R.hdry(dryrun, logger, "create %s" % short(path)):
         return 1

@@ -182,6 +182,47 @@ def test_ensure_folder(temp_folder, logged):
     assert "Cleaned 2 files from some-dir" in logged
 
 
+def test_ensure_folder_clean_leaf(temp_folder, logged):
+    path = Path("some-file")
+    path.write_text("hello")
+    assert runez.ensure_folder(path, clean=True, dryrun=True) == 1
+    assert path.is_file()
+    assert "Would create some-file" in logged.pop()
+
+    assert runez.ensure_folder(path, clean=True) == 1
+    assert path.is_dir()
+    assert not any(path.iterdir())
+
+    file_target = Path("file-target")
+    file_target.write_text("hello")
+    file_link = Path("file-link")
+    file_link.symlink_to(file_target)
+    assert runez.ensure_folder(file_link, clean=True) == 1
+    assert file_link.is_dir()
+    assert not file_link.is_symlink()
+    assert file_target.read_text() == "hello"
+
+    dangling_link = Path("dangling-link")
+    dangling_link.symlink_to("missing-target")
+    assert runez.ensure_folder(dangling_link, clean=True) == 1
+    assert dangling_link.is_dir()
+    assert not dangling_link.is_symlink()
+
+    dir_target = Path("dir-target")
+    dir_target.mkdir()
+    (dir_target / "preserved").write_text("hello")
+    dir_link = Path("dir-link")
+    dir_link.symlink_to(dir_target, target_is_directory=True)
+    assert runez.ensure_folder(dir_link) == 0
+    assert dir_link.is_symlink()
+
+    assert runez.ensure_folder(dir_link, clean=True) == 1
+    assert dir_link.is_dir()
+    assert not dir_link.is_symlink()
+    assert not any(dir_link.iterdir())
+    assert (dir_target / "preserved").read_text() == "hello"
+
+
 def test_ini_to_dict(temp_folder, logged):
     assert runez.file.ini_to_dict("foo") == {}
     assert not logged
