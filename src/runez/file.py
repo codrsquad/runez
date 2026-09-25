@@ -120,10 +120,10 @@ def ensure_folder(path: str | Path, clean=False, fatal=True, logger=UNSET, dryru
         return 0
 
     if clean:
-        if path == os.getcwd():
-            return abort("Refusing to recreate current folder", return_value=-1, fatal=fatal, logger=logger)
-
         if os.path.lexists(path):
+            if not os.path.islink(path) and os.path.samefile(path, os.curdir):
+                return abort("Refusing to recreate current folder", return_value=-1, fatal=fatal, logger=logger)
+
             deleted = delete(path, fatal=fatal, logger=None, dryrun=dryrun)
             if deleted < 0:
                 return deleted

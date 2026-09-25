@@ -156,6 +156,14 @@ def test_ensure_folder(temp_folder, logged):
     with pytest.raises(runez.system.AbortException, match="Refusing to recreate current folder"):
         runez.ensure_folder(".", clean=True)
     assert "Refusing to recreate current folder" in logged.pop()
+
+    parent_link = Path("parent-link")
+    parent_link.symlink_to(Path.cwd().parent, target_is_directory=True)
+    cwd_alias = parent_link / Path.cwd().name
+    with pytest.raises(runez.system.AbortException, match="Refusing to recreate current folder"):
+        runez.ensure_folder(cwd_alias, clean=True)
+    assert "Refusing to recreate current folder" in logged.pop()
+    parent_link.unlink()
     assert runez.delete("foo", logger=None) == 1
 
     assert runez.touch("some-file", logger=None) == 1
