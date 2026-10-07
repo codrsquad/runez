@@ -58,9 +58,8 @@ the exact rules — it is short and it is the authority.
 ## Type checking
 
 Type checking lives in its own tox environments rather than in `style`, and `tox.ini` is the
-authority on which checkers are wired up and whether CI currently gates on them. Several are set up
-side by side right now — see
-[type checkers](../typecheckers/index.md) for why, and why the repo
-deliberately carries no `# type: ignore` markers at the moment. runez ships
-`py.typed`, so its annotations are part of the contract users see — treat a type error as a design
-signal about the signature, not as something to silence with an ignore comment.
+authority on which checkers are wired up and whether CI currently gates on them. Six are set up side
+by side, with `ty` on its way to becoming the gate — see [type checkers](../typecheckers/index.md)
+for the plan, and why the repo carries no `# type: ignore` markers. runez ships `py.typed`, so its
+annotations are part of the contract users see — treat a type error as a design signal about the
+signature, not as something to silence with an ignore comment.

@@ -449,7 +449,7 @@ class Version:
         self.given_text = text
         self.given_components = None  # Components as given by 'text'
         self.text = text or ""
-        self.components = None  # tuple of components with exactly 'max_parts', autofilled with zeros
+        self.components = None  # Comparable tuple: 'max_parts' ints, then post-release number, then post-release flag
         self.epoch = 0
         self.local_part = None
         self.prerelease = None
@@ -478,7 +478,7 @@ class Version:
             if pre:
                 rel = rel_num = None  # rc.post does not count as .post (but a .post.dev does)
 
-        components: list[int | str] = [int(c) for c in m.group("main").split(".")]
+        components = [int(c) for c in m.group("main").split(".")]
         if len(components) > max_parts:
             return  # Invalid version, too many parts
 
@@ -488,7 +488,7 @@ class Version:
 
         self.release_number = None if rel_num is None else int(rel_num or 0)
         components.append(int(rel_num or 0))
-        components.append(rel or "")
+        components.append(1 if rel else 0)  # 'post'/'rev'/'r' are equivalent PEP-440 spellings
         self.components = tuple(components)
         if canonical is True:
             self.text = self.pep_440 or ""

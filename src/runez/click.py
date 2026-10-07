@@ -14,13 +14,6 @@ import errno
 import logging
 import os
 import sys
-import types
-
-try:
-    import click
-
-except ImportError:  # pragma: no cover, click used only if installed
-    click: types.ModuleType = None
 
 import runez.config
 from runez.colors import ColorManager
@@ -55,10 +48,11 @@ class Cli:
             runez.cli.run_cmds()
     """
 
-    color = ("--no-color",)
-    debug = ("--debug", "-v")
-    dryrun = ("--dryrun", "-n")
-    version = ("--version", "-V")
+    # Flags of the common options added by `run_cmds()`, set to `None` to not add that option
+    color: tuple[str, ...] | None = ("--no-color",)
+    debug: tuple[str, ...] | None = ("--debug", "-v")
+    dryrun: tuple[str, ...] | None = ("--dryrun", "-n")
+    version: tuple[str, ...] | None = ("--version", "-V")
     console_format = "%(levelname)s %(message)s"
     console_level = logging.INFO
     default_logger = UNSET
@@ -173,18 +167,24 @@ class Cli:
 
 def command(help=None, width=140, **attrs):
     """Same as `@click.command()`, but with common settings (ie: "-h" for help, slightly larger help display)"""
+    import click  # Imported if used (click is an optional dependency)
+
     attrs = settings(help=help, width=width, **attrs)
     return click.command(**attrs)
 
 
 def group(help=None, width=140, **attrs):
     """Same as `@click.group()`, but with common settings (ie: "-h" for help, slightly larger help display)"""
+    import click
+
     attrs = settings(help=help, width=width, **attrs)
     return click.group(**attrs)
 
 
 def border(*args, **attrs):
     # No docstring, as all the possible values are shown in --help, trivial to guess what this is
+    import click
+
     from runez.render import NAMED_BORDERS  # Imported if used
 
     attrs.setdefault("default", "reddit")
@@ -237,6 +237,8 @@ def log(*args, **attrs):
 
 def version(*args, **attrs):
     """Show the version and exit"""
+    import click
+
     if "version" not in attrs:
         # Ensure 'version' is not None here, otherwise click gets runez version (instead of caller package's version)
         caller = find_caller(need_package=True)
@@ -277,6 +279,8 @@ def option(func, *args, **attrs):
     """
 
     def decorator(f):
+        import click
+
         name = attrs.pop("name", func.__name__.replace("_", "-"))
         negatable = None
         if attrs.get("is_flag") == "negatable":
@@ -305,35 +309,40 @@ def prettify_epilogs(command, formatter=None):
         command: Command to prettify (along with its sub-commands)
         formatter (callable | None): Optional formatter to invoke on each help/epilog string
     """
-    if click is not None:
-        if isinstance(command, click.Command):
-            help = command.help
-            if help:
-                help = help.strip()
-                if formatter is not None:
-                    help = formatter(help)
+    try:
+        import click
 
-                command.help = help
+    except ImportError:  # pragma: no cover, click used only if installed
+        return
 
-            epilog = command.epilog
-            if epilog is None and help:
-                lines = help.splitlines()
-                first_line = lines.pop(0).strip() if lines else None
-                if first_line and lines:
-                    command.help = first_line
-                    epilog = "\n".join(lines)
-                    if not lines[0]:
-                        epilog = "\b%s" % epilog
+    if isinstance(command, click.Command):
+        help = command.help
+        if help:
+            help = help.strip()
+            if formatter is not None:
+                help = formatter(help)
 
-            if epilog:
-                if formatter is not None:
-                    epilog = formatter(epilog)
+            command.help = help
 
-                command.epilog = epilog
+        epilog = command.epilog
+        if epilog is None and help:
+            lines = help.splitlines()
+            first_line = lines.pop(0).strip() if lines else None
+            if first_line and lines:
+                command.help = first_line
+                epilog = "\n".join(lines)
+                if not lines[0]:
+                    epilog = "\b%s" % epilog
 
-        if isinstance(command, click.Group) and command.commands:
-            for cmd in command.commands.values():
-                prettify_epilogs(cmd, formatter=formatter)
+        if epilog:
+            if formatter is not None:
+                epilog = formatter(epilog)
+
+            command.epilog = epilog
+
+    if isinstance(command, click.Group) and command.commands:
+        for cmd in command.commands.values():
+            prettify_epilogs(cmd, formatter=formatter)
 
 
 def protected_main(main, debug_stacktrace=False, no_stacktrace=None):

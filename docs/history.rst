@@ -2,6 +2,35 @@
 History
 =======
 
+5.10.0 (2026-10-)
+------------------
+
+* Type-checking cleanup (driven by ``ty``), with fixes found along the way:
+
+  * ``Version`` comparisons no longer raise ``TypeError`` for versions parsed with different ``max_parts``,
+    and ``post``/``rev``/``r`` releases now compare equal (they are equivalent PEP-440 spellings)
+
+  * ``abort()`` overloads simplified, its return type now follows ``fatal`` and ``return_value``
+
+  * ``runez.system.AbortException = SystemExit`` no longer upsets type checkers
+
+  * ``runez.click`` imports ``click`` only where needed (clear ``ModuleNotFoundError`` when it's not installed)
+
+* Fixed the ``github`` table border (separator row was missing its outer pipes)
+
+
+5.9.1 (2026-05-05)
+------------------
+
+* ``freethreading`` is now always a ``bool`` (in ``PythonSpec``, and in python installation inspection)
+
+
+5.9.0 (2026-04-29)
+------------------
+
+* ``PythonInstallation.mm_spec`` now retains freethreading (e.g. ``cpython:3.14t``)
+
+
 5.8.0 (2026-04-21)
 ------------------
 

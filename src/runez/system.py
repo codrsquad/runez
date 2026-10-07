@@ -53,17 +53,25 @@ class Undefined:
 UNSET: Any = Undefined()
 
 
-@overload
-def abort(message, code=1, exc_info=None, return_value=None, *, logger=UNSET, stacklevel=1) -> NoReturn: ...
-@overload
-def abort(message, code=1, exc_info=None, return_value=None, *, fatal: Literal[True] = True, logger=UNSET, stacklevel=1) -> NoReturn: ...
-@overload
-def abort(message, code=1, exc_info=None, return_value: _T = None, *, fatal: Literal[False] | None, logger=UNSET, stacklevel=1) -> _T: ...
-@overload
-def abort(message, code=1, exc_info=None, return_value=None, *, fatal: type[BaseException], logger=UNSET, stacklevel=1) -> NoReturn: ...
+@overload  # definitely fatal: fatal omitted, True, or an exception type
 def abort(
-    message, code=1, exc_info=None, return_value: _T = None, fatal: bool | type[BaseException] | None = True, logger=UNSET, stacklevel=1
-) -> _T:
+    message, code=1, exc_info=None, return_value=None, *, fatal: Literal[True] | type[BaseException] = True, logger=UNSET, stacklevel=1
+) -> NoReturn: ...
+@overload  # anything else, no return_value
+def abort(message, code=1, exc_info=None, *, fatal: bool | type[BaseException] | None, logger=UNSET, stacklevel=1) -> None: ...
+@overload  # anything else, with return_value
+def abort(
+    message, code=1, exc_info=None, *, return_value: _T, fatal: bool | type[BaseException] | None, logger=UNSET, stacklevel=1
+) -> _T: ...
+def abort(
+    message,
+    code=1,
+    exc_info=None,
+    return_value: _T | None = None,
+    fatal: bool | type[BaseException] | None = True,
+    logger=UNSET,
+    stacklevel=1,
+) -> _T | None:
     """General wrapper for optionally fatal calls
 
     >>> from runez import abort
@@ -650,20 +658,26 @@ def wcswidth(text: str | None) -> int:
     return width
 
 
-class AbortException(Exception):
-    """Raised when calls fail, in runez functions with argument `fatal=True`.
+if TYPE_CHECKING:
+    # Declared as a variable (not a class) for type checkers, as users can replace it (see docstring below)
+    AbortException: type[BaseException]
 
-    You can replace this with your preferred exception, for example:
+else:
 
-    >>> import runez
-    >>> saved = runez.system.AbortException
-    >>> runez.system.AbortException = SystemExit
-    >>> abort("foo")
-    Traceback (most recent call last):
-       ...
-    SystemExit: 1
-    >>> runez.system.AbortException = saved  # Restoring to avoid confusing other tests
-    """
+    class AbortException(Exception):
+        """Raised when calls fail, in runez functions with argument `fatal=True`.
+
+        You can replace this with your preferred exception, for example:
+
+        >>> import runez
+        >>> saved = runez.system.AbortException
+        >>> runez.system.AbortException = SystemExit
+        >>> abort("foo")
+        Traceback (most recent call last):
+           ...
+        SystemExit: 1
+        >>> runez.system.AbortException = saved  # Restoring to avoid confusing other tests
+        """
 
 
 class Anchored:

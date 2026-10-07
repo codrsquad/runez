@@ -66,7 +66,6 @@ class IsolatedLogSetup:
         """
         self.adjust_tmp = adjust_tmp
         self.temp_folder = None
-        self.abort_exception = None
         self.old_cwd = None
         self.old_env_vars: dict[str, str] = {}  # populated in __enter__
 
@@ -79,12 +78,12 @@ class IsolatedLogSetup:
         self.old_handlers = logging.root.handlers
         logging.root.handlers = []
         LogManager.reset()
+        self.abort_exception = runez.system.AbortException
         if self.adjust_tmp:
             self.temp_folder = TempFolder()
             LogManager.spec.tmp = self.temp_folder.__enter__()
 
         else:
-            self.abort_exception = runez.system.AbortException
             self.old_cwd = os.getcwd()
 
         self.old_env_vars = dict(os.environ)
@@ -94,6 +93,7 @@ class IsolatedLogSetup:
         self.color_context.__exit__()
         runez.config.CONFIG = self.prev_config
         LogManager.spec = self.old_spec
+        runez.system.AbortException = self.abort_exception
         logging.root.handlers = self.old_handlers
         WrappedHandler.isolation -= 1
         LogManager.reset()
@@ -110,7 +110,6 @@ class IsolatedLogSetup:
             self.temp_folder.__exit__()
 
         else:
-            runez.system.AbortException = self.abort_exception
             if self.old_cwd and os.path.isdir(self.old_cwd):
                 # Edge case: some tests 'cd' to a now-deleted temp folder (side effect)
                 os.chdir(self.old_cwd)
