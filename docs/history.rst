@@ -2,8 +2,8 @@
 History
 =======
 
-5.10.0 (2026-10-)
-------------------
+5.10.0 (2026-10-08)
+-------------------
 
 * Type-checking cleanup (driven by ``ty``), with fixes found along the way:
 

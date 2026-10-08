@@ -59,10 +59,23 @@ the exact rules — it is short and it is the authority.
 
 ## Type checking
 
-Type checking lives in its own tox environments rather than in `style`, and `tox.ini` is the
-authority on which checkers are wired up and whether CI currently gates on them. Six are set up side
-by side, with `ty`, pyrefly, pyright and mypy as the gate (CI runs them in the linters job). See
-[type checkers](../typecheckers/index.md) for the plan, and why the repo carries no
-`# type: ignore` markers. runez ships `py.typed`, so its annotations are part of the contract users
-see — treat a type error as a design signal about the signature, not as something to silence with
-an ignore comment.
+Four type checkers gate CI: ty, pyrefly, pyright and mypy. Each has a tox environment named after
+it (`tox -e ty`, ...), checks the whole repo (`src/`, `tests/`, `setup.py`), and is kept at zero
+findings. Their settings live in `pyproject.toml`, their dependencies in `tox.ini`, commented
+wherever a setting isn't obvious.
+
+runez ships `py.typed`, so its annotations are part of the contract users see. A finding is a
+signal about the code: fix it with a better signature, an overload, a declared attribute, rather
+than by silencing the checker.
+
+- No `# type: ignore` markers, in any dialect (`# ty: ignore`, `# pyright: ignore`, ...).
+- `cast()` is silencing too. `assert` is fine where it states a real expectation (mostly in tests).
+- A class of findings that isn't worth acting on gets turned off in config, scoped as narrowly as
+  possible, with a comment saying why (see the overrides for `tests/` and for `runez.schema`,
+  which is on its way out).
+
+tox also has `basedpyright` and `zuban` environments, not run in CI: basedpyright's strict default
+reports thousands of "annotate this" warnings, and zuban is AGPL with a single maintainer. They
+are there as a second opinion.
+
+[typecheck-v5.10.0](../typecheck-v5.10.0.md) records what introducing the checkers found and fixed.
