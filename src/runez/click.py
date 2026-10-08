@@ -9,25 +9,26 @@ Convenience commonly used click options:
         ...
 """
 
+from __future__ import annotations
+
 import argparse
 import errno
 import logging
 import os
 import sys
-import types
-
-try:
-    import click
-
-except ImportError:  # pragma: no cover, click used only if installed
-    click: types.ModuleType = None  # type: ignore[assignment]
+from typing import Any, Callable, TYPE_CHECKING, TypeVar
 
 import runez.config
 from runez.colors import ColorManager
 from runez.convert import affixed
 from runez.file import basename
 from runez.logsetup import LogManager
-from runez.system import _R, find_caller, first_line, flattened, get_version, short, stringified, TempArgv, UNSET
+from runez.system import _R, abort, find_caller, first_line, flattened, get_version, short, stringified, SYS_INFO, TempArgv, UNSET
+
+if TYPE_CHECKING:
+    import click
+
+_FC = TypeVar("_FC", bound="Callable[..., Any] | click.Command")  # What a click option decorates (same as click's own)
 
 
 class Cli:
@@ -55,15 +56,16 @@ class Cli:
             runez.cli.run_cmds()
     """
 
-    color = ("--no-color",)
-    debug = ("--debug", "-v")
-    dryrun = ("--dryrun", "-n")
-    version = ("--version", "-V")
+    # Flags of the common options added by `run_cmds()`, set to `None` to not add that option
+    color: tuple[str, ...] | None = ("--no-color",)
+    debug: tuple[str, ...] | None = ("--debug", "-v")
+    dryrun: tuple[str, ...] | None = ("--dryrun", "-n")
+    version: tuple[str, ...] | None = ("--version", "-V")
     console_format = "%(levelname)s %(message)s"
     console_level = logging.INFO
     default_logger = UNSET
     log_locations = None
-    _prog = None
+    _prog: str | None = None
 
     @classmethod
     def parser(cls, epilog=None, help=None, prog=None):
@@ -113,7 +115,10 @@ class Cli:
         from runez.render import PrettyTable
 
         caller = find_caller()
-        package = caller.package_name  # Will fail if no caller could be found (intentional)
+        if caller is None:
+            abort("Could not determine caller of run_cmds()")
+
+        package = caller.package_name
         available_commands = {}
         for name, func in caller.globals(prefix="cmd_"):
             name = name[4:].replace("_", "-")
@@ -171,20 +176,26 @@ class Cli:
             sys.exit(1)
 
 
-def command(help=None, width=140, **attrs):
+def command(help=None, width=140, **attrs) -> Callable[[Callable[..., Any]], click.Command]:
     """Same as `@click.command()`, but with common settings (ie: "-h" for help, slightly larger help display)"""
+    import click  # Imported if used (click is an optional dependency)
+
     attrs = settings(help=help, width=width, **attrs)
     return click.command(**attrs)
 
 
-def group(help=None, width=140, **attrs):
+def group(help=None, width=140, **attrs) -> Callable[[Callable[..., Any]], click.Group]:
     """Same as `@click.group()`, but with common settings (ie: "-h" for help, slightly larger help display)"""
+    import click
+
     attrs = settings(help=help, width=width, **attrs)
     return click.group(**attrs)
 
 
-def border(*args, **attrs):
+def border(*args, **attrs) -> Callable[[_FC], _FC]:
     # No docstring, as all the possible values are shown in --help, trivial to guess what this is
+    import click
+
     from runez.render import NAMED_BORDERS  # Imported if used
 
     attrs.setdefault("default", "reddit")
@@ -192,7 +203,7 @@ def border(*args, **attrs):
     return option(border, *args, **attrs)
 
 
-def color(*args, **attrs):
+def color(*args, **attrs) -> Callable[[_FC], _FC]:
     """Use colors (on by default on ttys)"""
     attrs.setdefault("is_flag", "negatable")
     attrs.setdefault("default", None)
@@ -201,7 +212,7 @@ def color(*args, **attrs):
     return option(color, *args, **attrs)
 
 
-def config(*args, **attrs):
+def config(*args, **attrs) -> Callable[[_FC], _FC]:
     """Override configuration"""
     attrs.setdefault("metavar", "KEY=VALUE")
     attrs.setdefault("multiple", True)
@@ -210,7 +221,7 @@ def config(*args, **attrs):
     return option(config, *args, **attrs)
 
 
-def debug(*args, **attrs):
+def debug(*args, **attrs) -> Callable[[_FC], _FC]:
     """Show debugging information"""
     attrs.setdefault("is_flag", True)
     attrs.setdefault("default", None)
@@ -218,7 +229,7 @@ def debug(*args, **attrs):
     return option(debug, *args, **attrs)
 
 
-def dryrun(*args, **attrs):
+def dryrun(*args, **attrs) -> Callable[[_FC], _FC]:
     """Perform a dryrun"""
     attrs.setdefault("is_flag", True)
     attrs.setdefault("default", None)
@@ -227,7 +238,7 @@ def dryrun(*args, **attrs):
     return option(dryrun, *args, **attrs)
 
 
-def log(*args, **attrs):
+def log(*args, **attrs) -> Callable[[_FC], _FC]:
     """Override log file location"""
     attrs.setdefault("metavar", "PATH")
     attrs.setdefault("show_default", False)
@@ -235,8 +246,10 @@ def log(*args, **attrs):
     return option(log, *args, **attrs)
 
 
-def version(*args, **attrs):
+def version(*args, **attrs) -> Callable[[_FC], _FC]:
     """Show the version and exit"""
+    import click
+
     if "version" not in attrs:
         # Ensure 'version' is not None here, otherwise click gets runez version (instead of caller package's version)
         caller = find_caller(need_package=True)
@@ -265,7 +278,7 @@ def settings(help=None, width=140, **attrs):
     return dict(context_settings=context_settings, **attrs)
 
 
-def option(func, *args, **attrs):
+def option(func, *args, **attrs) -> Callable[[_FC], _FC]:
     """
     Args:
         func: Function defining this option
@@ -273,10 +286,12 @@ def option(func, *args, **attrs):
         **attrs: Optional attr overrides provided by caller
 
     Returns:
-        function: Click decorator
+        Click decorator
     """
 
-    def decorator(f):
+    def decorator(f: _FC) -> _FC:
+        import click
+
         name = attrs.pop("name", func.__name__.replace("_", "-"))
         negatable = None
         if attrs.get("is_flag") == "negatable":
@@ -305,35 +320,40 @@ def prettify_epilogs(command, formatter=None):
         command: Command to prettify (along with its sub-commands)
         formatter (callable | None): Optional formatter to invoke on each help/epilog string
     """
-    if click is not None:
-        if isinstance(command, click.Command):
-            help = command.help
-            if help:
-                help = help.strip()
-                if formatter is not None:
-                    help = formatter(help)
+    try:
+        import click
 
-                command.help = help
+    except ImportError:  # pragma: no cover, click used only if installed
+        return
 
-            epilog = command.epilog
-            if epilog is None and help:
-                lines = help.splitlines()
-                first_line = lines.pop(0).strip() if lines else None
-                if first_line and lines:
-                    command.help = first_line
-                    epilog = "\n".join(lines)
-                    if not lines[0]:
-                        epilog = "\b%s" % epilog
+    if isinstance(command, click.Command):
+        help = command.help
+        if help:
+            help = help.strip()
+            if formatter is not None:
+                help = formatter(help)
 
-            if epilog:
-                if formatter is not None:
-                    epilog = formatter(epilog)
+            command.help = help
 
-                command.epilog = epilog
+        epilog = command.epilog
+        if epilog is None and help:
+            lines = help.splitlines()
+            first_line = lines.pop(0).strip() if lines else None
+            if first_line and lines:
+                command.help = first_line
+                epilog = "\n".join(lines)
+                if not lines[0]:
+                    epilog = "\b%s" % epilog
 
-        if isinstance(command, click.Group) and command.commands:
-            for cmd in command.commands.values():
-                prettify_epilogs(cmd, formatter=formatter)
+        if epilog:
+            if formatter is not None:
+                epilog = formatter(epilog)
+
+            command.epilog = epilog
+
+    if isinstance(command, click.Group) and command.commands:
+        for cmd in command.commands.values():
+            prettify_epilogs(cmd, formatter=formatter)
 
 
 def protected_main(main, debug_stacktrace=False, no_stacktrace=None):
@@ -409,7 +429,11 @@ class _ConfigOption:
         self._add_dict(c, self.name, self._get_values(value))
 
         if self.env:
-            env_prefix = self.env if isinstance(self.env, str) else basename(sys.argv[0]).upper()
+            program_name = basename(sys.argv[0])
+            if program_name == "__main__":
+                program_name = SYS_INFO.program_name
+
+            env_prefix = self.env if isinstance(self.env, str) else program_name.upper()
             if not env_prefix.endswith("_"):
                 env_prefix += "_"
 

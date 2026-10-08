@@ -282,6 +282,25 @@ def test_failure(temp_folder, monkeypatch):
         assert "Can't chmod some-file:" in logged.pop()
 
 
+def test_failed_folder_removal(temp_folder, logged, monkeypatch):
+    runez.write("source", "hello")
+    runez.ensure_folder("dest")
+    monkeypatch.setattr(shutil, "rmtree", exception_raiser(OSError("busy")))
+    assert runez.delete("dest", fatal=False) == -1
+    assert "Can't delete dest: busy" in logged.pop()
+
+    assert runez.ensure_folder("dest", clean=True, fatal=False) == -1
+
+    # Same when overwriting an existing destination
+    assert runez.copy("source", "dest", fatal=False) == -1
+    assert "Can't copy source -> dest: busy" in logged.pop()
+    with pytest.raises(runez.system.AbortException):
+        runez.move("source", "dest")
+
+    assert os.path.isdir("dest")
+    assert os.path.exists("source")
+
+
 def test_file_inspection(temp_folder, logged):
     assert runez.touch("sample") == 1
     assert runez.delete("sample") == 1
@@ -375,6 +394,14 @@ def test_file_operations(temp_folder):
     assert os.path.islink("dangling-symlink2")
 
     runez.write("README.md", "hello")
+    runez.write("foobar/source", "prefixed sibling")
+    runez.ensure_folder("foo")
+    runez.symlink("foobar/source", "foo/link")
+    assert os.path.exists("foo/link")
+    assert list(runez.readlines("foo/link", first=1, fatal=True)) == ["prefixed sibling"]
+    assert runez.copy("foobar/source", "foo/copied") == 1
+    assert list(runez.readlines("foo/copied", first=1, fatal=True)) == ["prefixed sibling"]
+
     runez.copy("README.md", "sample1/README.md")
     runez.copy("sample1", "sample2")
     runez.move("sample1/README.md", "sample1/foo")

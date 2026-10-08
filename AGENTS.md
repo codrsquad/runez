@@ -24,3 +24,6 @@ runez is a zero-dependency convenience library for Python 3.10+. The repo docs l
   its imports and `__all__` stay in the same order — add exports in both places.
 - runez ships `py.typed`, so annotations are part of the contract. Prefer fixing a signature over
   adding an ignore comment.
+- `ty`, `pyrefly`, `pyright` and `mypy` check the whole repo in CI and are kept at zero
+  (`tox -e ty`, ...). No `# type: ignore` markers of any dialect, ever — see
+  [type checking](./docs/ci/code-quality.md#type-checking).

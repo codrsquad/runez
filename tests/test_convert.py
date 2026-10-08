@@ -162,6 +162,13 @@ def test_tabulated_docker_ps():
     ]
 
 
+def valid_float(text) -> float:
+    """Float parsed from 'text', which must be valid"""
+    value = runez.to_float(text)
+    assert value is not None, "'%s' should be a valid float" % text
+    return value
+
+
 def test_to_float():
     assert runez.to_float(None) is None
     assert runez.to_float("foo") is None
@@ -174,10 +181,10 @@ def test_to_float():
     assert runez.to_float("+135.057E+4") == 1350570.0
     assert runez.to_float("-135000.5e-3") == -135.0005
 
-    assert math.isnan(runez.to_float("nan"))
-    assert math.isinf(runez.to_float("inf"))
-    assert math.isinf(runez.to_float(".inf"))
-    assert math.isinf(runez.to_float("-.inf"))
+    assert math.isnan(valid_float("nan"))
+    assert math.isinf(valid_float("inf"))
+    assert math.isinf(valid_float(".inf"))
+    assert math.isinf(valid_float("-.inf"))
 
     assert isinstance(runez.to_float("15"), float)
     assert isinstance(runez.to_float("15", lenient=True), int)

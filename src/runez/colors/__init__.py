@@ -36,8 +36,7 @@ class ActivateColors:
         ColorManager.activate_colors(self.enable, flavor=self.flavor)
 
     def __exit__(self, *_):
-        if self.prev is not None:
-            ColorManager.backend, ColorManager.bg, ColorManager.fg, ColorManager.style = self.prev
+        ColorManager.backend, ColorManager.bg, ColorManager.fg, ColorManager.style = self.prev
 
 
 class PlainBackend:
@@ -176,7 +175,7 @@ class Renderable:
     def __repr__(self):
         return self.name
 
-    def __call__(self, text: str, size=None) -> str:
+    def __call__(self, text: object, size=None) -> str:
         """
         Allows for convenient call of the form:
 
@@ -216,12 +215,31 @@ class NamedColors(NamedRenderables):
     """Set of registered named colors"""
 
     __slots__ = ("black", "blue", "brown", "gray", "green", "orange", "plain", "purple", "red", "teal", "white", "yellow")
+    black: Renderable
+    blue: Renderable
+    brown: Renderable
+    gray: Renderable
+    green: Renderable
+    orange: Renderable
+    plain: Renderable
+    purple: Renderable
+    red: Renderable
+    teal: Renderable
+    white: Renderable
+    yellow: Renderable
 
 
 class NamedStyles(NamedRenderables):
     """Set of registered named styles"""
 
     __slots__ = ("blink", "bold", "dim", "invert", "italic", "strikethrough", "underline")
+    blink: Renderable
+    bold: Renderable
+    dim: Renderable
+    invert: Renderable
+    italic: Renderable
+    strikethrough: Renderable
+    underline: Renderable
 
 
 # Initialize ColorManager with plain defaults (overridden by activate_colors() at import time)

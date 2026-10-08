@@ -20,9 +20,9 @@ Usage:
 import logging
 import threading
 import time
-from typing import ClassVar, List
+from typing import ClassVar
 
-from runez.system import ltattr
+from runez.system import _R, ltattr
 
 DEFAULT_FREQUENCY = 60
 
@@ -38,7 +38,7 @@ class HeartbeatTask:
         """
         self.name = name or self.__class__.__name__
         self.frequency = frequency or DEFAULT_FREQUENCY
-        self.next_execution = 0  # Internal epoch when next execution of this task is due
+        self.next_execution: float = 0  # Internal epoch when next execution of this task is due
 
     def execute(self):
         """Execute this task.
@@ -71,12 +71,12 @@ class Heartbeat:
     - refreshing data from a remote server
     """
 
-    tasks: ClassVar[List[HeartbeatTask]] = []  # of task, to be periodically called
+    tasks: ClassVar[list[HeartbeatTask]] = []  # of task, to be periodically called
 
     _lock = threading.Lock()
     _thread = None  # Background daemon thread used to periodically execute the tasks
     _last_execution: float = 0  # Epoch when last task execution completed
-    _sleep_delay = 1  # How many seconds we're currently sleeping until next task
+    _sleep_delay: float = 1  # How many seconds we're currently sleeping until next task
 
     @classmethod
     def start(cls):
@@ -106,7 +106,8 @@ class Heartbeat:
         with cls._lock:
             if not isinstance(task, HeartbeatTask):
                 t = HeartbeatTask(name=task.__name__, frequency=frequency)
-                t.execute, task = task, t
+                _R.monkeypatch(t, execute=task)
+                task = t
 
             if frequency:
                 task.frequency = frequency

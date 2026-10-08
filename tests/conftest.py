@@ -1,3 +1,4 @@
+import importlib.util
 import os
 
 import pytest
@@ -11,6 +12,9 @@ from runez.system import CaptureOutput, short
 
 # Re-export fixtures so pytest discovers them, and ruff knows they're intentional
 __all__ = ["cli", "logged", "temp_folder"]
+
+# click is an optional dependency, its tests run only when it's installed (see tox env 'py314-no-click')
+collect_ignore = [] if importlib.util.find_spec("click") else ["test_click.py"]
 
 ClickRunner.default_main = main
 GlobalHttpCalls.forbid()
@@ -46,9 +50,10 @@ class TempLog:
         return content.strip()
 
     def expect_logged(self, *expected):
-        assert self.logfile, "Logging to a file was not setup"
+        file_handler = LogManager.file_handler
+        assert file_handler, "Logging to a file was not setup"
         remaining = set(expected)
-        with open(LogManager.file_handler.baseFilename, "rt") as fh:
+        with open(file_handler.baseFilename, "rt") as fh:
             for line in fh:
                 found = [msg for msg in remaining if msg in line]
                 remaining.difference_update(found)
@@ -71,7 +76,7 @@ def temp_log():
         yield TempLog(tracked)
 
 
-def exception_raiser(exc=Exception):
+def exception_raiser(exc: BaseException | type[BaseException] = Exception):
     def _raise(*_, **__):
         raise exc
 

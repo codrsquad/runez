@@ -31,11 +31,13 @@ of preview into a prefix that is already selected — pick `"B"` and you get whi
 exist in whatever ruff version happens to install. CI installs its tools fresh on every run, so
 that is a live path to a build breaking with no commit behind it.
 
-The mitigation is pinning the tool versions in `tox.ini`. Check what is actually pinned there
-before assuming; if a build fails on a rule nobody added, compare the ruff version first.
+The usual mitigation is pinning the tool versions in `tox.ini`. This repo deliberately doesn't: a
+build that breaks on a rule nobody added is a forced heads-up, dealt with the next time runez is
+worked on, rather than something to hold back by bumping pins by hand. If a build fails with no
+commit behind it, compare the tool versions first. Pin a tool if that ever becomes annoying.
 
-The same reasoning applies to the type-checker environments and, more sharply, to anything still
-on a `0.x` version, where behaviour changes between releases are expected rather than exceptional.
+The same goes for the type checkers, ty included. It is still `0.x`, so new releases bring new
+findings more often than ruff does, which is exactly the heads-up wanted.
 
 For the analogous problem one layer up — GitHub Actions updating themselves — see
 [GitHub Actions versions](./github-actions.md).
@@ -57,7 +59,23 @@ the exact rules — it is short and it is the authority.
 
 ## Type checking
 
-Type checking lives in its own tox environment rather than in `style`, and `tox.ini` is the
-authority on which checkers are wired up and whether CI currently gates on them. runez ships
-`py.typed`, so its annotations are part of the contract users see — treat a type error as a design
-signal about the signature, not as something to silence with an ignore comment.
+Four type checkers gate CI: ty, pyrefly, pyright and mypy. Each has a tox environment named after
+it (`tox -e ty`, ...), checks the whole repo (`src/`, `tests/`, `setup.py`), and is kept at zero
+findings. Their settings live in `pyproject.toml`, their dependencies in `tox.ini`, commented
+wherever a setting isn't obvious.
+
+runez ships `py.typed`, so its annotations are part of the contract users see. A finding is a
+signal about the code: fix it with a better signature, an overload, a declared attribute, rather
+than by silencing the checker.
+
+- No `# type: ignore` markers, in any dialect (`# ty: ignore`, `# pyright: ignore`, ...).
+- `cast()` is silencing too. `assert` is fine where it states a real expectation (mostly in tests).
+- A class of findings that isn't worth acting on gets turned off in config, scoped as narrowly as
+  possible, with a comment saying why (see the overrides for `tests/` and for `runez.schema`,
+  which is on its way out).
+
+tox also has `basedpyright` and `zuban` environments, not run in CI: basedpyright's strict default
+reports thousands of "annotate this" warnings, and zuban is AGPL with a single maintainer. They
+are there as a second opinion.
+
+[typecheck-v5.10.0](../typecheck-v5.10.0.md) records what introducing the checkers found and fixed.

@@ -21,6 +21,7 @@ from runez.system import abort, abort_if, cached_property, OptionalColor, uncolo
 from runez.system import Anchored, CaptureOutput, CurrentFolder, OverrideDryrun, TempArgv, TrackedOutput
 from runez.system import capped, decode, DEV, flattened, joined, quoted, resolved_path, short, stringified, SYS_INFO
 from runez.system import first_line, get_version, is_basetype, is_iterable, ltattr
+from runez.system import DryrunSpec, FatalSpec, LoggerSpec
 
 __all__ = [  # noqa: RUF022, grouped and sorted by provenance module
     "DRYRUN",
@@ -41,7 +42,8 @@ __all__ = [  # noqa: RUF022, grouped and sorted by provenance module
     "abort", "abort_if", "cached_property", "OptionalColor", "uncolored", "Undefined", "UNSET", "wcswidth",
     "Anchored", "CaptureOutput", "CurrentFolder", "OverrideDryrun", "TempArgv", "TrackedOutput",
     "capped", "decode", "DEV", "flattened", "joined", "quoted", "resolved_path", "short", "stringified", "SYS_INFO",
-    "first_line", "get_version", "is_basetype", "is_iterable", "ltattr"
+    "first_line", "get_version", "is_basetype", "is_iterable", "ltattr",
+    "DryrunSpec", "FatalSpec", "LoggerSpec",
 ]
 
 # fmt: on

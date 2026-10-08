@@ -2,6 +2,62 @@
 History
 =======
 
+5.10.0 (2026-10-08)
+-------------------
+
+* Type-checking cleanup (driven by ``ty``), with fixes found along the way:
+
+  * ``Version`` comparisons no longer raise ``TypeError`` for versions parsed with different ``max_parts``,
+    and ``post``/``rev``/``r`` releases now compare equal (they are equivalent PEP-440 spellings)
+
+  * ``abort()`` overloads simplified, its return type now follows ``fatal`` and ``return_value``
+
+  * ``runez.system.AbortException = SystemExit`` and setting ``runez.date.DEFAULT_TIMEZONE`` no longer upset type checkers
+
+  * ``runez.click`` imports ``click`` only where needed (clear ``ModuleNotFoundError`` when it's not installed)
+
+  * ``Configuration.provider_by_name()`` no longer raises ``AttributeError`` when a non-dict provider (like ``propsfs``) is present
+
+  * ``runez.timezone()`` accepts ``name=`` as a keyword argument (used to raise ``TypeError``)
+
+  * ``RestClient.mock()`` (decorator or context manager) and ``to_epoch()`` now have precise signatures
+
+  * New public type aliases ``FatalSpec``, ``LoggerSpec`` and ``DryrunSpec``, used by every ``fatal=``, ``logger=``
+    and ``dryrun=`` parameter (pyright used to reject e.g. ``logger=None`` where the default was ``False``)
+
+* Edge-case fixes:
+
+  * ``delete()``, and ``copy()``/``move()`` when overwriting, report failures in non-fatal mode
+    (instead of leaving the folder behind, or raising)
+
+  * Path containment checks (``copy()``, ``move()``, ``symlink()``, venv detection) no longer match on a string prefix
+    (``foo`` vs ``foobar``)
+
+  * ``SYS_INFO.program_name`` is the package name when running via ``python -m`` (it was ``__main__``)
+
+  * ``runez.timezone().dst()`` returns zero (it returned the UTC offset)
+
+* Fixed the ``github`` table border (separator row was missing its outer pipes)
+
+* ``RunResult.output`` and ``.error`` are now always a ``str`` (they were ``None`` when nothing was captured)
+
+* Removed (unused) ``RestClient`` caching: ``CacheWrapper``, ``RestClient.std_diskcache()`` and ``RestClient(cache=...)``
+
+* Removed py2-era ``runez.serialize.add_metaclass()`` and ``add_meta()``, use ``metaclass=MetaInjector`` instead
+
+
+5.9.1 (2026-05-05)
+------------------
+
+* ``freethreading`` is now always a ``bool`` (in ``PythonSpec``, and in python installation inspection)
+
+
+5.9.0 (2026-04-29)
+------------------
+
+* ``PythonInstallation.mm_spec`` now retains freethreading (e.g. ``cpython:3.14t``)
+
+
 5.8.0 (2026-04-21)
 ------------------
 

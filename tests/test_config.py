@@ -63,6 +63,8 @@ def test_samples(temp_log):
     config.add(runez.config.PropsfsProvider(SAMPLES))
     assert str(config) == "propsfs"
     assert "Adding config provider propsfs" in temp_log.tracked.pop()
+    assert config.provider_by_name("propsfs") is config.providers[0]
+    assert config.provider_by_name("foo") is None
 
     assert config.get_str("non-existent") is None
     assert not temp_log.tracked

@@ -1,11 +1,11 @@
 import datetime
 import time
-from typing import ClassVar
+from typing import ClassVar, overload
 
-from runez.convert import _float_from_text
+from runez.convert import _float_from_text, to_float
 from runez.system import _R, stringified, UNSET
 
-DEFAULT_TIMEZONE = None
+DEFAULT_TIMEZONE: datetime.tzinfo | None = None  # Used when no explicit timezone is given, can be set globally (eg: to UTC)
 SECONDS_IN_ONE_MINUTE = 60
 SECONDS_IN_ONE_HOUR = 60 * SECONDS_IN_ONE_MINUTE
 SECONDS_IN_ONE_DAY = 24 * SECONDS_IN_ONE_HOUR
@@ -23,9 +23,9 @@ class timezone(datetime.tzinfo):
     Supported timezone are simply: UTC, and explicit offsets like +01:00
     """
 
-    __singletons: ClassVar = {}  # Cached timezone objects per offset
+    __singletons: ClassVar[dict[datetime.timedelta, "timezone"]] = {}  # Cached timezone objects per offset
 
-    def __new__(cls, offset, *_):
+    def __new__(cls, offset, *_, **__):
         existing = cls.__singletons.get(offset)
         if existing is None:
             existing = super().__new__(cls)
@@ -62,7 +62,7 @@ class timezone(datetime.tzinfo):
         return self.name
 
     def dst(self, *_):
-        return self.offset
+        return datetime.timedelta(0)
 
 
 UTC = timezone(datetime.timedelta(0), "UTC")
@@ -290,15 +290,23 @@ def to_datetime(value, tz=UNSET):
         return datetime.datetime(value.year, value.month, value.day, tzinfo=timezone_from_text(tz))
 
 
-def to_epoch(date, in_ms=False, tz=UTC):
+@overload
+def to_epoch(date: datetime.date, in_ms: bool = False, tz: datetime.tzinfo | None = UTC) -> float: ...
+
+
+@overload
+def to_epoch(date: None, in_ms: bool = False, tz: datetime.tzinfo | None = UTC) -> None: ...
+
+
+def to_epoch(date: datetime.date | None, in_ms: bool = False, tz: datetime.tzinfo | None = UTC) -> float | None:
     """
     Args:
-        date (datetime.date | datetime.datetime | None): Date to convert to epoch
-        in_ms (bool): If True, return epoch in milliseconds
-        tz (datetime.tzinfo | None): Timezone to use for non-datetime `date`-s received
+        date: Date to convert to epoch
+        in_ms: If True, return epoch in milliseconds
+        tz: Timezone to use for non-datetime `date`-s received
 
     Returns:
-        (int): Epoch in seconds
+        Epoch in seconds (or milliseconds if `in_ms`), None if no `date` was given
     """
     if date:
         if not isinstance(date, datetime.datetime):
@@ -311,14 +319,22 @@ def to_epoch(date, in_ms=False, tz=UTC):
         return ep
 
 
-def to_epoch_ms(date, tz=UTC):
+@overload
+def to_epoch_ms(date: datetime.date, tz: datetime.tzinfo | None = UTC) -> float: ...
+
+
+@overload
+def to_epoch_ms(date: None, tz: datetime.tzinfo | None = UTC) -> None: ...
+
+
+def to_epoch_ms(date: datetime.date | None, tz: datetime.tzinfo | None = UTC) -> float | None:
     """
     Args:
-        date (datetime.date | datetime.datetime): Date to convert to epoch
-        tz (datetime.tzinfo | None): Timezone to use for non-datetime `date`-s received
+        date: Date to convert to epoch
+        tz: Timezone to use for non-datetime `date`-s received
 
     Returns:
-        (int): Epoch in seconds
+        Epoch in milliseconds, None if no `date` was given
     """
     return to_epoch(date, in_ms=True, tz=tz)
 
@@ -348,6 +364,10 @@ def to_seconds(duration):
 
     m = _R.lc.rx_duration.match(duration)
     if not m:
+        v = to_float(duration)
+        if v is not None:
+            return v
+
         dt = to_datetime(duration)
         if dt is not None:
             return elapsed(dt)
@@ -403,7 +423,7 @@ def _date_from_components(components, tz=UNSET):
         hh = int(hh)
         mm = int(mm)
         ss = int(ss)
-        sf = round(float(sf or 0) * 1000000)
+        sf = min(round(float(sf or 0) * 1000000), 999999)
         return datetime.datetime(y, m, d, hh, mm, ss, sf, timezone_from_text(ctz or tz))
 
     except (ValueError, TypeError):

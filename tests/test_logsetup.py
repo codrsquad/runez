@@ -8,6 +8,7 @@ from unittest.mock import patch
 import pytest
 
 import runez
+import runez.logsetup
 from runez.ascii import AsciiAnimation, AsciiFrames
 from runez.conftest import WrappedHandler
 from runez.logsetup import _formatted_text, formatted, LogSpec
@@ -507,6 +508,7 @@ def test_setup(temp_log, monkeypatch):
         monkeypatch.setenv("SOME_ENV_VAR", "1")
         runez.log.setup(debug=True, console_format="%(levelname)s - %(message)s", trace="SOME_ENV_VAR+... ")
         assert runez.log.debug
+        assert runez.log.console_handler is not None
         assert runez.log.console_handler.level == logging.DEBUG
         logging.debug("hello")
         runez.log.trace("some trace info")
@@ -579,6 +581,7 @@ def test_progress_frames(monkeypatch):
     assert AsciiAnimation.predefined("foo") is None
     assert AsciiAnimation.predefined("random")
     off = AsciiAnimation.predefined("off")
+    assert off is not None
     assert off.frames is None
     assert str(off) == "off"
     names = AsciiAnimation.available_names()
@@ -714,7 +717,7 @@ def sample_function1(message):
     print(message)
 
 
-@runez.log.timeit("sample2", color=True, logger=print)
+@runez.log.timeit("sample2", color="blue", logger=print)
 def sample_function2(message):
     print(message)
 

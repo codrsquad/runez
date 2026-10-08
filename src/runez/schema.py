@@ -306,14 +306,6 @@ class Struct(Any):
     def meta(self):
         return self.__class__._meta
 
-    @property
-    def default(self):
-        return self._default
-
-    @default.setter
-    def default(self, value):
-        self._default = value
-
     def to_dict(self):
         """
         Returns:
