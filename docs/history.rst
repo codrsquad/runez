@@ -12,13 +12,18 @@ History
 
   * ``abort()`` overloads simplified, its return type now follows ``fatal`` and ``return_value``
 
-  * ``runez.system.AbortException = SystemExit`` no longer upsets type checkers
+  * ``runez.system.AbortException = SystemExit`` and setting ``runez.date.DEFAULT_TIMEZONE`` no longer upset type checkers
 
   * ``runez.click`` imports ``click`` only where needed (clear ``ModuleNotFoundError`` when it's not installed)
 
   * ``Configuration.provider_by_name()`` no longer raises ``AttributeError`` when a non-dict provider (like ``propsfs``) is present
 
   * ``runez.timezone()`` accepts ``name=`` as a keyword argument (used to raise ``TypeError``)
+
+  * ``RestClient.mock()`` (decorator or context manager) and ``to_epoch()`` now have precise signatures
+
+  * New public type aliases ``FatalSpec``, ``LoggerSpec`` and ``DryrunSpec``, used by every ``fatal=``, ``logger=``
+    and ``dryrun=`` parameter (pyright used to reject e.g. ``logger=None`` where the default was ``False``)
 
 * Fixed the ``github`` table border (separator row was missing its outer pipes)
 

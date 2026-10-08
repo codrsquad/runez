@@ -53,24 +53,37 @@ class Undefined:
 # Typed as Any so that pyright doesn't constrain parameter types when UNSET is used as a default value
 UNSET: Any = Undefined()
 
+# Shared IO parameters, they have the same meaning in every runez function that accepts them
+# fatal: True: abort execution on failure (or raise given exception type), False: don't abort but log, None: don't abort, don't log
+FatalSpec = bool | type[BaseException] | None
+# logger: Logger to use, True to print(), False to trace(), None to disable log chatter, int: log level, UNSET: function's default
+LoggerSpec = Callable | bool | int | None | Undefined
+# dryrun: Optionally override current dryrun setting, UNSET: use current setting
+DryrunSpec = bool | Undefined | None
+
 
 @overload  # definitely fatal: fatal omitted, True, or an exception type
 def abort(
-    message, code=1, exc_info=None, return_value=None, *, fatal: Literal[True] | type[BaseException] = True, logger=UNSET, stacklevel=1
+    message,
+    code=1,
+    exc_info=None,
+    return_value=None,
+    *,
+    fatal: Literal[True] | type[BaseException] = True,
+    logger: LoggerSpec = UNSET,
+    stacklevel=1,
 ) -> NoReturn: ...
 @overload  # anything else, no return_value
-def abort(message, code=1, exc_info=None, *, fatal: bool | type[BaseException] | None, logger=UNSET, stacklevel=1) -> None: ...
+def abort(message, code=1, exc_info=None, *, fatal: FatalSpec, logger: LoggerSpec = UNSET, stacklevel=1) -> None: ...
 @overload  # anything else, with return_value
-def abort(
-    message, code=1, exc_info=None, *, return_value: _T, fatal: bool | type[BaseException] | None, logger=UNSET, stacklevel=1
-) -> _T: ...
+def abort(message, code=1, exc_info=None, *, return_value: _T, fatal: FatalSpec, logger: LoggerSpec = UNSET, stacklevel=1) -> _T: ...
 def abort(
     message,
     code=1,
     exc_info=None,
     return_value: _T | None = None,
-    fatal: bool | type[BaseException] | None = True,
-    logger=UNSET,
+    fatal: FatalSpec = True,
+    logger: LoggerSpec = UNSET,
     stacklevel=1,
 ) -> _T | None:
     """General wrapper for optionally fatal calls
@@ -104,8 +117,8 @@ def abort(
         code (int): Exit code used when runez.system.AbortException is set to SystemExit
         exc_info (BaseException): Exception info to pass on to logger
         return_value (Any): Value to return when `fatal` is not True
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), None to disable log chatter
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), None to disable log chatter
         stacklevel (int): Stack level for logging
 
     Returns:
@@ -134,7 +147,7 @@ def abort(
     return return_value
 
 
-def abort_if(condition, message=None, code=1, exc_info=None, logger=UNSET, stacklevel=1):
+def abort_if(condition, message=None, code=1, exc_info=None, logger: LoggerSpec = UNSET, stacklevel=1):
     """Abort if 'condition' is True-ish
 
     Args:
@@ -142,7 +155,7 @@ def abort_if(condition, message=None, code=1, exc_info=None, logger=UNSET, stack
         message (str): Message explaining why we're aborting (default: 'condition', which should be a string then).
         code (int): Exit code used when runez.system.AbortException is set to SystemExit.
         exc_info (Exception): Exception info to pass on to logger.
-        logger (callable | bool | None): Logger to use, True to print(), None to disable log chatter.
+        logger: Logger to use, True to print(), None to disable log chatter.
         stacklevel (int): Stack level for logging
     """
     if condition:
@@ -386,13 +399,13 @@ def flattened(*value, keep_empty: str | bool | None = False, split=None, shellif
     return result
 
 
-def get_version(mod, default="0.0.0", fatal=False, logger: bool | Callable | None = False):
+def get_version(mod, default="0.0.0", fatal: FatalSpec = False, logger: LoggerSpec = False):
     """
     Args:
         mod (module | str): Module, or module name to find version for (pass either calling module, or its .__name__)
         default (str): Value to return if version determination fails
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
 
     Returns:
         (str | None): Determined version
@@ -569,17 +582,25 @@ def quoted(*items, delimiter=" ", adapter=UNSET, keep_empty=True, strip=None, st
     return delimiter.join(result)
 
 
-def resolved_path(path: str | Path, base=None) -> str:
+@overload
+def resolved_path(path: None, base: str | Path | None = None) -> None: ...
+
+
+@overload
+def resolved_path(path: str | Path, base: str | Path | None = None) -> str: ...
+
+
+def resolved_path(path: str | Path | None, base: str | Path | None = None) -> str | None:
     """
     Args:
         path: Path to resolve
-        base (str | Path | None): Base path to use to resolve relative paths (default: current working dir)
+        base: Base path to use to resolve relative paths (default: current working dir)
 
     Returns:
-        (str): Absolute path
+        Absolute path, `None` and empty string are returned as-is
     """
     if not path:
-        return ""
+        return None if path is None else ""
 
     path = os.path.expanduser(path)
     if base and not os.path.isabs(path):
@@ -825,14 +846,14 @@ class CaptureOutput:
 
     _capture_stack: ClassVar[list[CapturedStream]] = []  # Shared across all objects, tracks possibly nested CaptureOutput buffers
 
-    def __init__(self, stdout=True, stderr=True, anchors=None, dryrun=UNSET, seed_logging=False, trace=False):
+    def __init__(self, stdout=True, stderr=True, anchors=None, dryrun: DryrunSpec = UNSET, seed_logging=False, trace=False):
         """Context manager allowing to temporarily grab stdout/stderr/log output.
 
         Args:
             stdout (bool): Capture stdout?
             stderr (bool): Capture stderr?
             anchors (str | Path | list | None): Optional paths to use as anchors for `runez.short()`
-            dryrun (bool): Optionally override current dryrun setting
+            dryrun: Optionally override current dryrun setting
             seed_logging (bool): If True, ensure there is at least one logging handler configured
             trace (bool): If True, enable tracing
         """
@@ -902,7 +923,7 @@ class CaptureOutput:
 class CurrentFolder:
     """Context manager for changing the current working directory"""
 
-    def __init__(self, destination, anchor=False):
+    def __init__(self, destination: str | Path, anchor=False):
         self.anchor = anchor
         self.destination = resolved_path(destination)
         self.current_folder = None
@@ -926,7 +947,7 @@ class CurrentFolder:
 class OverrideDryrun:
     """Context manager to temporarily override dryrun mode"""
 
-    def __init__(self, dryrun):
+    def __init__(self, dryrun: DryrunSpec):
         self.dryrun = dryrun
 
     def __enter__(self):
@@ -1450,7 +1471,7 @@ class SystemInfo:
         """Info on currently running process"""
         return _R.lc.rm.program.PsInfo()
 
-    def diagnostics(self, argv=UNSET, exe=True, platform=True, term=UNSET, userid=UNSET, version=UNSET, via=" ⚡ "):
+    def diagnostics(self, argv=UNSET, exe=True, platform=True, term=UNSET, userid=UNSET, version=UNSET, via: str | None = " ⚡ "):
         """Usable by runez.render.PrettyTable.two_column_diagnostics()"""
         if platform:
             yield "platform", "%s [%s]" % (_R.colored(self.platform_id, "bold"), self.platform_info)
@@ -2044,13 +2065,13 @@ class _R:
         return joined(getattr(module, "__version__", None) or getattr(module, "VERSION", None), delimiter=".")
 
     @classmethod
-    def habort(cls, default, fatal, logger, message, exc_info=None):
+    def habort(cls, default, fatal: FatalSpec, logger: LoggerSpec, message, exc_info=None):
         """Handle optional abort
 
         Args:
             default: Default value to return, if 'fatal' is False
-            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+            fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger: Logger to use, True to print(), False to trace(), None to disable log chatter
             message (str): Message explaining failure
             exc_info (Exception): Exception, if this comes from a try/except block
 
@@ -2062,7 +2083,7 @@ class _R:
         return default
 
     @classmethod
-    def hdry(cls, dryrun, logger, message):
+    def hdry(cls, dryrun: DryrunSpec, logger: LoggerSpec, message):
         if cls.resolved_dryrun(dryrun):
             if logger is not None and message is not None:
                 message = "Would %s" % cls.actual_message(message)
@@ -2078,13 +2099,13 @@ class _R:
             return True
 
     @classmethod
-    def hlog(cls, logger, message, exc_info=None, stacklevel=2):
+    def hlog(cls, logger: LoggerSpec, message, exc_info=None, stacklevel=2):
         """Handle optional logging calls via 'logger=' for IO-related non-returning-content functions, making them consistent.
         This allows to have less repeated code out there, find all places where we do this,
         and ensure they all respect the same convention.
 
         Args:
-            logger (callable | bool | int | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+            logger: Logger to use, True to print(), False to trace(), None to disable log chatter
             message (str | callable): Message to log
             exc_info: Optional exception info to pass through to logger
         """
@@ -2133,10 +2154,10 @@ class _R:
         return default_value if value is UNSET else value
 
     @classmethod
-    def resolved_dryrun(cls, dryrun):
+    def resolved_dryrun(cls, dryrun: DryrunSpec):
         """
         Args:
-            dryrun (bool | Undefined | None): Optionally overridden current dryrun setting
+            dryrun: Optionally overridden current dryrun setting
 
         Returns:
             (bool): Resolved value for dryrun
@@ -2147,11 +2168,11 @@ class _R:
         return dryrun
 
     @classmethod
-    def set_dryrun(cls, dryrun):
+    def set_dryrun(cls, dryrun: DryrunSpec):
         """Set runez.DRYRUN, and return its previous value (useful for context managers)
 
         Args:
-            dryrun (bool | UNSET): New value for runez.DRYRUN
+            dryrun: New value for runez.DRYRUN
 
         Returns:
             (bool): Old values for dryrun
@@ -2276,7 +2297,7 @@ def _prettified(value):
     return value
 
 
-def _show_abort_message(message, exc_info, fatal, logger, stacklevel):
+def _show_abort_message(message, exc_info, fatal: FatalSpec, logger: LoggerSpec, stacklevel):
     if logger is not None:
         if logging.root.handlers:
             _R.hlog(logger, message, exc_info=exc_info if fatal else None, stacklevel=stacklevel + 1)

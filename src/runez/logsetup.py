@@ -23,8 +23,10 @@ from runez.system import (
     abort_if,
     cached_property,
     DEV,
+    DryrunSpec,
     find_caller,
     flattened,
+    LoggerSpec,
     OptionalColor,
     quoted,
     short,
@@ -647,7 +649,7 @@ class Timeit:
 
     function_name: str | None = None
 
-    def __init__(self, function=None, color: OptionalColor = "bold", logger=UNSET, fmt="{function} took {elapsed}"):
+    def __init__(self, function=None, color: OptionalColor = "bold", logger: LoggerSpec = UNSET, fmt="{function} took {elapsed}"):
         self.__func__ = None
         self.start_time: float = 0
         self.color = color
@@ -779,7 +781,7 @@ class LogManager:
         return cls.debug
 
     @classmethod
-    def set_dryrun(cls, dryrun):
+    def set_dryrun(cls, dryrun: DryrunSpec):
         """Useful only as simple callback function, use runez.log.setup() for regular usage"""
         _R.set_dryrun(dryrun)
         return _R.is_dryrun()
@@ -794,7 +796,7 @@ class LogManager:
     def setup(
         cls,
         debug=UNSET,
-        dryrun=UNSET,
+        dryrun: DryrunSpec = UNSET,
         level=UNSET,
         clean_handlers=UNSET,
         greetings=UNSET,
@@ -820,7 +822,7 @@ class LogManager:
         """
         Args:
             debug (bool): Enable debug level logging (overrides other specified levels)
-            dryrun (bool): Enable dryrun
+            dryrun: Enable dryrun
             level (int | None): Shortcut to set both `console_level` and `file_level` at once
             clean_handlers (bool): Remove any existing logging.root.handlers
             greetings (str | None): Optional greetings message(s) to log
@@ -1024,10 +1026,10 @@ class LogManager:
         return prior
 
     @classmethod
-    def resolved_dryrun(cls, dryrun):
+    def resolved_dryrun(cls, dryrun: DryrunSpec):
         """
         Args:
-            dryrun (bool | runez.Undefined | None): Optionally overridden current dryrun setting
+            dryrun: Optionally overridden current dryrun setting
 
         Returns:
             (bool): Resolved value for dryrun
@@ -1047,7 +1049,7 @@ class LogManager:
                 cls.tracer.trace(message)
 
     @classmethod
-    def hdry(cls, message, dryrun=UNSET, logger=UNSET):
+    def hdry(cls, message, dryrun: DryrunSpec = UNSET, logger: LoggerSpec = UNSET):
         """Handle dryrun, allows to handle dryrun=UNSET with a code pattern of the form:
 
             if runez.log.hdry("it was a dryrun"):
@@ -1055,8 +1057,8 @@ class LogManager:
 
         Args:
             message (str | callable | None): Message to log
-            dryrun (bool | UNSET | None): Optionally override current dryrun setting
-            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+            dryrun: Optionally override current dryrun setting
+            logger: Logger to use, True to print(), False to trace(), None to disable log chatter
 
         Returns:
             (bool): True if we were indeed in dryrun mode, and we logged the message

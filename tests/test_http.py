@@ -106,7 +106,7 @@ def test_edge_cases():
 @EXAMPLE.mock({})
 @RestClient.handler.mock
 @EXAMPLE.mock
-@RestClient.handler.mock({})
+@RestClient.handler.mock(None, {})
 def test_files(temp_folder):
     """yolo"""
     # Exercise download code path

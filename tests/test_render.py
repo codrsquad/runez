@@ -87,8 +87,8 @@ def test_diagnostics(monkeypatch):
     assert diag1 == EXPECTED_DIAGNOSTICS.strip("\n")
 
     # Same, but with calling the generators first
-    sections = {"Some section": [data, _diag2()], "Other section": _diag2()}
-    diag1 = PrettyTable.two_column_diagnostics(_diag1(), sections, "some additional text")
+    called_sections = {"Some section": [data, _diag2()], "Other section": _diag2()}
+    diag1 = PrettyTable.two_column_diagnostics(_diag1(), called_sections, "some additional text")
     assert diag1 == EXPECTED_DIAGNOSTICS.strip("\n")
 
     diag2 = PrettyTable.two_column_diagnostics(_diag2(), SYS_INFO.diagnostics())

@@ -19,6 +19,8 @@ class MetaSlotted(metaclass=MetaInjector):
 
 class MetaSlotted2(metaclass=MetaInjector):
     __slots__ = ["name", "surname"]
+    name: str
+    surname: str
 
     @property
     def full_name(self):
@@ -201,7 +203,7 @@ def test_meta(logged):
     assert obj2.sub is not obj.sub
     assert obj2 == obj
 
-    obj2.sub.identifier = "foo"
+    obj2.sub.set_from_dict({"identifier": "foo"})
     assert obj2 != obj
 
     obj2 = SomeSerializable()
@@ -333,10 +335,12 @@ def test_to_dict(temp_folder):
     with runez.CaptureOutput() as logged:
         # Try with an object that isn't directly serializable, but has a to_dict() function
         data = {"a": "b"}
-        obj = SomeRecord()
-        obj.to_dict = lambda *_: data
 
-        assert runez.save_json(obj, "sample2.json", logger=logging.debug) == 1
+        class Record:
+            def to_dict(self, *_):
+                return data
+
+        assert runez.save_json(Record(), "sample2.json", logger=logging.debug) == 1
         assert "Saved " in logged.pop()
         assert runez.read_json("sample2.json") == data
         assert not logged

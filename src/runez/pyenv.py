@@ -201,7 +201,7 @@ class PythonSpec:
             (str): Textual representation of this spec
         """
         text = self.canonical
-        if compact and (compact is True or self.family in compact):
+        if compact is True or (compact and self.family in compact):
             text = self.version.text
             if self.freethreading:
                 text += "t"

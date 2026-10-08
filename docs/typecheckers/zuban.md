@@ -75,3 +75,30 @@ and makes the order irrelevant.
 | `Struct.default`, a property and setter around `_default` | 1 | zuban bug. The property only passed through the attribute `Any.__init__` sets, so it was removed |
 
 With that, zuban reports nothing on `src/` either.
+
+## On the whole repo
+
+Once `[tool.mypy]` covered `tests/` and `setup.py` (for mypy, which gates in CI), zuban followed,
+with 19 findings. Two things stood out:
+
+- **zuban doesn't use the environment it runs in.** Without `--python-executable`, it reported
+  missing stubs for setuptools while `types-setuptools` was installed in the very tox env running
+  it. Its tox command now passes `--python-executable {envpython}`, much like basedpyright needs
+  `--pythonpath`.
+- **One untyped decorator hides a typed one above it.** With `@runez.click.group()` over
+  `@runez.click.debug()`, zuban gave the decorated function its own signature, as if neither
+  decorator was there, so `@my_group.command()` failed. `group()` was typed, `debug()` was not.
+
+| Finding | Count | Status |
+| --- | --- | --- |
+| `setup.py`: "Library stubs not installed for setuptools", although they were | 1 | fixed: `--python-executable {envpython}` |
+| `@runez.click.group()` over an untyped option decorator, then `@my_group.command()` | 2 | fixed: `runez.click.option()` and the helpers built on it return `Callable[[_FC], _FC]`, like click's own `option()`. Every checker gains from it: they all saw `(f: Unknown) -> Unknown` |
+| Recheck after a call (`assert x is None`, call, `assert x`): the rest of the test "unreachable" | 9 | the basic shape of a test: `warn_unreachable = false` for `tests.*`, as with ty's `redundant-condition` |
+| Schema-style fields compared to `None` (`pp.age is None`, where `age = Date`): "unreachable" | 2 | same override, `runez.schema` is on its way out |
+| `assert runez.abort(..., fatal=False) is None`: "does not return a value" | 1 | asserting the `None` on purpose: `func-returns-value` off for `tests.*` |
+| A test reusing `sections` for a value of another shape | 1 | fixed: second one renamed |
+| A test setting `depot.invoker = None`, where `invoker` is a `PythonInstallation` | 1 | fixed: `monkeypatch.setattr()`. Annotating `invoker` as optional would make `find_python()` possibly return `None`, which isn't its contract |
+| `dt(*args, **kwargs)` calling `datetime(*args, tzinfo=..., **kwargs)`: `*args` could fill `tzinfo` positionally | 1 | left: technically true, and no caller does it |
+| `@classmethod` over `@runez.log.timeit()`: `"Any \| Timeit" not callable` | 1 | left: `Timeit` is both a decorator and a context manager, its `__call__` returns either the result or `self` |
+
+zuban now reports those last 2 on the whole repo, and nothing on `src/`.

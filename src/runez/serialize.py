@@ -11,7 +11,7 @@ import logging
 from typing import Callable, ClassVar
 
 from runez.file import ensure_folder, parent_folder
-from runez.system import _R, abort, is_basetype, is_iterable, resolved_path, short, stringified, UNSET
+from runez.system import _R, abort, DryrunSpec, FatalSpec, is_basetype, is_iterable, LoggerSpec, resolved_path, short, stringified, UNSET
 
 K_INDENTED_SEPARATORS = (",", ": ")
 K_COMPACT_SEPARATORS = (", ", ": ")
@@ -552,13 +552,13 @@ class Serializable(metaclass=MetaInjector):
         return self.__class__.from_dict(self.to_dict())
 
     @classmethod
-    def from_json(cls, path, default=None, fatal=False, logger=False):
+    def from_json(cls, path, default=None, fatal: FatalSpec = False, logger: LoggerSpec = False):
         """
         Args:
             path (str | pathlib.Path): Path to json file
             default (dict | list | str | None): Default if file is not present, or can't be deserialized
-            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+            fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger: Logger to use, True to print(), False to trace(), None to disable log chatter
 
         Returns:
             (cls): Deserialized object
@@ -621,13 +621,13 @@ class Serializable(metaclass=MetaInjector):
         return value
 
 
-def from_json(value, default=None, fatal=False, logger=False):
+def from_json(value, default=None, fatal: FatalSpec = False, logger: LoggerSpec = False):
     """
     Args:
         value (str): Value to deserialize
         default (dict | list | str | None): Default returned if value can't be deserialized
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
 
     Returns:
         (dict | list | str): Deserialized data from file
@@ -646,13 +646,13 @@ def from_json(value, default=None, fatal=False, logger=False):
         return _R.habort(default, fatal, logger, "Can't deserialize json '%s'" % short(value), exc_info=e)
 
 
-def read_json(path, default=None, fatal=False, logger=False):
+def read_json(path, default=None, fatal: FatalSpec = False, logger: LoggerSpec = False):
     """
     Args:
         path (str | pathlib.Path | None): Path to file to deserialize
         default (dict | list | str | None): Default returned if file is not present, or can't be deserialized
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
 
     Returns:
         (dict | list | str): Deserialized data from file
@@ -704,9 +704,9 @@ def save_json(
     none: str | bool = False,
     indent=2,
     sort_keys=True,
-    fatal=True,
-    logger=UNSET,
-    dryrun=UNSET,
+    fatal: FatalSpec = True,
+    logger: LoggerSpec = UNSET,
+    dryrun: DryrunSpec = UNSET,
 ):
     """
     Args:
@@ -720,9 +720,9 @@ def save_json(
               - True: No filtering, keep `None` keys/values as-is
         indent (int | None): Indentation to use, if None: use compact (one line) mode
         sort_keys (bool): Whether keys should be sorted
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool | UNSET | None): Optionally override current dryrun setting
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+        dryrun: Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed

@@ -143,7 +143,9 @@ def test_list():
 
     assert ll.converted([1, "2"]) == [1, 2]
     assert ll.converted((1, 2)) == [1, 2]
-    assert sorted(ll.converted({1, "2"})) == [1, 2]
+    converted = ll.converted({1, "2"})
+    assert converted is not None
+    assert sorted(converted) == [1, 2]
 
 
 def declare_bogus_class():

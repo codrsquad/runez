@@ -253,6 +253,12 @@ def check_process_tree(pinfo, max_depth=10):
         check_process_tree(pinfo.parent, max_depth=max_depth - 1)
 
 
+def ps_info(p: PsInfo) -> dict:
+    """'ps' info of 'p', which must have been found"""
+    assert p.info is not None, "No 'ps' info for pid %s" % p.pid
+    return p.info
+
+
 def test_ps():
     assert PsInfo.from_pid(None) is None
     assert PsInfo.from_pid(0) is None
@@ -264,7 +270,7 @@ def test_ps():
     assert p == PsInfo(os.getpid())
     assert p == PsInfo("%s" % os.getpid())
 
-    info = p.info
+    info = ps_info(p)
     assert info["PID"] in str(p)
     assert p.cmd
     assert p.cmd_basename
@@ -279,10 +285,10 @@ def test_ps():
     userid = p.userid
     p = PsInfo()
     if runez.to_int(info["UID"]) is None:
-        p.info["UID"] = uid
+        ps_info(p)["UID"] = uid
 
     else:
-        p.info["UID"] = userid
+        ps_info(p)["UID"] = userid
 
     assert p.uid == uid
     assert p.userid == userid
@@ -418,7 +424,9 @@ def test_run_description():
     assert audit.run_description(short_exe=True) == "foo/bar -mpip --help"
     assert audit.run_description(short_exe="foo") == "foo -mpip --help"
 
-    cmd = runez.to_path(runez.SYS_INFO.venv_bin_path("foo"))
+    venv_bin = runez.SYS_INFO.venv_bin_path("foo")
+    assert venv_bin
+    cmd = runez.to_path(venv_bin)
     audit = RunAudit(cmd, ["--help"], {})
     assert str(audit) == "foo --help"
     assert audit.run_description() == "foo --help"

@@ -16,18 +16,30 @@ second opinions.
 
 The plan, in stages:
 
-1. **`src/` to zero ty diagnostics**, warnings included. `[tool.ty.src] include = ["src"]` scopes ty
-   to it for now. Done, then the other checkers' reports were mined for what ty can't see, see
-   [pyrefly](./pyrefly.md) and [zuban](./zuban.md).
-2. **`tests/` and the rest of the repo**: drop that `include` and do the same.
-3. **Gate**: add `ty` to `envlist` and to the CI linters job, and pin its version in `tox.ini` (it
-   is pre-1.0, so counts move between releases; see [code quality](../ci/code-quality.md)).
+1. **`src/` to zero ty diagnostics**, warnings included. Done, then the other checkers' reports were
+   mined for what ty can't see, see [pyrefly](./pyrefly.md) and [zuban](./zuban.md).
+2. **`tests/` and the rest of the repo**: done, ty now checks the whole repo. Two rules are relaxed
+   for tests only, via `[[tool.ty.overrides]]` in `pyproject.toml`:
+   - `redundant-condition`: a test checks some state, calls something, and checks again, while ty
+     assumes the call left attributes as they were.
+   - `invalid-assignment`, in `test_schema.py` only: `runez.schema`'s declarative fields can't be
+     typed, and the module is on its way out.
+3. **Gate**: done, `ty` is in `envlist` and in CI, and so are pyrefly, pyright and mypy, which also
+   reach zero on the whole repo. All four are deliberately unpinned, like the other CI tools: a new
+   release that brings new findings is a heads-up to act on (see [code quality](../ci/code-quality.md)).
 
-The other five are not driven to zero. What they report is worth reading when it's a real defect,
-and worth ignoring when it's one engine's opinion. pyrefly in particular infers through unannotated
-code that ty deliberately leaves as `Unknown`, so it keeps finding things after ty goes quiet:
-[pyrefly](./pyrefly.md) tracks those. zuban checks the bodies of unannotated functions that mypy
-skips, see [zuban](./zuban.md).
+Not in CI, on purpose: zuban (AGPL-3.0, and a single maintainer), and basedpyright, which still
+reports findings.
+
+pyrefly earned its place next to ty: it infers through unannotated code that ty deliberately leaves
+as `Unknown`, so it kept finding things after ty went quiet, see [pyrefly](./pyrefly.md).
+pyright did too: it types an unannotated parameter from its default value, so `logger=False` meant
+`logger=None` was an error for every pyright user of runez. That is how the shared `fatal`,
+`logger` and `dryrun` parameters got their `FatalSpec` / `LoggerSpec` / `DryrunSpec` annotations.
+
+The other two are not driven to zero. What they report is worth reading when it's a real defect,
+and worth ignoring when it's one engine's opinion. zuban, for one, checks the bodies of
+unannotated functions that mypy skips, see [zuban](./zuban.md).
 
 ## No ignore markers
 
@@ -66,8 +78,9 @@ pytype was dropped early, see [abandoned](./abandoned.md).
 
 Each checker is its own tox environment named after it: `tox -e ty`, `tox -e pyright`, and so on.
 `tox.ini` and the per-tool sections in `pyproject.toml` are the authority on how each is configured.
-All of them are pointed at `src` and check against the minimum supported Python (ty reads that from
-`[project] requires-python`, the others need it spelled out).
+All six check the whole repo (basedpyright via `[tool.pyright]`, zuban via `[tool.mypy]`), against
+the minimum supported Python (ty reads that from `[project] requires-python`, the others need it
+spelled out).
 
 Three of them read a config section that isn't named after them, which is the easiest way to get a
 number that means something other than it seems:
@@ -82,15 +95,17 @@ number that means something other than it seems:
 - **zuban reads `[tool.mypy]`**, on purpose: same declared rules, different engine.
 
 basedpyright also resolves imports against the project's `./.venv` rather than the tox env it runs
-in, which is why its tox command passes `--pythonpath`. The other five use the tox env.
+in, which is why its tox command passes `--pythonpath`. zuban likewise needs `--python-executable`
+to see the tox env's packages (it reported missing stubs that were installed right there). The
+other four use the tox env.
 
 Snapshot, `src/` only, before stage 1 (on `acf8bcb`) and after it, both on 2026-10-07:
 
 | Checker | Version | Before | After |
 | --- | --- | --- | --- |
-| ty | 0.0.84 | 24 errors, 5 warnings | 0 |
+| ty | 0.0.84 | 24 errors, 5 warnings | 0, on the whole repo too |
 | pyright | 1.1.414 | 9 | 0 |
-| mypy | 2.4.0 | 64 | 3 |
+| mypy | 2.4.0 | 64 | 0 |
 | pyrefly | 1.3.2 | 98 | 0 |
 | basedpyright | 1.40.2 | 124, plus 7698 warnings | 133, plus 7184 warnings |
 | zuban | 0.10.0 | 105 | 0 |
@@ -99,12 +114,14 @@ Snapshot, `src/` only, before stage 1 (on `acf8bcb`) and after it, both on 2026-
 is a single line for one tool and a dozen for another. Before, ty's volume was mostly
 `invalid-assignment`, largely the deliberate monkey-patching.
 
-What remains is left on purpose:
+Config worth knowing about, and what remains:
 
-- **mypy**: a local assigned two functions with different signatures (mypy alone types a local from
-  its first assignment), a narrowing of `compact` it cannot complete, and the missing `psutil`
-  stubs. Its "Missing return statement" is disabled in `[tool.mypy]`: falling off the end of a
-  function to return `None` is fine, and not a type checker's business.
+- **mypy**: two codes are disabled in `[tool.mypy]`. "Missing return statement": falling off the
+  end of a function to return `None` is fine, and not a type checker's business. And the
+  `annotation-unchecked` note, repeated for every annotated function mypy doesn't check. As for the
+  others, `[[tool.mypy.overrides]]` relaxes `test_schema` / `test_serialize` (`runez.schema` is on
+  its way out). It also needs `types-psutil` and `types-setuptools`, where the other checkers make do
+  without stubs.
 - **basedpyright**: its stricter default mode. Mostly uninitialized instance variables (the
   `Slotted` fields, set dynamically) and generics without type arguments (a bare `dict` or
   `Callable`).

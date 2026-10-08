@@ -21,7 +21,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - uses: astral-sh/setup-uv@v10.0.1
+    - uses: astral-sh/setup-uv@v10.2.0
     - run: uvx --with tox-uv tox -e py
 
   linters:
@@ -34,8 +34,21 @@ jobs:
       with:
         python-version: "3.14"
 
-    - uses: astral-sh/setup-uv@v10.0.1
-    - run: uvx --with tox-uv tox -e style
+    - uses: astral-sh/setup-uv@v10.2.0
+    - run: uvx --with tox-uv tox -e style,ty,pyrefly,pyright,mypy
+
+  no-click:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v7
+    - uses: actions/setup-python@v7
+      with:
+        python-version: "3.14"
+
+    - uses: astral-sh/setup-uv@v10.2.0
+    - run: uvx --with tox-uv tox -e py314-no-click
 
   ripple-effect:
 
@@ -48,5 +61,5 @@ jobs:
       with:
         python-version: "3.14"
 
-    - uses: astral-sh/setup-uv@v10.0.1
+    - uses: astral-sh/setup-uv@v10.2.0
     - run: uvx ripple-effect run

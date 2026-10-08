@@ -7,7 +7,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from runez.system import _R, abort, Anchored, flattened, resolved_path, short, SYS_INFO, UNSET
+from runez.system import _R, abort, Anchored, DryrunSpec, FatalSpec, flattened, LoggerSpec, resolved_path, short, SYS_INFO, UNSET
 
 
 def basename(path: str | Path, extension_marker=os.extsep, follow=False) -> str:
@@ -53,17 +53,25 @@ def checksum(path: str | Path, hash=hashlib.sha256, blocksize=65536) -> str:
     return h.hexdigest()
 
 
-def copy(source: str | Path, destination: str | Path, ignore=None, overwrite=True, fatal=True, logger=UNSET, dryrun=UNSET) -> int:
+def copy(
+    source: str | Path,
+    destination: str | Path,
+    ignore=None,
+    overwrite: bool | None = True,
+    fatal: FatalSpec = True,
+    logger: LoggerSpec = UNSET,
+    dryrun: DryrunSpec = UNSET,
+) -> int:
     """Copy source -> destination
 
     Args:
         source: Source file or folder
         destination: Destination file or folder
         ignore (callable | list | str | None): Names to be ignored
-        overwrite (bool | None): True: replace existing, False: fail if destination exists, None: no destination check
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool | UNSET | None): Optionally override current dryrun setting
+        overwrite: True: replace existing, False: fail if destination exists, None: no destination check
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+        dryrun: Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
@@ -71,13 +79,13 @@ def copy(source: str | Path, destination: str | Path, ignore=None, overwrite=Tru
     return _file_op(source, destination, _copy, overwrite, fatal, logger, dryrun, ignore=ignore)
 
 
-def delete(path: str | Path, fatal=True, logger=UNSET, dryrun=UNSET) -> int:
+def delete(path: str | Path, fatal: FatalSpec = True, logger: LoggerSpec = UNSET, dryrun: DryrunSpec = UNSET) -> int:
     """
     Args:
         path: Path to file or folder to delete
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool | UNSET | None): Optionally override current dryrun setting
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+        dryrun: Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
@@ -101,15 +109,15 @@ def delete(path: str | Path, fatal=True, logger=UNSET, dryrun=UNSET) -> int:
         return 1
 
 
-def ensure_folder(path: str | Path, clean=False, fatal=True, logger=UNSET, dryrun=UNSET) -> int:
+def ensure_folder(path: str | Path, clean=False, fatal: FatalSpec = True, logger: LoggerSpec = UNSET, dryrun: DryrunSpec = UNSET) -> int:
     """Ensure folder with 'path' exists
 
     Args:
         path: Path to file or folder
         clean (bool): True: If True, ensure folder is clean (delete any file/folder it may have)
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool | UNSET | None): Optionally override current dryrun setting
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+        dryrun: Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, >=1: successfully done, 0: was no-op, -1: failed
@@ -147,11 +155,11 @@ def ensure_folder(path: str | Path, clean=False, fatal=True, logger=UNSET, dryru
         return 1
 
 
-def filesize(*paths: str | Path, logger=False) -> int:
+def filesize(*paths: str | Path, logger: LoggerSpec = False) -> int:
     """
     Args:
         *paths: Paths to files/folders
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
 
     Returns:
         (int): File size in bytes
@@ -174,14 +182,14 @@ def filesize(*paths: str | Path, logger=False) -> int:
     return size
 
 
-def ini_to_dict(path: str | Path, keep_empty=False, fatal=False, logger=False) -> dict:
+def ini_to_dict(path: str | Path, keep_empty=False, fatal: FatalSpec = False, logger: LoggerSpec = False) -> dict:
     """Contents of an INI-style config file as a dict of dicts: section -> key -> value
 
     Args:
         path: Path to file to parse
         keep_empty (bool): If True, keep definitions with empty values
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
 
     Returns:
         (dict): Dict of section -> key -> value
@@ -260,14 +268,14 @@ def parent_folder(path: str | Path, base=None) -> Path:
     return to_path(resolved_path(path, base=base)).parent
 
 
-def readlines(path: str | Path, first=None, errors="ignore", fatal=False, logger=False, transform=str.rstrip):
+def readlines(path: str | Path, first=None, errors="ignore", fatal: FatalSpec = False, logger: LoggerSpec = False, transform=str.rstrip):
     """
     Args:
         path: Path to file to read lines from
         first (int | None): Return only the 'first' lines when specified
         errors (str | None): Optional string specifying how encoding errors are to be handled
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
         transform (callable | None): Optional callable to transform each line
 
     Yields:
@@ -296,11 +304,11 @@ def readlines(path: str | Path, first=None, errors="ignore", fatal=False, logger
         _R.hlog(logger, message, exc_info=e)
 
 
-def to_path(path: str | Path, no_spaces=False) -> Path:
+def to_path(path: str | Path, no_spaces: bool | type[BaseException] = False) -> Path:
     """
     Args:
         path: Path to convert
-        no_spaces: If True-ish, abort if 'path' contains a space
+        no_spaces: If True-ish, abort if 'path' contains a space (an exception type: raise that exception)
 
     Returns:
         (Path): Converted to `Path` object, if necessary
@@ -314,16 +322,23 @@ def to_path(path: str | Path, no_spaces=False) -> Path:
     return path
 
 
-def move(source: str | Path, destination: str | Path, overwrite=True, fatal=True, logger=UNSET, dryrun=UNSET):
+def move(
+    source: str | Path,
+    destination: str | Path,
+    overwrite: bool | None = True,
+    fatal: FatalSpec = True,
+    logger: LoggerSpec = UNSET,
+    dryrun: DryrunSpec = UNSET,
+):
     """Move `source` -> `destination`
 
     Args:
         source: Source file or folder
         destination: Destination file or folder
-        overwrite (bool | None): True: replace existing, False: fail if destination exists, None: no destination check
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool | UNSET | None): Optionally override current dryrun setting
+        overwrite: True: replace existing, False: fail if destination exists, None: no destination check
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+        dryrun: Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
@@ -331,17 +346,25 @@ def move(source: str | Path, destination: str | Path, overwrite=True, fatal=True
     return _file_op(source, destination, _move, overwrite, fatal, logger, dryrun)
 
 
-def symlink(source: str | Path, destination: str | Path, must_exist=True, overwrite=True, fatal=True, logger=UNSET, dryrun=UNSET):
+def symlink(
+    source: str | Path,
+    destination: str | Path,
+    must_exist=True,
+    overwrite: bool | None = True,
+    fatal: FatalSpec = True,
+    logger: LoggerSpec = UNSET,
+    dryrun: DryrunSpec = UNSET,
+):
     """Symlink `source` <- `destination`
 
     Args:
         source: Source file or folder
         destination: Destination file or folder
         must_exist (bool): If True, verify that source does indeed exist
-        overwrite (bool | None): True: replace existing, False: fail if destination exists, None: no destination check
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool | UNSET | None): Optionally override current dryrun setting
+        overwrite: True: replace existing, False: fail if destination exists, None: no destination check
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+        dryrun: Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
@@ -349,17 +372,26 @@ def symlink(source: str | Path, destination: str | Path, must_exist=True, overwr
     return _file_op(source, destination, _symlink, overwrite, fatal, logger, dryrun, must_exist=must_exist)
 
 
-def compress(source: str | Path, destination: str | Path, arcname=UNSET, ext=None, overwrite=True, fatal=True, logger=UNSET, dryrun=UNSET):
+def compress(
+    source: str | Path,
+    destination: str | Path,
+    arcname=UNSET,
+    ext=None,
+    overwrite: bool | None = True,
+    fatal: FatalSpec = True,
+    logger: LoggerSpec = UNSET,
+    dryrun: DryrunSpec = UNSET,
+):
     """
     Args:
         source: Source folder to compress
         destination: Destination folder
         arcname (str | None): Name of subfolder in archive (default: source basename)
         ext (str | None): Extension determining compression (default: extension of given 'source' file)
-        overwrite (bool | None): True: replace existing, False: fail if destination exists, None: no destination check
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool | UNSET | None): Optionally override current dryrun setting
+        overwrite: True: replace existing, False: fail if destination exists, None: no destination check
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+        dryrun: Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
@@ -367,7 +399,6 @@ def compress(source: str | Path, destination: str | Path, arcname=UNSET, ext=Non
     if not ext:
         _, _, ext = str(destination).lower().rpartition(".")
 
-    kwargs = {}
     ext = SYS_INFO.platform_id.canonical_compress_extension(ext, short_form=True)
     if not ext:
         message = f"Unknown extension '{os.path.basename(destination)}': can't compress file"
@@ -378,28 +409,32 @@ def compress(source: str | Path, destination: str | Path, arcname=UNSET, ext=Non
 
     arcname = to_path(arcname or "")
     if ext == "zip":
-        func = _zip
+        return _file_op(source, destination, _zip, overwrite, fatal, logger, dryrun, arcname=arcname)
 
-    else:
-        func = _tar
-        kwargs["mode"] = "w:" if ext == "tar" else "w:%s" % ext
-
-    return _file_op(source, destination, func, overwrite, fatal, logger, dryrun, arcname=arcname, **kwargs)
+    mode = "w:" if ext == "tar" else "w:%s" % ext
+    return _file_op(source, destination, _tar, overwrite, fatal, logger, dryrun, arcname=arcname, mode=mode)
 
 
 def decompress(
-    source: str | Path, destination: str | Path, ext=None, overwrite=True, simplify=False, fatal=True, logger=UNSET, dryrun=UNSET
+    source: str | Path,
+    destination: str | Path,
+    ext=None,
+    overwrite: bool | None = True,
+    simplify=False,
+    fatal: FatalSpec = True,
+    logger: LoggerSpec = UNSET,
+    dryrun: DryrunSpec = UNSET,
 ):
     """
     Args:
         source: Source file to decompress
         destination: Destination folder
         ext (str | None): Extension determining compression (default: extension of given 'source' file)
-        overwrite (bool | None): True: replace existing, False: fail if destination exists, None: no destination check
+        overwrite: True: replace existing, False: fail if destination exists, None: no destination check
         simplify (bool): If True and source has only one sub-folder, extract that one sub-folder to destination
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool | UNSET | None): Optionally override current dryrun setting
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+        dryrun: Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
@@ -419,11 +454,11 @@ def decompress(
 class TempFolder:
     """Context manager for obtaining a temp folder"""
 
-    def __init__(self, anchor=True, dryrun=UNSET, follow=True):
+    def __init__(self, anchor=True, dryrun: DryrunSpec = UNSET, follow=True):
         """
         Args:
             anchor (bool): If True, short-ify paths relative to used temp folder
-            dryrun (bool | UNSET | None): Optionally override current dryrun setting
+            dryrun: Optionally override current dryrun setting
             follow (bool): If True, change working dir to temp folder (and restore)
         """
         self.anchor = anchor
@@ -458,14 +493,14 @@ class TempFolder:
             shutil.rmtree(self.tmp_folder, ignore_errors=True)
 
 
-def touch(path: str | Path, fatal=True, logger=UNSET, dryrun=UNSET):
+def touch(path: str | Path, fatal: FatalSpec = True, logger: LoggerSpec = UNSET, dryrun: DryrunSpec = UNSET):
     """Touch file with `path`
 
     Args:
         path: Path to file to touch
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool | UNSET | None): Optionally override current dryrun setting
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+        dryrun: Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
@@ -473,15 +508,15 @@ def touch(path: str | Path, fatal=True, logger=UNSET, dryrun=UNSET):
     return write(path, None, fatal=fatal, logger=logger, dryrun=dryrun)
 
 
-def write(path: str | Path, contents: str | bytes | None, fatal=True, logger=UNSET, dryrun=UNSET):
+def write(path: str | Path, contents: str | bytes | None, fatal: FatalSpec = True, logger: LoggerSpec = UNSET, dryrun: DryrunSpec = UNSET):
     """Write `contents` to file with `path`
 
     Args:
         path: Path to file
         contents: Contents to write (only touch file if None)
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool | UNSET | None): Optionally override current dryrun setting
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+        dryrun: Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
@@ -529,7 +564,7 @@ def _copy(source, destination, ignore=None):
     shutil.copystat(source, destination)  # Make sure last modification time is preserved
 
 
-def _do_delete(path, islink, fatal):
+def _do_delete(path, islink, fatal: FatalSpec):
     if islink or os.path.isfile(path):
         os.unlink(path)
 
@@ -622,17 +657,28 @@ def _zip(source, destination, arcname, fh=None):
         fh.write(source, arcname=arcname)
 
 
-def _file_op(source: str | Path, destination: str | Path, func, overwrite, fatal, logger, dryrun, must_exist=True, ignore=None, **extra):
+def _file_op(
+    source: str | Path,
+    destination: str | Path,
+    func,
+    overwrite: bool | None,
+    fatal: FatalSpec,
+    logger: LoggerSpec,
+    dryrun: DryrunSpec,
+    must_exist=True,
+    ignore=None,
+    **extra,
+):
     """Call func(source, destination)
 
     Args:
         source: Source file or folder
         destination: Destination file or folder
         func (callable): Implementation function
-        overwrite (bool | None): True: replace existing, False: fail if destination exists, None: no destination check
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool | UNSET | None): Optionally override current dryrun setting
+        overwrite: True: replace existing, False: fail if destination exists, None: no destination check
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+        dryrun: Optionally override current dryrun setting
         must_exist (bool): If True, verify that source does indeed exist
         ignore (callable | list | str | None): Names to be ignored
         **extra: Passed-through to 'func'

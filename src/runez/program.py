@@ -17,10 +17,30 @@ import tempfile
 import termios
 from io import StringIO
 from select import select
-from typing import Any, IO
+from typing import Any, IO, TYPE_CHECKING
 
 from runez.convert import parsed_tabular, to_int
-from runez.system import _R, abort, cached_property, decode, flattened, quoted, resolved_path, short, SYS_INFO, uncolored, UNSET
+from runez.system import (
+    _R,
+    abort,
+    cached_property,
+    decode,
+    DryrunSpec,
+    FatalSpec,
+    flattened,
+    LoggerSpec,
+    quoted,
+    resolved_path,
+    short,
+    SYS_INFO,
+    uncolored,
+    UNSET,
+)
+
+if TYPE_CHECKING:
+    import logging
+
+    from _typeshed import SupportsWrite
 
 
 class PsInfo:
@@ -231,13 +251,13 @@ def is_executable(path):
     return path and os.path.isfile(path) and os.access(path, os.X_OK)
 
 
-def make_executable(path, fatal=True, logger=UNSET, dryrun=UNSET):
+def make_executable(path, fatal: FatalSpec = True, logger: LoggerSpec = UNSET, dryrun: DryrunSpec = UNSET):
     """
     Args:
         path (str | pathlib.Path): chmod file with 'path' as executable
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool | UNSET | None): Optionally override current dryrun setting
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+        dryrun: Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
@@ -267,11 +287,11 @@ def run(
     program,
     *args,
     background=False,
-    fatal=True,
-    logger=UNSET,
-    dryrun=UNSET,
+    fatal: FatalSpec = True,
+    logger: LoggerSpec = UNSET,
+    dryrun: DryrunSpec = UNSET,
     short_exe=UNSET,
-    passthrough=False,
+    passthrough: bool | SupportsWrite[str] | logging.StreamHandler | None = False,
     path_env=None,
     strip="\r\n",
     stdout: int | IO[Any] | None = subprocess.PIPE,
@@ -283,12 +303,12 @@ def run(
         program (str | pathlib.Path): Program to run (full path, or basename)
         *args: Command line args to call 'program' with
         background (bool): When True, background the spawned process (detach from console and current process)
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool | UNSET | None): Optionally override current dryrun setting
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+        dryrun: Optionally override current dryrun setting
         short_exe (str | bool | None): Try to log a compact representation of executable
-        passthrough (bool | file | None): If True-ish, pass-through stderr/stdout in addition to capturing it
-                                          as well as 'passthrough' itself if it has a write() function
+        passthrough: If True-ish, pass-through stderr/stdout in addition to capturing it,
+                     as well as to 'passthrough' itself if it has a write() function (or a 'stream', like logging handlers)
         path_env (dict | None): Allows to inject PATH-like env vars, see `_added_env_paths()`
         strip (str | bool | None): If provided, `strip()` the captured output [default: strip "\n" newlines]
         stdout: Passed-through to subprocess.Popen, [default: subprocess.PIPE]
@@ -382,14 +402,14 @@ def run(
         return result
 
 
-def shell(*args, fatal=False, logger=False, dryrun=False):
+def shell(*args, fatal: FatalSpec = False, logger: LoggerSpec = False, dryrun: DryrunSpec = False):
     """Output of a quick shell command, same as run(), but doesn't log and returns output only (when available)
 
     Args:
         *args: Program and arguments to run
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool): Override current dryrun setting
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+        dryrun: Override current dryrun setting
 
     Returns:
         (str | None): Output (stdout) of command, if successful
@@ -620,7 +640,7 @@ def _read_data(fd, length=1024):
     return os.read(fd, length)
 
 
-def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
+def _run_popen(args, popen_args, passthrough, fatal: FatalSpec, stdout, stderr):
     """Run subprocess.Popen(), capturing output accordingly"""
     if not passthrough:
         p = subprocess.Popen(args, stdout=stdout, stderr=stderr, text=True, **popen_args)  # noqa: S603

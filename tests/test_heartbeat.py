@@ -4,8 +4,8 @@ from runez.heartbeat import DEFAULT_FREQUENCY, Heartbeat, HeartbeatTask
 
 
 class Counter(HeartbeatTask):
-    count = None
-    crash = None
+    count: int | None = None
+    crash: Exception | None = None
 
     def execute(self):
         if self.count is None:

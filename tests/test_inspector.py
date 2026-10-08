@@ -20,10 +20,12 @@ def importable_test_py_files(folder):
 
 
 def test_auto_import_siblings():
+    pytest.importorskip("click")  # This test imports all test modules, test_click.py included
     # Check that none of these invocations raise an exception
     assert runez.system.find_caller(depth=100) is None
     assert runez.system.find_caller(depth=2, maximum=1) is None  # Starting depth beyond maximum: nothing scanned
     caller = runez.system.find_caller(depth=1)  # Finds this test as caller
+    assert caller is not None
     assert str(caller) == "tests.test_inspector.test_auto_import_siblings"
 
     # Pretend we're calling auto_import_siblings() from a __main__

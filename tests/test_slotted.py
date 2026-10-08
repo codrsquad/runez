@@ -11,6 +11,8 @@ from runez.system import Slotted, UNSET
 
 class Sample(Slotted):
     __slots__ = ("a", "b")
+    a: object
+    b: object
 
 
 def _descendants(cls):

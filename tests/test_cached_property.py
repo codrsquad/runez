@@ -25,8 +25,8 @@ def check_props(target):
     assert sorted(cached_property.properties(target, cached_only=True)) == ["foo"]
 
 
-def test_simple_case():
-    MyObject._global_counter = None  # Allows to trigger TypeError exception if property is accessed before expected
+def test_simple_case(monkeypatch):
+    monkeypatch.setattr(MyObject, "_global_counter", None)  # Allows to trigger TypeError exception if property is accessed before expected
     cached_property.reset(MyObject)  # No-op when called on a class
     assert isinstance(MyObject.foo, cached_property)
     assert MyObject.foo.__annotations__ == {"return": int}

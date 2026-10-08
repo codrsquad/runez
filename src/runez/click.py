@@ -9,11 +9,14 @@ Convenience commonly used click options:
         ...
 """
 
+from __future__ import annotations
+
 import argparse
 import errno
 import logging
 import os
 import sys
+from typing import Any, Callable, TYPE_CHECKING, TypeVar
 
 import runez.config
 from runez.colors import ColorManager
@@ -21,6 +24,11 @@ from runez.convert import affixed
 from runez.file import basename
 from runez.logsetup import LogManager
 from runez.system import _R, abort, find_caller, first_line, flattened, get_version, short, stringified, TempArgv, UNSET
+
+if TYPE_CHECKING:
+    import click
+
+_FC = TypeVar("_FC", bound="Callable[..., Any] | click.Command")  # What a click option decorates (same as click's own)
 
 
 class Cli:
@@ -168,7 +176,7 @@ class Cli:
             sys.exit(1)
 
 
-def command(help=None, width=140, **attrs):
+def command(help=None, width=140, **attrs) -> Callable[[Callable[..., Any]], click.Command]:
     """Same as `@click.command()`, but with common settings (ie: "-h" for help, slightly larger help display)"""
     import click  # Imported if used (click is an optional dependency)
 
@@ -176,7 +184,7 @@ def command(help=None, width=140, **attrs):
     return click.command(**attrs)
 
 
-def group(help=None, width=140, **attrs):
+def group(help=None, width=140, **attrs) -> Callable[[Callable[..., Any]], click.Group]:
     """Same as `@click.group()`, but with common settings (ie: "-h" for help, slightly larger help display)"""
     import click
 
@@ -184,7 +192,7 @@ def group(help=None, width=140, **attrs):
     return click.group(**attrs)
 
 
-def border(*args, **attrs):
+def border(*args, **attrs) -> Callable[[_FC], _FC]:
     # No docstring, as all the possible values are shown in --help, trivial to guess what this is
     import click
 
@@ -195,7 +203,7 @@ def border(*args, **attrs):
     return option(border, *args, **attrs)
 
 
-def color(*args, **attrs):
+def color(*args, **attrs) -> Callable[[_FC], _FC]:
     """Use colors (on by default on ttys)"""
     attrs.setdefault("is_flag", "negatable")
     attrs.setdefault("default", None)
@@ -204,7 +212,7 @@ def color(*args, **attrs):
     return option(color, *args, **attrs)
 
 
-def config(*args, **attrs):
+def config(*args, **attrs) -> Callable[[_FC], _FC]:
     """Override configuration"""
     attrs.setdefault("metavar", "KEY=VALUE")
     attrs.setdefault("multiple", True)
@@ -213,7 +221,7 @@ def config(*args, **attrs):
     return option(config, *args, **attrs)
 
 
-def debug(*args, **attrs):
+def debug(*args, **attrs) -> Callable[[_FC], _FC]:
     """Show debugging information"""
     attrs.setdefault("is_flag", True)
     attrs.setdefault("default", None)
@@ -221,7 +229,7 @@ def debug(*args, **attrs):
     return option(debug, *args, **attrs)
 
 
-def dryrun(*args, **attrs):
+def dryrun(*args, **attrs) -> Callable[[_FC], _FC]:
     """Perform a dryrun"""
     attrs.setdefault("is_flag", True)
     attrs.setdefault("default", None)
@@ -230,7 +238,7 @@ def dryrun(*args, **attrs):
     return option(dryrun, *args, **attrs)
 
 
-def log(*args, **attrs):
+def log(*args, **attrs) -> Callable[[_FC], _FC]:
     """Override log file location"""
     attrs.setdefault("metavar", "PATH")
     attrs.setdefault("show_default", False)
@@ -238,7 +246,7 @@ def log(*args, **attrs):
     return option(log, *args, **attrs)
 
 
-def version(*args, **attrs):
+def version(*args, **attrs) -> Callable[[_FC], _FC]:
     """Show the version and exit"""
     import click
 
@@ -270,7 +278,7 @@ def settings(help=None, width=140, **attrs):
     return dict(context_settings=context_settings, **attrs)
 
 
-def option(func, *args, **attrs):
+def option(func, *args, **attrs) -> Callable[[_FC], _FC]:
     """
     Args:
         func: Function defining this option
@@ -278,10 +286,10 @@ def option(func, *args, **attrs):
         **attrs: Optional attr overrides provided by caller
 
     Returns:
-        function: Click decorator
+        Click decorator
     """
 
-    def decorator(f):
+    def decorator(f: _FC) -> _FC:
         import click
 
         name = attrs.pop("name", func.__name__.replace("_", "-"))
