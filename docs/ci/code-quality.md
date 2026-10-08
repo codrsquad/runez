@@ -79,3 +79,9 @@ reports thousands of "annotate this" warnings, and zuban is AGPL with a single m
 are there as a second opinion.
 
 [typecheck-v5.10.0](../typecheck-v5.10.0.md) records what introducing the checkers found and fixed.
+
+## Minimum Python version
+
+`uvx vermin src/` double-checks that nothing needs a newer Python than the minimum supported one.
+It is not wired into CI. `vermin.ini` configures it, notably so that `from runez import file` isn't
+mistaken for python2's builtin `file`.
