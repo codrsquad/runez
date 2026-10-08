@@ -8,18 +8,16 @@ import pytest
 import runez
 import runez.conftest
 from runez.schema import Integer, List, String, Struct, UniqueIdentifier, ValidationException
-from runez.serialize import add_meta, ClassMetaDescription, same_type, SerializableDescendants, type_name, with_behavior
+from runez.serialize import ClassMetaDescription, MetaInjector, same_type, SerializableDescendants, type_name, with_behavior
 
 from .conftest import exception_raiser
 
 
-@add_meta(ClassMetaDescription)
-class MetaSlotted:
+class MetaSlotted(metaclass=MetaInjector):
     __slots__ = "name"
 
 
-@add_meta(ClassMetaDescription)
-class MetaSlotted2:
+class MetaSlotted2(metaclass=MetaInjector):
     __slots__ = ["name", "surname"]
 
     @property

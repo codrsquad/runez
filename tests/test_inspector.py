@@ -22,6 +22,7 @@ def importable_test_py_files(folder):
 def test_auto_import_siblings():
     # Check that none of these invocations raise an exception
     assert runez.system.find_caller(depth=100) is None
+    assert runez.system.find_caller(depth=2, maximum=1) is None  # Starting depth beyond maximum: nothing scanned
     caller = runez.system.find_caller(depth=1)  # Finds this test as caller
     assert str(caller) == "tests.test_inspector.test_auto_import_siblings"
 

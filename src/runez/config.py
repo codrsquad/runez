@@ -45,7 +45,7 @@ class Configuration:
         Args:
             providers (list | None): Providers to use (optional)
         """
-        self.providers = []
+        self.providers: list[ConfigProvider] = []
         if providers is not None:
             for provider in providers:
                 self.add(provider)
@@ -86,9 +86,10 @@ class Configuration:
         for provider in providers:
             self.add(provider)
 
-    def provider_by_name(self, name):
+    def provider_by_name(self, name: str) -> ConfigProvider | None:
+        """Provider with given name (its `provider_id()`), if any"""
         for provider in self.providers:
-            if provider.name == name:
+            if provider.provider_id() == name:
                 return provider
 
     def provider_id_slot(self, other):

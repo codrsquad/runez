@@ -2,10 +2,22 @@ from __future__ import annotations
 
 import inspect
 import os
+from typing import Any, Callable, Generic, Protocol, TypeVar
 
 from runez.colors import ColorManager
 from runez.convert import to_int
 from runez.system import _R, flattened, joined, OptionalColor, short, Slotted, stringified, SYS_INFO, UNSET, wcswidth
+
+_T = TypeVar("_T")
+
+
+class _FromValue(Protocol):
+    """Types that can be constructed from a single value, as `_TypedProperty` requires"""
+
+    def __init__(self, value: Any, /) -> None: ...
+
+
+_V = TypeVar("_V", bound=_FromValue)
 
 NAMED_BORDERS = {
     "ascii": "rstgrid,t:+++=,m:+++-",
@@ -131,6 +143,13 @@ class Header:
 class PrettyBorder(Slotted):
     # bottom, cell, header, header-cell, mid, padding, top
     __slots__ = ("b", "c", "h", "hc", "m", "pad", "t")
+    b: _PTBorderChars | None
+    c: _PTBorderChars | None
+    h: _PTBorderChars | None
+    hc: _PTBorderChars | None
+    m: _PTBorderChars | None
+    pad: int | None
+    t: _PTBorderChars | None
 
     def __repr__(self):
         return self.represented_values(delimiter=",", operator=":")
@@ -163,32 +182,36 @@ class PrettyBorder(Slotted):
         super()._set_field(name, value)
 
 
-class _AdaptedProperty:
-    """
-    This decorator allows to define properties with regular get/set behavior,
-    but the body of the decorated function can act as a validator, and can auto-convert given values
-    """
+class _CastedProperty(Generic[_T]):
+    """Property that passes assigned values through 'caster' (None is kept as-is, and is the default)"""
 
-    def __init__(self, key: str, caster=None, type=None):
-        """
-        Args:
-            caster (callable): Optional caster called for non-None values only (applies to anonymous properties only)
-            type (type): Optional type, must have initializer with one argument if provided
-        """
+    def __init__(self, key: str, caster: Callable[[Any], _T]):
         self.caster = caster
+        self.key = "_%s" % key
+
+    def __get__(self, instance, owner) -> _T | None:
+        return getattr(instance, self.key, None)
+
+    def __set__(self, obj, value) -> None:
+        if value is not None:
+            value = self.caster(value)
+
+        setattr(obj, self.key, value)
+
+
+class _TypedProperty(Generic[_V]):
+    """Property always holding an instance of 'type', assigned values are converted via 'type(value)'"""
+
+    def __init__(self, key: str, type: type[_V]):
         self.type = type
         self.key = "_%s" % key
 
-    def __get__(self, instance, owner):
-        return getattr(instance, self.key, None)
+    def __get__(self, instance, owner) -> _V:
+        return getattr(instance, self.key)
 
-    def __set__(self, obj, value):
-        if self.type is not None:
-            if not isinstance(value, self.type):
-                value = self.type(value)
-
-        elif value is not None and self.caster is not None:
-            value = self.caster(value)
+    def __set__(self, obj, value) -> None:
+        if not isinstance(value, self.type):
+            value = self.type(value)
 
         setattr(obj, self.key, value)
 
@@ -201,9 +224,9 @@ class PrettyCustomizable:
     - header.column: applies to all cells within a column (including header cells)
     """
 
-    align = _AdaptedProperty("align", caster=Align.cast)
-    style = _AdaptedProperty("style", caster=ColorManager.cast_style)
-    width = _AdaptedProperty("width", caster=int)
+    align = _CastedProperty("align", caster=Align.cast)
+    style = _CastedProperty("style", caster=ColorManager.cast_style)
+    width = _CastedProperty("width", caster=int)
 
     def to_dict(self):
         result = {}
@@ -325,8 +348,8 @@ class PrettyHeader(PrettyCustomizable):
 
 
 class PrettyTable(PrettyCustomizable):
-    border: PrettyBorder = _AdaptedProperty("border", type=PrettyBorder)
-    header: PrettyHeader = _AdaptedProperty("header", type=PrettyHeader)
+    border: _TypedProperty[PrettyBorder] = _TypedProperty("border", type=PrettyBorder)
+    header: _TypedProperty[PrettyHeader] = _TypedProperty("header", type=PrettyHeader)
 
     def __init__(self, header=None, align=None, border=None, missing="-", style=None, width=None):
         """
@@ -338,7 +361,7 @@ class PrettyTable(PrettyCustomizable):
             style (str | runez.colors.Renderable | None): Desired default style (eg: dim, bold, etc)
             width (int | None): Desired width (defaults to detected terminal width)
         """
-        self.header = header  # converted by _AdaptedProperty.__set__
+        self.header = header  # converted by _TypedProperty.__set__
         self.align = align
         self.border = border
         self.missing = missing
@@ -495,6 +518,10 @@ def render_line(container, columns, padding, pad, chars, cells=None):
 
 class _PTBorderChars(Slotted):
     __slots__ = ("first", "h", "last", "mid")
+    first: str | None
+    h: str | None
+    last: str | None
+    mid: str | None
 
     def _values_from_string(self, text):
         return self._values_from_object(list(text))
@@ -542,7 +569,7 @@ class _PTTable:
         return row
 
     def get_string(self) -> str:
-        container = []
+        container: list[str] = []
         columns = self.columns
         border = self.parent.border
         pad = border.pad

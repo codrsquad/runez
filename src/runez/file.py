@@ -186,7 +186,7 @@ def ini_to_dict(path: str | Path, keep_empty=False, fatal=False, logger=False) -
     Returns:
         (dict): Dict of section -> key -> value
     """
-    result = {}
+    result: dict[str | None, dict[str, str]] = {}  # Section None: keys appearing before any [section]
     section_key = None
     section = None
     for line in readlines(path, fatal=fatal, logger=logger):

@@ -17,13 +17,17 @@ second opinions.
 The plan, in stages:
 
 1. **`src/` to zero ty diagnostics**, warnings included. `[tool.ty.src] include = ["src"]` scopes ty
-   to it for now.
+   to it for now. Done, then the other checkers' reports were mined for what ty can't see, see
+   [pyrefly](./pyrefly.md) and [zuban](./zuban.md).
 2. **`tests/` and the rest of the repo**: drop that `include` and do the same.
 3. **Gate**: add `ty` to `envlist` and to the CI linters job, and pin its version in `tox.ini` (it
    is pre-1.0, so counts move between releases; see [code quality](../ci/code-quality.md)).
 
 The other five are not driven to zero. What they report is worth reading when it's a real defect,
-and worth ignoring when it's one engine's opinion.
+and worth ignoring when it's one engine's opinion. pyrefly in particular infers through unannotated
+code that ty deliberately leaves as `Unknown`, so it keeps finding things after ty goes quiet:
+[pyrefly](./pyrefly.md) tracks those. zuban checks the bodies of unannotated functions that mypy
+skips, see [zuban](./zuban.md).
 
 ## No ignore markers
 
@@ -54,7 +58,7 @@ anything. Prefer a better annotation.
 | pyrefly | Meta | carries `None` furthest through unannotated code; blind to `None` dereferences without its own config section |
 | basedpyright | fork of pyright | pyright plus a strictness dial; thousands of "annotate this" warnings at its default mode |
 | mypy | the reference implementation | fewest real catches; skips the bodies of unannotated functions by default |
-| zuban | reimplementation of mypy's rules | observed non-deterministic on this repo; AGPL-3.0 |
+| zuban | reimplementation of mypy's rules | observed non-deterministic on this repo; some verdicts depend on [file order](./zuban.md#the-verdict-on-_prog-depends-on-file-order); AGPL-3.0 |
 
 pytype was dropped early, see [abandoned](./abandoned.md).
 
@@ -112,13 +116,16 @@ reading a second opinion before calling something clean.
   them. Reverting it clears all three findings: `components` is all ints again (the post-release
   spelling became a `0`/`1` flag), and `abort()` has a separate overload for when `return_value`
   is given.
-- **`provider_by_name()`** goes unreported because `self.providers` starts as a bare `[]`, so its
-  elements have no type to check. Annotate it `list[ConfigProvider]` and all six report the
-  attribute.
+- **`add_metaclass` is gone**: it was a py2-era `six` shim, `Serializable` now uses a plain
+  `metaclass=MetaInjector`, which every checker understands.
+- **`provider_by_name()` is fixed**: it went unreported because `self.providers` started as a bare
+  `[]`, so its elements had no type to check. Annotated `list[ConfigProvider]`, all six report the
+  attribute (mypy once the method itself is annotated). It now matches on `provider_id()`.
 - **The dryrun one is invisible in runez**: setting an attribute in one branch and not the other is
-  valid Python. It surfaced as a crash in a consumer that dereferences `.output`. `run()` has no
-  return annotation, and adding `-> RunResult` was enough for pyright to report both crash sites
-  downstream. Annotating public return types is cheap leverage on every consumer's type check.
+  valid Python. It surfaced as a crash in a consumer that dereferences `.output`. Fixed: `.output`
+  and `.error` are now always a `str`, and `run()` is annotated `-> RunResult` (that annotation
+  alone was enough for pyright to report both crash sites downstream). Annotating public return
+  types is cheap leverage on every consumer's type check.
 
 Same lesson from the other direction: a descriptor whose `__get__` is unannotated and has the usual
 `if instance is None: return self` arm makes pyright, pyrefly, basedpyright and zuban report one

@@ -1,10 +1,30 @@
+import inspect
+
 import pytest
 
+import runez.colors
+import runez.conftest
+import runez.logsetup
+import runez.render
 from runez.system import Slotted, UNSET
 
 
 class Sample(Slotted):
     __slots__ = ("a", "b")
+
+
+def _descendants(cls):
+    for subclass in cls.__subclasses__():
+        yield subclass
+        yield from _descendants(subclass)
+
+
+def test_annotations():
+    # Each runez Slotted descendant must annotate its slots, so that type checkers know about them
+    slotted = [c for c in _descendants(Slotted) if c.__module__.startswith("runez.") and "__slots__" in c.__dict__]
+    assert runez.logsetup.LogSpec in slotted
+    for cls in slotted:
+        assert set(inspect.get_annotations(cls)) == set(cls.__slots__), cls
 
 
 def test_slotted():

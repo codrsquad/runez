@@ -20,7 +20,7 @@ from runez.colors import ColorManager
 from runez.convert import affixed
 from runez.file import basename
 from runez.logsetup import LogManager
-from runez.system import _R, find_caller, first_line, flattened, get_version, short, stringified, TempArgv, UNSET
+from runez.system import _R, abort, find_caller, first_line, flattened, get_version, short, stringified, TempArgv, UNSET
 
 
 class Cli:
@@ -57,7 +57,7 @@ class Cli:
     console_level = logging.INFO
     default_logger = UNSET
     log_locations = None
-    _prog = None
+    _prog: str | None = None
 
     @classmethod
     def parser(cls, epilog=None, help=None, prog=None):
@@ -107,7 +107,10 @@ class Cli:
         from runez.render import PrettyTable
 
         caller = find_caller()
-        package = caller.package_name  # Will fail if no caller could be found (intentional)
+        if caller is None:
+            abort("Could not determine caller of run_cmds()")
+
+        package = caller.package_name
         available_commands = {}
         for name, func in caller.globals(prefix="cmd_"):
             name = name[4:].replace("_", "-")

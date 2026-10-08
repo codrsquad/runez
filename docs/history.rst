@@ -16,7 +16,17 @@ History
 
   * ``runez.click`` imports ``click`` only where needed (clear ``ModuleNotFoundError`` when it's not installed)
 
+  * ``Configuration.provider_by_name()`` no longer raises ``AttributeError`` when a non-dict provider (like ``propsfs``) is present
+
+  * ``runez.timezone()`` accepts ``name=`` as a keyword argument (used to raise ``TypeError``)
+
 * Fixed the ``github`` table border (separator row was missing its outer pipes)
+
+* ``RunResult.output`` and ``.error`` are now always a ``str`` (they were ``None`` when nothing was captured)
+
+* Removed (unused) ``RestClient`` caching: ``CacheWrapper``, ``RestClient.std_diskcache()`` and ``RestClient(cache=...)``
+
+* Removed py2-era ``runez.serialize.add_metaclass()`` and ``add_meta()``, use ``metaclass=MetaInjector`` instead
 
 
 5.9.1 (2026-05-05)

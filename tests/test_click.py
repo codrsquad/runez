@@ -6,6 +6,7 @@ import errno
 import logging
 import os
 import sys
+from unittest.mock import patch
 
 import click
 import pytest
@@ -303,6 +304,14 @@ def test_protected_main():
     exc.errno = errno.EPIPE
     logged = check_protected_main(0, exc)
     assert not logged
+
+
+def test_run_cmds_without_caller():
+    with (
+        patch("runez.click.find_caller", return_value=None),
+        pytest.raises(runez.system.AbortException, match="Could not determine caller"),
+    ):
+        runez.cli.run_cmds()
 
 
 def test_settings():

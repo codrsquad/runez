@@ -23,9 +23,9 @@ class timezone(datetime.tzinfo):
     Supported timezone are simply: UTC, and explicit offsets like +01:00
     """
 
-    __singletons: ClassVar = {}  # Cached timezone objects per offset
+    __singletons: ClassVar[dict[datetime.timedelta, "timezone"]] = {}  # Cached timezone objects per offset
 
-    def __new__(cls, offset, *_):
+    def __new__(cls, offset, *_, **__):
         existing = cls.__singletons.get(offset)
         if existing is None:
             existing = super().__new__(cls)

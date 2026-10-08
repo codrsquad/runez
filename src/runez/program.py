@@ -17,6 +17,7 @@ import tempfile
 import termios
 from io import StringIO
 from select import select
+from typing import Any, IO
 
 from runez.convert import parsed_tabular, to_int
 from runez.system import _R, abort, cached_property, decode, flattened, quoted, resolved_path, short, SYS_INFO, uncolored, UNSET
@@ -273,10 +274,10 @@ def run(
     passthrough=False,
     path_env=None,
     strip="\r\n",
-    stdout=subprocess.PIPE,
-    stderr=subprocess.PIPE,
+    stdout: int | IO[Any] | None = subprocess.PIPE,
+    stderr: int | IO[Any] | None = subprocess.PIPE,
     **popen_args,
-):
+) -> RunResult:
     """Run 'program' with 'args'
     Args:
         program (str | pathlib.Path): Program to run (full path, or basename)
@@ -290,12 +291,12 @@ def run(
                                           as well as 'passthrough' itself if it has a write() function
         path_env (dict | None): Allows to inject PATH-like env vars, see `_added_env_paths()`
         strip (str | bool | None): If provided, `strip()` the captured output [default: strip "\n" newlines]
-        stdout (int | IO[Any] | None): Passed-through to subprocess.Popen, [default: subprocess.PIPE]
-        stderr (int | IO[Any] | None): Passed-through to subprocess.Popen, [default: subprocess.PIPE]
+        stdout: Passed-through to subprocess.Popen, [default: subprocess.PIPE]
+        stderr: Passed-through to subprocess.Popen, [default: subprocess.PIPE]
         **popen_args: Passed through to `subprocess.Popen`
 
     Returns:
-        (RunResult): Run outcome, use .failed, .succeeded, .output, .error etc to inspect the outcome
+        Run outcome, use .failed, .succeeded, .output, .error etc to inspect the outcome
     """
     if path_env:
         popen_args["env"] = _added_env_paths(path_env, env=popen_args.get("env"))
@@ -318,9 +319,6 @@ def run(
         result.exit_code = 0
         if stdout is not None:
             result.output = "[dryrun] %s" % description  # Properly simulate a successful run
-
-        if stdout is not None:
-            result.error = ""
 
         return result
 
@@ -468,11 +466,11 @@ class RunAudit:
 class RunResult:
     """Holds result of a runez.run()"""
 
-    def __init__(self, output=None, error=None, code=1, audit: "RunAudit | None" = None):
+    def __init__(self, output: str = "", error: str = "", code=1, audit: "RunAudit | None" = None):
         """
         Args:
-            output (str | None): Captured output (on stdout), if any
-            error (str | None): Captured error output (on stderr), if any
+            output: Captured output (on stdout), if any
+            error: Captured error output (on stderr), if any
             code (int): Exit code
             audit (RunAudit | None): Optional audit object recording what run this was related to
         """
@@ -497,7 +495,7 @@ class RunResult:
     @property
     def full_output(self) -> str:
         """Full output, error first"""
-        output = f"{self.error or ''}\n{self.output or ''}"
+        output = f"{self.error}\n{self.output}"
         return output.strip()
 
     @property
@@ -681,13 +679,14 @@ def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
     _R.safe_write(sys.stderr, None, flush=True)
     os.close(stdout_r)
     os.close(stderr_r)
-    if stdout_buffer:
-        stdout_buffer = uncolored(decode(stdout_buffer.getvalue()))
+    out = err = None
+    if stdout_buffer is not None:
+        out = uncolored(stdout_buffer.getvalue())
 
-    if stderr_buffer:
-        stderr_buffer = uncolored(decode(stderr_buffer.getvalue()))
+    if stderr_buffer is not None:
+        err = uncolored(stderr_buffer.getvalue())
 
-    return p, stdout_buffer, stderr_buffer
+    return p, out, err
 
 
 class _WrappedArgs:

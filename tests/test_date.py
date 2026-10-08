@@ -139,6 +139,9 @@ def test_timezone(monkeypatch):
     assert et1 - eutc == 720
     assert dtutc == dt1
 
+    tz2 = runez.timezone(datetime.timedelta(seconds=7 * 60), name="my-tz")  # 'name' can be given by keyword
+    assert str(tz2) == "my-tz"
+
     tz = runez.timezone_from_text("-01:00", default=None)
     assert str(tz) == "-01:00"
     check_date("2019-09-13 03:13:20 -01:00", runez.datetime_from_epoch(epoch, tz=tz))

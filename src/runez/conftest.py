@@ -30,15 +30,6 @@ from runez.logsetup import LogManager
 from runez.render import Header
 from runez.system import _R, CaptureOutput, DEV, flattened, quoted, short, Slotted, stringified, TempArgv, TrackedOutput, UNSET
 
-try:
-    from click import Command as _ClickCommand
-    from click.testing import CliRunner as _CliRunner
-
-except ImportError:  # pragma: no cover, click used only if installed
-    _ClickCommand = None
-    _CliRunner = None
-
-
 # Set DEBUG logging level when running tests, makes sure LOG.debug() calls get captured (for inspection in tests)
 logging.root.setLevel(logging.DEBUG)
 
@@ -197,7 +188,7 @@ class WrappedHandler(_pytest.logging.LogCaptureHandler):
             cls._current_instance.reset()
 
 
-_pytest.logging.LogCaptureHandler = WrappedHandler
+_R.monkeypatch(_pytest.logging, LogCaptureHandler=WrappedHandler)
 
 
 class ClickWrapper:
@@ -242,12 +233,16 @@ class ClickRunner:
     @property
     def project_folder(self) -> str:
         """Convenience shortcut to DEV.project_folder"""
-        return DEV.project_folder
+        folder = DEV.project_folder
+        assert folder, "Could not determine project folder"
+        return folder
 
     @property
     def tests_folder(self) -> str:
         """Convenience shortcut to DEV.tests_folder"""
-        return DEV.tests_folder
+        folder = DEV.tests_folder
+        assert folder, "Could not determine tests folder"
+        return folder
 
     def exercise_main(self, *entry_points):
         """Run --help on given entry point scripts, for code coverage.
@@ -347,8 +342,7 @@ class ClickRunner:
         assert expected, "No 'expected' provided"
         assert self.exit_code is not None, "run() was not called yet"
 
-        captures = [stdout and self.logged.stdout, stderr and self.logged.stderr]
-        captures = [c for c in captures if c is not None and c is not False]
+        captures = [c for wanted, c in ((stdout, self.logged.stdout), (stderr, self.logged.stderr)) if wanted and c is not None]
 
         assert captures, "No captures specified"
         if not any(c for c in captures):
@@ -423,15 +417,30 @@ class ClickRunner:
         if os.path.exists(path):
             return path
 
-    def _run_main(self, main, args):
-        if _ClickCommand is not None and isinstance(main, _ClickCommand) and _CliRunner is not None:
+    @staticmethod
+    def _run_click_main(main, args) -> ClickWrapper | None:
+        """Run 'main' via click's CliRunner, if it is a click command"""
+        try:
+            from click import Command
+            from click.testing import CliRunner
+
+        except ImportError:  # pragma: no cover, click used only if installed
+            return None
+
+        if isinstance(main, Command):
             if "LANG" not in os.environ:
                 # Avoid click complaining about Unicode for tests that mock env vars
                 os.environ.setdefault("LANG", "en_US.UTF-8")
 
-            runner = _CliRunner()
-            r = runner.invoke(main, args=args)
+            r = CliRunner().invoke(main, args=args)
             return ClickWrapper(stdout=r.output, exit_code=r.exit_code, exception=r.exception)
+
+        return None
+
+    def _run_main(self, main, args):
+        result = self._run_click_main(main, args)
+        if result is not None:
+            return result
 
         if callable(main):
             result = ClickWrapper()
@@ -477,6 +486,9 @@ class ClickRunner:
 
 class RunSpec(Slotted):
     __slots__ = ("regex", "stderr", "stdout")
+    regex: int | bool | None
+    stderr: bool | None
+    stdout: bool | None
 
     def _get_defaults(self):
         return UNSET

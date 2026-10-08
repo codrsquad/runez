@@ -18,9 +18,10 @@ import sys
 import threading
 import unicodedata
 from io import StringIO
-from typing import Any, Callable, ClassVar, Iterator, Literal, NoReturn, overload, TYPE_CHECKING, TypeVar
+from typing import Any, Callable, ClassVar, Literal, NoReturn, overload, TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
 
 _T = TypeVar("_T")
@@ -283,7 +284,7 @@ def decode(value: str | bytes, strip: str | bool | None = None) -> str:
     return value
 
 
-def find_caller(depth=2, maximum=1000, need_file=True, need_package=False, regex=None):
+def find_caller(depth=2, maximum=1000, need_file=True, need_package=False, regex=None) -> _CallerInfo | None:
     """
     Args:
         depth (int): Depth from top of stack where to start
@@ -293,7 +294,7 @@ def find_caller(depth=2, maximum=1000, need_file=True, need_package=False, regex
         regex: If provided, __name__ must match given regex
 
     Returns:
-        (_CallerInfo | None): Caller info, if any
+        Caller info, if any
     """
     getframe = getattr(sys, "_getframe", None)
     if getframe is not None:
@@ -315,6 +316,8 @@ def find_caller(depth=2, maximum=1000, need_file=True, need_package=False, regex
 
             except ValueError:
                 return None
+
+    return None
 
 
 def first_line(text, keep_empty=False, default=None):
@@ -363,7 +366,7 @@ def flattened(*value, keep_empty: str | bool | None = False, split=None, shellif
     Returns:
         (list): Flattened list from 'value'
     """
-    result = []
+    result: list[Any] = []
     if isinstance(keep_empty, str):
         none = keep_empty
         keep_empty = True
@@ -411,9 +414,9 @@ def get_version(mod, default="0.0.0", fatal=False, logger: bool | Callable | Non
 
         m = sys.modules.get(name)
         if m is not None:
-            v = getattr(m, "__version__", None) or getattr(m, "VERSION", None)
-            if v:
-                return v
+            declared = getattr(m, "__version__", None) or getattr(m, "VERSION", None)
+            if declared:
+                return declared
 
         return _R.habort(default, fatal and top_level != "tests", logger, "Can't determine version for %s" % name, exc_info=last_exception)
 
@@ -576,7 +579,7 @@ def resolved_path(path: str | Path, base=None) -> str:
         (str): Absolute path
     """
     if not path:
-        return path
+        return ""
 
     path = os.path.expanduser(path)
     if base and not os.path.isabs(path):
@@ -687,7 +690,7 @@ class Anchored:
     """
 
     _home = None
-    _paths: ClassVar = []  # Currently stacked anchored folders that can be simplified away, via short()
+    _paths: ClassVar[list[str]] = []  # Currently stacked anchored folders that can be simplified away, via short()
 
     def __init__(self, *folders):
         self.folders = folders
@@ -820,7 +823,7 @@ class CaptureOutput:
     'foo bar'
     """
 
-    _capture_stack: ClassVar = []  # Shared across all objects, tracks possibly nested CaptureOutput buffers
+    _capture_stack: ClassVar[list[CapturedStream]] = []  # Shared across all objects, tracks possibly nested CaptureOutput buffers
 
     def __init__(self, stdout=True, stderr=True, anchors=None, dryrun=UNSET, seed_logging=False, trace=False):
         """Context manager allowing to temporarily grab stdout/stderr/log output.
@@ -1923,6 +1926,10 @@ class _LazyCache:
         return re.compile(r"(^[a-z]+|[A-Z](?:[a-z]+|[A-Z]*(?=[A-Z]|$)))")
 
     @cached_property
+    def rx_checksum_url(self):
+        return re.compile(r"#(md5|sha(1|256|512))=([a-f0-9]+)")
+
+    @cached_property
     def rx_date(self):
         base_number = r"([-+]?[\d_]*\.?[\d_]*([eE][-+]?[\d_]+)?|[-+]?\.inf|[-+]?\.Inf|[-+]?\.INF|\.nan|\.NaN|\.NAN|0o[0-7]+|0x[\da-fA-F]+)"
         base_date = (
@@ -2109,6 +2116,12 @@ class _R:
             (bool): Same as runez.DRYRUN, but as a function (and with late import)
         """
         return cls.lc.rm.DRYRUN
+
+    @staticmethod
+    def monkeypatch(target, **attributes):
+        """Deliberate monkey-patching, done via setattr() as type checkers rightly expect the original attributes"""
+        for name, value in attributes.items():
+            setattr(target, name, value)
 
     @staticmethod
     def rdefault(value, default_value):

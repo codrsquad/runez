@@ -34,8 +34,8 @@ def test_background_run(logged):
         r = runez.run(CHATTER, "hello", background=True, dryrun=False)
         assert r.succeeded
         assert r.pid
-        assert r.output is None
-        assert r.error is None
+        assert r.output == ""
+        assert r.error == ""
         assert "chatter hello &" in logged.pop()
 
 
@@ -65,8 +65,8 @@ def test_capture(monkeypatch):
 
         r = runez.run(CHATTER, "silent-fail", stdout=None, stderr=None, fatal=True)
         assert r.succeeded
-        assert r.output is None
-        assert r.error is None
+        assert r.output == ""
+        assert r.error == ""
         assert "Would run:" in logged.pop()
 
     with runez.CaptureOutput(seed_logging=True) as logged:
@@ -139,7 +139,7 @@ def test_capture(monkeypatch):
             with patch("runez.program._read_data", side_effect=simulate_os_error(errno.EINTR)):
                 r = runez.run(CHATTER, "fail", fatal=False, passthrough=True)
                 assert r.failed
-                assert r.output is None
+                assert r.output == ""
                 assert "failed: OSError(" in r.error
 
         # Verify "exited with code ..." is mention in passthrough
@@ -181,7 +181,7 @@ def test_capture(monkeypatch):
             assert not r
             assert r.failed
             assert "python failed: OSError(" in r.error
-            assert r.output is None
+            assert r.output == ""
 
             with pytest.raises(OSError, match="testing"):
                 runez.run("python", "--version")
