@@ -12,9 +12,7 @@ The version below was tested with both thread locks and asyncio, if supporting t
 ```python
 import asyncio
 import threading
-from functools import wraps
-
-from runez.system import py_mimic
+from functools import update_wrapper, wraps
 
 
 class cached_property:
@@ -28,7 +26,7 @@ class cached_property:
 
     def __init__(self, func):
         self.__func__ = func
-        py_mimic(self, self.__func__)
+        update_wrapper(self, self.__func__)
         self.is_async = asyncio.iscoroutinefunction(self.__func__)
         if self.is_async:
             self._compute_value = self._future_value
