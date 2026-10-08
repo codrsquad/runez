@@ -32,9 +32,49 @@ dynamic = ["version"]
 [project.urls]
 Source = "https://github.com/codrsquad/runez"
 
-[tool.pyright]
+[tool.pyright]  # also read by basedpyright (it refuses a pyproject that has both sections)
 pythonVersion = "3.10"
-include = ["src"]
+include = ["src", "tests", "setup.py"]
+
+[tool.mypy]  # also read by zuban
+python_version = "3.10"
+files = ["src", "tests", "setup.py"]
+# "Missing return statement": falling off the end to return None is fine
+# "annotation-unchecked": a note, repeated for every annotated function mypy doesn't check (unannotated ones)
+disable_error_code = ["return", "annotation-unchecked"]
+
+[[tool.mypy.overrides]]
+# Tests check state, call something, and check again (also: assert that a None-returning call returns None)
+module = ["tests.*"]
+warn_unreachable = false
+disable_error_code = ["func-returns-value"]
+
+[[tool.mypy.overrides]]
+# runez.schema is on its way out (v6.0): its declarative fields and with_behavior() bases can't be typed
+module = ["tests.test_schema", "tests.test_serialize"]
+disable_error_code = ["assignment", "misc"]
+
+[tool.pyrefly]  # without this section, pyrefly adopts [tool.pyright] (or [tool.mypy])
+python-version = "3.10"
+project-includes = ["src", "tests", "setup.py"]
+search-path = ["src", "."]  # "src" first: with "." first, src/runez files get seen under two module names
+
+[[tool.pyrefly.sub-config]]
+matches = "tests/test_schema.py"  # runez.schema is on its way out (v6.0), its declarative fields can't be typed
+errors = { bad-assignment = false, bad-override-mutable-attribute = false, invalid-inheritance = false }
+
+[[tool.pyrefly.sub-config]]
+matches = "tests/test_serialize.py"  # Same for the schema-supporting half of runez.serialize (with_behavior() bases)
+errors = { invalid-inheritance = false }
+
+[[tool.ty.overrides]]
+# Tests check state, call something, and check again: ty assumes a call leaves attributes as they were
+include = ["tests/**"]
+rules = { redundant-condition = "ignore" }
+
+[[tool.ty.overrides]]
+include = ["tests/test_schema.py"]  # runez.schema is on its way out (v6.0), its declarative fields can't be typed
+rules = { invalid-assignment = "ignore" }
 
 [tool.ruff]
 cache-dir = ".tox/.ruff_cache"

@@ -18,9 +18,10 @@ import sys
 import threading
 import unicodedata
 from io import StringIO
-from typing import Any, Callable, ClassVar, Iterator, Literal, NoReturn, overload, TYPE_CHECKING, TypeVar
+from typing import Any, Callable, ClassVar, Literal, NoReturn, overload, TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
 
 _T = TypeVar("_T")
@@ -52,18 +53,39 @@ class Undefined:
 # Typed as Any so that pyright doesn't constrain parameter types when UNSET is used as a default value
 UNSET: Any = Undefined()
 
+# Shared IO parameters, they have the same meaning in every runez function that accepts them
+# fatal: True: abort execution on failure (or raise given exception type), False: don't abort but log, None: don't abort, don't log
+FatalSpec = bool | type[BaseException] | None
+# logger: Logger to use, True to print(), False to trace(), None to disable log chatter, int: log level, UNSET: function's default
+LoggerSpec = Callable | bool | int | None | Undefined
+# dryrun: Optionally override current dryrun setting, UNSET: use current setting
+DryrunSpec = bool | Undefined | None
 
-@overload
-def abort(message, code=1, exc_info=None, return_value=None, *, logger=UNSET, stacklevel=1) -> NoReturn: ...
-@overload
-def abort(message, code=1, exc_info=None, return_value=None, *, fatal: Literal[True] = True, logger=UNSET, stacklevel=1) -> NoReturn: ...
-@overload
-def abort(message, code=1, exc_info=None, return_value: _T = None, *, fatal: Literal[False] | None, logger=UNSET, stacklevel=1) -> _T: ...
-@overload
-def abort(message, code=1, exc_info=None, return_value=None, *, fatal: type[BaseException], logger=UNSET, stacklevel=1) -> NoReturn: ...
+
+@overload  # definitely fatal: fatal omitted, True, or an exception type
 def abort(
-    message, code=1, exc_info=None, return_value: _T = None, fatal: bool | type[BaseException] | None = True, logger=UNSET, stacklevel=1
-) -> _T:
+    message,
+    code=1,
+    exc_info=None,
+    return_value=None,
+    *,
+    fatal: Literal[True] | type[BaseException] = True,
+    logger: LoggerSpec = UNSET,
+    stacklevel=1,
+) -> NoReturn: ...
+@overload  # anything else, no return_value
+def abort(message, code=1, exc_info=None, *, fatal: FatalSpec, logger: LoggerSpec = UNSET, stacklevel=1) -> None: ...
+@overload  # anything else, with return_value
+def abort(message, code=1, exc_info=None, *, return_value: _T, fatal: FatalSpec, logger: LoggerSpec = UNSET, stacklevel=1) -> _T: ...
+def abort(
+    message,
+    code=1,
+    exc_info=None,
+    return_value: _T | None = None,
+    fatal: FatalSpec = True,
+    logger: LoggerSpec = UNSET,
+    stacklevel=1,
+) -> _T | None:
     """General wrapper for optionally fatal calls
 
     >>> from runez import abort
@@ -95,8 +117,8 @@ def abort(
         code (int): Exit code used when runez.system.AbortException is set to SystemExit
         exc_info (BaseException): Exception info to pass on to logger
         return_value (Any): Value to return when `fatal` is not True
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), None to disable log chatter
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), None to disable log chatter
         stacklevel (int): Stack level for logging
 
     Returns:
@@ -125,7 +147,7 @@ def abort(
     return return_value
 
 
-def abort_if(condition, message=None, code=1, exc_info=None, logger=UNSET, stacklevel=1):
+def abort_if(condition, message=None, code=1, exc_info=None, logger: LoggerSpec = UNSET, stacklevel=1):
     """Abort if 'condition' is True-ish
 
     Args:
@@ -133,7 +155,7 @@ def abort_if(condition, message=None, code=1, exc_info=None, logger=UNSET, stack
         message (str): Message explaining why we're aborting (default: 'condition', which should be a string then).
         code (int): Exit code used when runez.system.AbortException is set to SystemExit.
         exc_info (Exception): Exception info to pass on to logger.
-        logger (callable | bool | None): Logger to use, True to print(), None to disable log chatter.
+        logger: Logger to use, True to print(), None to disable log chatter.
         stacklevel (int): Stack level for logging
     """
     if condition:
@@ -275,7 +297,7 @@ def decode(value: str | bytes, strip: str | bool | None = None) -> str:
     return value
 
 
-def find_caller(depth=2, maximum=1000, need_file=True, need_package=False, regex=None):
+def find_caller(depth=2, maximum=1000, need_file=True, need_package=False, regex=None) -> _CallerInfo | None:
     """
     Args:
         depth (int): Depth from top of stack where to start
@@ -285,7 +307,7 @@ def find_caller(depth=2, maximum=1000, need_file=True, need_package=False, regex
         regex: If provided, __name__ must match given regex
 
     Returns:
-        (_CallerInfo | None): Caller info, if any
+        Caller info, if any
     """
     getframe = getattr(sys, "_getframe", None)
     if getframe is not None:
@@ -307,6 +329,8 @@ def find_caller(depth=2, maximum=1000, need_file=True, need_package=False, regex
 
             except ValueError:
                 return None
+
+    return None
 
 
 def first_line(text, keep_empty=False, default=None):
@@ -343,8 +367,8 @@ def flattened(*value, keep_empty: str | bool | None = False, split=None, shellif
         value: Possibly nested arguments (sequence of lists, nested lists, ...)
         keep_empty (str | bool | None): States how to filter 'None' and/or False-ish values
                                         - None: Filter out False-ish values (including `None` and 0)
-                                        - False: Filter out False-ish values, except int/float 0
-                                        - True (default): No filtering, keep all values as-is
+                                        - False (default): Filter out False-ish values, except int/float 0
+                                        - True: No filtering, keep all values as-is
                                         - string: Replace `None` with given string, keep False-ish values as-is
         split (str | bool | None): If provided, split strings by given character
         strip (str | bool | None): If provided, strip strings with given character (or whitespace if True)
@@ -355,7 +379,7 @@ def flattened(*value, keep_empty: str | bool | None = False, split=None, shellif
     Returns:
         (list): Flattened list from 'value'
     """
-    result = []
+    result: list[Any] = []
     if isinstance(keep_empty, str):
         none = keep_empty
         keep_empty = True
@@ -375,13 +399,13 @@ def flattened(*value, keep_empty: str | bool | None = False, split=None, shellif
     return result
 
 
-def get_version(mod, default="0.0.0", fatal=False, logger: bool | Callable | None = False):
+def get_version(mod, default="0.0.0", fatal: FatalSpec = False, logger: LoggerSpec = False):
     """
     Args:
         mod (module | str): Module, or module name to find version for (pass either calling module, or its .__name__)
         default (str): Value to return if version determination fails
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
 
     Returns:
         (str | None): Determined version
@@ -403,9 +427,9 @@ def get_version(mod, default="0.0.0", fatal=False, logger: bool | Callable | Non
 
         m = sys.modules.get(name)
         if m is not None:
-            v = getattr(m, "__version__", None) or getattr(m, "VERSION", None)
-            if v:
-                return v
+            declared = _R.declared_version(m)
+            if declared:
+                return declared
 
         return _R.habort(default, fatal and top_level != "tests", logger, "Can't determine version for %s" % name, exc_info=last_exception)
 
@@ -477,8 +501,8 @@ def joined(*args, delimiter=" ", keep_empty: str | bool | None = False, strip=No
         delimiter (str): Delimiter to use (default: space character)
         keep_empty (str | bool | None): States how to filter 'None' and/or False-ish values
                                         - None: Filter out False-ish values (including `None` and 0)
-                                        - False: Filter out False-ish values, except int/float 0
-                                        - True (default): No filtering, keep all values as-is
+                                        - False (default): Filter out False-ish values, except int/float 0
+                                        - True: No filtering, keep all values as-is
                                         - string: Replace `None` with given string, keep False-ish values as-is
         strip (str | bool | None): If provided, `strip()` string representation of args
         stringify (callable): Function to use to stringify args (default: `stringified`)
@@ -558,17 +582,25 @@ def quoted(*items, delimiter=" ", adapter=UNSET, keep_empty=True, strip=None, st
     return delimiter.join(result)
 
 
-def resolved_path(path: str | Path, base=None) -> str:
+@overload
+def resolved_path(path: None, base: str | Path | None = None) -> None: ...
+
+
+@overload
+def resolved_path(path: str | Path, base: str | Path | None = None) -> str: ...
+
+
+def resolved_path(path: str | Path | None, base: str | Path | None = None) -> str | None:
     """
     Args:
         path: Path to resolve
-        base (str | Path | None): Base path to use to resolve relative paths (default: current working dir)
+        base: Base path to use to resolve relative paths (default: current working dir)
 
     Returns:
-        (str): Absolute path
+        Absolute path, `None` and empty string are returned as-is
     """
     if not path:
-        return path
+        return None if path is None else ""
 
     path = os.path.expanduser(path)
     if base and not os.path.isabs(path):
@@ -650,20 +682,26 @@ def wcswidth(text: str | None) -> int:
     return width
 
 
-class AbortException(Exception):
-    """Raised when calls fail, in runez functions with argument `fatal=True`.
+if TYPE_CHECKING:
+    # Declared as a variable (not a class) for type checkers, as users can replace it (see docstring below)
+    AbortException: type[BaseException]
 
-    You can replace this with your preferred exception, for example:
+else:
 
-    >>> import runez
-    >>> saved = runez.system.AbortException
-    >>> runez.system.AbortException = SystemExit
-    >>> abort("foo")
-    Traceback (most recent call last):
-       ...
-    SystemExit: 1
-    >>> runez.system.AbortException = saved  # Restoring to avoid confusing other tests
-    """
+    class AbortException(Exception):
+        """Raised when calls fail, in runez functions with argument `fatal=True`.
+
+        You can replace this with your preferred exception, for example:
+
+        >>> import runez
+        >>> saved = runez.system.AbortException
+        >>> runez.system.AbortException = SystemExit
+        >>> abort("foo")
+        Traceback (most recent call last):
+           ...
+        SystemExit: 1
+        >>> runez.system.AbortException = saved  # Restoring to avoid confusing other tests
+        """
 
 
 class Anchored:
@@ -673,7 +711,7 @@ class Anchored:
     """
 
     _home = None
-    _paths: ClassVar = []  # Currently stacked anchored folders that can be simplified away, via short()
+    _paths: ClassVar[list[str]] = []  # Currently stacked anchored folders that can be simplified away, via short()
 
     def __init__(self, *folders):
         self.folders = folders
@@ -806,16 +844,16 @@ class CaptureOutput:
     'foo bar'
     """
 
-    _capture_stack: ClassVar = []  # Shared across all objects, tracks possibly nested CaptureOutput buffers
+    _capture_stack: ClassVar[list[CapturedStream]] = []  # Shared across all objects, tracks possibly nested CaptureOutput buffers
 
-    def __init__(self, stdout=True, stderr=True, anchors=None, dryrun=UNSET, seed_logging=False, trace=False):
+    def __init__(self, stdout=True, stderr=True, anchors=None, dryrun: DryrunSpec = UNSET, seed_logging=False, trace=False):
         """Context manager allowing to temporarily grab stdout/stderr/log output.
 
         Args:
             stdout (bool): Capture stdout?
             stderr (bool): Capture stderr?
             anchors (str | Path | list | None): Optional paths to use as anchors for `runez.short()`
-            dryrun (bool): Optionally override current dryrun setting
+            dryrun: Optionally override current dryrun setting
             seed_logging (bool): If True, ensure there is at least one logging handler configured
             trace (bool): If True, enable tracing
         """
@@ -885,7 +923,7 @@ class CaptureOutput:
 class CurrentFolder:
     """Context manager for changing the current working directory"""
 
-    def __init__(self, destination, anchor=False):
+    def __init__(self, destination: str | Path, anchor=False):
         self.anchor = anchor
         self.destination = resolved_path(destination)
         self.current_folder = None
@@ -909,7 +947,7 @@ class CurrentFolder:
 class OverrideDryrun:
     """Context manager to temporarily override dryrun mode"""
 
-    def __init__(self, dryrun):
+    def __init__(self, dryrun: DryrunSpec):
         self.dryrun = dryrun
 
     def __enter__(self):
@@ -1433,7 +1471,7 @@ class SystemInfo:
         """Info on currently running process"""
         return _R.lc.rm.program.PsInfo()
 
-    def diagnostics(self, argv=UNSET, exe=True, platform=True, term=UNSET, userid=UNSET, version=UNSET, via=" ⚡ "):
+    def diagnostics(self, argv=UNSET, exe=True, platform=True, term=UNSET, userid=UNSET, version=UNSET, via: str | None = " ⚡ "):
         """Usable by runez.render.PrettyTable.two_column_diagnostics()"""
         if platform:
             yield "platform", "%s [%s]" % (_R.colored(self.platform_id, "bold"), self.platform_info)
@@ -1909,6 +1947,10 @@ class _LazyCache:
         return re.compile(r"(^[a-z]+|[A-Z](?:[a-z]+|[A-Z]*(?=[A-Z]|$)))")
 
     @cached_property
+    def rx_checksum_url(self):
+        return re.compile(r"#(md5|sha(1|256|512))=([a-f0-9]+)")
+
+    @cached_property
     def rx_date(self):
         base_number = r"([-+]?[\d_]*\.?[\d_]*([eE][-+]?[\d_]+)?|[-+]?\.inf|[-+]?\.Inf|[-+]?\.INF|\.nan|\.NaN|\.NAN|0o[0-7]+|0x[\da-fA-F]+)"
         base_date = (
@@ -2017,14 +2059,19 @@ class _R:
         """Colored 'text' with 'color', 'is_coloring' can be used to override current coloring setting"""
         return cls.lc.rm.color.colored(text, color, is_coloring=is_coloring)
 
+    @staticmethod
+    def declared_version(module):
+        """Version declared by 'module' itself (via `__version__` or `VERSION`), if any"""
+        return joined(getattr(module, "__version__", None) or getattr(module, "VERSION", None), delimiter=".")
+
     @classmethod
-    def habort(cls, default, fatal, logger, message, exc_info=None):
+    def habort(cls, default, fatal: FatalSpec, logger: LoggerSpec, message, exc_info=None):
         """Handle optional abort
 
         Args:
             default: Default value to return, if 'fatal' is False
-            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+            fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger: Logger to use, True to print(), False to trace(), None to disable log chatter
             message (str): Message explaining failure
             exc_info (Exception): Exception, if this comes from a try/except block
 
@@ -2036,7 +2083,7 @@ class _R:
         return default
 
     @classmethod
-    def hdry(cls, dryrun, logger, message):
+    def hdry(cls, dryrun: DryrunSpec, logger: LoggerSpec, message):
         if cls.resolved_dryrun(dryrun):
             if logger is not None and message is not None:
                 message = "Would %s" % cls.actual_message(message)
@@ -2052,13 +2099,13 @@ class _R:
             return True
 
     @classmethod
-    def hlog(cls, logger, message, exc_info=None, stacklevel=2):
+    def hlog(cls, logger: LoggerSpec, message, exc_info=None, stacklevel=2):
         """Handle optional logging calls via 'logger=' for IO-related non-returning-content functions, making them consistent.
         This allows to have less repeated code out there, find all places where we do this,
         and ensure they all respect the same convention.
 
         Args:
-            logger (callable | bool | int | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+            logger: Logger to use, True to print(), False to trace(), None to disable log chatter
             message (str | callable): Message to log
             exc_info: Optional exception info to pass through to logger
         """
@@ -2097,14 +2144,20 @@ class _R:
         return cls.lc.rm.DRYRUN
 
     @staticmethod
+    def monkeypatch(target, **attributes):
+        """Deliberate monkey-patching, done via setattr() as type checkers rightly expect the original attributes"""
+        for name, value in attributes.items():
+            setattr(target, name, value)
+
+    @staticmethod
     def rdefault(value, default_value):
         return default_value if value is UNSET else value
 
     @classmethod
-    def resolved_dryrun(cls, dryrun):
+    def resolved_dryrun(cls, dryrun: DryrunSpec):
         """
         Args:
-            dryrun (bool | Undefined | None): Optionally overridden current dryrun setting
+            dryrun: Optionally overridden current dryrun setting
 
         Returns:
             (bool): Resolved value for dryrun
@@ -2115,11 +2168,11 @@ class _R:
         return dryrun
 
     @classmethod
-    def set_dryrun(cls, dryrun):
+    def set_dryrun(cls, dryrun: DryrunSpec):
         """Set runez.DRYRUN, and return its previous value (useful for context managers)
 
         Args:
-            dryrun (bool | UNSET): New value for runez.DRYRUN
+            dryrun: New value for runez.DRYRUN
 
         Returns:
             (bool): Old values for dryrun
@@ -2244,7 +2297,7 @@ def _prettified(value):
     return value
 
 
-def _show_abort_message(message, exc_info, fatal, logger, stacklevel):
+def _show_abort_message(message, exc_info, fatal: FatalSpec, logger: LoggerSpec, stacklevel):
     if logger is not None:
         if logging.root.handlers:
             _R.hlog(logger, message, exc_info=exc_info if fatal else None, stacklevel=stacklevel + 1)

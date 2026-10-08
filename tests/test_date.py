@@ -139,6 +139,9 @@ def test_timezone(monkeypatch):
     assert et1 - eutc == 720
     assert dtutc == dt1
 
+    tz2 = runez.timezone(datetime.timedelta(seconds=7 * 60), name="my-tz")  # 'name' can be given by keyword
+    assert str(tz2) == "my-tz"
+
     tz = runez.timezone_from_text("-01:00", default=None)
     assert str(tz) == "-01:00"
     check_date("2019-09-13 03:13:20 -01:00", runez.datetime_from_epoch(epoch, tz=tz))
@@ -153,6 +156,13 @@ def dt(*args, **kwargs):
     return datetime.datetime(*args, tzinfo=tzinfo, **kwargs)
 
 
+def valid_datetime(text, **kwargs) -> datetime.datetime:
+    """Datetime parsed from 'text', which must be valid"""
+    value = runez.to_datetime(text, **kwargs)
+    assert value is not None, "'%s' should be a valid datetime" % text
+    return value
+
+
 def test_to_date():
     assert runez.to_date("") is None
     assert runez.to_date("   ") is None
@@ -160,10 +170,10 @@ def test_to_date():
     assert runez.to_datetime("  ") is None
 
     tz1 = runez.timezone(datetime.timedelta(seconds=12 * 60))
-    assert runez.to_datetime("2019-01-02 03:04:05").tzinfo is runez.date.DEFAULT_TIMEZONE
-    assert runez.to_datetime("2019-01-02 03:04:05", tz=tz1).tzinfo is tz1
-    assert runez.to_datetime("2019-01-02 03:04:05 -00:12").tzinfo == tz1
-    assert runez.to_datetime("2019-01-02 03:04:05 UTC").tzinfo is runez.date.UTC
+    assert valid_datetime("2019-01-02 03:04:05").tzinfo is runez.date.DEFAULT_TIMEZONE
+    assert valid_datetime("2019-01-02 03:04:05", tz=tz1).tzinfo is tz1
+    assert valid_datetime("2019-01-02 03:04:05 -00:12").tzinfo == tz1
+    assert valid_datetime("2019-01-02 03:04:05 UTC").tzinfo is runez.date.UTC
 
     d0 = runez.to_datetime("2019-01-02 03:04:05  UTC")
     d1 = runez.to_datetime(" 2019-01-02 03:04:05 -00:00 ")
@@ -195,6 +205,13 @@ def test_to_date():
     assert runez.to_datetime("1500620000") == dt(2017, 7, 21, 6, 53, 20)
 
 
+def valid_seconds(text) -> float:
+    """Duration in seconds parsed from 'text', which must be valid"""
+    value = runez.to_seconds(text)
+    assert value is not None, "'%s' should be a valid duration" % text
+    return value
+
+
 def test_to_seconds():
     assert runez.to_seconds(None) is None
     assert runez.to_seconds("foo") is None
@@ -212,9 +229,9 @@ def test_to_seconds():
     assert runez.to_seconds(" 1h 2s ") == 3602
     assert runez.to_seconds(" 1m ") == 60
     assert runez.to_seconds("1y") == 31556952
-    assert datetime.timedelta(seconds=runez.to_seconds("1d1h5s")) == datetime.timedelta(days=1, seconds=3605)
-    assert datetime.timedelta(seconds=runez.to_seconds("1w5s")) == datetime.timedelta(days=7, seconds=5)
-    assert datetime.timedelta(seconds=runez.to_seconds(" 1w 1s ")) == datetime.timedelta(days=7, seconds=1)
+    assert datetime.timedelta(seconds=valid_seconds("1d1h5s")) == datetime.timedelta(days=1, seconds=3605)
+    assert datetime.timedelta(seconds=valid_seconds("1w5s")) == datetime.timedelta(days=7, seconds=5)
+    assert datetime.timedelta(seconds=valid_seconds(" 1w 1s ")) == datetime.timedelta(days=7, seconds=1)
 
     assert runez.to_seconds(datetime.timedelta(minutes=60)) == 3600
     assert runez.to_seconds(runez.date.UTC.offset) == 0

@@ -42,6 +42,11 @@ def test_border():
     tc = PrettyBorder("compact")
     assert str(tc) == "c:   ,h: -  ,pad:1"
 
+    # The github border must render as valid github markdown: outer pipes on the separator row too
+    t = PrettyTable("a,b", border="github")
+    t.add_row(1, 2)
+    assert t.get_string() == "| a | b |\n|---|---|\n| 1 | 2 |"
+
     # Exercise setting from object fields, for coverage
     tc2 = PrettyBorder("c:   ", h=Namespace(first=" ", mid=" ", last=" ", h="-"))
     assert tc2 == tc
@@ -82,8 +87,8 @@ def test_diagnostics(monkeypatch):
     assert diag1 == EXPECTED_DIAGNOSTICS.strip("\n")
 
     # Same, but with calling the generators first
-    sections = {"Some section": [data, _diag2()], "Other section": _diag2()}
-    diag1 = PrettyTable.two_column_diagnostics(_diag1(), sections, "some additional text")
+    called_sections = {"Some section": [data, _diag2()], "Other section": _diag2()}
+    diag1 = PrettyTable.two_column_diagnostics(_diag1(), called_sections, "some additional text")
     assert diag1 == EXPECTED_DIAGNOSTICS.strip("\n")
 
     diag2 = PrettyTable.two_column_diagnostics(_diag2(), SYS_INFO.diagnostics())

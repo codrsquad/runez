@@ -6,7 +6,7 @@ Several action authors — `astral-sh/setup-uv` among them — now tell you in t
 the dependency as a full 40-character commit SHA with the version in a trailing comment:
 
 ```yaml
-- uses: astral-sh/setup-uv@<40-hex-sha>  # v10.0.1
+- uses: astral-sh/setup-uv@<40-hex-sha>  # v10.2.0
 ```
 
 That advice comes from GitHub's own supply-chain hardening guidance. A mutable tag can be moved by
@@ -44,7 +44,7 @@ Keep whatever granularity each action already uses rather than unifying them:
 
 - **`actions/*`** — the moving major tag (`@v7`). These are maintained by GitHub, keep their
   majors stable, and picking up patches automatically is the point.
-- **`astral-sh/setup-uv`** — an exact release tag (`@v10.0.1`). It moves fast and has had
+- **`astral-sh/setup-uv`** — an exact release tag (`@v10.2.0`). It moves fast and has had
   behavioural changes within a major, so we take those deliberately.
 - **`pypa/gh-action-pypi-publish`** — the `release/v1` branch ref that PyPA's own documentation
   prescribes. It already tracks the latest v1, so there is nothing to bump.

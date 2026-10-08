@@ -30,14 +30,15 @@ import functools
 import hashlib
 import json
 import os
-import re
-import sys
 import urllib.parse
 from pathlib import Path
-from typing import ClassVar
+from typing import Callable, ClassVar, IO, overload, ParamSpec, TypeVar
 
 from runez.file import checksum, decompress, delete, ensure_folder, TempFolder, to_path
-from runez.system import _R, abort, DEV, find_caller, joined, short, stringified, SYS_INFO, UNSET
+from runez.system import _R, abort, DryrunSpec, FatalSpec, find_caller, LoggerSpec, short, stringified, SYS_INFO, UNSET
+
+_P = ParamSpec("_P")
+_R_co = TypeVar("_R_co")
 
 
 def urljoin(base, url) -> str:
@@ -53,123 +54,6 @@ def urljoin(base, url) -> str:
         base += "/"
 
     return urllib.parse.urljoin(base, url, allow_fragments=False)
-
-
-class CacheWrapper:
-    """
-    Simple cache wrapper, intended to provide a convenient way of caching REST calls via pypi module diskcache for example
-    By default, ~/.cache/{program_name} is used
-
-    Example usage:
-        cache = RestClient.std_diskcache(size_limit="4g")
-        client = RestClient(url, cache=cache)
-    """
-
-    base_location = "~/.cache/{program_name}"
-    cachable_methods = ("GET", "POST")  # By default, cache only these REST methods
-    default_expire = "1h"  # 1 hour
-    size_limit = "2g"  # 2 GB
-
-    __dev_suffix = "-dev"  # Override to None to disable distinguishing dev runs from non-dev runs
-
-    @classmethod
-    def resolved_base_location(cls, base_location=UNSET):
-        if base_location is UNSET:
-            base_location = cls.base_location
-
-        if base_location:
-            base_location = base_location.format(program_name=SYS_INFO.program_name)
-            return os.path.expanduser(base_location)
-
-    @classmethod
-    def cache_base_path(cls, base_location=UNSET, suffix=None, dev_suffix=UNSET):
-        """
-        Args:
-            base_location (str | None): Base location to use, {program_name}
-            suffix (str | None): Optional suffix for location basename to add
-            dev_suffix (str | None): Suffix to add for detected development runs (from a dev venv)
-
-        Returns:
-            (str): Fully resolved location, example: ~/.cache/my-program-py39-dev
-        """
-        path = cls.resolved_base_location(base_location)
-        if path:
-            if suffix:
-                path += "-%s" % suffix
-
-            if dev_suffix is UNSET:
-                dev_suffix = cls.__dev_suffix
-
-            if dev_suffix and DEV.venv_folder:
-                # Allows to distinguish development runs (dev and "prod" runs won't use the same cache)
-                path += dev_suffix
-
-        return path
-
-    def __init__(self, cache_backend, base_location, default_expire, size_limit):
-        """
-        Args:
-            cache_backend: Underlying backend to use
-            base_location (str | None): Cache base location
-            default_expire (int | float | None): Default expiration time in seconds
-            size_limit (int | None): Max size in bytes for this cache
-        """
-        self.base_location = base_location
-        self.default_expire = _R.lc.rm.to_seconds(default_expire)
-        self.size_limit = _R.lc.rm.to_bytesize(size_limit)
-        self.cache_backend = cache_backend
-
-    @staticmethod
-    def cache_key(full_url, params=None):
-        """
-        Args:
-            full_url (str): Full URL to remote asset
-            params (dict | None): Optional REST query params
-
-        Returns:
-            (str): Key to use to represent this remote asset in the cache
-        """
-        key = full_url
-        if params:
-            key += "?%s" % urllib.parse.urlencode(params)
-
-        return key
-
-    def is_cachable_method(self, method):
-        """
-        Args:
-            method (str): Should this method be cached (REST methods: DELETE, GET, HEAD, POST, PURGE, PUT)
-
-        Returns:
-            (bool): True if this REST method call should be cached
-        """
-        return method in self.cachable_methods
-
-    def delete(self, cache_key):
-        """
-        Args:
-            cache_key (str): Key to delete from cache
-        """
-        self.cache_backend.delete(cache_key)
-
-    def get(self, cache_key):
-        """
-        Args:
-            cache_key (str): Key to lookup from this cache
-        """
-        return self.cache_backend.get(cache_key)
-
-    def set(self, cache_key, data, expire=UNSET):
-        """
-        Args:
-            cache_key (str): Key to store `data` under
-            data: Data to store
-            expire (int | float | None): Expiration time in seconds
-        """
-        if expire is UNSET:
-            expire = self.default_expire
-
-        return self.cache_backend.set(cache_key, data, expire=expire)
 
 
 class ForbiddenHttpError(Exception):
@@ -236,12 +120,12 @@ class GlobalHttpCalls:
         was_allowed = cls._original_urlopen is None
         if allowed:
             if cls._original_urlopen is not None:
-                HTTPConnectionPool.urlopen = cls._original_urlopen
+                _R.monkeypatch(HTTPConnectionPool, urlopen=cls._original_urlopen)
                 cls._original_urlopen = None
 
         elif cls._original_urlopen is None:
             cls._original_urlopen = HTTPConnectionPool.urlopen
-            HTTPConnectionPool.urlopen = GlobalHttpCalls.intentionally_disabled
+            _R.monkeypatch(HTTPConnectionPool, urlopen=GlobalHttpCalls.intentionally_disabled)
 
         return was_allowed
 
@@ -257,9 +141,9 @@ class DataState:
     data = None
     json = None
     files = None
-    fhandles = None
+    fhandles: list[IO[bytes]] | None = None
 
-    def add_fh(self, path, dryrun):
+    def add_fh(self, path, dryrun: DryrunSpec):
         if _R.resolved_dryrun(dryrun):
             return path
 
@@ -282,10 +166,10 @@ class DataState:
                 f.close()
 
     @classmethod
-    def wrapped(cls, dryrun, data, json, files, filepaths):
+    def wrapped(cls, dryrun: DryrunSpec, data, json, files, filepaths):
         """
         Args:
-            dryrun (bool | UNSET | None): Optionally override current dryrun setting
+            dryrun: Optionally override current dryrun setting
             data (dict | tuple | bytes | file | None): Data to send in the body
             json: (optional) json to send in the body
             files (dict | None): File-like-objects for multipart encoding upload.
@@ -403,7 +287,7 @@ class MockedHandlerStack:
 
 
 class MockCentral:
-    _stacks: ClassVar = {}
+    _stacks: ClassVar[dict[str, MockedHandlerStack]] = {}
 
     @classmethod
     def get_stack(cls, handler, key):
@@ -443,15 +327,15 @@ class MockWrapper:
             self.stack.stop()
             self.stack = None
 
-    def __call__(self, func):
+    def __call__(self, func: Callable[_P, _R_co]) -> Callable[_P, _R_co]:
         """
         Args:
-            func (callable): We're used as a decorator of function 'func'
+            func: We're used as a decorator of function 'func'
 
         Returns:
-            (callable): Decorated function
+            Decorated function
         """
-        self.key = "%s.%s" % (func.__module__, func.__qualname__)
+        self.key = "%s.%s" % (func.__module__, getattr(func, "__qualname__", type(func).__qualname__))
 
         @functools.wraps(func)
         def inner(*args, **kwargs):
@@ -554,8 +438,16 @@ class RestResponse:
                     return msg
 
 
-class RestHandler:
+class RestHandler(abc.ABC):
     """Allows to use multiple http(s) implementations"""
+
+    @overload
+    @classmethod
+    def mock(cls, base_url: Callable[_P, _R_co]) -> Callable[_P, _R_co]: ...
+
+    @overload
+    @classmethod
+    def mock(cls, base_url: str | None, specs: dict | None = None) -> MockWrapper: ...
 
     @classmethod
     def mock(cls, base_url, specs=None):
@@ -571,11 +463,11 @@ class RestHandler:
             assert MY_CLIENT.get("foo") == {"some": "payload"}
 
         Args:
-            base (str | None): Base url (all urls in given 'spec' are relative to the base url)
-            specs (dict): Map of relative url -> what to return
+            base_url: Base url (all urls in given 'specs' are relative to the base url), or function to decorate
+            specs: Map of relative url -> what to return
 
         Returns:
-            Function decorator that will enact the mock
+            Decorated function, or decorator (and context manager) that will enact the mock
         """
         if callable(base_url):
             # We were invoked without arguments, form: @RestHandler.mock
@@ -706,7 +598,7 @@ class RequestsHandler(RestHandler):
     def user_agent(cls):
         import requests
 
-        return "%s requests/%s" % (super().user_agent(), requests.__version__)
+        return "%s requests/%s" % (super().user_agent(), _R.declared_version(requests))
 
 
 class RestClient:
@@ -714,13 +606,12 @@ class RestClient:
 
     handler = RequestsHandler
 
-    def __init__(self, base_url=None, headers=None, timeout=30, cache=None, user_agent=None, handler=None, session=None, **session_spec):
+    def __init__(self, base_url=None, headers=None, timeout=30, user_agent=None, handler=None, session=None, **session_spec):
         """
         Args:
             base_url (str | None): Base url of remote REST server
             headers (dict | None): Default headers to use
             timeout (int): Default timeout in seconds
-            cache (CacheWrapper): Optional local cache to use
             user_agent (str | None): User-Agent to use for outgoing calls coming from this client (default: handler.user_agent())
             handler: Optional: override default handler
             session: Optional: override getting handler.new_session()
@@ -728,7 +619,6 @@ class RestClient:
         self.base_url = base_url
         self.headers = dict(headers) if headers else {}
         self.timeout = timeout
-        self.cache_wrapper = cache
         if handler:
             self.handler = handler
 
@@ -763,15 +653,17 @@ class RestClient:
         """
         return urljoin(self.base_url, url)
 
-    def decompress(self, url, destination, simplify=False, fatal=True, logger=UNSET, dryrun=UNSET, **kwargs) -> RestResponse:
+    def decompress(
+        self, url, destination, simplify=False, fatal: FatalSpec = True, logger: LoggerSpec = UNSET, dryrun: DryrunSpec = UNSET, **kwargs
+    ) -> RestResponse:
         """
         Args:
             url (str): URL of .tar.gz to unpack (may be absolute, or relative to self.base_url)
             destination (str | Path): Path to local folder where to untar url
             simplify (bool): If True and source has only one sub-folder, extract that one sub-folder to destination
-            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-            dryrun (bool | UNSET | None): Optionally override current dryrun setting
+            fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+            dryrun: Optionally override current dryrun setting
             **kwargs: Passed through to underlying client
 
         Returns:
@@ -787,15 +679,17 @@ class RestClient:
 
             return response
 
-    def download(self, url, destination, fatal=True, logger=UNSET, dryrun=UNSET, **kwargs) -> RestResponse:
+    def download(
+        self, url, destination, fatal: FatalSpec = True, logger: LoggerSpec = UNSET, dryrun: DryrunSpec = UNSET, **kwargs
+    ) -> RestResponse:
         """
         Args:
             url (str): URL of resource to download (may be absolute, or relative to self.base_url)
                        Use #sha256=... or #sha512=... at the end of the url to ensure content is validated against given checksum
             destination (str | Path): Path to local file where to store the download
-            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-            dryrun (bool | UNSET | None): Optionally override current dryrun setting
+            fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+            dryrun: Optionally override current dryrun setting
             **kwargs: Passed through to underlying client
 
         Returns:
@@ -819,12 +713,12 @@ class RestClient:
 
         return response
 
-    def get_response(self, url, fatal=False, logger=False, **kwargs) -> RestResponse:
+    def get_response(self, url, fatal: FatalSpec = False, logger: LoggerSpec = False, **kwargs) -> RestResponse:
         """
         Args:
             url (str): Remote URL (may be absolute, or relative to self.base_url)
-            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+            fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger: Logger to use, True to print(), False to trace(), None to disable log chatter
             **kwargs: Passed through to underlying client
 
         Returns:
@@ -832,14 +726,14 @@ class RestClient:
         """
         return self._get_response("GET", url, fatal, logger, **kwargs)
 
-    def delete(self, url, fatal=True, logger=UNSET, dryrun=UNSET, **kwargs) -> RestResponse:
+    def delete(self, url, fatal: FatalSpec = True, logger: LoggerSpec = UNSET, dryrun: DryrunSpec = UNSET, **kwargs) -> RestResponse:
         """Same as underlying .delete(), but respecting 'dryrun' mode
 
         Args:
             url (str): URL to query (can be absolute, or relative to self.base_url)
-            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-            dryrun (bool | UNSET | None): Optionally override current dryrun setting
+            fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+            dryrun: Optionally override current dryrun setting
             **kwargs: Passed through to underlying client
 
         Returns:
@@ -847,12 +741,12 @@ class RestClient:
         """
         return self._get_response("DELETE", url, fatal, logger, dryrun=dryrun, **kwargs)
 
-    def get(self, url, fatal=False, logger=False, **kwargs):
+    def get(self, url, fatal: FatalSpec = False, logger: LoggerSpec = False, **kwargs):
         """
         Args:
             url (str): Remote URL (may be absolute, or relative to self.base_url)
-            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+            fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger: Logger to use, True to print(), False to trace(), None to disable log chatter
             **kwargs: Passed through to underlying client
 
         Returns:
@@ -862,12 +756,12 @@ class RestClient:
         if response.ok:
             return response.json()
 
-    def head(self, url, fatal=False, logger=False, **kwargs):
+    def head(self, url, fatal: FatalSpec = False, logger: LoggerSpec = False, **kwargs):
         """
         Args:
             url (str): URL to query (can be absolute, or relative to self.base_url)
-            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+            fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger: Logger to use, True to print(), False to trace(), None to disable log chatter
             **kwargs: Passed through to underlying client
 
         Returns:
@@ -875,14 +769,25 @@ class RestClient:
         """
         return self._get_response("HEAD", url, fatal, logger, **kwargs)
 
-    def post(self, url, fatal=True, logger=UNSET, dryrun=UNSET, data=None, json=None, files=None, filepaths=None, **kwargs):
+    def post(
+        self,
+        url,
+        fatal: FatalSpec = True,
+        logger: LoggerSpec = UNSET,
+        dryrun: DryrunSpec = UNSET,
+        data=None,
+        json=None,
+        files=None,
+        filepaths=None,
+        **kwargs,
+    ):
         """Same as underlying .post(), but respecting 'dryrun' mode
 
         Args:
             url (str): URL to query (can be absolute, or relative to self.base_url)
-            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-            dryrun (bool | UNSET | None): Optionally override current dryrun setting
+            fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+            dryrun: Optionally override current dryrun setting
             data (dict | tuple | bytes | file | None): Data to send in the body
             json: (optional) json to send in the body
             files (dict | None): File-like-objects for multipart encoding upload.
@@ -895,14 +800,14 @@ class RestClient:
         state = DataState.wrapped(dryrun, data, json, files, filepaths)
         return self._get_response("POST", url, fatal, logger, dryrun=dryrun, state=state, **kwargs)
 
-    def purge(self, url, fatal=True, logger=UNSET, dryrun=UNSET, **kwargs):
+    def purge(self, url, fatal: FatalSpec = True, logger: LoggerSpec = UNSET, dryrun: DryrunSpec = UNSET, **kwargs):
         """Same as underlying .purge(), but respecting 'dryrun' mode
 
         Args:
             url (str): URL to query (can be absolute, or relative to self.base_url)
-            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-            dryrun (bool | UNSET | None): Optionally override current dryrun setting
+            fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+            dryrun: Optionally override current dryrun setting
             **kwargs: Passed through to underlying client
 
         Returns:
@@ -910,13 +815,24 @@ class RestClient:
         """
         return self._get_response("PURGE", url, fatal, logger, dryrun=dryrun, **kwargs)
 
-    def put(self, url, fatal=True, logger=UNSET, dryrun=UNSET, data=None, json=None, files=None, filepaths=None, **kwargs):
+    def put(
+        self,
+        url,
+        fatal: FatalSpec = True,
+        logger: LoggerSpec = UNSET,
+        dryrun: DryrunSpec = UNSET,
+        data=None,
+        json=None,
+        files=None,
+        filepaths=None,
+        **kwargs,
+    ):
         """
         Args:
             url (str): URL to query (can be absolute, or relative to self.base_url)
-            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-            dryrun (bool | UNSET | None): Optionally override current dryrun setting
+            fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+            dryrun: Optionally override current dryrun setting
             data (dict | tuple | bytes | file | None): Data to send in the body
             json: (optional) json to send in the body
             files (dict | None): File-like-objects for multipart encoding upload.
@@ -929,11 +845,11 @@ class RestClient:
         state = DataState.wrapped(dryrun, data, json, files, filepaths)
         return self._get_response("PUT", url, fatal, logger, dryrun=dryrun, state=state, **kwargs)
 
-    def url_exists(self, url, logger=False, **kwargs):
+    def url_exists(self, url, logger: LoggerSpec = False, **kwargs):
         """
         Args:
             url (str): URL to query (can be absolute, or relative to self.base_url)
-            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+            logger: Logger to use, True to print(), False to trace(), None to disable log chatter
             **kwargs: Passed through to underlying client
 
         Returns:
@@ -941,6 +857,12 @@ class RestClient:
         """
         response = self.head(url, logger=logger, **kwargs)
         return bool(response and response.ok)
+
+    @overload
+    def mock(self, specs: Callable[_P, _R_co]) -> Callable[_P, _R_co]: ...
+
+    @overload
+    def mock(self, specs: dict) -> MockWrapper: ...
 
     def mock(self, specs):
         """
@@ -955,10 +877,10 @@ class RestClient:
             assert MY_CLIENT.get("foo") == {"some": "payload"}
 
         Args:
-            specs (dict): Map of relative url -> what to return
+            specs: Map of relative url -> what to return, or function to decorate
 
         Returns:
-            Function decorator that will enact the mock
+            Decorated function, or decorator (and context manager) that will enact the mock
         """
         if callable(specs):
             # We were invoked without arguments, form: @MY_CLIENT.mock
@@ -966,39 +888,6 @@ class RestClient:
             return w(specs)
 
         return MockWrapper(self.handler, self.base_url, specs)
-
-    @staticmethod
-    def std_diskcache(directory=UNSET, default_expire=UNSET, size_limit=UNSET):
-        """
-        Convenience method to obtain a diskcache with good defaults, callers must require diskcache (not provided by runez)
-        This can be used as an example cache setup
-
-        Args:
-            directory (str | Path | None): Directory where to store the cache
-            default_expire (int | float | str): Default expiration time in seconds
-            size_limit (int | float | str): Size limit for this cache
-
-        Returns:
-            (CacheWrapper): Object wrapping this cache
-        """
-        with contextlib.suppress(ImportError):
-            from diskcache import Cache  # type: ignore[import-not-found]  # optional dependency
-
-            if directory is UNSET:
-                directory = None
-                if not DEV.current_test():
-                    # By default, do not use ~/.cache for test runs (diskcache will default to a temp dir)
-                    pymm = "py%s" % joined(sys.version_info[:2], delimiter="")
-                    directory = CacheWrapper.cache_base_path(suffix=pymm)
-
-            if default_expire is UNSET:
-                default_expire = CacheWrapper.default_expire
-
-            if size_limit is UNSET:
-                size_limit = _R.lc.rm.to_bytesize(CacheWrapper.size_limit)
-
-            cache_backend = Cache(directory=directory or None, size_limit=size_limit)
-            return CacheWrapper(cache_backend, directory, default_expire, size_limit)
 
     def _protected_get(self, method, absolute_url, keyword_args):
         try:
@@ -1011,11 +900,7 @@ class RestClient:
 
     @classmethod
     def _decomposed_checksum_url(cls, url):
-        regex = getattr(cls, "_checksum_regex", None)
-        if regex is None:
-            regex = cls._checksum_regex = re.compile(r"#(md5|sha(1|256|512))=([a-f0-9]+)")
-
-        m = regex.search(url)
+        m = _R.lc.rx_checksum_url.search(url)
         if m and m.end(0) == len(url):
             hash_algo = m.group(1)
             hash_checksum = m.group(3)
@@ -1023,14 +908,16 @@ class RestClient:
 
         return None, None, url
 
-    def _get_response(self, method, url, fatal, logger, dryrun=False, state=None, action=None, **kwargs) -> RestResponse:
+    def _get_response(
+        self, method, url, fatal: FatalSpec, logger: LoggerSpec, dryrun: DryrunSpec = False, state=None, action=None, **kwargs
+    ) -> RestResponse:
         """
         Args:
             method (str): Underlying method to call
             url (str): Remote URL (may be absolute, or relative to self.base_url)
-            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-            dryrun (bool | UNSET | None): Optionally override current dryrun setting
+            fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+            dryrun: Optionally override current dryrun setting
             state (DataState | None): For PUT/POST requests
             action (str | None): Action to refer to in dryrun message (default: method)
             **kwargs: Passed through to underlying client
@@ -1042,18 +929,6 @@ class RestClient:
         message = "%s %s" % (action or method, absolute_url)
         if _R.hdry(dryrun, logger, message):
             return RestResponse(method, absolute_url, MockResponse(200, {"message": "dryrun %s" % message}))
-
-        cache_key = cache_expire = None
-        if self.cache_wrapper is not None:
-            cache_expire = kwargs.pop("expire", UNSET)
-            cache_key = self.cache_wrapper.cache_key(absolute_url, params=kwargs.get("params"))
-            if method in ("PURGE", "DELETE"):
-                self.cache_wrapper.delete(cache_key)
-
-            elif self.cache_wrapper.is_cachable_method(method):
-                response = self.cache_wrapper.get(cache_key)
-                if response is not None:
-                    return response
 
         full_headers = self.headers
         headers = kwargs.get("headers")
@@ -1076,9 +951,6 @@ class RestClient:
                     abort(msg, fatal=fatal, logger=logger)
 
                 _R.hlog(logger, msg)
-
-            if cache_key is not None and self.cache_wrapper is not None and response.ok and self.cache_wrapper.is_cachable_method(method):
-                self.cache_wrapper.set(cache_key, response, expire=cache_expire)
 
             return response
 
