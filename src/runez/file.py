@@ -114,8 +114,8 @@ def ensure_folder(path: str | Path, clean=False, fatal: FatalSpec = True, logger
 
     Args:
         path: Path to file or folder
-        clean (bool): If false, create the directory only if missing, and preserve an existing directory and its contents otherwise.
-            If true, replace any existing file, symlink, or directory with a new empty directory.
+        clean (bool): If True, ensure folder is empty: an existing folder has its contents deleted (the folder itself is kept,
+                      it may be a mount), anything else at 'path' (a file, a symlink) is replaced with an actual folder
         fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
         logger: Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun: Optionally override current dryrun setting
@@ -127,17 +127,32 @@ def ensure_folder(path: str | Path, clean=False, fatal: FatalSpec = True, logger
     if not path:
         return 0
 
-    if clean:
-        if os.path.lexists(path):
-            if not os.path.islink(path) and os.path.samefile(path, os.curdir):
-                return abort("Refusing to recreate current folder", return_value=-1, fatal=fatal, logger=logger)
+    if os.path.isdir(path) and not clean:
+        return 0  # Already exists (a symlink to a folder is fine too, when not cleaning)
 
-            deleted = delete(path, fatal=fatal, logger=None, dryrun=dryrun)
-            if deleted < 0:
-                return deleted
+    if clean and os.path.lexists(path):
+        if os.path.isdir(path) and not os.path.islink(path):
+            # Delete the contents only: the folder itself may be a mount (eg: in docker), it must remain as-is
+            cleaned = 0
+            for fname in os.listdir(path):
+                # logger=False: no message per deleted file (only traced), failures are still reported
+                deleted = delete(os.path.join(path, fname), fatal=fatal, logger=False, dryrun=dryrun)
+                if deleted < 0:
+                    return deleted
 
-    elif os.path.isdir(path):
-        return 0
+                cleaned += deleted
+
+            if cleaned:
+                msg = "%s from %s" % (_R.lc.rm.plural(cleaned, "file"), short(path))
+                if not _R.hdry(dryrun, logger, "clean %s" % msg):
+                    _R.hlog(logger, "Cleaned %s" % msg)
+
+            return cleaned
+
+        # Not an actual folder (a file, or a symlink): replace it with a folder
+        deleted = delete(path, fatal=fatal, logger=logger, dryrun=dryrun)
+        if deleted < 0:
+            return deleted
 
     if _R.hdry(dryrun, logger, "create %s" % short(path)):
         return 1

@@ -30,6 +30,9 @@ History
   * ``delete()``, and ``copy()``/``move()`` when overwriting, report failures in non-fatal mode
     (instead of leaving the folder behind, or raising)
 
+  * ``ensure_folder(clean=True)`` replaces a file or symlink in the way with an actual folder (an existing folder is
+    still only emptied, it may be a mount)
+
   * Path containment checks (``copy()``, ``move()``, ``symlink()``, venv detection) no longer match on a string prefix
     (``foo`` vs ``foobar``)
 

@@ -1,3 +1,4 @@
+import errno
 import hashlib
 import io
 import logging
@@ -153,18 +154,8 @@ def test_ensure_folder(temp_folder, logged):
     assert runez.ensure_folder("foo") == 1
     assert "Created folder foo" in logged.pop()
 
-    with pytest.raises(runez.system.AbortException, match="Refusing to recreate current folder"):
-        runez.ensure_folder(".", clean=True)
-    assert "Refusing to recreate current folder" in logged.pop()
-
-    parent_link = Path("parent-link")
-    parent_link.symlink_to(Path.cwd().parent, target_is_directory=True)
-    cwd_alias = parent_link / Path.cwd().name
-    with pytest.raises(runez.system.AbortException, match="Refusing to recreate current folder"):
-        runez.ensure_folder(cwd_alias, clean=True)
-    assert "Refusing to recreate current folder" in logged.pop()
-    parent_link.unlink()
-    assert runez.delete("foo", logger=None) == 1
+    assert runez.ensure_folder(".", clean=True) == 1
+    assert "Cleaned 1 " in logged.pop()
 
     assert runez.touch("some-file", logger=None) == 1
     with pytest.raises(runez.system.AbortException):
@@ -183,13 +174,33 @@ def test_ensure_folder(temp_folder, logged):
     assert "Created folder" not in logged
     assert "Touched some-dir/a/b" in logged.pop()
     assert runez.ensure_folder("some-dir", clean=True, dryrun=True) == 1
-    assert "Would create some-dir" in logged.pop()
+    assert "Would clean 1 file from some-dir" in logged.pop()
 
     assert runez.touch("some-dir/b", logger=False) == 1
     assert not logged
 
-    assert runez.ensure_folder("some-dir", clean=True) == 1
-    assert "Created folder some-dir" in logged
+    assert runez.ensure_folder("some-dir", clean=True) == 2
+    assert "Cleaned 2 files from some-dir" in logged
+
+
+def test_ensure_folder_clean_mount(temp_folder, logged, monkeypatch):
+    # A folder that can't be deleted itself, only emptied (like a docker mount)
+    runez.touch("mount/some-file", logger=None)
+    runez.touch("mount/sub/other-file", logger=None)
+    mount = os.path.abspath("mount")
+    rmtree = shutil.rmtree
+
+    def refuse_mount(path, *args, **kwargs):
+        if os.path.abspath(path) == mount:
+            raise OSError(errno.EBUSY, "Device or resource busy", path)
+
+        return rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr(shutil, "rmtree", refuse_mount)
+    assert runez.ensure_folder("mount", clean=True) == 2
+    assert "Cleaned 2 files from mount" in logged.pop()
+    assert os.path.isdir("mount")
+    assert not os.listdir("mount")
 
 
 def test_ensure_folder_clean_leaf(temp_folder, logged):
@@ -200,6 +211,8 @@ def test_ensure_folder_clean_leaf(temp_folder, logged):
     assert "Would create some-file" in logged.pop()
 
     assert runez.ensure_folder(path, clean=True) == 1
+    assert "Deleted some-file" in logged
+    assert "Created folder some-file" in logged.pop()
     assert path.is_dir()
     assert not any(path.iterdir())
 
@@ -227,6 +240,7 @@ def test_ensure_folder_clean_leaf(temp_folder, logged):
     assert dir_link.is_symlink()
 
     assert runez.ensure_folder(dir_link, clean=True) == 1
+    assert "Deleted dir-link" in logged.pop()
     assert dir_link.is_dir()
     assert not dir_link.is_symlink()
     assert not any(dir_link.iterdir())
@@ -289,7 +303,9 @@ def test_failed_folder_removal(temp_folder, logged, monkeypatch):
     assert runez.delete("dest", fatal=False) == -1
     assert "Can't delete dest: busy" in logged.pop()
 
+    runez.ensure_folder("dest/sub", logger=None)
     assert runez.ensure_folder("dest", clean=True, fatal=False) == -1
+    assert "Can't delete dest/sub: busy" in logged.pop()
 
     # Same when overwriting an existing destination
     assert runez.copy("source", "dest", fatal=False) == -1
@@ -299,6 +315,11 @@ def test_failed_folder_removal(temp_folder, logged, monkeypatch):
 
     assert os.path.isdir("dest")
     assert os.path.exists("source")
+
+    # Same when a file that can't be deleted is in the way of ensure_folder()
+    monkeypatch.setattr(os, "unlink", exception_raiser(OSError("busy")))
+    assert runez.ensure_folder("source", clean=True, fatal=False) == -1
+    assert os.path.isfile("source")
 
 
 def test_file_inspection(temp_folder, logged):

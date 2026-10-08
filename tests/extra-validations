@@ -236,7 +236,7 @@ def adhoc_lint_file(path):
         # module_name = path_reference(path, 0)
         for i, line in enumerate(lines, start=1):
             if not line.startswith("def ") and "fatal=fatal" in line:
-                if "logger=None" not in line and "logger=logger" not in line and "logger=abort_logger" not in line:
+                if not any(f"logger={x}" in line for x in ("None", "False", "logger", "abort_logger")):
                     print("%s: logger not passed through" % path_reference(path, i))
                     errors += 1
                     continue
