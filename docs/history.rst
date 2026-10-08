@@ -25,6 +25,18 @@ History
   * New public type aliases ``FatalSpec``, ``LoggerSpec`` and ``DryrunSpec``, used by every ``fatal=``, ``logger=``
     and ``dryrun=`` parameter (pyright used to reject e.g. ``logger=None`` where the default was ``False``)
 
+* Edge-case fixes:
+
+  * ``delete()``, and ``copy()``/``move()`` when overwriting, report failures in non-fatal mode
+    (instead of leaving the folder behind, or raising)
+
+  * Path containment checks (``copy()``, ``move()``, ``symlink()``, venv detection) no longer match on a string prefix
+    (``foo`` vs ``foobar``)
+
+  * ``SYS_INFO.program_name`` is the package name when running via ``python -m`` (it was ``__main__``)
+
+  * ``runez.timezone().dst()`` returns zero (it returned the UTC offset)
+
 * Fixed the ``github`` table border (separator row was missing its outer pipes)
 
 * ``RunResult.output`` and ``.error`` are now always a ``str`` (they were ``None`` when nothing was captured)

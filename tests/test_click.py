@@ -167,6 +167,14 @@ def test_config(logged, monkeypatch):
     assert str(config) == "--config, PYTEST_* env vars"
     assert "Adding config provider PYTEST_*" in logged.pop()
 
+    # When running via `python -m foo`, the package name is used as env var prefix
+    monkeypatch.setattr(runez.SYS_INFO, "program_path", "/some/folder/__main__.py")
+    monkeypatch.setattr(sys, "argv", ["/some/folder/__main__.py"])
+    monkeypatch.setattr(sys.modules["__main__"], "__package__", "foo", raising=False)
+    config = sample_config(env=True)(None, None, "")
+    assert str(config) == "--config, FOO_* env vars"
+    assert "Adding config provider FOO_*" in logged.pop()
+
     monkeypatch.setenv("MY_PROG_A", "via env")
     propsfs = runez.DEV.tests_path("sample")
     config = sample_config(env="MY_PROG", default="x=y", propsfs=propsfs, split=",")

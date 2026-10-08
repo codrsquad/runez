@@ -957,7 +957,7 @@ class PythonInstallationLocationPathEnvVar(PythonInstallationLocation):
         result = []
         venv = os.environ.get("VIRTUAL_ENV")
         for folder in flattened(os.environ.get("PATH"), split=os.pathsep):
-            if venv and folder.startswith(venv):
+            if venv and os.path.commonpath([os.path.abspath(folder), os.path.abspath(venv)]) == os.path.abspath(venv):
                 continue  # Ignore python installations from virtualenv
 
             general = []  # General symlinks, eg: `python3` and `python`

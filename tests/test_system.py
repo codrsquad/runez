@@ -430,6 +430,8 @@ def test_platform_identification():
     assert str(current)
     assert current.arch  # Will depend on where we're running this
     assert current.platform
+    assert current.canonical_platform(None) is None
+    assert current.canonical_platform("") == ""
     assert current.canonical_platform("linux2") == "linux"
     assert current.canonical_platform("win32") == "windows"
     assert current.canonical_platform("foo") == "foo"
@@ -489,6 +491,15 @@ def test_platform_identification():
     assert m1.is_system_lib("/System/Library/foo.so")
 
 
+def test_program_name(monkeypatch):
+    monkeypatch.setattr(runez.SYS_INFO, "program_path", "/some/folder/some-script.py")
+    assert runez.SYS_INFO.program_name == "tests"  # Package of the caller
+
+    monkeypatch.setattr(runez.SYS_INFO, "program_path", "/some/folder/__main__.py")
+    monkeypatch.setattr(sys.modules["__main__"], "__package__", "foo.bar", raising=False)
+    assert runez.SYS_INFO.program_name == "foo"
+
+
 def test_quoted():
     assert runez.quoted(None) == "None"
     assert runez.quoted("") == ""
@@ -514,10 +525,10 @@ def test_shortening():
     assert runez.short(" a \n\n  \n  b ") == "a b"
 
     assert runez.short([1, "b"]) == "[1, b]"
-    assert runez.short((1, {"b": ["c", {"d", "e"}]})) == "(1, {b: [c, {d, e}]})"
+    assert runez.short((1, {"b": ["c", {"d", "e"}]}), size=0) == "(1, {b: [c, {d, e}]})"
 
     c = {"a \n b": [1, None, "foo \n ,", {"a2": runez.abort, "c": runez.Anchored}], None: datetime.date(2019, 1, 1)}
-    assert runez.short(c) == "{None: 2019-01-01, a b: [1, None, foo ,, {a2: function 'abort', c: class runez.system.Anchored}]}"
+    assert runez.short(c, size=0) == "{None: 2019-01-01, a b: [1, None, foo ,, {a2: function 'abort', c: class runez.system.Anchored}]}"
     assert runez.short(c, size=32) == "{None: 2019-01-01, a b: [1, N..."
 
     assert runez.short(" some  text ", size=32) == "some text"
@@ -533,11 +544,11 @@ def test_shortening():
         user_path = runez.resolved_path("~/some-folder/bar")
         current_path = runez.resolved_path("./some-folder/bar")
         assert user_path != "~/some-folder/bar"
-        assert runez.short(user_path) == "~/some-folder/bar"
-        assert runez.short(current_path) == "some-folder/bar"
+        assert runez.short(user_path, size=0) == "~/some-folder/bar"
+        assert runez.short(current_path, size=0) == "some-folder/bar"
 
         with runez.Anchored(os.getcwd(), "./foo"):
-            assert runez.short(current_path) == os.path.join("some-folder", "bar")
+            assert runez.short(current_path, size=0) == os.path.join("some-folder", "bar")
             assert runez.short("./foo") == "./foo"
             assert runez.short(runez.resolved_path("foo")) == "foo"
             assert runez.short(runez.resolved_path("./foo/bar")) == "bar"

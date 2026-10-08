@@ -99,7 +99,7 @@ def delete(path: str | Path, fatal: FatalSpec = True, logger: LoggerSpec = UNSET
         return 1
 
     try:
-        _do_delete(path, islink, fatal)
+        _do_delete(path, islink)
         _R.hlog(logger, "Deleted %s" % short(path))
 
     except Exception as e:
@@ -564,12 +564,12 @@ def _copy(source, destination, ignore=None):
     shutil.copystat(source, destination)  # Make sure last modification time is preserved
 
 
-def _do_delete(path, islink, fatal: FatalSpec):
+def _do_delete(path, islink):
     if islink or os.path.isfile(path):
         os.unlink(path)
 
     else:
-        shutil.rmtree(path, ignore_errors=not fatal)
+        shutil.rmtree(path)
 
 
 def _move(source, destination):
@@ -584,8 +584,12 @@ def _symlink(source, destination):
     src = source.absolute()
     dest = destination.absolute()
     if str(src.parent).startswith(str(dest.parent)):
-        # Make relative symlinks automatically when applicable
-        source = src.relative_to(dest.parent)
+        try:
+            # Make relative symlinks automatically when applicable
+            source = src.relative_to(dest.parent)
+
+        except ValueError:
+            source = src
 
     os.symlink(source, destination)
 
@@ -695,7 +699,8 @@ def _file_op(
     indicator = "<-" if action == "symlink" else "->"
     description = f"{action} {short(source)} {indicator} {short(destination)}"
     pdest = resolved_path(destination)
-    if str(parent_folder(source)).startswith(pdest):
+    with contextlib.suppress(ValueError):
+        parent_folder(source).relative_to(to_path(pdest))
         message = f"Can't {description}: source contained in destination"
         return abort(message, return_value=-1, fatal=fatal, logger=logger)
 
@@ -706,6 +711,7 @@ def _file_op(
         message = f"{short(source)} does not exist, can't {action.lower()} to {short(destination)}"
         return abort(message, return_value=-1, fatal=fatal, logger=logger)
 
+    clear_destination = islink = False
     if overwrite is not None:
         islink = os.path.islink(pdest)
         if islink or os.path.exists(pdest):
@@ -713,9 +719,12 @@ def _file_op(
                 message = f"{short(destination)} exists, can't {action.lower()}"
                 return abort(message, return_value=-1, fatal=fatal, logger=logger)
 
-            _do_delete(pdest, islink, fatal)
+            clear_destination = True
 
     try:
+        if clear_destination:
+            _do_delete(pdest, islink)
+
         # Ensure parent folder exists
         ensure_folder(destination.parent, fatal=fatal, logger=None, dryrun=dryrun)
         _R.hlog(logger, f"{description[0].upper()}{description[1:]}", stacklevel=3)
