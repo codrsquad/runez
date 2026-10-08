@@ -6,7 +6,7 @@ import pytest
 
 import runez
 from runez.http import RestClient
-from runez.pyenv import ArtifactInfo, PypiStd, PythonDepot, PythonSpec, Version
+from runez.pyenv import ArtifactInfo, PypiStd, PythonDepot, PythonInstallation, PythonSpec, Version
 
 PYPI_CLIENT = RestClient("https://example.com/pypi")
 
@@ -45,7 +45,8 @@ def test_artifact_info():
 
 def mk_python(basename, executable=True, content=None, machine=None):
     if basename[0].isdigit():
-        version = Version(basename)
+        version = Version.extracted_from_text(basename)
+        assert version is not None
         folder = runez.to_path(".pyenv/versions") / basename / "bin"
 
     else:
@@ -250,6 +251,17 @@ def test_inspect():
     assert '"version":' in r.output
 
 
+def test_inspect_is_ascii_only():
+    # `_inspect.py` may be invoked by arbitrary (possibly Py2) python binaries, so it must stay
+    # ASCII-only: a stray non-ASCII byte raises SyntaxError under Py2 unless an encoding is declared.
+    import runez._inspect
+
+    inspect_path = runez.to_path(runez._inspect.__file__)
+    src_text = inspect_path.read_text()
+    src_bytes = inspect_path.read_bytes()
+    assert src_bytes.decode("ascii") == src_text  # raises UnicodeDecodeError if any non-ASCII byte sneaks in
+
+
 def test_invoker():
     import runez.pyenv
 
@@ -294,10 +306,17 @@ def test_pypi_standardized_naming():
     assert PypiStd.std_wheel_basename("a.b_-___1.5--c") == "a.b_1.5_c"
 
 
+def valid_spec(text: str) -> PythonSpec:
+    """Spec parsed from 'text', which must be valid"""
+    spec = PythonSpec.from_text(text)
+    assert spec is not None, "'%s' should be a valid spec" % text
+    return spec
+
+
 def test_spec():
-    p3 = PythonSpec.from_text("3")
+    p3 = valid_spec("3")
     assert not p3.abi_suffix
-    p3plus = PythonSpec.from_text("3+")
+    p3plus = valid_spec("3+")
     assert str(p3) == "cpython:3"
     assert str(p3plus) == "cpython:3+"
     assert not p3.is_min_spec
@@ -312,26 +331,26 @@ def test_spec():
     assert p3_rep == "3"
     assert p3plus_rep == "3+"
 
-    p38 = PythonSpec.from_text("3.8")
+    p38 = valid_spec("3.8")
     assert p38.satisfies(p3)
     assert p38.satisfies(p3plus)
 
-    p38plus = PythonSpec.from_text("3.8+")
-    c38 = PythonSpec.from_text("conda:3.8")
+    p38plus = valid_spec("3.8+")
+    c38 = valid_spec("conda:3.8")
     assert c38 != p38
     assert c38.version == p38.version
-    assert p38 == PythonSpec.from_text("py38")
+    assert p38 == valid_spec("py38")
     assert not c38.satisfies(p38)
     assert not p38.satisfies(c38)
 
-    p310 = PythonSpec.from_text("3.10")
-    assert p310 == PythonSpec.from_text("py310")
+    p310 = valid_spec("3.10")
+    assert p310 == valid_spec("py310")
     assert not p38.satisfies(p310)
     assert not p310.satisfies(p38)
     assert p310.satisfies(p38plus)
     assert p310.satisfies(p310)
-    assert PythonSpec.from_text("3.10.1").satisfies(p310)
-    assert PythonSpec.from_text("3.10.0rc1").satisfies(p310)
+    assert valid_spec("3.10.1").satisfies(p310)
+    assert valid_spec("3.10.0rc1").satisfies(p310)
 
     assert p38.represented() == "3.8"
     assert p38.represented(compact=None) == "cpython:3.8"
@@ -347,18 +366,97 @@ def test_spec():
     assert c38.represented(compact=["cpython", "conda"]) == "3.8"
     assert c38.represented(color=str, compact=None) == "conda:3.8"
 
-    rc3 = PythonSpec.from_text("cpython:3.12.0rc3")
+    rc3 = valid_spec("cpython:3.12.0rc3")
     assert rc3.represented(compact=None) == "cpython:3.12.0rc3"
     assert not rc3.is_min_spec
 
-    rc3plus = PythonSpec.from_text("cpython:3.12.0rc3+")
+    rc3plus = valid_spec("cpython:3.12.0rc3+")
     assert rc3plus.represented(compact=True) == "3.12.0rc3+"
     assert rc3plus.is_min_spec
 
-    freeth = PythonSpec.from_text("cpython:3.14t")
+    freeth = valid_spec("cpython:3.14t")
     assert freeth.abi_suffix == "t"
     assert freeth.represented(compact=True) == "3.14t"
-    assert freeth.freethreading
+    assert freeth.freethreading is True
+
+
+def test_freethreading_inspection_normalization(temp_folder):
+    """Verify that threaded / non-threaded lookups are done correctly."""
+    arch = runez.SYS_INFO.platform_id.arch
+
+    # Use uncommon major version to avoid colliding with real python installations on current machine
+    mk_python("8.14.0", content={"version": "8.14.0", "machine": arch, "freethreading": None})
+    mk_python("8.14.1", content={"version": "8.14.1", "machine": arch})  # missing 'freethreading' key
+    mk_python("8.14.2", content={"version": "8.14.2", "machine": arch, "freethreading": 0})
+    mk_python("8.14.3", content={"version": "8.14.3", "machine": arch, "freethreading": 1})
+
+    for v in ("8.14.0", "8.14.1", "8.14.2"):
+        path = runez.to_path(".pyenv/versions/%s/bin/python8.14" % v)
+        install = PythonInstallation(path)
+        # Regardless of how freethreading is reported (None, missing, 0), a regular install
+        # must be considered non-freethreaded and must satisfy a non-freethreaded spec
+        assert install.inspection.freethreading is False, "%s should be non-freethreaded" % v
+        assert install.mm_spec.freethreading is False, "%s mm_spec should be non-freethreaded" % v
+        assert install.satisfies(PythonSpec.from_text("8.14")), "%s should satisfy '8.14'" % v
+        assert not install.satisfies(PythonSpec.from_text("8.14t")), "%s should not satisfy '8.14t'" % v
+
+    # Confirm `1` is treated as freethreaded (matching how Py_GIL_DISABLED is actually reported)
+    ft_path = runez.to_path(".pyenv/versions/8.14.3/bin/python8.14")
+    ft_install = PythonInstallation(ft_path)
+    assert ft_install.inspection.freethreading is True
+    assert ft_install.satisfies(PythonSpec.from_text("8.14t"))
+    assert not ft_install.satisfies(PythonSpec.from_text("8.14"))
+
+    # Depot must find the correct freethreaded specs
+    depot = PythonDepot(".pyenv/versions/**")
+
+    regular_814 = depot.find_python("8.14")
+    assert regular_814.full_version == "8.14.2"
+    assert regular_814.inspection.freethreading is False
+
+    threaded_814 = depot.find_python("8.14t")
+    assert threaded_814.full_version == "8.14.3"
+    assert threaded_814.inspection.freethreading is True
+
+
+def test_freethreading_satisfies(temp_folder, monkeypatch):
+    # A freethreaded installation must not satisfy a non-freethreaded spec (and vice versa)
+    arch = runez.SYS_INFO.platform_id.arch
+    mk_python("3.14.0t", content={"version": "3.14.0", "machine": arch, "freethreading": True})
+    from runez.pyenv import PythonInstallation
+
+    path = runez.to_path(".pyenv/versions/3.14.0t/bin/python3.14")
+    install = PythonInstallation(path)
+    assert install.inspection.freethreading is True
+    assert install.mm_spec.freethreading is True
+    assert not install.satisfies(PythonSpec.from_text("3.14"))
+    assert install.satisfies(PythonSpec.from_text("3.14t"))
+
+    # Confirm a depot won't hand a freethreaded binary to a non-freethreaded spec
+    depot = PythonDepot(".pyenv/versions/**")
+    monkeypatch.setattr(depot, "invoker", None)  # Don't let the running interpreter satisfy specs from outside the depot
+    regular_314 = depot.find_python("3.14")
+    assert regular_314.problem == "not available"
+    assert regular_314.inspection.freethreading is False
+    threaded_314 = depot.find_python("3.14t")
+    assert not threaded_314.problem
+    assert threaded_314.inspection.freethreading is True
+
+    # Confirm the invoker fallback also respects the freethreading boundary
+    mk_python("3.14.1", content={"version": "3.14.1", "machine": arch, "freethreading": False})
+    nft_path = runez.to_path(".pyenv/versions/3.14.1/bin/python3.14")
+    nft_install = PythonInstallation(nft_path)
+    assert nft_install.inspection.freethreading is False
+
+    ft_depot = PythonDepot()  # no locations, only invoker
+    ft_depot.invoker = install  # freethreaded invoker
+    assert not ft_depot.find_python("3.14t").problem  # invoker satisfies 3.14t
+    assert ft_depot.find_python("3.14").problem  # invoker does NOT satisfy non-freethreaded 3.14
+
+    nft_depot = PythonDepot()
+    nft_depot.invoker = nft_install  # non-freethreaded invoker
+    assert not nft_depot.find_python("3.14").problem  # invoker satisfies 3.14
+    assert nft_depot.find_python("3.14t").problem  # invoker does NOT satisfy 3.14t
 
 
 def test_spec_equivalent():
@@ -411,18 +509,18 @@ def test_spec_list():
 @pytest.mark.parametrize(
     ("given_version", "expected"),
     [
-        ("1.2", (1, 2, 0, 0, 0, 0, "")),
-        ("1.2rev5", (1, 2, 0, 0, 0, 5, "rev")),
-        ("1.2r5.dev3", (1, 2, 0, 0, 0, 5, "r", "", 0, "r", 5, "dev", 3)),
-        ("1.dev0", (1, 0, 0, 0, 0, 0, "", "", 0, "", 0, "dev", 0)),
-        ("1.0.dev456", (1, 0, 0, 0, 0, 0, "", "", 0, "", 0, "dev", 456)),
-        ("1.0a12", (1, 0, 0, 0, 0, 0, "", "a", 12, "", 0, "z", 0)),
-        ("1.2.3rc12", (1, 2, 3, 0, 0, 0, "", "rc", 12, "", 0, "z", 0)),
-        ("1.0a2.dev456", (1, 0, 0, 0, 0, 0, "", "a", 2, "", 0, "dev", 456)),
-        ("1.0b2.post345", (1, 0, 0, 0, 0, 0, "", "b", 2, "post", 345, "z", 0)),
-        ("1.0b2.post345.dev456", (1, 0, 0, 0, 0, 0, "", "b", 2, "post", 345, "dev", 456)),
-        ("1.0rc1.dev456", (1, 0, 0, 0, 0, 0, "", "rc", 1, "", 0, "dev", 456)),
-        ("1.0.post456.dev34", (1, 0, 0, 0, 0, 456, "post", "", 0, "post", 456, "dev", 34)),
+        ("1.2", (1, 2, 0, 0, 0, 0, 0)),
+        ("1.2rev5", (1, 2, 0, 0, 0, 5, 1)),
+        ("1.2r5.dev3", (1, 2, 0, 0, 0, 5, 1, "", 0, "r", 5, "dev", 3)),
+        ("1.dev0", (1, 0, 0, 0, 0, 0, 0, "", 0, "", 0, "dev", 0)),
+        ("1.0.dev456", (1, 0, 0, 0, 0, 0, 0, "", 0, "", 0, "dev", 456)),
+        ("1.0a12", (1, 0, 0, 0, 0, 0, 0, "a", 12, "", 0, "z", 0)),
+        ("1.2.3rc12", (1, 2, 3, 0, 0, 0, 0, "rc", 12, "", 0, "z", 0)),
+        ("1.0a2.dev456", (1, 0, 0, 0, 0, 0, 0, "a", 2, "", 0, "dev", 456)),
+        ("1.0b2.post345", (1, 0, 0, 0, 0, 0, 0, "b", 2, "post", 345, "z", 0)),
+        ("1.0b2.post345.dev456", (1, 0, 0, 0, 0, 0, 0, "b", 2, "post", 345, "dev", 456)),
+        ("1.0rc1.dev456", (1, 0, 0, 0, 0, 0, 0, "rc", 1, "", 0, "dev", 456)),
+        ("1.0.post456.dev34", (1, 0, 0, 0, 0, 456, 1, "", 0, "post", 456, "dev", 34)),
     ],
 )
 def test_pep_sample(given_version, expected):
@@ -430,7 +528,7 @@ def test_pep_sample(given_version, expected):
     assert version.is_valid
     assert version.ignored is None
     assert str(version) == given_version
-    actual = version.components
+    actual = version.components or ()
     if version.prerelease:
         actual += version.prerelease
 
@@ -500,7 +598,7 @@ def test_version():
     assert bogus.mm is None
 
     v1 = Version("1")
-    assert v1.components == (1, 0, 0, 0, 0, 0, "")
+    assert v1.components == (1, 0, 0, 0, 0, 0, 0)
     assert str(v1) == "1"
     assert v1.main == "1"
     assert v1.major == 1
@@ -568,6 +666,7 @@ def test_version_extraction():
     assert not p38.is_valid
 
     p38 = Version.extracted_from_text("Python 3.8.6")
+    assert p38 is not None
     assert str(p38) == "3.8.6"
     assert p38.is_valid
 

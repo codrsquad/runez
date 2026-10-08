@@ -259,12 +259,12 @@ class Pluralizer:
         return "%ss" % singular
 
 
-def plural(countable, singular=None, base=1000):
+def plural(countable, singular=None, base: int | None = 1000):
     """
     Args:
         countable: How many things there are (can be int, or something countable)
         singular: What is counted (example: "record", or "chair", etc...)
-        base (int | None): Optional base to unitize count representation
+        base: Optional base to unitize count representation
 
     Returns:
         (str): Rudimentary, best-effort plural of "<count> <name>(s)"

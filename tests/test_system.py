@@ -103,6 +103,8 @@ def test_capture_nested():
         # Capture both stdout and stderr
         print("print1")
         sys.stderr.write("err1\n")
+        assert logged1.stdout is not None
+        assert logged1.stderr is not None
 
         assert "print1" in logged1.stdout
         assert "err1" in logged1.stderr
@@ -111,6 +113,7 @@ def test_capture_nested():
             # Capture only stdout on 2nd level
             print("print2")
             sys.stderr.write("err2\n")
+            assert logged2.stdout is not None
 
             # Verify that we did capture, and are isolated from prev level
             assert "print1" not in logged2.stdout
@@ -120,6 +123,7 @@ def test_capture_nested():
                 # Capture only stderr on 3rd level
                 print("print3")
                 sys.stderr.write("err3\n")
+                assert logged3.stderr is not None
 
                 # Verify that we did capture, and are isolated from prev level
                 assert "err1" not in logged3.stderr
@@ -142,6 +146,8 @@ def test_capture_scope():
     with runez.CaptureOutput() as logged:
         print("on stdout")
         sys.stderr.write("on stderr")
+        assert logged.stdout is not None
+        assert logged.stderr is not None
         assert "on stdout" in logged.stdout
         assert "on stderr" in logged.stderr
 
@@ -150,6 +156,7 @@ def test_capture_scope():
         sys.stderr.write("on stderr")
 
         # Verify that stderr was not captured, but stdout was
+        assert logged.stdout is not None
         assert "on stdout" in logged.stdout
         assert "on stderr" not in logged
         assert logged.stderr is None
@@ -366,6 +373,9 @@ def test_get_version():
         assert runez.get_version(None) is None
         assert runez.get_version(["foo"], default="0.0.0", logger=logging.debug) is None  # Ignore if given name is not a string or module
         assert runez.get_version(__name__) == VERSION
+        with patch.object(sys.modules[__name__], "VERSION", (1, 0, 3)):
+            assert runez.get_version(__name__) == "1.0.3"  # Rare, but some modules declare their version as a tuple
+
         assert not logged
 
         assert runez.get_version("foo", logger=logging.debug) == "0.0.0"
@@ -408,6 +418,7 @@ def test_joined():
 
 def test_path_resolution(temp_folder):
     assert runez.resolved_path("") == ""
+    assert runez.resolved_path(None) is None
     assert runez.resolved_path("some-file") == os.path.join(temp_folder, "some-file")
     assert runez.resolved_path("some-file", base="bar") == os.path.join(temp_folder, "bar", "some-file")
 
@@ -478,6 +489,15 @@ def test_platform_identification():
     assert not m1.is_system_lib("/lib/foo.so")
     assert m1.is_system_lib("/usr/lib/foo.so")
     assert m1.is_system_lib("/System/Library/foo.so")
+
+
+def test_program_name(monkeypatch):
+    monkeypatch.setattr(runez.SYS_INFO, "program_path", "/some/folder/some-script.py")
+    assert runez.SYS_INFO.program_name == "tests"  # Package of the caller
+
+    monkeypatch.setattr(runez.SYS_INFO, "program_path", "/some/folder/__main__.py")
+    monkeypatch.setattr(sys.modules["__main__"], "__package__", "foo.bar", raising=False)
+    assert runez.SYS_INFO.program_name == "foo"
 
 
 def test_quoted():

@@ -17,10 +17,12 @@ API_EXCEPTIONS = {
     "system.abort": {},
 }
 IO_API_DOCSTRINGS = dict(
-    fatal="fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log",
-    logger="logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter",
-    dryrun="dryrun (bool | UNSET | None): Optionally override current dryrun setting",
+    fatal="fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log",
+    logger="logger: Logger to use, True to print(), False to trace(), None to disable log chatter",
+    dryrun="dryrun: Optionally override current dryrun setting",
 )
+# Shared IO parameters are typed with these aliases (from runez.system), wherever they appear
+IO_API_ANNOTATIONS = dict(fatal="FatalSpec", logger="LoggerSpec", dryrun="DryrunSpec")
 IO_API_CATEGORIZED = collections.defaultdict(list)
 
 
@@ -146,7 +148,7 @@ def io_api_problem(sig: dict, expected: dict, docstring: str):
         v = IO_API_DOCSTRINGS[k]
         if v not in docstring:
             if len(expected) == 1:
-                general_dryrun = "dryrun (bool): Enable dryrun"
+                general_dryrun = "dryrun: Enable dryrun"
                 if general_dryrun in docstring:
                     return None
 
@@ -216,6 +218,16 @@ def FunctionDef_problem(path: str, node: ast.FunctionDef):
                 return problem
 
 
+def FunctionDef_annotation_problem(path: str, node: ast.FunctionDef):
+    """Shared IO parameters must be annotated with their alias"""
+    for arg in node.args.posonlyargs + node.args.args + node.args.kwonlyargs:
+        expected = IO_API_ANNOTATIONS.get(arg.arg)
+        if expected:
+            annotation = arg.annotation and ast.unparse(arg.annotation)
+            if annotation != expected and not (node.name == "abort" and annotation and "Literal" in annotation):
+                return "%s: '%s' should be annotated '%s', not '%s'" % (path_reference(path, node.lineno, node.name), arg.arg, expected, annotation)
+
+
 def adhoc_lint_file(path):
     """Quick and dirt home-made linter: visit all code of file with 'path' via AST visitor"""
     errors = 0
@@ -239,12 +251,12 @@ def adhoc_lint_file(path):
         for node in ast.walk(tree):
             # Quick visitor convention: functions with suffix _problem will count as validators
             cname = "%s_problem" % node.__class__.__name__
-            validator = globals().get(cname)
-            if validator:
-                problem = validator(path, node)
-                if problem:
-                    print(problem)
-                    errors += 1
+            for validator in (globals().get(cname), globals().get("%s_annotation_problem" % node.__class__.__name__)):
+                if validator:
+                    problem = validator(path, node)
+                    if problem:
+                        print(problem)
+                        errors += 1
 
     return errors
 

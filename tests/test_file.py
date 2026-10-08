@@ -231,6 +231,23 @@ def test_failure(temp_folder, monkeypatch):
         assert "Can't chmod some-file:" in logged.pop()
 
 
+def test_failed_folder_removal(temp_folder, logged, monkeypatch):
+    runez.write("source", "hello")
+    runez.ensure_folder("dest")
+    monkeypatch.setattr(shutil, "rmtree", exception_raiser(OSError("busy")))
+    assert runez.delete("dest", fatal=False) == -1
+    assert "Can't delete dest: busy" in logged.pop()
+
+    # Same when overwriting an existing destination
+    assert runez.copy("source", "dest", fatal=False) == -1
+    assert "Can't copy source -> dest: busy" in logged.pop()
+    with pytest.raises(runez.system.AbortException):
+        runez.move("source", "dest")
+
+    assert os.path.isdir("dest")
+    assert os.path.exists("source")
+
+
 def test_file_inspection(temp_folder, logged):
     assert runez.touch("sample") == 1
     assert runez.delete("sample") == 1

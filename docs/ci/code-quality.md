@@ -1,0 +1,81 @@
+# Code quality
+
+`tox -e style` is the gate. It runs three things: ruff's linter, ruff's formatter in check mode,
+and `tests/extra-validations`. `tox -e reformat` is the same tooling with the fixes applied
+instead of reported.
+
+## Ruff: `select`, not `extend-select`
+
+The rule list in `pyproject.toml` is under `[tool.ruff.lint] select`. Do not change it back to
+`extend-select`.
+
+`extend-select` means "ruff's defaults, **plus** these". Ruff's defaults are not a stable set —
+they have grown substantially across releases, and because nothing in the repo names them, the
+enabled rule set changes underneath you when ruff updates. That is not hypothetical here: a ruff
+upgrade once turned a green build into hundreds of findings with no repo change, almost all of
+them from newly-defaulted families flagging deliberate style choices (`%`-formatting, magic
+values) rather than defects.
+
+`select` means "**exactly** these". The enabled set is then fully described by a file that is
+checked in and reviewed, which is the property worth having.
+
+When picking up a rule family that a default set used to provide for free, add it explicitly and
+look at what it actually reports first. The pylint-error family (`PLE`) is the cheapest thing to
+re-add if you want more real-bug coverage — it is small and finds genuine mistakes. The volume
+families (`UP`, `PLR`) are mostly opinion about style this project has already chosen against.
+
+## The part `select` doesn't fix
+
+`select` stops the *default set* from drifting. It does not stop a new rule from stabilizing out
+of preview into a prefix that is already selected — pick `"B"` and you get whichever bugbear rules
+exist in whatever ruff version happens to install. CI installs its tools fresh on every run, so
+that is a live path to a build breaking with no commit behind it.
+
+The usual mitigation is pinning the tool versions in `tox.ini`. This repo deliberately doesn't: a
+build that breaks on a rule nobody added is a forced heads-up, dealt with the next time runez is
+worked on, rather than something to hold back by bumping pins by hand. If a build fails with no
+commit behind it, compare the tool versions first. Pin a tool if that ever becomes annoying.
+
+The same goes for the type checkers, ty included. It is still `0.x`, so new releases bring new
+findings more often than ruff does, which is exactly the heads-up wanted.
+
+For the analogous problem one layer up — GitHub Actions updating themselves — see
+[GitHub Actions versions](./github-actions.md).
+
+## extra-validations
+
+`tests/extra-validations` is a small project-specific linter that enforces two conventions no
+off-the-shelf tool knows about:
+
+- **`__init__.py` stays coherent.** The order of the `from ... import ...` lines must match the
+  order of `__all__`, so nothing gets exported without being declared or drifts out of sync.
+- **The shared IO parameters are documented identically everywhere.** runez functions that take
+  `fatal`, `logger` or `dryrun` all mean the same thing by them, so their docstring lines must be
+  literally the same text across the API, and functions are grouped by which of these they accept.
+
+It parses the source with `ast` and prints the categorization it derived, so its output doubles as
+a map of which functions are IO operations, getters, dryrun-aware or tracers. Read the script for
+the exact rules — it is short and it is the authority.
+
+## Type checking
+
+Four type checkers gate CI: ty, pyrefly, pyright and mypy. Each has a tox environment named after
+it (`tox -e ty`, ...), checks the whole repo (`src/`, `tests/`, `setup.py`), and is kept at zero
+findings. Their settings live in `pyproject.toml`, their dependencies in `tox.ini`, commented
+wherever a setting isn't obvious.
+
+runez ships `py.typed`, so its annotations are part of the contract users see. A finding is a
+signal about the code: fix it with a better signature, an overload, a declared attribute, rather
+than by silencing the checker.
+
+- No `# type: ignore` markers, in any dialect (`# ty: ignore`, `# pyright: ignore`, ...).
+- `cast()` is silencing too. `assert` is fine where it states a real expectation (mostly in tests).
+- A class of findings that isn't worth acting on gets turned off in config, scoped as narrowly as
+  possible, with a comment saying why (see the overrides for `tests/` and for `runez.schema`,
+  which is on its way out).
+
+tox also has `basedpyright` and `zuban` environments, not run in CI: basedpyright's strict default
+reports thousands of "annotate this" warnings, and zuban is AGPL with a single maintainer. They
+are there as a second opinion.
+
+[typecheck-v5.10.0](../typecheck-v5.10.0.md) records what introducing the checkers found and fixed.

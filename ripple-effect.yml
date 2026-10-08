@@ -1,0 +1,6 @@
+# Run `uvx ripple-effect run`
+upstream: .
+proving-grounds: .tox/ripple-check
+downstream-projects:
+  - https://github.com/codrsquad/pickley.git
+  - https://github.com/codrsquad/portable-python.git

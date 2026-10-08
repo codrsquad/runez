@@ -8,18 +8,20 @@ import inspect
 import io
 import json
 import logging
-from typing import ClassVar
+from typing import Callable, ClassVar
 
 from runez.file import ensure_folder, parent_folder
-from runez.system import _R, abort, is_basetype, is_iterable, resolved_path, short, stringified, UNSET
+from runez.system import _R, abort, DryrunSpec, FatalSpec, is_basetype, is_iterable, LoggerSpec, resolved_path, short, stringified, UNSET
 
 K_INDENTED_SEPARATORS = (",", ": ")
 K_COMPACT_SEPARATORS = (", ", ": ")
 
 
-def _to_callable(value, fallback=None):
+def _to_callable(value, fallback=None) -> Callable | None:
     if value:
         return value if callable(value) else fallback
+
+    return None
 
 
 def with_behavior(strict=UNSET, extras=UNSET, hook=UNSET):
@@ -74,10 +76,10 @@ def set_default_behavior(strict=UNSET, extras=UNSET):
                                               callable: call callable(reason) when extra fields are seen in data
     """
     if strict is not UNSET:
-        DefaultBehavior.strict = strict
+        DefaultBehavior.default_strict = strict
 
     if extras is not UNSET:
-        DefaultBehavior.extras = extras
+        DefaultBehavior.default_extras = extras
 
 
 class DefaultBehavior:
@@ -89,8 +91,9 @@ class DefaultBehavior:
     (global default for that does not make sense).
     """
 
-    strict = False  # Original default: don't strictly enforce type compatibility
-    extras = False  # Original default: don't report extra fields seen in deserialized data (ie: ignore them)
+    # Global defaults, see `set_default_behavior()`
+    default_strict: bool | Callable = False  # Original default: don't strictly enforce type compatibility
+    default_extras: bool | Callable = False  # Original default: don't report extra fields seen in deserialized data (ie: ignore them)
 
     def __init__(self, strict=UNSET, extras=UNSET, hook=UNSET):
         """
@@ -102,10 +105,10 @@ class DefaultBehavior:
         from runez import schema
 
         if strict is UNSET:
-            strict = self.strict
+            strict = self.default_strict
 
         if extras is UNSET:
-            extras = self.extras
+            extras = self.default_extras
 
         self.strict = _to_callable(strict, fallback=schema.ValidationException)
         self.hook = _to_callable(hook)  # Called if provided at the end of ClassMetaDescription initialization
@@ -187,16 +190,16 @@ class DefaultBehavior:
                 self.do_notify("Extra content given for %s: %s" % (class_name, ", ".join(sorted(extras))))
 
 
-def json_sanitized(value, stringify=stringified, dt=str, none=False):
+def json_sanitized(value, stringify: Callable | None = stringified, dt: Callable | None = str, none: str | bool = False):
     """
     Args:
         value: Value to sanitize
-        stringify (callable | None): Function to use to stringify non-builtin types
-        dt (callable | None): Function to use to stringify dates
-        none (str | bool): States how to treat `None` keys/values
-                           - string: Replace `None` *keys* with given string (keep `None` *values* as-is)
-                           - False (default): Filter out `None` keys/values
-                           - True: No filtering, keep `None` keys/values as-is
+        stringify: Function to use to stringify non-builtin types
+        dt: Function to use to stringify dates
+        none: States how to treat `None` keys/values
+              - string: Replace `None` *keys* with given string (keep `None` *values* as-is)
+              - False (default): Filter out `None` keys/values
+              - True: No filtering, keep `None` keys/values as-is
 
     Returns:
         An object that should be json serializable
@@ -298,8 +301,8 @@ def scan_all_attributes(cls):
 class SerializableDescendants:
     """Tracks all descendants of Serializable, with at least one attribute defined"""
 
-    by_name: ClassVar = {}  # Tracks by class name only, last imported class wins
-    by_qualified_name: ClassVar = {}  # Tracks by full qualified name (won't be any conflicts)
+    by_name: ClassVar[dict[str, "ClassMetaDescription"]] = {}  # Tracks by class name only, last imported class wins
+    by_qualified_name: ClassVar[dict[str, "ClassMetaDescription"]] = {}  # Tracks by full qualified name (won't be any conflicts)
 
     @classmethod
     def descendant_with_name(cls, name):
@@ -500,30 +503,6 @@ class BaseMetaInjector(type):
     """Used solely to provide common ancestor for `MetaInjector` and internal types returned by `with_behavior`"""
 
 
-def add_metaclass(metaclass):
-    """Class decorator for creating a class with a metaclass (taken from https://pypi.org/project/six/)."""
-
-    def wrapper(cls):
-        orig_vars = dict(cls.__dict__)
-        slots = orig_vars.get("__slots__")
-        if slots is not None:
-            if isinstance(slots, str):
-                orig_vars.pop(slots)
-
-            else:
-                for slots_var in slots:
-                    orig_vars.pop(slots_var)
-
-        orig_vars.pop("__dict__", None)
-        orig_vars.pop("__weakref__", None)
-        if hasattr(cls, "__qualname__"):
-            orig_vars["__qualname__"] = cls.__qualname__
-
-        return metaclass(cls.__name__, cls.__bases__, orig_vars)
-
-    return wrapper
-
-
 def filtered_bases(bases):
     fb = []
     mbehavior = None
@@ -540,20 +519,16 @@ def filtered_bases(bases):
     return mbehavior, tuple(fb)
 
 
-def add_meta(meta_type):
-    """A simplified metaclass that simply injects a `._meta` field of given type `meta_type`"""
+class MetaInjector(BaseMetaInjector):
+    """Metaclass injecting a `._meta` field (describing fields and properties) in the classes it creates"""
 
-    class MetaInjector(BaseMetaInjector):
-        def __init__(cls, name, bases, dct):
-            mbehavior, fb = filtered_bases(bases)
-            super().__init__(name, fb, dct)
-            cls._meta = meta_type(cls, mbehavior)
-
-    return add_metaclass(MetaInjector)
+    def __init__(cls, name, bases, dct):
+        mbehavior, fb = filtered_bases(bases)
+        super().__init__(name, fb, dct)
+        cls._meta = ClassMetaDescription(cls, mbehavior)
 
 
-@add_meta(ClassMetaDescription)
-class Serializable:
+class Serializable(metaclass=MetaInjector):
     """Serializable object"""
 
     _meta: ClassMetaDescription  # Describes fields and properties of descendant classes, populated via metaclass
@@ -577,13 +552,13 @@ class Serializable:
         return self.__class__.from_dict(self.to_dict())
 
     @classmethod
-    def from_json(cls, path, default=None, fatal=False, logger=False):
+    def from_json(cls, path, default=None, fatal: FatalSpec = False, logger: LoggerSpec = False):
         """
         Args:
             path (str | pathlib.Path): Path to json file
             default (dict | list | str | None): Default if file is not present, or can't be deserialized
-            fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+            fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+            logger: Logger to use, True to print(), False to trace(), None to disable log chatter
 
         Returns:
             (cls): Deserialized object
@@ -627,15 +602,15 @@ class Serializable:
         for name, schema_type in self._meta.attributes.items():
             setattr(self, name, schema_type.default)
 
-    def to_dict(self, stringify=stringified, dt=str, none=False) -> dict:
+    def to_dict(self, stringify: Callable | None = stringified, dt: Callable | None = str, none: str | bool = False) -> dict:
         """
         Args:
-            stringify (callable | None): Function to use to stringify non-builtin types
-            dt (callable | None): Function to use to stringify dates
-            none (str | bool): States how to treat `None` keys/values
-                               - string: Replace `None` *keys* with given string (keep `None` *values* as-is)
-                               - False (default): Filter out `None` keys/values
-                               - True: No filtering, keep `None` keys/values as-is
+            stringify: Function to use to stringify non-builtin types
+            dt: Function to use to stringify dates
+            none: States how to treat `None` keys/values
+                  - string: Replace `None` *keys* with given string (keep `None` *values* as-is)
+                  - False (default): Filter out `None` keys/values
+                  - True: No filtering, keep `None` keys/values as-is
 
         Returns:
             (dict): This object serialized to a dict
@@ -646,13 +621,13 @@ class Serializable:
         return value
 
 
-def from_json(value, default=None, fatal=False, logger=False):
+def from_json(value, default=None, fatal: FatalSpec = False, logger: LoggerSpec = False):
     """
     Args:
         value (str): Value to deserialize
         default (dict | list | str | None): Default returned if value can't be deserialized
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
 
     Returns:
         (dict | list | str): Deserialized data from file
@@ -671,13 +646,13 @@ def from_json(value, default=None, fatal=False, logger=False):
         return _R.habort(default, fatal, logger, "Can't deserialize json '%s'" % short(value), exc_info=e)
 
 
-def read_json(path, default=None, fatal=False, logger=False):
+def read_json(path, default=None, fatal: FatalSpec = False, logger: LoggerSpec = False):
     """
     Args:
         path (str | pathlib.Path | None): Path to file to deserialize
         default (dict | list | str | None): Default returned if file is not present, or can't be deserialized
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
 
     Returns:
         (dict | list | str): Deserialized data from file
@@ -690,16 +665,23 @@ def read_json(path, default=None, fatal=False, logger=False):
         return _R.habort(default, fatal, logger, "Can't read %s" % short(path), exc_info=e)
 
 
-def represented_json(data, stringify=stringified, dt=str, none=False, indent: int | None = 2, sort_keys=True) -> str:
+def represented_json(
+    data,
+    stringify: Callable | None = stringified,
+    dt: Callable | None = str,
+    none: str | bool = False,
+    indent: int | None = 2,
+    sort_keys=True,
+) -> str:
     """
     Args:
         data (object | None): Data to serialize
-        stringify (callable | None): Function to use to stringify non-builtin types
-        dt (callable | None): Function to use to stringify dates
-        none (str | bool): States how to treat `None` keys/values
-                           - string: Replace `None` *keys* with given string (keep `None` *values* as-is)
-                           - False (default): Filter out `None` keys/values
-                           - True: No filtering, keep `None` keys/values as-is
+        stringify: Function to use to stringify non-builtin types
+        dt: Function to use to stringify dates
+        none: States how to treat `None` keys/values
+              - string: Replace `None` *keys* with given string (keep `None` *values* as-is)
+              - False (default): Filter out `None` keys/values
+              - True: No filtering, keep `None` keys/values as-is
         indent (int | None): Indentation to use, if None: use compact (one line) mode
         sort_keys (bool): Whether keys should be sorted
 
@@ -714,22 +696,33 @@ def represented_json(data, stringify=stringified, dt=str, none=False, indent: in
     return rep
 
 
-def save_json(data, path, stringify=stringified, dt=str, none=False, indent=2, sort_keys=True, fatal=True, logger=UNSET, dryrun=UNSET):
+def save_json(
+    data,
+    path,
+    stringify: Callable | None = stringified,
+    dt: Callable | None = str,
+    none: str | bool = False,
+    indent=2,
+    sort_keys=True,
+    fatal: FatalSpec = True,
+    logger: LoggerSpec = UNSET,
+    dryrun: DryrunSpec = UNSET,
+):
     """
     Args:
         data (object | None): Data to serialize and save
         path (str | pathlib.Path | None): Path to file where to save
-        stringify (callable | None): Function to use to stringify non-builtin types
-        dt (callable | None): Function to use to stringify dates
-        none (str | bool): States how to treat `None` keys/values
-                           - string: Replace `None` *keys* with given string (keep `None` *values* as-is)
-                           - False (default): Filter out `None` keys/values
-                           - True: No filtering, keep `None` keys/values as-is
+        stringify: Function to use to stringify non-builtin types
+        dt: Function to use to stringify dates
+        none: States how to treat `None` keys/values
+              - string: Replace `None` *keys* with given string (keep `None` *values* as-is)
+              - False (default): Filter out `None` keys/values
+              - True: No filtering, keep `None` keys/values as-is
         indent (int | None): Indentation to use, if None: use compact (one line) mode
         sort_keys (bool): Whether keys should be sorted
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool | UNSET | None): Optionally override current dryrun setting
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+        dryrun: Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed

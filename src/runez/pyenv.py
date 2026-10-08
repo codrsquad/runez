@@ -168,8 +168,8 @@ class PythonSpec:
         self.family = family
         self.version = version
         self.canonical = "%s:%s%s%s" % (family, version, "t" if freethreading else "", "+" if is_min_spec else "")
-        self.is_min_spec = is_min_spec
-        self.freethreading = freethreading
+        self.is_min_spec = bool(is_min_spec)
+        self.freethreading = bool(freethreading)
 
     def __repr__(self):
         return self.canonical
@@ -201,7 +201,7 @@ class PythonSpec:
             (str): Textual representation of this spec
         """
         text = self.canonical
-        if compact and (compact is True or self.family in compact):
+        if compact is True or (compact and self.family in compact):
             text = self.version.text
             if self.freethreading:
                 text += "t"
@@ -233,15 +233,15 @@ class PythonSpec:
         if m:
             min_spec = False
             freethreading = False
-            version = m.group("version")
-            if version.endswith("+"):
+            version_text = m.group("version")
+            if version_text.endswith("+"):
                 min_spec = True
-                version = version[:-1]
-            if version.endswith("t"):
+                version_text = version_text[:-1]
+            if version_text.endswith("t"):
                 freethreading = True
-                version = version[:-1]
+                version_text = version_text[:-1]
 
-            version = Version.from_tox_like(version)
+            version = Version.from_tox_like(version_text)
             if version is not None and version.is_valid:
                 return cls(m.group("family"), version, is_min_spec=min_spec, freethreading=freethreading)
 
@@ -447,9 +447,9 @@ class Version:
             None: loose parsing, False: strict parsing, version left as-is, True: Turn into canonical PEP-440
         """
         self.given_text = text
-        self.given_components = None  # Components as given by 'text'
+        self.given_components: tuple[int, ...] | None = None  # Components as given by 'text'
         self.text = text or ""
-        self.components = None  # tuple of components with exactly 'max_parts', autofilled with zeros
+        self.components: tuple[int, ...] | None = None  # Comparable tuple: 'max_parts' ints, post-release number, then post-release flag
         self.epoch = 0
         self.local_part = None
         self.prerelease = None
@@ -478,7 +478,7 @@ class Version:
             if pre:
                 rel = rel_num = None  # rc.post does not count as .post (but a .post.dev does)
 
-        components: list[int | str] = [int(c) for c in m.group("main").split(".")]
+        components = [int(c) for c in m.group("main").split(".")]
         if len(components) > max_parts:
             return  # Invalid version, too many parts
 
@@ -488,7 +488,7 @@ class Version:
 
         self.release_number = None if rel_num is None else int(rel_num or 0)
         components.append(int(rel_num or 0))
-        components.append(rel or "")
+        components.append(1 if rel else 0)  # 'post'/'rev'/'r' are equivalent PEP-440 spellings
         self.components = tuple(components)
         if canonical is True:
             self.text = self.pep_440 or ""
@@ -609,6 +609,13 @@ class Version:
     def given_components_count(self):
         return len(self.given_components) if self.given_components else 0
 
+    def _given_component(self, index: int) -> int | None:
+        """Component at 'index', if it was given (ie: '1.2' has no patch component)"""
+        if self.given_components is not None and index < len(self.given_components):
+            return self.given_components[index]
+
+        return None
+
     @cached_property
     def local_parts(self) -> list[str] | None:
         """Local parts are only needed when comparing versions that differ solely by local part..."""
@@ -638,20 +645,18 @@ class Version:
     @cached_property
     def main(self):
         """(str): Main part of version (Major.minor.patch)"""
-        if self.given_components:
+        if self.given_components is not None:
             return ".".join(str(x) for x in self.given_components[:3])
 
     @cached_property
-    def major(self):
-        """(int): Major part of version"""
-        if self.given_components_count >= 1:
-            return self.components and self.components[0]
+    def major(self) -> int | None:
+        """Major part of version"""
+        return self._given_component(0)
 
     @cached_property
-    def minor(self):
-        """(int): Minor part of version"""
-        if self.given_components_count >= 2:
-            return self.components and self.components[1]
+    def minor(self) -> int | None:
+        """Minor part of version"""
+        return self._given_component(1)
 
     @cached_property
     def mm(self):
@@ -660,10 +665,9 @@ class Version:
             return "%s.%s" % (self.major, self.minor)
 
     @property
-    def patch(self):
-        """(int): Patch part of version"""
-        if self.given_components_count >= 3:
-            return self.components and self.components[2]
+    def patch(self) -> int | None:
+        """Patch part of version"""
+        return self._given_component(2)
 
     @cached_property
     def pep_440(self):
@@ -828,7 +832,7 @@ class PythonInstallation:
     def mm_spec(self):
         """Major/minor spec, e.g: cpython:3.11"""
         if self.mm:
-            return PythonSpec(self.family, self.mm)
+            return PythonSpec(self.family, self.mm, freethreading=self.inspection.freethreading)
 
     @cached_property
     def machine(self):
@@ -1008,13 +1012,13 @@ class PythonInstallationLocationSubFolders(PythonInstallationLocation):
 class PythonSimpleInspection:
     """Simple inspection (version and arch) of a python executable, cached to avoid expensive python process invocations"""
 
-    _cached: ClassVar = {}
+    _cached: ClassVar[dict[Path, tuple[Path, PythonSimpleInspection]]] = {}
 
     def __init__(self, version=None, machine=None, problem=None, freethreading=False):
         self.version = version
         self.machine = machine
         self.problem = problem
-        self.freethreading = freethreading
+        self.freethreading = bool(freethreading)
 
     def __repr__(self):
         return self.problem or f"{self.version} ({self.machine})"

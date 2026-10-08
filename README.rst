@@ -9,10 +9,6 @@ Friendly misc/utils/convenience library
     :target: https://github.com/codrsquad/runez/actions
     :alt: Tested with Github Actions
 
-.. image:: https://codecov.io/gh/codrsquad/runez/branch/main/graph/badge.svg
-    :target: https://codecov.io/gh/codrsquad/runez
-    :alt: Test code codecov
-
 .. image:: https://img.shields.io/pypi/pyversions/runez.svg
     :target: https://github.com/codrsquad/runez
     :alt: Python versions tested (link to github project)
