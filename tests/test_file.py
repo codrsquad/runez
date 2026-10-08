@@ -1,3 +1,4 @@
+import errno
 import hashlib
 import io
 import logging
@@ -182,6 +183,70 @@ def test_ensure_folder(temp_folder, logged):
     assert "Cleaned 2 files from some-dir" in logged
 
 
+def test_ensure_folder_clean_mount(temp_folder, logged, monkeypatch):
+    # A folder that can't be deleted itself, only emptied (like a docker mount)
+    runez.touch("mount/some-file", logger=None)
+    runez.touch("mount/sub/other-file", logger=None)
+    mount = os.path.abspath("mount")
+    rmtree = shutil.rmtree
+
+    def refuse_mount(path, *args, **kwargs):
+        if os.path.abspath(path) == mount:
+            raise OSError(errno.EBUSY, "Device or resource busy", path)
+
+        return rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr(shutil, "rmtree", refuse_mount)
+    assert runez.ensure_folder("mount", clean=True) == 2
+    assert "Cleaned 2 files from mount" in logged.pop()
+    assert os.path.isdir("mount")
+    assert not os.listdir("mount")
+
+
+def test_ensure_folder_clean_leaf(temp_folder, logged):
+    path = Path("some-file")
+    path.write_text("hello")
+    assert runez.ensure_folder(path, clean=True, dryrun=True) == 1
+    assert path.is_file()
+    assert "Would create some-file" in logged.pop()
+
+    assert runez.ensure_folder(path, clean=True) == 1
+    assert "Deleted some-file" in logged
+    assert "Created folder some-file" in logged.pop()
+    assert path.is_dir()
+    assert not any(path.iterdir())
+
+    file_target = Path("file-target")
+    file_target.write_text("hello")
+    file_link = Path("file-link")
+    file_link.symlink_to(file_target)
+    assert runez.ensure_folder(file_link, clean=True) == 1
+    assert file_link.is_dir()
+    assert not file_link.is_symlink()
+    assert file_target.read_text() == "hello"
+
+    dangling_link = Path("dangling-link")
+    dangling_link.symlink_to("missing-target")
+    assert runez.ensure_folder(dangling_link, clean=True) == 1
+    assert dangling_link.is_dir()
+    assert not dangling_link.is_symlink()
+
+    dir_target = Path("dir-target")
+    dir_target.mkdir()
+    (dir_target / "preserved").write_text("hello")
+    dir_link = Path("dir-link")
+    dir_link.symlink_to(dir_target, target_is_directory=True)
+    assert runez.ensure_folder(dir_link) == 0
+    assert dir_link.is_symlink()
+
+    assert runez.ensure_folder(dir_link, clean=True) == 1
+    assert "Deleted dir-link" in logged.pop()
+    assert dir_link.is_dir()
+    assert not dir_link.is_symlink()
+    assert not any(dir_link.iterdir())
+    assert (dir_target / "preserved").read_text() == "hello"
+
+
 def test_ini_to_dict(temp_folder, logged):
     assert runez.file.ini_to_dict("foo") == {}
     assert not logged
@@ -238,6 +303,10 @@ def test_failed_folder_removal(temp_folder, logged, monkeypatch):
     assert runez.delete("dest", fatal=False) == -1
     assert "Can't delete dest: busy" in logged.pop()
 
+    runez.ensure_folder("dest/sub", logger=None)
+    assert runez.ensure_folder("dest", clean=True, fatal=False) == -1
+    assert "Can't delete dest/sub: busy" in logged.pop()
+
     # Same when overwriting an existing destination
     assert runez.copy("source", "dest", fatal=False) == -1
     assert "Can't copy source -> dest: busy" in logged.pop()
@@ -246,6 +315,11 @@ def test_failed_folder_removal(temp_folder, logged, monkeypatch):
 
     assert os.path.isdir("dest")
     assert os.path.exists("source")
+
+    # Same when a file that can't be deleted is in the way of ensure_folder()
+    monkeypatch.setattr(os, "unlink", exception_raiser(OSError("busy")))
+    assert runez.ensure_folder("source", clean=True, fatal=False) == -1
+    assert os.path.isfile("source")
 
 
 def test_file_inspection(temp_folder, logged):
