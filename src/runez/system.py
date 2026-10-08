@@ -354,8 +354,8 @@ def flattened(*value, keep_empty: str | bool | None = False, split=None, shellif
         value: Possibly nested arguments (sequence of lists, nested lists, ...)
         keep_empty (str | bool | None): States how to filter 'None' and/or False-ish values
                                         - None: Filter out False-ish values (including `None` and 0)
-                                        - False: Filter out False-ish values, except int/float 0
-                                        - True (default): No filtering, keep all values as-is
+                                        - False (default): Filter out False-ish values, except int/float 0
+                                        - True: No filtering, keep all values as-is
                                         - string: Replace `None` with given string, keep False-ish values as-is
         split (str | bool | None): If provided, split strings by given character
         strip (str | bool | None): If provided, strip strings with given character (or whitespace if True)
@@ -414,7 +414,7 @@ def get_version(mod, default="0.0.0", fatal=False, logger: bool | Callable | Non
 
         m = sys.modules.get(name)
         if m is not None:
-            declared = getattr(m, "__version__", None) or getattr(m, "VERSION", None)
+            declared = _R.declared_version(m)
             if declared:
                 return declared
 
@@ -488,8 +488,8 @@ def joined(*args, delimiter=" ", keep_empty: str | bool | None = False, strip=No
         delimiter (str): Delimiter to use (default: space character)
         keep_empty (str | bool | None): States how to filter 'None' and/or False-ish values
                                         - None: Filter out False-ish values (including `None` and 0)
-                                        - False: Filter out False-ish values, except int/float 0
-                                        - True (default): No filtering, keep all values as-is
+                                        - False (default): Filter out False-ish values, except int/float 0
+                                        - True: No filtering, keep all values as-is
                                         - string: Replace `None` with given string, keep False-ish values as-is
         strip (str | bool | None): If provided, `strip()` string representation of args
         stringify (callable): Function to use to stringify args (default: `stringified`)
@@ -2037,6 +2037,11 @@ class _R:
     def colored(cls, text, color: OptionalColor, is_coloring=UNSET):
         """Colored 'text' with 'color', 'is_coloring' can be used to override current coloring setting"""
         return cls.lc.rm.color.colored(text, color, is_coloring=is_coloring)
+
+    @staticmethod
+    def declared_version(module):
+        """Version declared by 'module' itself (via `__version__` or `VERSION`), if any"""
+        return joined(getattr(module, "__version__", None) or getattr(module, "VERSION", None), delimiter=".")
 
     @classmethod
     def habort(cls, default, fatal, logger, message, exc_info=None):

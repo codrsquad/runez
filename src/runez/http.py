@@ -587,7 +587,7 @@ class RequestsHandler(RestHandler):
     def user_agent(cls):
         import requests
 
-        return "%s requests/%s" % (super().user_agent(), requests.__version__)
+        return "%s requests/%s" % (super().user_agent(), _R.declared_version(requests))
 
 
 class RestClient:

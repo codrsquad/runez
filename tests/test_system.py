@@ -366,6 +366,9 @@ def test_get_version():
         assert runez.get_version(None) is None
         assert runez.get_version(["foo"], default="0.0.0", logger=logging.debug) is None  # Ignore if given name is not a string or module
         assert runez.get_version(__name__) == VERSION
+        with patch.object(sys.modules[__name__], "VERSION", (1, 0, 3)):
+            assert runez.get_version(__name__) == "1.0.3"  # Rare, but some modules declare their version as a tuple
+
         assert not logged
 
         assert runez.get_version("foo", logger=logging.debug) == "0.0.0"

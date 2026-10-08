@@ -84,20 +84,30 @@ number that means something other than it seems:
 basedpyright also resolves imports against the project's `./.venv` rather than the tox env it runs
 in, which is why its tox command passes `--pythonpath`. The other five use the tox env.
 
-Snapshot, 2026-10-07 on `acf8bcb`, `src/` only:
+Snapshot, `src/` only, before stage 1 (on `acf8bcb`) and after it, both on 2026-10-07:
 
-| Checker | Version | Findings |
-| --- | --- | --- |
-| ty | 0.0.84 | 24 errors, 5 warnings |
-| pyright | 1.1.414 | 9 |
-| mypy | 2.4.0 | 64 |
-| pyrefly | 1.3.2 | 98 |
-| basedpyright | 1.40.2 | 124, plus 7698 warnings |
-| zuban | 0.10.0 | 105 |
+| Checker | Version | Before | After |
+| --- | --- | --- | --- |
+| ty | 0.0.84 | 24 errors, 5 warnings | 0 |
+| pyright | 1.1.414 | 9 | 0 |
+| mypy | 2.4.0 | 64 | 3 |
+| pyrefly | 1.3.2 | 98 | 0 |
+| basedpyright | 1.40.2 | 124, plus 7698 warnings | 133, plus 7184 warnings |
+| zuban | 0.10.0 | 105 | 0 |
 
 **The counts are not comparable between checkers.** They differ in what they look at, and one defect
-is a single line for one tool and a dozen for another. ty's volume here is mostly
+is a single line for one tool and a dozen for another. Before, ty's volume was mostly
 `invalid-assignment`, largely the deliberate monkey-patching.
+
+What remains is left on purpose:
+
+- **mypy**: a local assigned two functions with different signatures (mypy alone types a local from
+  its first assignment), a narrowing of `compact` it cannot complete, and the missing `psutil`
+  stubs. Its "Missing return statement" is disabled in `[tool.mypy]`: falling off the end of a
+  function to return `None` is fine, and not a type checker's business.
+- **basedpyright**: its stricter default mode. Mostly uninitialized instance variables (the
+  `Slotted` fields, set dynamically) and generics without type arguments (a bare `dict` or
+  `Callable`).
 
 ## What the survey found in runez
 
