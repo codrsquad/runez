@@ -2,7 +2,7 @@
 History
 =======
 
-5.10.1 (2026-10-)
+5.10.1 (2026-10-09)
 -------------------
 
 * Better type annotations for ``to_int()``, ``to_float()``, ``json_sanitized()`` and ``ClickRunner.context_wrapper``
