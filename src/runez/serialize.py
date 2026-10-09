@@ -8,7 +8,7 @@ import inspect
 import io
 import json
 import logging
-from typing import Callable, ClassVar
+from typing import Any, Callable, ClassVar, overload
 
 from runez.file import ensure_folder, parent_folder
 from runez.system import _R, abort, DryrunSpec, FatalSpec, is_basetype, is_iterable, LoggerSpec, resolved_path, short, stringified, UNSET
@@ -188,6 +188,20 @@ class DefaultBehavior:
             if extras:
                 # We have more stuff in `data` than described in corresponding `._meta`
                 self.do_notify("Extra content given for %s: %s" % (class_name, ", ".join(sorted(extras))))
+
+
+@overload
+def json_sanitized(value: dict, stringify: Callable | None = stringified, dt: Callable | None = str, none: str | bool = False) -> dict: ...
+
+
+@overload
+def json_sanitized(
+    value: list | tuple | set, stringify: Callable | None = stringified, dt: Callable | None = str, none: str | bool = False
+) -> list: ...
+
+
+@overload
+def json_sanitized(value: Any, stringify: Callable | None = stringified, dt: Callable | None = str, none: str | bool = False) -> Any: ...
 
 
 def json_sanitized(value, stringify: Callable | None = stringified, dt: Callable | None = str, none: str | bool = False):

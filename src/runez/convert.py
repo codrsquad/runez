@@ -7,9 +7,11 @@ from __future__ import annotations
 import pathlib
 import re
 from collections import defaultdict
-from typing import ClassVar
+from typing import Any, ClassVar, overload, TypeVar
 
 from runez.system import _R, flattened, joined, stringified
+
+_T = TypeVar("_T")
 
 
 def parsed_tabular(content):
@@ -118,6 +120,18 @@ def to_bytesize(value, default_unit=None, base=1024):
             return None
 
 
+@overload
+def to_float(value: Any, lenient: bool = False, default: None = None) -> float | None: ...
+
+
+@overload
+def to_float(value: Any, lenient: bool, default: _T) -> float | _T: ...
+
+
+@overload
+def to_float(value: Any, lenient: bool = False, *, default: _T) -> float | _T: ...
+
+
 def to_float(value, lenient=False, default=None):
     """
     Args:
@@ -126,7 +140,7 @@ def to_float(value, lenient=False, default=None):
         default: Default to return when value can't be converted
 
     Returns:
-        (float | int | None): Extracted float if possible, otherwise `None`
+        Extracted float (or int, if `lenient`) if possible, otherwise `default`
     """
     if isinstance(value, str):
         return _float_from_text(value, lenient=lenient, default=default)
@@ -145,6 +159,14 @@ def to_float(value, lenient=False, default=None):
         return default
 
 
+@overload
+def to_int(value: Any, default: None = None) -> int | None: ...
+
+
+@overload
+def to_int(value: Any, default: _T) -> int | _T: ...
+
+
 def to_int(value, default=None):
     """
     Args:
@@ -152,7 +174,7 @@ def to_int(value, default=None):
         default: Default to return when value can't be converted
 
     Returns:
-        (int | None): Extracted int if possible, otherwise `None`
+        Extracted int if possible, otherwise `default`
     """
     if isinstance(value, str):
         return _int_from_text(value, default=default)
@@ -383,9 +405,9 @@ def _float_from_text(text, lenient=True, default=None):
         default: Default to return when value can't be converted
 
     Returns:
-        (float | None): Extracted float if possible, otherwise `None`
+        (float | None): Extracted float if possible, otherwise `default`
     """
-    value = _int_from_text(text, default=default)  # Allows to also support hex/octal numbers
+    value = _int_from_text(text)  # Allows to also support hex/octal numbers
     if value is not None:
         return value if lenient else float(value)
 

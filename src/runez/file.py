@@ -6,6 +6,7 @@ import shutil
 import tempfile
 import time
 from pathlib import Path
+from typing import overload
 
 from runez.system import _R, abort, Anchored, DryrunSpec, FatalSpec, flattened, LoggerSpec, resolved_path, short, SYS_INFO, UNSET
 
@@ -317,7 +318,15 @@ def readlines(path: str | Path, first=None, errors="ignore", fatal: FatalSpec = 
         _R.hlog(logger, message, exc_info=e)
 
 
-def to_path(path: str | Path, no_spaces: bool | type[BaseException] = False) -> Path:
+@overload
+def to_path(path: str | Path, no_spaces: bool | type[BaseException] = False) -> Path: ...
+
+
+@overload
+def to_path(path: None, no_spaces: bool | type[BaseException] = False) -> None: ...
+
+
+def to_path(path: str | Path | None, no_spaces: bool | type[BaseException] = False) -> Path | None:
     """
     Args:
         path: Path to convert

@@ -30,6 +30,12 @@ def test_missing():
     assert runez.config.get_json("foo", default='["a"]') == ["a"]
 
 
+def test_float_default():
+    config = runez.config.Configuration([runez.config.DictProvider({"x": "2.5"})])
+    assert config.get_float("x", default=1.0) == 2.5
+    assert config.get_float("y", default=1.0) == 1.0
+
+
 def test_no_implementation():
     base = runez.config.ConfigProvider()
     assert base.values is None
