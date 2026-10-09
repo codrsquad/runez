@@ -5,7 +5,7 @@ History
 5.10.1 (2026-10-09)
 -------------------
 
-* Better type annotations for ``to_int()``, ``to_float()``, ``json_sanitized()`` and ``ClickRunner.context_wrapper``
+* Better type annotations for ``to_int()``, ``to_float()``, ``to_path()``, ``json_sanitized()`` and ``ClickRunner.context_wrapper``
 
 * ``to_float()`` (and ``Configuration.get_float()``) no longer return ``default`` for non-integer strings
   (``to_float("1.5", default=0)`` used to yield ``0.0``)
