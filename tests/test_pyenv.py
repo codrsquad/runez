@@ -565,7 +565,7 @@ def test_version():
     assert not none.is_valid
     assert not none.is_final
     assert none.major is None
-    assert none.mm is None
+    assert none.mm == ""
 
     empty = Version("")
     assert str(empty) == ""
@@ -595,7 +595,8 @@ def test_version():
     assert not bogus.is_valid
     assert not bogus.components
     assert not bogus.prerelease
-    assert bogus.mm is None
+    assert bogus.main == ""
+    assert bogus.mm == ""
 
     v1 = Version("1")
     assert v1.components == (1, 0, 0, 0, 0, 0, 0)
@@ -604,7 +605,7 @@ def test_version():
     assert v1.major == 1
     assert v1.minor is None
     assert v1.patch is None
-    assert v1.mm is None
+    assert v1.mm == ""
     assert empty < v1
     assert v1 > empty
     assert v1 != empty

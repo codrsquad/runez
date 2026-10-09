@@ -189,6 +189,12 @@ def test_to_float():
     assert isinstance(runez.to_float("15"), float)
     assert isinstance(runez.to_float("15", lenient=True), int)
 
+    # `default` applies only when conversion is not possible
+    assert runez.to_float("1.5", default=0) == 1.5
+    assert runez.to_float("0x10", default=0) == 16.0
+    assert runez.to_float("foo", default=7) == 7
+    assert isinstance(runez.to_float("foo", default=7), int)
+
 
 def test_to_int():
     assert runez.to_int(None) is None

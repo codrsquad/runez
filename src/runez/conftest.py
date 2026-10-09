@@ -14,13 +14,14 @@ import re
 import sys
 import traceback
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 import _pytest.logging
 import pytest
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from contextlib import AbstractContextManager
 
 import runez.config
 import runez.system
@@ -205,18 +206,19 @@ class ClickRunner:
     """Allows to provide a test-friendly fixture around testing click entry-points"""
 
     default_main: Callable | str | None = None  # Class-level default main entry point, set from user's conftest.py
-    context_wrapper = TempFolder  # Class-level context manager to use for cli fixture runs
+    context_wrapper: type[AbstractContextManager[Any]] = TempFolder  # Class-level context manager to use for cli fixture runs
 
     args: list | None = None  # Arguments used in last run()
+    context: Any  # Whatever `context_wrapper.__enter__()` returned for this runner (default: path to temp folder)
     exit_code: int | None = None  # Exit code of last run()
     logged: TrackedOutput  # Captured log from last run()
     main: Callable | str | None = None  # Optional, override default_main for this runner instance
     trace: bool | None = None  # Optional, enable trace logging for this runner instance
 
-    def __init__(self, context=None):
+    def __init__(self, context: Any = None):
         """
         Args:
-            context: Active context instance (example: temp folder) this click run was invoked under
+            context: Whatever `context_wrapper.__enter__()` returned (example: temp folder) for this click run
         """
         self.context = context
 

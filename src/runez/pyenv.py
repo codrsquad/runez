@@ -643,10 +643,12 @@ class Version:
         return self.components is not None
 
     @cached_property
-    def main(self):
-        """(str): Main part of version (Major.minor.patch)"""
+    def main(self) -> str:
+        """Main part of version (Major.minor.patch), empty if version is invalid"""
         if self.given_components is not None:
             return ".".join(str(x) for x in self.given_components[:3])
+
+        return ""
 
     @cached_property
     def major(self) -> int | None:
@@ -659,10 +661,12 @@ class Version:
         return self._given_component(1)
 
     @cached_property
-    def mm(self):
-        """(str): <major>.<minor>, often used in python paths, like config-3.13"""
+    def mm(self) -> str:
+        """<major>.<minor>, often used in python paths, like config-3.13 (empty if version has no minor component)"""
         if self.minor is not None:
             return "%s.%s" % (self.major, self.minor)
+
+        return ""
 
     @property
     def patch(self) -> int | None:

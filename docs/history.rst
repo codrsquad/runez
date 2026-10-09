@@ -2,6 +2,17 @@
 History
 =======
 
+5.10.1 (2026-10-)
+-------------------
+
+* Better type annotations for ``to_int()``, ``to_float()``, ``json_sanitized()`` and ``ClickRunner.context_wrapper``
+
+* ``to_float()`` (and ``Configuration.get_float()``) no longer return ``default`` for non-integer strings
+  (``to_float("1.5", default=0)`` used to yield ``0.0``)
+
+* ``Version.mm`` and ``Version.main`` are now empty strings (instead of ``None``) when not applicable
+
+
 5.10.0 (2026-10-08)
 -------------------
 
