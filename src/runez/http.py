@@ -32,10 +32,13 @@ import json
 import os
 import urllib.parse
 from pathlib import Path
-from typing import Callable, ClassVar, IO, overload, ParamSpec, TypeVar
+from typing import ClassVar, IO, overload, ParamSpec, TYPE_CHECKING, TypeVar
 
 from runez.file import checksum, decompress, delete, ensure_folder, TempFolder, to_path
 from runez.system import _R, abort, DryrunSpec, FatalSpec, find_caller, LoggerSpec, short, stringified, SYS_INFO, UNSET
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 _P = ParamSpec("_P")
 _R_co = TypeVar("_R_co")
@@ -227,7 +230,7 @@ class MockedHandlerStack:
         nested = " [depth: %s]" % len(self.spec_stack) if self.spec_stack else ""
         return "%s mock %s, %s specs%s" % (name, status, len(self.specs), nested)
 
-    def register_handler(self, handler: type["RestHandler"]) -> None:
+    def register_handler(self, handler: type[RestHandler]) -> None:
         if self.handler is not None:
             assert self.handler is handler, "Mocks targeting multiple handlers is not supported"
             return
@@ -494,7 +497,7 @@ class RestHandler(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def to_rest_response(cls, method, url, raw_response) -> "RestResponse":
+    def to_rest_response(cls, method, url, raw_response) -> RestResponse:
         """
         Args:
             method (str): Underlying method to call (GET, PUT, POST, etc)

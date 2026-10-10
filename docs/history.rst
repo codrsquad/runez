@@ -2,6 +2,15 @@
 History
 =======
 
+5.10.2 (2026-10-12)
+-------------------
+
+* Removed ``# pragma: no cover`` where tests can reach the code instead
+
+* Enabled ruff's ``UP`` (pyupgrade) rules: ``collections.abc.Callable``, ``open()`` instead of ``io.open()``,
+  ``OSError`` instead of ``IOError``, f-strings instead of ``.format()``, unquoted annotations
+
+
 5.10.1 (2026-10-09)
 -------------------
 

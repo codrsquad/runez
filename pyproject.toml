@@ -111,7 +111,11 @@ select = [
     "TCH", # flake8-type-checking
     "TD", # flake8-todos
     "TRY", # tryceratops
+    "UP",  # pyupgrade
     "W",   # pycodestyle warnings
+]
+ignore = [
+    "UP031", # printf-string-formatting: TODO convert gradually
 ]
 
 [tool.ruff.lint.isort]

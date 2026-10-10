@@ -308,7 +308,7 @@ def test_protected_main():
     assert "ValueError" not in logged  # Exception is stringified and shown as ERROR
     assert "Traceback" not in logged
 
-    exc = IOError()
+    exc = OSError()
     exc.errno = errno.EPIPE
     logged = check_protected_main(0, exc)
     assert not logged

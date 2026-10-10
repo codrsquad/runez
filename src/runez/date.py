@@ -45,7 +45,7 @@ class timezone(datetime.tzinfo):
                 if total_seconds < 0:
                     hours = -hours
 
-                name = "{:+03d}:{:02d}".format(hours, minutes)
+                name = f"{hours:+03d}:{minutes:02d}"
 
             self.name = name
 

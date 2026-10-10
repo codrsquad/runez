@@ -17,8 +17,9 @@ import shutil
 import sys
 import threading
 import unicodedata
+from collections.abc import Callable
 from io import StringIO
-from typing import Any, Callable, ClassVar, Literal, NoReturn, overload, TYPE_CHECKING, TypeVar
+from typing import Any, ClassVar, Literal, NoReturn, overload, TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -486,7 +487,7 @@ def stringified(value, converter=None, none: object | None = "None") -> str:
 
         value = none
 
-    return "{}".format(value)
+    return f"{value}"
 
 
 def joined(*args, delimiter=" ", keep_empty: str | bool | None = False, strip=None, stringify=stringified, unique=False) -> str:
@@ -1946,8 +1947,8 @@ class UnitRepresentation:
 
             return "%g" % size
 
-        fmt = "%.{precision}f".format(precision=0 if size > 9 else 1)
-        represented_size = fmt % size
+        precision = 0 if size > 9 else 1
+        represented_size = f"{size:.{precision}f}"
         if "." in represented_size:
             represented_size = represented_size.strip("0").strip(".")
 

@@ -1,6 +1,5 @@
 import contextlib
 import hashlib
-import io
 import os
 import shutil
 import tempfile
@@ -296,7 +295,7 @@ def readlines(path: str | Path, first=None, errors="ignore", fatal: FatalSpec = 
         (str): Lines read, newlines and trailing spaces stripped
     """
     try:
-        with io.open(resolved_path(path), errors=errors) as fh:
+        with open(resolved_path(path), errors=errors) as fh:
             if not first:
                 first = -1
 
@@ -551,7 +550,7 @@ def write(path: str | Path, contents: str | bytes | None, fatal: FatalSpec = Tru
     ensure_folder(parent_folder(path), fatal=fatal, logger=None, dryrun=dryrun)
     try:
         mode = "wb" if isinstance(contents, bytes) else "wt"
-        with io.open(path, mode) as fh:
+        with open(path, mode) as fh:
             if contents is None:
                 os.utime(path, None)
 

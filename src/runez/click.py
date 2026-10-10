@@ -16,7 +16,7 @@ import errno
 import logging
 import os
 import sys
-from typing import Any, Callable, TYPE_CHECKING, TypeVar
+from typing import Any, TYPE_CHECKING, TypeVar
 
 import runez.config
 from runez.colors import ColorManager
@@ -26,6 +26,8 @@ from runez.logsetup import LogManager
 from runez.system import _R, abort, find_caller, first_line, flattened, get_version, short, stringified, SYS_INFO, TempArgv, UNSET
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     import click
 
 _FC = TypeVar("_FC", bound="Callable[..., Any] | click.Command")  # What a click option decorates (same as click's own)

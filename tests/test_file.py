@@ -1,6 +1,5 @@
 import errno
 import hashlib
-import io
 import logging
 import os
 import pathlib
@@ -273,7 +272,7 @@ def test_ini_to_dict(temp_folder, logged):
 
 
 def test_failure(temp_folder, monkeypatch):
-    monkeypatch.setattr(io, "open", exception_raiser())
+    monkeypatch.setattr(runez.file, "open", exception_raiser(), raising=False)
     monkeypatch.setattr(os, "unlink", exception_raiser(Exception("bad unlink")))
     monkeypatch.setattr(shutil, "copy", exception_raiser())
     monkeypatch.setattr(os.path, "exists", lambda _: True)
@@ -350,7 +349,7 @@ def test_file_inspection(temp_folder, logged):
     assert not runez.file.is_younger("sample", age=-1)
 
     # Verify that readlines() can ignore encoding errors
-    with io.open("not-a-text-file", "wb") as fh:
+    with open("not-a-text-file", "wb") as fh:
         fh.write(b"\x89 hello\nworld")
 
     assert list(runez.readlines("not-a-text-file", first=1)) == [" hello"]

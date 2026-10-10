@@ -12,7 +12,7 @@ import sys
 import threading
 import time
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
-from typing import Callable, Literal, overload, Protocol, TextIO
+from typing import Literal, overload, Protocol, TextIO, TYPE_CHECKING
 
 from runez.ascii import AsciiAnimation
 from runez.convert import to_bytesize, to_int
@@ -37,6 +37,9 @@ from runez.system import (
     uncolored,
     UNSET,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def formatted(message, *args, **named_values):
