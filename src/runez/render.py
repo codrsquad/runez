@@ -601,7 +601,7 @@ class _PTColumn:
         self.text_width = 0
         self.allocated_width = 0
 
-    def __repr__(self):  # pragma: no cover
+    def __repr__(self):
         return "%s" % self.pcolumn
 
     @property

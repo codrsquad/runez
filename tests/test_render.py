@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from runez.render import Align, Header, PrettyBorder, PrettyHeader, PrettyTable
+from runez.render import _PTColumn, Align, Header, PrettyBorder, PrettyHeader, PrettyTable
 from runez.system import SYS_INFO, SystemInfo, UNSET
 
 
@@ -136,6 +136,7 @@ def test_pretty_table():
 
     t = PrettyTable("1,2,,3", border="pad:0")
     assert len(t.header.columns) == 4
+    assert str(_PTColumn(None, t.header.columns[1])) == "[c1] '2'"  # For debugging
     t.add_rows(("a", "b", "c"), ("d", "e", "foo"))
 
     t.header = 3  # Interpreted as 3 columns (but no header text)

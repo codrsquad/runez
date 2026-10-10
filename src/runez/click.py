@@ -171,7 +171,7 @@ class Cli:
             with TempArgv(args.args):
                 func()
 
-        except KeyboardInterrupt:  # pragma: no cover
+        except KeyboardInterrupt:
             _R.safe_write(sys.stderr, "\nAborted\n")
             sys.exit(1)
 
@@ -323,7 +323,7 @@ def prettify_epilogs(command, formatter=None):
     try:
         import click
 
-    except ImportError:  # pragma: no cover, click used only if installed
+    except ImportError:  # click used only if installed
         return
 
     if isinstance(command, click.Command):
