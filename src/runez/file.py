@@ -485,18 +485,18 @@ class TempFolder:
         self.anchor = anchor
         self.dryrun = dryrun
         self.follow = follow
-        self.old_cwd = None
-        self.tmp_folder = None
+        self.old_cwd: str | None = None
+        self.tmp_folder: str | None = None
 
-    def __enter__(self):
+    def __enter__(self) -> str:
         self.dryrun = _R.set_dryrun(self.dryrun)
         # Use realpath() to properly resolve for example symlinks on OSX temp paths
-        self.tmp_folder = os.path.realpath(tempfile.mkdtemp())
+        tmp = os.path.realpath(tempfile.mkdtemp())
+        self.tmp_folder = tmp
         if self.follow:
             self.old_cwd = os.getcwd()
-            os.chdir(self.tmp_folder)
+            os.chdir(tmp)
 
-        tmp = self.tmp_folder
         if self.anchor:
             Anchored.add(tmp)
 

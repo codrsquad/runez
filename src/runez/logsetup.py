@@ -12,7 +12,7 @@ import sys
 import threading
 import time
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
-from typing import Literal, overload, Protocol, TextIO, TYPE_CHECKING
+from typing import Any, Literal, overload, Protocol, TextIO, TYPE_CHECKING
 
 from runez.ascii import AsciiAnimation
 from runez.convert import to_bytesize, to_int
@@ -669,13 +669,13 @@ class Timeit:
     def __get__(self, instance, owner):
         return _WrappedInstanceFunction(self, instance)
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs) -> Any:
         """
         Args:
             func (callable): We're used as a decorator of a function
 
         Returns:
-            (callable): Decorated function
+            Result of decorated function, or decorated function itself (when used as decorator with arguments)
         """
         if self.__func__:
             with self:
@@ -1414,5 +1414,5 @@ class _WrappedInstanceFunction:
         self.__func__ = function
         self.instance = instance
 
-    def __call__(self, *args, **kwargs):
-        self.__func__(self.instance, *args, **kwargs)
+    def __call__(self, *args, **kwargs) -> Any:
+        return self.__func__(self.instance, *args, **kwargs)

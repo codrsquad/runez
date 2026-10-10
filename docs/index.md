@@ -19,7 +19,7 @@ first and `.github/workflows/` second.
 - [Contributing](./contributing.md) — get a local venv going, run the tests, read coverage.
 - [CI and code quality](./ci/index.md) — how the pipeline is wired, and the tool-version, linter
   and type-checker policies.
-- [Type checking in v5.10.0](./typecheck-v5.10.0.md) — what introducing the four CI type checkers
+- [Type checker findings](./typecheck-findings.md) — what introducing multiple CI type checkers
   found and fixed.
 - [Async cached_property](./async-cached-property.md) — a parked design: an async-capable
   `@runez.cached_property` that was written and tested but deliberately not shipped.

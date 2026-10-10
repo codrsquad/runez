@@ -30,7 +30,7 @@ _T = TypeVar("_T")
 # Accepted forms for a "color" argument: a color/style name, a color callable (e.g. runez.red), or None (no coloring)
 OptionalColor = Callable | str | None
 
-ABORT_LOGGER = logging.error
+ABORT_LOGGER: Callable = logging.error  # Called with: message, exc_info=..., stacklevel=...
 
 
 class Undefined:
