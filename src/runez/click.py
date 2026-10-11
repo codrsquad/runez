@@ -30,6 +30,8 @@ if TYPE_CHECKING:
 
     import click
 
+    from runez.system import LoggerSpec
+
 _FC = TypeVar("_FC", bound="Callable[..., Any] | click.Command")  # What a click option decorates (same as click's own)
 
 
@@ -63,10 +65,10 @@ class Cli:
     debug: tuple[str, ...] | None = ("--debug", "-v")
     dryrun: tuple[str, ...] | None = ("--dryrun", "-n")
     version: tuple[str, ...] | None = ("--version", "-V")
-    console_format = "%(levelname)s %(message)s"
-    console_level = logging.INFO
-    default_logger = UNSET
-    log_locations = None
+    console_format: str | None = "%(levelname)s %(message)s"
+    console_level: int = logging.INFO
+    default_logger: LoggerSpec = UNSET
+    log_locations: list[str] | tuple[str, ...] | None = None
     _prog: str | None = None
 
     @classmethod

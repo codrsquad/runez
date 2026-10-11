@@ -1275,7 +1275,8 @@ class PlatformId:
     platform: str = ""  # Example: linux, macos (populated in __init__)
     subsystem: str | None = None  # Example: libc, musl (empty for macOS/windows)
 
-    default_subsystem = None  # Can this be auto-detected? (currently: users can optionally provide this, by setting this class field)
+    # Subsystem per platform (eg: {'linux': 'musl'}), can't be auto-detected: users can optionally set this class field
+    default_subsystem: ClassVar[dict[str, str] | None] = None
     platform_archive_type: ClassVar = {"linux": "tar.gz", "macos": "tar.gz", "windows": "zip"}
     sys_include = None  # Most standard system include dirs, if any
 
@@ -1440,8 +1441,8 @@ class PlatformId:
 
         return self.canonical_platform(platform.system())
 
-    def determine_current_subsystem(self):
-        return self.default_subsystem and self.default_subsystem.get(self.platform)
+    def determine_current_subsystem(self) -> str | None:
+        return self.default_subsystem.get(self.platform) if self.default_subsystem else None
 
 
 class PlatformInfo:
@@ -2036,7 +2037,7 @@ class _R:
 
     This internal class allows to make global settings such as runez.DRYRUN usable internally:
     - without having to `import runez` internally (can't do that due to circular import)
-    - respecting any external modifications clients may have done (like: runez.DRYRUN = foo)
+    - respecting changes made at runtime (like: runez.DRYRUN changed via `runez.log.set_dryrun()` or `OverrideDryrun`)
     """
 
     lc = _LazyCache()

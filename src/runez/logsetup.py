@@ -521,7 +521,7 @@ class LogSpec(Slotted):
     console_level: int | None
     console_stream: TextIO | None
     context_format: str | None
-    default_logger: Callable | None
+    default_logger: LoggerSpec
     dev: str | None
     file_format: str | None
     file_level: int | None
@@ -809,7 +809,7 @@ class LogManager:
         console_level=UNSET,
         console_stream=UNSET,
         context_format=UNSET,
-        default_logger=UNSET,
+        default_logger: LoggerSpec = UNSET,
         dev=UNSET,
         file_format=UNSET,
         file_level=UNSET,
@@ -835,7 +835,7 @@ class LogManager:
             console_level (int | None): Level to use for console logging
             console_stream (io.TextIOBase | TextIO | None): Stream to use for console log (eg: sys.stderr), use None to deactivate
             context_format (str | None): Format to use for contextual log, use None to deactivate
-            default_logger (callable | None): Default logger to use to trace operations such as runez.run() etc
+            default_logger (LoggerSpec): Default logger to use to trace operations such as runez.run() etc
             dev (str | None): Custom folder to use when running from a development venv (auto-determined if None)
             file_format (str | None): Format to use for file log, use None to deactivate
             file_level (int | None): Level to use for file logging

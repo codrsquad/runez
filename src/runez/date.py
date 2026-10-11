@@ -12,7 +12,7 @@ SECONDS_IN_ONE_DAY = 24 * SECONDS_IN_ONE_HOUR
 SECONDS_IN_ONE_YEAR = 365.2425 * SECONDS_IN_ONE_DAY
 
 EPOCH_MS_BREAK = 900000000000
-DEFAULT_DURATION_SPAN = 2
+DEFAULT_DURATION_SPAN: int = 2  # Default `span` for `represented_duration()`, can be set globally
 
 
 class timezone(datetime.tzinfo):

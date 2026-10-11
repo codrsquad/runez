@@ -8,8 +8,18 @@ History
 * Methods decorated with ``@runez.log.timeit`` now return their result (they used to always return ``None``)
 
 * Better type annotations: ``with TempFolder() as tmp:`` gives a ``str``, ``RestClient.get(..., fatal=True)``
-  never returns ``None``, ``RestClient.handler`` and ``runez.system.ABORT_LOGGER`` accept custom handler classes /
-  logger functions
+  never returns ``None``
+
+* Annotated globals that can be changed by users:
+
+  * ``RestClient.handler``
+  * ``runez.system.ABORT_LOGGER``
+  * ``runez.date.DEFAULT_DURATION_SPAN``
+  * ``runez.heartbeat.DEFAULT_FREQUENCY``
+  * ``runez.cli.*`` attributes
+  * ``PlatformId.default_subsystem``
+
+* Removed unused ``PypiStd.DEFAULT_PYPI_URL``
 
 * Removed ``# pragma: no cover`` where tests can reach the code instead
 
