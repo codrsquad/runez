@@ -685,31 +685,31 @@ class SampleClass:
         if fail:
             raise ValueError("oops")
 
-        print("%s: %s" % (self, message))
+        return message
 
     @runez.log.timeit()  # With args
     def instance_func2(self, message):
-        print("%s: %s" % (self, message))
+        return message
 
     @classmethod
     @runez.log.timeit
     def class_func1(cls, message):
-        print("%s: %s" % (cls, message))
+        return message
 
     @classmethod
     @runez.log.timeit()
     def class_func2(cls, message):
-        print("%s: %s" % (cls, message))
+        return message
 
     @staticmethod
     @runez.log.timeit()
     def static_func1(message):
-        print(message)
+        return message
 
     @staticmethod
     @runez.log.timeit()
     def static_func2(message):
-        print(message)
+        return message
 
 
 @runez.log.timeit
@@ -724,26 +724,26 @@ def sample_function2(message):
 
 def test_timeit(logged):
     sample = SampleClass()
-    sample.instance_func1("hello")
+    assert sample.instance_func1("hello") == "hello"  # Result of decorated function is passed through
     assert "SampleClass.instance_func1() took " in logged.pop()
 
     with pytest.raises(ValueError, match="oops"):
         sample.instance_func1("hello", fail=True)
     assert "SampleClass.instance_func1() failed: oops" in logged.pop()
 
-    sample.instance_func2("hello")
+    assert sample.instance_func2("hello") == "hello"
     assert "SampleClass.instance_func2() took " in logged.pop()
 
-    sample.class_func1("hello")
+    assert sample.class_func1("hello") == "hello"
     assert "SampleClass.class_func1() took " in logged.pop()
 
-    sample.class_func2("hello")
+    assert sample.class_func2("hello") == "hello"
     assert "SampleClass.class_func2() took " in logged.pop()
 
-    sample.static_func1("hello")
+    assert sample.static_func1("hello") == "hello"
     assert "SampleClass.static_func1() took " in logged.pop()
 
-    sample.static_func2("hello")
+    assert sample.static_func2("hello") == "hello"
     assert "SampleClass.static_func2() took " in logged.pop()
 
     sample_function1("sample1")

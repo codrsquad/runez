@@ -32,10 +32,13 @@ import json
 import os
 import urllib.parse
 from pathlib import Path
-from typing import Callable, ClassVar, IO, overload, ParamSpec, TypeVar
+from typing import Any, ClassVar, IO, Literal, overload, ParamSpec, TYPE_CHECKING, TypeVar
 
 from runez.file import checksum, decompress, delete, ensure_folder, TempFolder, to_path
 from runez.system import _R, abort, DryrunSpec, FatalSpec, find_caller, LoggerSpec, short, stringified, SYS_INFO, UNSET
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 _P = ParamSpec("_P")
 _R_co = TypeVar("_R_co")
@@ -227,7 +230,7 @@ class MockedHandlerStack:
         nested = " [depth: %s]" % len(self.spec_stack) if self.spec_stack else ""
         return "%s mock %s, %s specs%s" % (name, status, len(self.specs), nested)
 
-    def register_handler(self, handler: type["RestHandler"]) -> None:
+    def register_handler(self, handler: type[RestHandler]) -> None:
         if self.handler is not None:
             assert self.handler is handler, "Mocks targeting multiple handlers is not supported"
             return
@@ -494,7 +497,7 @@ class RestHandler(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def to_rest_response(cls, method, url, raw_response) -> "RestResponse":
+    def to_rest_response(cls, method, url, raw_response) -> RestResponse:
         """
         Args:
             method (str): Underlying method to call (GET, PUT, POST, etc)
@@ -604,9 +607,18 @@ class RequestsHandler(RestHandler):
 class RestClient:
     """REST client with good defaults for retry, timeout, ... + support for --dryrun mode etc"""
 
-    handler = RequestsHandler
+    handler: type[RestHandler] = RequestsHandler
 
-    def __init__(self, base_url=None, headers=None, timeout=30, user_agent=None, handler=None, session=None, **session_spec):
+    def __init__(
+        self,
+        base_url=None,
+        headers=None,
+        timeout=30,
+        user_agent=None,
+        handler: type[RestHandler] | None = None,
+        session=None,
+        **session_spec,
+    ):
         """
         Args:
             base_url (str | None): Base url of remote REST server
@@ -741,7 +753,11 @@ class RestClient:
         """
         return self._get_response("DELETE", url, fatal, logger, dryrun=dryrun, **kwargs)
 
-    def get(self, url, fatal: FatalSpec = False, logger: LoggerSpec = False, **kwargs):
+    @overload  # definitely fatal: failures abort, so there's always a deserialized response
+    def get(self, url, fatal: Literal[True] | type[BaseException], logger: LoggerSpec = False, **kwargs) -> Any: ...
+    @overload
+    def get(self, url, fatal: FatalSpec = False, logger: LoggerSpec = False, **kwargs) -> Any | None: ...
+    def get(self, url, fatal: FatalSpec = False, logger: LoggerSpec = False, **kwargs) -> Any | None:
         """
         Args:
             url (str): Remote URL (may be absolute, or relative to self.base_url)
@@ -755,6 +771,8 @@ class RestClient:
         response = self.get_response(url, fatal=fatal, logger=logger, **kwargs)
         if response.ok:
             return response.json()
+
+        return None
 
     def head(self, url, fatal: FatalSpec = False, logger: LoggerSpec = False, **kwargs):
         """

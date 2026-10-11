@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "setupmeta"]
+requires = ["setuptools>=77", "setupmeta"]  # setuptools 77+ for SPDX `license` below
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -10,7 +10,7 @@ authors = [
 description = "Friendly misc/utils/convenience library"
 readme = "README.rst"
 requires-python = ">=3.10"
-license = {text = "MIT"}
+license = "MIT"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
@@ -111,7 +111,11 @@ select = [
     "TCH", # flake8-type-checking
     "TD", # flake8-todos
     "TRY", # tryceratops
+    "UP",  # pyupgrade
     "W",   # pycodestyle warnings
+]
+ignore = [
+    "UP031", # printf-string-formatting: TODO convert gradually
 ]
 
 [tool.ruff.lint.isort]

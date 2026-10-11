@@ -426,7 +426,7 @@ class ClickRunner:
             from click import Command
             from click.testing import CliRunner
 
-        except ImportError:  # pragma: no cover, click used only if installed
+        except ImportError:  # click used only if installed
             return None
 
         if isinstance(main, Command):

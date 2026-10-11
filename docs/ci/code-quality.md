@@ -59,10 +59,10 @@ the exact rules — it is short and it is the authority.
 
 ## Type checking
 
-Four type checkers gate CI: ty, pyrefly, pyright and mypy. Each has a tox environment named after
-it (`tox -e ty`, ...), checks the whole repo (`src/`, `tests/`, `setup.py`), and is kept at zero
-findings. Their settings live in `pyproject.toml`, their dependencies in `tox.ini`, commented
-wherever a setting isn't obvious.
+Multiple type checkers gate CI (the workflows in `.github/workflows/` have the current set). Each
+has a tox environment named after it (`tox -e <typechecker>`), checks the whole repo (`src/`,
+`tests/`, `setup.py`), and is kept at zero findings. Their settings live in `pyproject.toml`, their
+dependencies in `tox.ini`, commented wherever a setting isn't obvious.
 
 runez ships `py.typed`, so its annotations are part of the contract users see. A finding is a
 signal about the code: fix it with a better signature, an overload, a declared attribute, rather
@@ -74,11 +74,11 @@ than by silencing the checker.
   possible, with a comment saying why (see the overrides for `tests/` and for `runez.schema`,
   which is on its way out).
 
-tox also has `basedpyright` and `zuban` environments, not run in CI: basedpyright's strict default
-reports thousands of "annotate this" warnings, and zuban is AGPL with a single maintainer. They
-are there as a second opinion.
+tox also has environments for checkers that CI doesn't run, as a second opinion. Not every checker
+is worth gating on: some report thousands of "annotate this" warnings with their default strictness,
+others raise licensing or maintenance concerns.
 
-[typecheck-v5.10.0](../typecheck-v5.10.0.md) records what introducing the checkers found and fixed.
+[Type checker findings](../typecheck-findings.md) records what introducing the checkers found and fixed.
 
 ## Minimum Python version
 

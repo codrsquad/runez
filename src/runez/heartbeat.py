@@ -24,7 +24,7 @@ from typing import ClassVar
 
 from runez.system import _R, ltattr
 
-DEFAULT_FREQUENCY = 60
+DEFAULT_FREQUENCY: float = 60  # Default frequency of tasks (in seconds), can be set globally
 
 
 class HeartbeatTask:

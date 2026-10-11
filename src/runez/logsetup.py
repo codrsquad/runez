@@ -12,7 +12,7 @@ import sys
 import threading
 import time
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
-from typing import Callable, Literal, overload, Protocol, TextIO
+from typing import Any, Literal, overload, Protocol, TextIO, TYPE_CHECKING
 
 from runez.ascii import AsciiAnimation
 from runez.convert import to_bytesize, to_int
@@ -37,6 +37,9 @@ from runez.system import (
     uncolored,
     UNSET,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def formatted(message, *args, **named_values):
@@ -518,7 +521,7 @@ class LogSpec(Slotted):
     console_level: int | None
     console_stream: TextIO | None
     context_format: str | None
-    default_logger: Callable | None
+    default_logger: LoggerSpec
     dev: str | None
     file_format: str | None
     file_level: int | None
@@ -666,13 +669,13 @@ class Timeit:
     def __get__(self, instance, owner):
         return _WrappedInstanceFunction(self, instance)
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs) -> Any:
         """
         Args:
             func (callable): We're used as a decorator of a function
 
         Returns:
-            (callable): Decorated function
+            Result of decorated function, or decorated function itself (when used as decorator with arguments)
         """
         if self.__func__:
             with self:
@@ -806,7 +809,7 @@ class LogManager:
         console_level=UNSET,
         console_stream=UNSET,
         context_format=UNSET,
-        default_logger=UNSET,
+        default_logger: LoggerSpec = UNSET,
         dev=UNSET,
         file_format=UNSET,
         file_level=UNSET,
@@ -832,7 +835,7 @@ class LogManager:
             console_level (int | None): Level to use for console logging
             console_stream (io.TextIOBase | TextIO | None): Stream to use for console log (eg: sys.stderr), use None to deactivate
             context_format (str | None): Format to use for contextual log, use None to deactivate
-            default_logger (callable | None): Default logger to use to trace operations such as runez.run() etc
+            default_logger (LoggerSpec): Default logger to use to trace operations such as runez.run() etc
             dev (str | None): Custom folder to use when running from a development venv (auto-determined if None)
             file_format (str | None): Format to use for file log, use None to deactivate
             file_level (int | None): Level to use for file logging
@@ -1411,5 +1414,5 @@ class _WrappedInstanceFunction:
         self.__func__ = function
         self.instance = instance
 
-    def __call__(self, *args, **kwargs):
-        self.__func__(self.instance, *args, **kwargs)
+    def __call__(self, *args, **kwargs) -> Any:
+        return self.__func__(self.instance, *args, **kwargs)

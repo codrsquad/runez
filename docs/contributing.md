@@ -53,6 +53,6 @@ Run `tox`, then open `.tox/test-reports/htmlcov/index.html`.
 
 ## Before you open a PR
 
-`tox -e style` must pass, and so must the type checkers (`tox -e ty,pyrefly,pyright,mypy`) — see
+`tox -e style` must pass, and so must the type checkers that CI runs (`tox -e <typechecker(s)>`) — see
 [code quality](./ci/code-quality.md) for what they enforce and why. `tox -e reformat` applies the
 mechanical fixes for you.

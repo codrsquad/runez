@@ -1,6 +1,7 @@
 import math
 
 import runez
+from runez.convert import _TabularHeader
 
 
 def test_boolean():
@@ -124,6 +125,7 @@ def tabulated_samples():
 
 
 def test_tabulated_parsing():
+    assert str(_TabularHeader("NAME   STATUS  PORTS")) == "NAME [:4] STATUS [7:13] PORTS [15:20]"  # For debugging
     assert runez.parsed_tabular("  \nfoo") == []  # First line must have a header...
 
     for expected, output in tabulated_samples():

@@ -308,10 +308,28 @@ def test_protected_main():
     assert "ValueError" not in logged  # Exception is stringified and shown as ERROR
     assert "Traceback" not in logged
 
-    exc = IOError()
+    exc = OSError()
     exc.errno = errno.EPIPE
     logged = check_protected_main(0, exc)
     assert not logged
+
+
+def test_run_cmds_interrupted(cli, monkeypatch):
+    def interrupted():
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr("runez.__main__.cmd_passthrough", interrupted)
+    cli.run("passthrough")
+    assert cli.failed
+    assert "Aborted" in cli.logged
+
+
+def test_run_without_click(cli):
+    # click is an optional dependency: simulate it not being installed
+    with patch.dict(sys.modules, {"click": None}):
+        assert runez.click.prettify_epilogs(None) is None
+        cli.run("--version")
+        assert cli.succeeded
 
 
 def test_run_cmds_without_caller():

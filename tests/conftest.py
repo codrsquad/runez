@@ -53,7 +53,7 @@ class TempLog:
         file_handler = LogManager.file_handler
         assert file_handler, "Logging to a file was not setup"
         remaining = set(expected)
-        with open(file_handler.baseFilename, "rt") as fh:
+        with open(file_handler.baseFilename) as fh:
             for line in fh:
                 found = [msg for msg in remaining if msg in line]
                 remaining.difference_update(found)

@@ -486,7 +486,7 @@ class RunAudit:
 class RunResult:
     """Holds result of a runez.run()"""
 
-    def __init__(self, output: str = "", error: str = "", code=1, audit: "RunAudit | None" = None):
+    def __init__(self, output: str = "", error: str = "", code=1, audit: RunAudit | None = None):
         """
         Args:
             output: Captured output (on stdout), if any
@@ -722,7 +722,7 @@ class _WrappedArgs:
         if needs_wrap and "python" in args[0] and args[1][:2] in ("-m", "-X", "-c"):
             self.tmp_folder = os.path.realpath(tempfile.mkdtemp())
             wrapper = os.path.join(self.tmp_folder, "pydev-wrapper.sh")
-            with open(wrapper, "wt") as fh:
+            with open(wrapper, "w") as fh:
                 fh.write('exec "$@"\n')
 
             args = ["/bin/sh", wrapper, *args]
