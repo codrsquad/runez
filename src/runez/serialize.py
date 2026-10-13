@@ -5,10 +5,10 @@ Convenience methods for (de)serializing objects
 import collections
 import datetime
 import inspect
-import io
 import json
 import logging
-from typing import Any, Callable, ClassVar, overload
+from collections.abc import Callable
+from typing import Any, ClassVar, overload
 
 from runez.file import ensure_folder, parent_folder
 from runez.system import _R, abort, DryrunSpec, FatalSpec, is_basetype, is_iterable, LoggerSpec, resolved_path, short, stringified, UNSET
@@ -548,7 +548,7 @@ class Serializable(metaclass=MetaInjector):
     _meta: ClassMetaDescription  # Describes fields and properties of descendant classes, populated via metaclass
 
     def __new__(cls, *_, **__):
-        obj = super(Serializable, cls).__new__(cls)
+        obj = super().__new__(cls)
         obj.reset()
         return obj
 
@@ -672,7 +672,7 @@ def read_json(path, default=None, fatal: FatalSpec = False, logger: LoggerSpec =
         (dict | list | str): Deserialized data from file
     """
     try:
-        with io.open(resolved_path(path)) as fh:
+        with open(resolved_path(path)) as fh:
             return json.load(fh)
 
     except Exception as e:
@@ -754,7 +754,7 @@ def save_json(
             return r
 
         data = json_sanitized(data, stringify=stringify, dt=dt, none=none)
-        with open(path, "wt") as fh:
+        with open(path, "w") as fh:
             json.dump(data, fh, indent=indent, sort_keys=sort_keys, separators=K_INDENTED_SEPARATORS if indent else K_COMPACT_SEPARATORS)
             if indent:
                 fh.write("\n")

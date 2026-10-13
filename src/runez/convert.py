@@ -434,7 +434,7 @@ class _TabularInterval:
         self.end = end
         self.next: _TabularInterval | None = None
 
-    def __repr__(self):  # pragma: no cover, for debugging
+    def __repr__(self):  # For debugging
         return "%s [%s:%s]" % (self.name, self.start or "", self.end or "")
 
     def intersect(self, index):
@@ -475,7 +475,7 @@ class _TabularHeader:
         if self.tabs:
             self.tabs[0].start = 0
 
-    def __repr__(self):  # pragma: no cover, for debugging
+    def __repr__(self):  # For debugging
         return joined(self.tabs)
 
     @classmethod

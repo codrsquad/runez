@@ -1,6 +1,5 @@
 import contextlib
 import hashlib
-import io
 import os
 import shutil
 import tempfile
@@ -296,7 +295,7 @@ def readlines(path: str | Path, first=None, errors="ignore", fatal: FatalSpec = 
         (str): Lines read, newlines and trailing spaces stripped
     """
     try:
-        with io.open(resolved_path(path), errors=errors) as fh:
+        with open(resolved_path(path), errors=errors) as fh:
             if not first:
                 first = -1
 
@@ -486,18 +485,18 @@ class TempFolder:
         self.anchor = anchor
         self.dryrun = dryrun
         self.follow = follow
-        self.old_cwd = None
-        self.tmp_folder = None
+        self.old_cwd: str | None = None
+        self.tmp_folder: str | None = None
 
-    def __enter__(self):
+    def __enter__(self) -> str:
         self.dryrun = _R.set_dryrun(self.dryrun)
         # Use realpath() to properly resolve for example symlinks on OSX temp paths
-        self.tmp_folder = os.path.realpath(tempfile.mkdtemp())
+        tmp = os.path.realpath(tempfile.mkdtemp())
+        self.tmp_folder = tmp
         if self.follow:
             self.old_cwd = os.getcwd()
-            os.chdir(self.tmp_folder)
+            os.chdir(tmp)
 
-        tmp = self.tmp_folder
         if self.anchor:
             Anchored.add(tmp)
 
@@ -551,7 +550,7 @@ def write(path: str | Path, contents: str | bytes | None, fatal: FatalSpec = Tru
     ensure_folder(parent_folder(path), fatal=fatal, logger=None, dryrun=dryrun)
     try:
         mode = "wb" if isinstance(contents, bytes) else "wt"
-        with io.open(path, mode) as fh:
+        with open(path, mode) as fh:
             if contents is None:
                 os.utime(path, None)
 

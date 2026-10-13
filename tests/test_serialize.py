@@ -1,5 +1,4 @@
 import datetime
-import io
 import logging
 from copy import copy
 
@@ -145,7 +144,7 @@ def test_json(temp_folder, monkeypatch):
         assert "Saved " in logged.pop()
 
         with monkeypatch.context() as m:
-            m.setattr(io, "open", exception_raiser())
+            m.setattr(runez.serialize, "open", exception_raiser(), raising=False)
             with pytest.raises(runez.system.AbortException) as exc:
                 runez.read_json("sample.json", fatal=True, logger=None)
             assert "Can't read sample.json" in str(exc)

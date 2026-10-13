@@ -123,7 +123,6 @@ class PypiStd:
     RX_SDIST = re.compile(r"^([a-z][\w.-]*[a-z\d])-(\d[\w.!+-]*)\.tar\.gz$", re.IGNORECASE)
     RX_WHEEL = re.compile(r"^([a-z][\w.]*[a-z\d])-(\d[\w.!+]*)(-(\d[\w.]*))?-(.*)\.whl$", re.IGNORECASE)
 
-    DEFAULT_PYPI_URL = "https://pypi.org/pypi/{name}/json"
     _pypi_client = None
 
     @classmethod

@@ -151,9 +151,8 @@ def test_timezone(monkeypatch):
     check_date("2019-09-13 06:13:20 +02:00", runez.datetime_from_epoch(epoch, tz=tz))
 
 
-def dt(*args, **kwargs):
-    tzinfo = kwargs.pop("tzinfo", runez.date.DEFAULT_TIMEZONE)
-    return datetime.datetime(*args, tzinfo=tzinfo, **kwargs)
+def dt(year, month, day, hour=0, minute=0, second=0, microsecond=0):
+    return datetime.datetime(year, month, day, hour, minute, second, microsecond, tzinfo=runez.date.DEFAULT_TIMEZONE)
 
 
 def valid_datetime(text, **kwargs) -> datetime.datetime:

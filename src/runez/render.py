@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import inspect
 import os
-from typing import Any, Callable, Generic, Protocol, TypeVar
+from typing import Any, Generic, Protocol, TYPE_CHECKING, TypeVar
 
 from runez.colors import ColorManager
 from runez.convert import to_int
 from runez.system import _R, flattened, joined, OptionalColor, short, Slotted, stringified, SYS_INFO, UNSET, wcswidth
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 _T = TypeVar("_T")
 
@@ -601,7 +604,7 @@ class _PTColumn:
         self.text_width = 0
         self.allocated_width = 0
 
-    def __repr__(self):  # pragma: no cover
+    def __repr__(self):
         return "%s" % self.pcolumn
 
     @property

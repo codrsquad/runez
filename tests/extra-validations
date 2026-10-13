@@ -201,8 +201,16 @@ def expected_sig(path, node, sig):
     return None, func_name, None
 
 
+def is_overload(node: ast.FunctionDef):
+    """Is 'node' an @overload declaration? (signature and docstring conventions apply to the implementation only)"""
+    return any(isinstance(d, ast.Name) and d.id == "overload" for d in node.decorator_list)
+
+
 def FunctionDef_problem(path: str, node: ast.FunctionDef):
     """Visitor for ast.FunctionDef nodes"""
+    if is_overload(node):
+        return None
+
     sig = named_arg_defaults(node)
     if sig:
         sig_category, func_name, expected = expected_sig(path, node, sig)
@@ -220,11 +228,14 @@ def FunctionDef_problem(path: str, node: ast.FunctionDef):
 
 def FunctionDef_annotation_problem(path: str, node: ast.FunctionDef):
     """Shared IO parameters must be annotated with their alias"""
+    if is_overload(node):
+        return None
+
     for arg in node.args.posonlyargs + node.args.args + node.args.kwonlyargs:
         expected = IO_API_ANNOTATIONS.get(arg.arg)
         if expected:
             annotation = arg.annotation and ast.unparse(arg.annotation)
-            if annotation != expected and not (node.name == "abort" and annotation and "Literal" in annotation):
+            if annotation != expected:
                 return "%s: '%s' should be annotated '%s', not '%s'" % (path_reference(path, node.lineno, node.name), arg.arg, expected, annotation)
 
 

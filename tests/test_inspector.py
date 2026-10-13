@@ -12,8 +12,7 @@ def importable_test_py_files(folder):
     for fname in os.listdir(folder):
         fpath = os.path.join(folder, fname)
         if os.path.isdir(fpath):
-            for x in importable_test_py_files(fpath):
-                yield x
+            yield from importable_test_py_files(fpath)
 
         elif fname.endswith(".py"):
             yield fpath

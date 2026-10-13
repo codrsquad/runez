@@ -16,7 +16,7 @@ import errno
 import logging
 import os
 import sys
-from typing import Any, Callable, TYPE_CHECKING, TypeVar
+from typing import Any, TYPE_CHECKING, TypeVar
 
 import runez.config
 from runez.colors import ColorManager
@@ -26,7 +26,11 @@ from runez.logsetup import LogManager
 from runez.system import _R, abort, find_caller, first_line, flattened, get_version, short, stringified, SYS_INFO, TempArgv, UNSET
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     import click
+
+    from runez.system import LoggerSpec
 
 _FC = TypeVar("_FC", bound="Callable[..., Any] | click.Command")  # What a click option decorates (same as click's own)
 
@@ -61,10 +65,10 @@ class Cli:
     debug: tuple[str, ...] | None = ("--debug", "-v")
     dryrun: tuple[str, ...] | None = ("--dryrun", "-n")
     version: tuple[str, ...] | None = ("--version", "-V")
-    console_format = "%(levelname)s %(message)s"
-    console_level = logging.INFO
-    default_logger = UNSET
-    log_locations = None
+    console_format: str | None = "%(levelname)s %(message)s"
+    console_level: int = logging.INFO
+    default_logger: LoggerSpec = UNSET
+    log_locations: list[str] | tuple[str, ...] | None = None
     _prog: str | None = None
 
     @classmethod
@@ -171,7 +175,7 @@ class Cli:
             with TempArgv(args.args):
                 func()
 
-        except KeyboardInterrupt:  # pragma: no cover
+        except KeyboardInterrupt:
             _R.safe_write(sys.stderr, "\nAborted\n")
             sys.exit(1)
 
@@ -323,7 +327,7 @@ def prettify_epilogs(command, formatter=None):
     try:
         import click
 
-    except ImportError:  # pragma: no cover, click used only if installed
+    except ImportError:  # click used only if installed
         return
 
     if isinstance(command, click.Command):

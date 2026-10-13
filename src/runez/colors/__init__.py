@@ -7,7 +7,7 @@ Example usage:
     'hello'
 """
 
-from typing import Callable
+from collections.abc import Callable
 
 from runez.system import DEV, OptionalColor, short, Slotted, stringified, SYS_INFO, uncolored, UNSET
 

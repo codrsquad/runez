@@ -1,24 +1,25 @@
-# Type checking: v5.9.1 → v5.10.0
+# Type checking: v5.9.1 → v5.10
 
-What v5.10.0 changed in response to type checker findings on v5.9.1.
+What v5.10 changed in response to type checker findings on v5.9.1.
 
-| Checker | Version | v5.9.1 | v5.10.0 | Actionable | Bugs | QOL | Minor |
+| Checker | Version | v5.9.1 | v5.10 | Actionable | Bugs | QOL | Minor |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | ty | 0.0.85 | 87 | 0 | 87 | 2 | 5 | 6 |
 | pyrefly | 1.3.2 | 203 | 0 | 203 | 2 | 7 | 5 |
 | pyright | 1.1.414 | 164 | 0 | 164 | 1 | 4 | 2 |
 | mypy | 2.4.0 | 55 | 0 | 55 | 2 | 5 | 4 |
-| basedpyright | 1.40.2 | 11,390 | 10,326 | 2,217 | 2 | 5 | 1 |
-| zuban | 0.10.0 | 145 | 2 | 143 | 1 | 7 | 6 |
+| basedpyright | 1.40.2 | 11,390 | 10,479 | 2,394 | 2 | 5 | 1 |
+| zuban | 0.10.0 | 145 | 0 | 145 | 2 | 7 | 6 |
 
-- **v5.9.1**, **v5.10.0**: findings on that release's `src/`, `tests/` and `setup.py`, both checked
-  with v5.10.0's settings (`tox.ini`, `pyproject.toml`).
-- **Actionable**: v5.9.1 findings resolved by a change in v5.10.0.
+- **v5.9.1**, **v5.10**: findings on that release's `src/`, `tests/` and `setup.py`, both checked
+  with v5.10's settings (`tox.ini`, `pyproject.toml`). v5.10 is the 5.10.x line: its patch releases
+  carry incremental fine-tunings.
+- **Actionable**: v5.9.1 findings resolved by a change in v5.10.
 - **Bugs**, **QOL**, **Minor**: how many of the changes listed under [Bug fixes](#bug-fixes),
   [Quality of life](#quality-of-life) and [Minor](#minor) the checker spotted.
-- basedpyright counts include its warnings: 290 errors + 11,100 warnings on v5.9.1, 141 + 10,185 on
-  v5.10.0.
-- v5.9.1 had 6 `# type: ignore` comments (what they silenced isn't counted), v5.10.0 has none.
+- basedpyright counts include its warnings: 290 errors + 11,100 warnings on v5.9.1, 154 + 10,325 on
+  v5.10.
+- v5.9.1 had 6 `# type: ignore` comments (what they silenced isn't counted), v5.10 has none.
 
 ## Bug fixes
 
@@ -32,6 +33,8 @@ A checker pointed at code that misbehaved.
 - `get_version()` returns a `str` when a module declares `VERSION` as a tuple [mypy]
 - `Configuration.provider_by_name()` no longer raises `AttributeError` when a non-dict provider
   is present [all six, once `self.providers` was annotated]
+- Methods decorated with `runez.log.timeit` return their result (they always returned `None`)
+  [zuban, flagging the ambiguous return type of `Timeit.__call__`]
 
 ## Quality of life
 
@@ -86,7 +89,7 @@ The checker was right, the fix changes little in practice.
 - Small ones: `requests` version read via `_R.declared_version()`, checksum regex compiled once in
   `_R.lc`, logging level typed `int` [ty, pyright, zuban]
 - Tests: optional values checked before use (`assert`, small helpers), patching via
-  `monkeypatch` [ty, pyrefly, pyright, mypy, basedpyright, zuban]
+  `monkeypatch`, explicit arguments for the `dt()` helper [ty, pyrefly, pyright, mypy, basedpyright, zuban]
 
 ## Not from a type checker
 
