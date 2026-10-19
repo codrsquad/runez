@@ -4,6 +4,8 @@ Convenience methods for executing programs
 
 from __future__ import annotations
 
+import codecs
+import contextlib
 import errno
 import fcntl
 import os
@@ -321,9 +323,9 @@ def run(
     if path_env:
         popen_args["env"] = _added_env_paths(path_env, env=popen_args.get("env"))
 
-    args = flattened(args, shellify=True)
+    flat_args = flattened(args, shellify=True)
     full_path = which(program)
-    audit = RunAudit(full_path or program, args, popen_args)
+    audit = RunAudit(full_path or program, flat_args, popen_args)
     result = RunResult(audit=audit)
     description = audit.run_description(short_exe=short_exe)
     if background:
@@ -361,7 +363,7 @@ def run(
 
         fatal = False  # pragma: no cover, non-fatal mode in background process (there is no more console etc to report anything)
 
-    with _WrappedArgs([full_path, *args]) as wrapped_args:
+    with _WrappedArgs([full_path, *flat_args]) as wrapped_args:
         try:
             p, out, err = _run_popen(wrapped_args, popen_args, passthrough, fatal, stdout, stderr)
             result.output = decode(out or "", strip=strip)
@@ -640,6 +642,30 @@ def _read_data(fd, length=1024):
     return os.read(fd, length)
 
 
+def _is_terminal(stream) -> bool:
+    """Isolated as a function for test mocking"""
+    with contextlib.suppress(AttributeError, ValueError):  # Not a file, or a closed one
+        return stream.isatty()
+
+    return False
+
+
+def _passthrough_fds(stream) -> tuple[int, int]:
+    """
+    Read and write file descriptors for a child process' output that also passes through to 'stream':
+    a pty if 'stream' is a terminal (child then behaves as such: colors, progress bars...), a plain pipe otherwise (CI, redirected)
+    """
+    if not _is_terminal(stream):
+        return os.pipe()
+
+    r, w = pty.openpty()
+    term_size = struct.pack("HHHH", SYS_INFO.terminal.lines, SYS_INFO.terminal.columns, 0, 0)
+    for fd in (r, w):
+        fcntl.ioctl(fd, termios.TIOCSWINSZ, term_size)
+
+    return r, w
+
+
 def _run_popen(args, popen_args, passthrough, fatal: FatalSpec, stdout, stderr):
     """Run subprocess.Popen(), capturing output accordingly"""
     if not passthrough:
@@ -651,12 +677,8 @@ def _run_popen(args, popen_args, passthrough, fatal: FatalSpec, stdout, stderr):
         return p, out, err
 
     # Capture output, but also let it pass through as-is to the terminal
-    stdout_r, stdout_w = pty.openpty()
-    stderr_r, stderr_w = pty.openpty()
-    term_size = struct.pack("HHHH", SYS_INFO.terminal.lines, SYS_INFO.terminal.columns, 0, 0)
-    for fd in (stdout_r, stdout_w, stderr_r, stderr_w):
-        fcntl.ioctl(fd, termios.TIOCSWINSZ, term_size)
-
+    stdout_r, stdout_w = _passthrough_fds(sys.stdout)
+    stderr_r, stderr_w = _passthrough_fds(sys.stderr)
     passthrough = getattr(passthrough, "stream", passthrough)  # Convenience support for things like logging handlers
     if hasattr(passthrough, "write"):
         # Don't accumulate out to RAM if we're passing it through to a file
@@ -670,29 +692,29 @@ def _run_popen(args, popen_args, passthrough, fatal: FatalSpec, stdout, stderr):
     with subprocess.Popen(args, stdout=stdout_w, stderr=stderr_w, text=True, **popen_args) as p:  # noqa: S603
         os.close(stdout_w)
         os.close(stderr_w)
+        # Incremental decoding: a multi-byte character may be split across reads
+        targets = {
+            stdout_r: (sys.stdout, stdout_buffer, codecs.getincrementaldecoder("utf-8")(errors="replace")),
+            stderr_r: (sys.stderr, stderr_buffer, codecs.getincrementaldecoder("utf-8")(errors="replace")),
+        }
         readable = [stdout_r, stderr_r]
         while readable:
             for fd in select(readable, [], [])[0]:
                 try:
                     data = _read_data(fd)
-                    if not data:
-                        readable.remove(fd)
-                        continue
-
-                    text = decode(data)
-                    _R.safe_write(passthrough, text)
-                    if fd == stdout_r:
-                        _R.safe_write(sys.stdout, text, flush=True)
-                        _R.safe_write(stdout_buffer, text)
-
-                    else:
-                        _R.safe_write(sys.stderr, text, flush=True)
-                        _R.safe_write(stderr_buffer, text)
 
                 except OSError as e:
-                    if e.errno != errno.EIO:  # On some OS-es, EIO means EOF
+                    if e.errno != errno.EIO:  # On some OS-es, EIO means EOF (when reading from a pty)
                         raise
 
+                    data = b""
+
+                stream, buffer, decoder = targets[fd]
+                text = decoder.decode(data, final=not data)
+                _R.safe_write(passthrough, text)
+                _R.safe_write(stream, text, flush=True)
+                _R.safe_write(buffer, text)
+                if not data:
                     readable.remove(fd)
 
     _R.safe_write(sys.stdout, None, flush=True)

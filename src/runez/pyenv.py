@@ -4,11 +4,14 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import ClassVar
+from typing import Any, ClassVar, TYPE_CHECKING
 
 from runez.file import ls_dir
 from runez.program import is_executable, run
 from runez.system import _R, cached_property, flattened, joined, ltattr, OptionalColor, resolved_path, short, UNSET
+
+if TYPE_CHECKING:
+    import datetime
 
 CPYTHON = "cpython"
 RX_PYTHON_BASENAME = re.compile(r"^python(\d(\.\d+)?)?(t?)$")
@@ -19,27 +22,27 @@ class ArtifactInfo:
 
     def __init__(
         self,
-        basename,
-        package_name,
-        version,
-        is_wheel=False,
-        source=None,
-        tags=None,
-        wheel_build_number=None,
-        last_modified=None,
-        size=None,
+        basename: str,
+        package_name: str,
+        version: Version,
+        is_wheel: bool = False,
+        source: Any = None,
+        tags: str | None = None,
+        wheel_build_number: str | None = None,
+        last_modified: datetime.datetime | None = None,
+        size: int | None = None,
     ):
         """
         Args:
-            basename (str): Basename of artifact
-            package_name (str): Package name, may not be completely standard
-            version (Version): Package version
-            is_wheel (bool): Is this artifact a wheel?
+            basename: Basename of artifact
+            package_name: Package name, may not be completely standard
+            version: Package version
+            is_wheel: Is this artifact a wheel?
             source: Optional arbitrary object to track provenance of ArtifactInfo
-            tags (str | None): Wheel tags, if any
-            wheel_build_number (str | None): Wheel build number, if any
-            last_modified (datetime.datetime | None): Timestamp when artifact was last modified, if available
-            size (int | None): Size in bytes of artifact, if available
+            tags: Wheel tags, if any
+            wheel_build_number: Wheel build number, if any
+            last_modified: Timestamp when artifact was last modified, if available
+            size: Size in bytes of artifact, if available
         """
         self.basename = basename
         self.package_name = package_name
@@ -54,13 +57,15 @@ class ArtifactInfo:
         self.size = size
 
     @classmethod
-    def from_basename(cls, basename: str, source=None, last_modified=None, size=None) -> ArtifactInfo:
+    def from_basename(
+        cls, basename: str, source: Any = None, last_modified: datetime.datetime | None = None, size: int | None = None
+    ) -> ArtifactInfo:
         """
         Args:
             basename: Basename to parse
             source: Optional arbitrary object to track provenance of ArtifactInfo
-            last_modified (datetime.datetime | None): Timestamp when artifact was last modified, if available
-            size (int | None): Size in bytes of artifact, if available
+            last_modified: Timestamp when artifact was last modified, if available
+            size: Size in bytes of artifact, if available
 
         Returns:
             Parsed artifact info. Raises ValueError if `basename` is not a recognizable sdist/wheel name.

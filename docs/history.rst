@@ -2,6 +2,25 @@
 History
 =======
 
+5.11.0 (unreleased)
+-------------------
+
+* Added ``runez.required(value, message)``: aborts if ``value`` is ``None``, returns it otherwise.
+  Unlike ``abort_if(not value, ...)``, type checkers know the returned value is not ``None``
+
+* Annotated parameters of ``ArtifactInfo()`` and ``ArtifactInfo.from_basename()``
+
+* ``ClickRunner`` (``cli`` test fixture) now captures stderr separately with click>=8.2:
+  ``cli.logged.stdout`` no longer contains what was written to stderr (log chatter, ``abort()`` messages).
+  Use ``... in cli.logged`` (checks both) or ``cli.logged.stderr`` in tests that relied on the old behavior
+
+* ``runez.run(..., passthrough=True)``:
+
+  * Runs the child process in a pty only when the output it passes through to is a terminal.
+    When redirected (CI, piped to a file...), the child sees a plain pipe: no progress bars, colors or ``\r\n`` line ends
+  * Multi-byte characters split across reads are not mangled anymore (were shown as ``�``)
+
+
 5.10.2 (2026-10-12)
 -------------------
 

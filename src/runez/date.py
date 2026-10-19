@@ -138,7 +138,7 @@ def local_timezone():
         return ""
 
 
-def represented_duration(seconds, span=UNSET, delimiter=" "):
+def represented_duration(seconds, span=UNSET, delimiter=" ") -> str:
     """
     Args:
         seconds (int | float | None): Duration in seconds
@@ -268,7 +268,7 @@ def to_date(value):
         return value
 
 
-def to_datetime(value, tz=UNSET):
+def to_datetime(value, tz=UNSET) -> datetime.datetime | None:
     """
     Args:
         value: Value to convert to date

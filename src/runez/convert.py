@@ -281,7 +281,7 @@ class Pluralizer:
         return "%ss" % singular
 
 
-def plural(countable, singular=None, base: int | None = 1000):
+def plural(countable, singular=None, base: int | None = 1000) -> str:
     """
     Args:
         countable: How many things there are (can be int, or something countable)

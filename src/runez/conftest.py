@@ -435,7 +435,8 @@ class ClickRunner:
                 os.environ.setdefault("LANG", "en_US.UTF-8")
 
             r = CliRunner().invoke(main, args=args)
-            return ClickWrapper(stdout=r.output, exit_code=r.exit_code, exception=r.exception)
+            # click>=8.2 captures stderr separately (and `r.output` interleaves both), older click mixes stderr into stdout
+            return ClickWrapper(stdout=r.stdout, stderr=r.stderr, exit_code=r.exit_code, exception=r.exception)
 
         return None
 
