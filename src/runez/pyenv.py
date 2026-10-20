@@ -547,7 +547,7 @@ class Version:
     def __hash__(self):
         return hash(self.text)
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         if not self.is_valid:
             return isinstance(other, Version) and self.text == other.text
 
@@ -560,7 +560,7 @@ class Version:
             and self.local_part == other.local_part
         )
 
-    def __lt__(self, other):
+    def __lt__(self, other) -> bool:
         other = Version.from_object(other)
         if isinstance(other, Version):
             if self.epoch != other.epoch:
@@ -597,15 +597,17 @@ class Version:
 
             return self.components < other.components
 
-    def __le__(self, other):
+        return False  # Anything that isn't a version sorts before versions (see __gt__)
+
+    def __le__(self, other) -> bool:
         other = Version.from_object(other)
         return isinstance(other, Version) and (self < other or self == other)
 
-    def __ge__(self, other):
+    def __ge__(self, other) -> bool:
         other = Version.from_object(other)
         return other is None or other <= self
 
-    def __gt__(self, other):
+    def __gt__(self, other) -> bool:
         other = Version.from_object(other)
         return other is None or other < self
 
@@ -740,7 +742,7 @@ class PythonInstallation:
 
         return isinstance(other, PythonInstallation) and self.real_exe == other.real_exe
 
-    def __lt__(self, other):
+    def __lt__(self, other) -> bool:
         if isinstance(other, PythonInstallation):
             if self.full_spec is None or other.full_spec is None:
                 return other.full_spec is not None or str(self.executable) < str(other.executable)
@@ -749,6 +751,8 @@ class PythonInstallation:
                 return str(self.executable) < str(other.executable)
 
             return self.full_spec < other.full_spec
+
+        return NotImplemented
 
     def representation(self, is_coloring=UNSET, preferred=None):
         """

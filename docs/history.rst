@@ -2,6 +2,16 @@
 History
 =======
 
+5.11.1 (2026-10-20)
+-------------------
+
+* ``Version`` comparisons are annotated as returning ``bool``: ``v1 < v2`` was inferred as ``bool | None``,
+  as ``Version.__lt__()`` returned ``None`` (instead of ``False``) when ``other`` could not be parsed as a version
+
+* ``PythonSpec`` and ``ArtifactInfo`` comparisons (via ``runez.system.ltattr()``) and ``PythonInstallation`` comparisons
+  now return ``False`` (or ``NotImplemented``) instead of ``None`` in their fall-through cases
+
+
 5.11.0 (2026-10-20)
 -------------------
 

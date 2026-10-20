@@ -555,7 +555,7 @@ def joined(*args, delimiter=" ", keep_empty: str | bool | None = False, strip=No
     return delimiter.join(flattened(args, keep_empty=keep_empty, strip=strip, transform=stringify, unique=unique))
 
 
-def ltattr(self, other, *fields, t=None):
+def ltattr(self, other, *fields, t=None) -> bool:
     """Allows to avoid repeating implementation of __lt__, where fields of an object are simply compared in order
     Missing fields (None) arbitrarily are considered < all others
 
@@ -576,6 +576,8 @@ def ltattr(self, other, *fields, t=None):
         f2 = getattr(other, field)
         if f1 != f2:
             return f1 is None or (f2 is not None and f1 < f2)
+
+    return False  # All fields are equal
 
 
 def quoted(*items, delimiter=" ", adapter=UNSET, keep_empty=True, strip=None, stringify=stringified, unique=False):
