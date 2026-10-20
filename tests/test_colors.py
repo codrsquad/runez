@@ -38,6 +38,11 @@ def test_colors():
     msg2 = runez.colored("hi", "dim")
     assert msg1 == msg2
 
+    # Always a str, like named colors (even when not coloring)
+    assert runez.colored(None, "dim") == "None"
+    assert runez.colored(3, "dim") == "3"
+    assert runez.colored("", "dim") == ""
+
     with pytest.raises(ValueError, match="Unknown color"):
         runez.color.cast_style("foo")
 

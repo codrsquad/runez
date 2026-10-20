@@ -54,10 +54,15 @@ History
   * ``runez.system.ABORT_LOGGER``
   * ``runez.date.DEFAULT_DURATION_SPAN``
   * ``runez.heartbeat.DEFAULT_FREQUENCY``
-  * ``runez.cli.*`` attributes
+  * ``runez.click.Cli`` attributes
   * ``PlatformId.default_subsystem``
 
 * Removed unused ``PypiStd.DEFAULT_PYPI_URL``
+
+* Removed ``runez.cli`` (unused shortcut), use ``runez.click.Cli`` instead
+
+* ``runez.colored()`` now always returns a ``str``, like named colors (``runez.blue()`` etc.) do:
+  ``text`` was returned as-is when not coloring (or when falsy), now ``colored(None, ...)`` is ``"None"``, ``colored(3, ...)`` is ``"3"``
 
 * Removed ``# pragma: no cover`` where tests can reach the code instead
 

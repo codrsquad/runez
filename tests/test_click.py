@@ -339,7 +339,7 @@ def test_run_cmds_without_caller():
         patch("runez.click.find_caller", return_value=None),
         pytest.raises(runez.system.AbortException, match="Could not determine caller"),
     ):
-        runez.cli.run_cmds()
+        runez.click.Cli.run_cmds()
 
 
 def test_settings():

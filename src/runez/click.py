@@ -50,14 +50,14 @@ class Cli:
 
         def cmd_foo():
             "Docstring used in --help"
-            parser = runez.cli.parser()
+            parser = runez.click.Cli.parser()
             ...
 
         def cmd_bar():
             print("bar")
 
         if __name__ == "__main__":
-            runez.cli.run_cmds()
+            runez.click.Cli.run_cmds()
     """
 
     # Flags of the common options added by `run_cmds()`, set to `None` to not add that option

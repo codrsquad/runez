@@ -2119,7 +2119,7 @@ class _R:
         return message() if callable(message) else message
 
     @classmethod
-    def colored(cls, text, color: OptionalColor, is_coloring=UNSET):
+    def colored(cls, text: object, color: OptionalColor, is_coloring: bool | Undefined = UNSET) -> str:
         """Colored 'text' with 'color', 'is_coloring' can be used to override current coloring setting"""
         return cls.lc.rm.color.colored(text, color, is_coloring=is_coloring)
 
