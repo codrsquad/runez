@@ -165,7 +165,7 @@ def test_show_colors(cli):
     assert "Backend: plain" in cli.logged.stdout
 
     # Exercise ad-hoc invocation
-    project = runez.to_path(runez.DEV.project_folder)
+    project = runez.to_path(cli.project_folder)
     cli.run("colors", "--no-color", main=project / "src/runez/__main__.py")
     assert cli.succeeded
     assert "Backend: plain" in cli.logged.stdout

@@ -4,6 +4,7 @@ import os
 import shutil
 import tempfile
 import time
+from collections.abc import Iterator
 from pathlib import Path
 from typing import overload
 
@@ -254,11 +255,11 @@ def is_younger(path, age, default=False) -> bool:
     return default
 
 
-def ls_dir(path: str | Path):
+def ls_dir(path: str | Path | None) -> Iterator[Path]:
     """A --dryrun friendly version of Path.iterdir
 
     Args:
-        path: Path to folder
+        path: Path to folder (nothing is yielded if it is None, or not an existing folder)
 
     Yields:
         (Path): Sub-folders / files, if any
@@ -514,7 +515,7 @@ class TempFolder:
             shutil.rmtree(self.tmp_folder, ignore_errors=True)
 
 
-def touch(path: str | Path, fatal: FatalSpec = True, logger: LoggerSpec = UNSET, dryrun: DryrunSpec = UNSET):
+def touch(path: str | Path, fatal: FatalSpec = True, logger: LoggerSpec = UNSET, dryrun: DryrunSpec = UNSET) -> int:
     """Touch file with `path`
 
     Args:
@@ -529,7 +530,9 @@ def touch(path: str | Path, fatal: FatalSpec = True, logger: LoggerSpec = UNSET,
     return write(path, None, fatal=fatal, logger=logger, dryrun=dryrun)
 
 
-def write(path: str | Path, contents: str | bytes | None, fatal: FatalSpec = True, logger: LoggerSpec = UNSET, dryrun: DryrunSpec = UNSET):
+def write(
+    path: str | Path, contents: str | bytes | None, fatal: FatalSpec = True, logger: LoggerSpec = UNSET, dryrun: DryrunSpec = UNSET
+) -> int:
     """Write `contents` to file with `path`
 
     Args:

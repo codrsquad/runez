@@ -225,12 +225,16 @@ class ClickRunner:
     @classmethod
     def project_path(cls, *relative_path) -> str:
         """Convenience shortcut to DEV.project_path()"""
-        return DEV.project_path(*relative_path)
+        path = DEV.project_path(*relative_path)
+        assert path, "Could not determine project folder"
+        return path
 
     @classmethod
     def tests_path(cls, *relative_path) -> str:
         """Convenience shortcut to DEV.tests_path()"""
-        return DEV.tests_path(*relative_path)
+        path = DEV.tests_path(*relative_path)
+        assert path, "Could not determine tests folder"
+        return path
 
     @property
     def project_folder(self) -> str:

@@ -90,7 +90,7 @@ class PsInfo:
             return self.info.get("CMD")
 
     @cached_property
-    def cmd_basename(self):
+    def cmd_basename(self) -> str | None:
         """str: Basename of CMD, if available"""
         cmd = self.cmd
         if cmd:
@@ -120,7 +120,8 @@ class PsInfo:
             (PsInfo | None): Parent process info (if any), special processes like tmux are followed through
         """
         if self.parent and self.parent.ppid == 1:
-            follow_command = self.ps_follow.get(self.parent.cmd_basename)
+            basename = self.parent.cmd_basename
+            follow_command = basename and self.ps_follow.get(basename)
             if follow_command:
                 r = run(*follow_command, dryrun=False, fatal=False, logger=None)
                 if r.succeeded:
@@ -529,7 +530,7 @@ class RunResult:
         return self.exit_code == 0
 
 
-def which(program, ignore_own_venv=False):
+def which(program, ignore_own_venv=False) -> str | None:
     """
     Args:
         program (str | pathlib.Path | None): Program name to find via env var PATH

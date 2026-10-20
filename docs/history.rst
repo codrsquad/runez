@@ -2,13 +2,32 @@
 History
 =======
 
-5.11.0 (unreleased)
+5.11.0 (2026-10-20)
 -------------------
 
 * Added ``runez.required(value, message)``: aborts if ``value`` is ``None``, returns it otherwise.
   Unlike ``abort_if(not value, ...)``, type checkers know the returned value is not ``None``
 
 * Annotated parameters of ``ArtifactInfo()`` and ``ArtifactInfo.from_basename()``
+
+* ``runez.cached_property`` is now generic: type checkers see the return type of decorated methods
+  (they were all ``Unknown`` before, even when annotated).
+  Projects using ``@runez.cached_property`` will likely see new type checker errors: code flowing through
+  their own cached properties is now actually checked (typically: properties that can return ``None``)
+
+* Annotated return types of ``Version`` properties (``given_components_count``, ``is_valid``, ``is_final``, ``is_dirty``, ``pep_440``),
+  ``PythonSpec.abi_suffix``, ``SYS_INFO.invoker_python``, ``SYS_INFO.platform_id``, ``PsInfo.cmd_basename``,
+  ``runez.which()``, ``runez.touch()`` and ``runez.write()``
+
+* ``runez.ls_dir()`` accepts ``None`` (it already yielded nothing for ``None`` at runtime), and is annotated as yielding ``Path``
+
+* ``Version.is_dirty`` now always returns a ``bool`` (could return ``None`` or ``""`` before)
+
+* ``DEV.project_path()``, ``DEV.tests_path()`` and ``DEV.venv_path()`` are now annotated as returning ``str | None``:
+  they always returned ``None`` when not running from a dev project. Use ``runez.required(...)`` where a path is expected
+
+* ``ClickRunner.project_path()`` and ``ClickRunner.tests_path()`` (``cli`` test fixture) now assert that the path could be determined,
+  and are annotated as returning ``str``
 
 * ``ClickRunner`` (``cli`` test fixture) now captures stderr separately with click>=8.2:
   ``cli.logged.stdout`` no longer contains what was written to stderr (log chatter, ``abort()`` messages).

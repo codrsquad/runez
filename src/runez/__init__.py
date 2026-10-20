@@ -47,7 +47,7 @@ __all__ = [  # noqa: RUF022, grouped and sorted by provenance module
 ]
 
 # fmt: on
-DRYRUN = False
+DRYRUN: bool = False
 color.activate_colors()
 colored = color.colored
 cli = click.Cli  # Handy way of running multi-commands with argparse

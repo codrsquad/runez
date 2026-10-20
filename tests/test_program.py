@@ -9,11 +9,12 @@ from unittest.mock import patch
 import pytest
 
 import runez
+from runez.conftest import ClickRunner
 from runez.program import _is_terminal, PsInfo, RunAudit, RunResult
 
 from .conftest import exception_raiser
 
-CHATTER = runez.DEV.tests_path("chatter")
+CHATTER = ClickRunner.tests_path("chatter")
 
 
 def simulate_os_error(code):
@@ -296,6 +297,7 @@ def test_ps():
     assert p.userid != p.uid
 
     parent = p.parent
+    assert parent is not None
     assert parent.pid == p.ppid
 
     # Verify that both variants (username or uid number) for UID work
@@ -377,8 +379,12 @@ def test_ps_follow():
 
         # Verify that parent_list(follow=True) follows parent processes properly
         assert parents != followed_parents
-        assert parents == [p.parent, p.parent.parent]
-        assert followed_parents == [p.followed_parent, p.followed_parent.parent]
+        parent = p.parent
+        followed_parent = p.followed_parent
+        assert parent is not None
+        assert followed_parent is not None
+        assert parents == [parent, parent.parent]
+        assert followed_parents == [followed_parent, followed_parent.parent]
 
         with patch("runez.program.is_executable", side_effect=lambda x: x == "/dev/null/some-test foo"):
             # Edge case: verify that `ps` lack of quoting is properly detected
