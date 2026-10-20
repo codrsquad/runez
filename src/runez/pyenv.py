@@ -110,7 +110,7 @@ class ArtifactInfo:
         return "wheel" if self.is_wheel else "sdist"
 
     @property
-    def is_dirty(self):
+    def is_dirty(self) -> bool:
         return self.version.is_dirty
 
 
@@ -300,7 +300,7 @@ class PythonSpec:
         return CPYTHON
 
     @property
-    def abi_suffix(self):
+    def abi_suffix(self) -> str:
         return "t" if self.freethreading else ""
 
     @property
@@ -610,7 +610,7 @@ class Version:
         return other is None or other < self
 
     @cached_property
-    def given_components_count(self):
+    def given_components_count(self) -> int:
         return len(self.given_components) if self.given_components else 0
 
     def _given_component(self, index: int) -> int | None:
@@ -632,17 +632,17 @@ class Version:
             return v
 
     @cached_property
-    def is_dirty(self):
+    def is_dirty(self) -> bool:
         """Is this version marked as 'dirty'?"""
-        return self.local_part and "dirty" in self.local_part
+        return bool(self.local_part and "dirty" in self.local_part)
 
     @cached_property
-    def is_final(self):
+    def is_final(self) -> bool:
         """Is this a final version as per PEP-440?"""
         return self.is_valid and not self.prerelease
 
     @cached_property
-    def is_valid(self):
+    def is_valid(self) -> bool:
         """Is this version valid?"""
         return self.components is not None
 
@@ -678,7 +678,7 @@ class Version:
         return self._given_component(2)
 
     @cached_property
-    def pep_440(self):
+    def pep_440(self) -> str | None:
         """PEP-440 canonical version"""
         if self.is_valid:
             result = []

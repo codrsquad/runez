@@ -4,8 +4,9 @@ import pytest
 
 import runez
 import runez.config
+from runez.conftest import ClickRunner
 
-SAMPLES = runez.DEV.tests_path("sample")
+SAMPLES = ClickRunner.tests_path("sample")
 
 
 def test_missing():

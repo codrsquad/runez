@@ -709,6 +709,7 @@ def test_terminal(monkeypatch):
     with patch.dict(os.environ, {"LC_TERMINAL": "foo", "LC_TERMINAL_VERSION": "2", "TERM": "screen-256color"}):
         t = TerminalInfo()
         p = t.term_program
+        assert p is not None
         assert str(p) == "foo v2 screen-256color"
         p.extra_info = None
         assert str(p) == "foo screen-256color"
@@ -716,8 +717,10 @@ def test_terminal(monkeypatch):
     with patch.dict(os.environ, {"LC_TERMINAL": "", "TERM_PROGRAM": "", "TERM": ""}):
         # Simulate a known terminal
         ps = runez.program.PsInfo()
-        ps.followed_parent.cmd = "/dev/null/tilix"
-        ps.followed_parent.cmd_basename = "tilix"
+        followed_parent = ps.followed_parent
+        assert followed_parent is not None
+        followed_parent.cmd = "/dev/null/tilix"
+        followed_parent.cmd_basename = "tilix"
         p = TerminalProgram(ps=ps)
         assert str(p) == "tilix /dev/null/tilix"
         assert str(p) == repr(p)  # Identical when coloring is off

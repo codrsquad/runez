@@ -220,14 +220,16 @@ def test_empty_depot():
     assert depot.find_python(invoker.executable).is_invoker
     assert depot.find_python(str(invoker.executable)).is_invoker
     assert depot.find_python(invoker.real_exe).is_invoker
-    assert depot.find_python(PythonSpec("cpython", invoker.mm)) is invoker
+    mm = invoker.mm
+    assert mm is not None
+    assert depot.find_python(PythonSpec("cpython", mm)) is invoker
     assert depot.find_python("python") is invoker
-    assert depot.find_python("py%s" % invoker.mm) is invoker  # eg: py3.10
-    assert depot.find_python("py%s" % invoker.mm.text.replace(".", "")) is invoker  # tox style: py310
-    assert depot.find_python(invoker.mm) is invoker
-    assert depot.find_python(invoker.mm.text) is invoker
+    assert depot.find_python("py%s" % mm) is invoker  # eg: py3.10
+    assert depot.find_python("py%s" % mm.text.replace(".", "")) is invoker  # tox style: py310
+    assert depot.find_python(mm) is invoker
+    assert depot.find_python(mm.text) is invoker
     assert depot.find_python("python") is invoker
-    assert depot.find_python("python%s" % invoker.mm.major) is invoker
+    assert depot.find_python("python%s" % mm.major) is invoker
 
     p = depot.find_python("foo")
     assert str(p) == "foo [not available]"
@@ -396,7 +398,9 @@ def test_freethreading_inspection_normalization(temp_folder):
         # Regardless of how freethreading is reported (None, missing, 0), a regular install
         # must be considered non-freethreaded and must satisfy a non-freethreaded spec
         assert install.inspection.freethreading is False, "%s should be non-freethreaded" % v
-        assert install.mm_spec.freethreading is False, "%s mm_spec should be non-freethreaded" % v
+        mm_spec = install.mm_spec
+        assert mm_spec is not None
+        assert mm_spec.freethreading is False, "%s mm_spec should be non-freethreaded" % v
         assert install.satisfies(PythonSpec.from_text("8.14")), "%s should satisfy '8.14'" % v
         assert not install.satisfies(PythonSpec.from_text("8.14t")), "%s should not satisfy '8.14t'" % v
 
@@ -428,7 +432,9 @@ def test_freethreading_satisfies(temp_folder, monkeypatch):
     path = runez.to_path(".pyenv/versions/3.14.0t/bin/python3.14")
     install = PythonInstallation(path)
     assert install.inspection.freethreading is True
-    assert install.mm_spec.freethreading is True
+    mm_spec = install.mm_spec
+    assert mm_spec is not None
+    assert mm_spec.freethreading is True
     assert not install.satisfies(PythonSpec.from_text("3.14"))
     assert install.satisfies(PythonSpec.from_text("3.14t"))
 

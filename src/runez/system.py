@@ -25,6 +25,8 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
 
+    from runez.pyenv import PythonInstallation
+
 _T = TypeVar("_T")
 
 # Accepted forms for a "color" argument: a color/style name, a color callable (e.g. runez.red), or None (no coloring)
@@ -191,7 +193,7 @@ def required(value: _T | None, message: str | Callable[[], str], code=1, logger:
     return value
 
 
-class cached_property(functools.cached_property):
+class cached_property(functools.cached_property[_T]):
     """
     A ``cached_property`` that extends ``functools.cached_property`` with batch introspection utilities.
 
@@ -206,12 +208,12 @@ class cached_property(functools.cached_property):
     - ``to_dict(target)``: return a dict of property name/value pairs
     """
 
-    def __init__(self, func):
+    def __init__(self, func: Callable[[Any], _T]) -> None:
         super().__init__(func)
         self.__annotations__ = func.__annotations__
         self.__doc__ = func.__doc__
         self.__module__ = func.__module__
-        self.__name__ = func.__name__
+        self.__name__ = getattr(func, "__name__", None)  # Not all callables have a __name__
 
     @staticmethod
     def _walk_properties(target: object, cached_only=True) -> Iterator[tuple[bool, str]]:
@@ -1276,15 +1278,15 @@ class DevInfo:
         if SYS_INFO.venv_bin_folder:
             return _R.find_parent_folder(sys.prefix, {"venv", ".venv", ".virtualenvs", ".tox", "build"})
 
-    def project_path(self, *relative_path) -> str:
+    def project_path(self, *relative_path) -> str | None:
         """Full path relative to development project we're currently running from (if any)"""
         return _full_path(self.project_folder, relative_path)
 
-    def tests_path(self, *relative_path) -> str:
+    def tests_path(self, *relative_path) -> str | None:
         """Full path relative to development project's tests/ folder (if any)"""
         return _full_path(self.tests_folder, relative_path)
 
-    def venv_path(self, *relative_path) -> str:
+    def venv_path(self, *relative_path) -> str | None:
         """Full path relative to development venv (such as .venv, .tox etc.) we're currently running from (if any)"""
         return _full_path(self.venv_folder, relative_path)
 
@@ -1545,7 +1547,7 @@ class SystemInfo:
             yield "sys.argv", quoted(sys.argv)
 
     @cached_property
-    def invoker_python(self):
+    def invoker_python(self) -> PythonInstallation:
         """The python that is either currently running us, or that created the venv we're running from"""
         import platform
         from pathlib import Path
@@ -1578,7 +1580,7 @@ class SystemInfo:
         return sys.prefix != sys.base_prefix
 
     @cached_property
-    def platform_id(self):
+    def platform_id(self) -> PlatformId:
         """Simplified platform identification for portable programs, example: linux-x86_64, or macos-arm64"""
         return PlatformId()
 
@@ -2117,7 +2119,7 @@ class _R:
         return message() if callable(message) else message
 
     @classmethod
-    def colored(cls, text, color: OptionalColor, is_coloring=UNSET):
+    def colored(cls, text: object, color: OptionalColor, is_coloring: bool | Undefined = UNSET) -> str:
         """Colored 'text' with 'color', 'is_coloring' can be used to override current coloring setting"""
         return cls.lc.rm.color.colored(text, color, is_coloring=is_coloring)
 
@@ -2372,7 +2374,7 @@ def _has_stream_handler():
     return any(isinstance(h, logging.StreamHandler) or getattr(h, "isolation", None) == 0 for h in logging.root.handlers)
 
 
-def _full_path(path, relative_path):
+def _full_path(path: str | None, relative_path) -> str | None:
     if path and relative_path:
         path = os.path.join(path, *relative_path)
 

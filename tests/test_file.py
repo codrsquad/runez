@@ -10,6 +10,7 @@ from unittest.mock import patch
 import pytest
 
 import runez
+from runez.conftest import ClickRunner
 
 from .conftest import exception_raiser
 
@@ -47,7 +48,7 @@ def test_basename():
 
 
 def test_checksum():
-    sample = runez.DEV.project_path("LICENSE")
+    sample = ClickRunner.project_path("LICENSE")
     assert runez.checksum(sample) == "0f7ae07a0fc3fccaf4e7e7888df52473abcbc2b29b47b7c2cfe8c125528e1536"
     assert runez.checksum(sample, hash=hashlib.sha1) == "ea553d4e5a18aa83ba90b575ee63a37fc9a7bc07"
 
@@ -134,6 +135,8 @@ def test_edge_cases(temp_folder, monkeypatch, logged):
     assert runez.move("some-file", Path("some-file")) == 0
     assert runez.symlink("some-file", "some-file") == 0
     assert runez.delete("non-existing") == 0
+    assert list(runez.ls_dir(None)) == []
+    assert list(runez.ls_dir("non-existing")) == []
 
     assert not runez.file.is_younger("", None)
     assert not runez.file.is_younger("", 1)
@@ -330,7 +333,7 @@ def test_file_inspection(temp_folder, logged):
     assert runez.delete("sample") == 1
     assert "Deleted sample" in logged.pop()
 
-    sample = runez.DEV.tests_path("sample.txt")
+    sample = ClickRunner.tests_path("sample.txt")
     assert len(list(runez.readlines(sample))) == 4
     assert len(list(runez.readlines(sample, first=1))) == 1
     unstripped_lines = list(runez.readlines(sample, first=1, transform=None))

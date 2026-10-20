@@ -41,6 +41,8 @@ from runez.system import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from runez.ascii import AsciiFrames, FramesSpec
+
 
 def formatted(message, *args, **named_values):
     """
@@ -196,7 +198,7 @@ class _SpinnerState:
     def __init__(
         self,
         parent,
-        frames,
+        frames: AsciiFrames,
         max_columns,
         message_color: OptionalColor,
         progress_color: OptionalColor,
@@ -205,7 +207,7 @@ class _SpinnerState:
         """
         Args:
             parent (ProgressSpinner): Parent object
-            frames (AsciiFrames): Frames to use for spinner
+            frames: Frames to use for spinner
             max_columns (int | None): Optional max number of columns to use
             message_color: Optional color to use for the message
             progress_color: Optional color to use for the progress bar
@@ -267,7 +269,7 @@ class ProgressSpinner:
 
     def start(
         self,
-        frames=UNSET,
+        frames: FramesSpec = None,
         max_columns=140,
         message_color: OptionalColor = "dim",
         progress_color: OptionalColor = "teal",
@@ -276,7 +278,7 @@ class ProgressSpinner:
         """Start a background thread to handle spinner, if stderr is a tty
 
         Args:
-            frames (AsciiFrames | callable | str | None): Frames to use for spinner animation
+            frames: Frames to use for spinner animation
             max_columns (int | None): Maximum number of terminal columns to use for progress line
             message_color: Optional color to use for the message part
             progress_color: Optional color to use for the progress bar
