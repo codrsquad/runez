@@ -147,12 +147,14 @@ def test_command_with_stderr(cli):
     cli.main = say_hello
     cli.run("")
     assert cli.succeeded
-    assert "border:" in cli.logged
+    assert "border:" in cli.logged.stdout
+    assert "border:" not in cli.logged.stderr
 
     cli.main = say_hello
     cli.run("--use-stderr")
     assert cli.succeeded
-    assert "border:" in cli.logged
+    assert "border:" not in cli.logged.stdout
+    assert "border:" in cli.logged.stderr
 
 
 def sample_config(**attrs):

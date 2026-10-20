@@ -2,5 +2,6 @@
 upstream: .
 proving-grounds: .tox/ripple-check
 downstream-projects:
-  - https://github.com/codrsquad/pickley.git
-  - https://github.com/codrsquad/portable-python.git
+  - https://github.com/zsimic/ripple-effect
+  - https://github.com/codrsquad/pickley
+  - https://github.com/codrsquad/portable-python

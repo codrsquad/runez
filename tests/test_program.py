@@ -1,4 +1,5 @@
 import errno
+import io
 import logging
 import os
 import subprocess
@@ -8,7 +9,7 @@ from unittest.mock import patch
 import pytest
 
 import runez
-from runez.program import PsInfo, RunAudit, RunResult
+from runez.program import _is_terminal, PsInfo, RunAudit, RunResult
 
 from .conftest import exception_raiser
 
@@ -235,6 +236,23 @@ def test_executable(temp_folder):
 
         assert runez.make_executable("/dev/null/some-file", fatal=False, logger=False) == -1  # Log errors only
         assert "does not exist, can't make it executable" in logged.pop()
+
+
+def test_passthrough(monkeypatch):
+    # Child process gets a pty only when the stream its output passes through to is a terminal
+    script = "[ -t 1 ] && echo tty || echo pipe"
+    assert runez.run("/bin/sh", "-c", script, passthrough=True, logger=None).output == "pipe"
+    monkeypatch.setattr(runez.program, "_is_terminal", lambda _: True)
+    assert runez.run("/bin/sh", "-c", script, passthrough=True, logger=None).output == "tty"
+
+    # Multi-byte characters split across reads are decoded correctly
+    monkeypatch.setattr(runez.program, "_read_data", lambda fd: os.read(fd, 1))
+    assert runez.run("/bin/echo", "héllo ░", passthrough=True, logger=None).output == "héllo ░"
+
+    closed = io.StringIO()
+    closed.close()
+    assert not _is_terminal(closed)
+    assert not _is_terminal(object())
 
 
 def test_pids():

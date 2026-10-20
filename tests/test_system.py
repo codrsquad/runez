@@ -515,6 +515,30 @@ def test_quoted():
     assert runez.quoted(["foo", {}, 0, [1, 2], {3: 4}, 5]) == 'foo {} 0 1 2 "{3: 4}" 5'
 
 
+def test_required(logged, monkeypatch):
+    # Only `None` is considered missing
+    assert runez.required("foo", "oops") == "foo"
+    assert runez.required(0, "oops") == 0
+    assert runez.required("", "oops") == ""
+    assert runez.required([], "oops") == []
+    assert not logged
+
+    with pytest.raises(AbortException, match="Value is required"):
+        runez.required(None, "Value is required")
+    assert "Value is required" in logged.pop()
+
+    # Message can be late-called
+    with pytest.raises(AbortException, match="late message"):
+        runez.required(None, lambda: "late message", logger=None)
+    assert not logged
+
+    monkeypatch.setattr(runez.system, "AbortException", SystemExit)
+    with pytest.raises(SystemExit) as exc:
+        runez.required(None, "oops", code=3)
+    assert exc.value.code == 3
+    assert "oops" in logged.pop()
+
+
 def test_shortening():
     assert runez.short(None) == "None"
     assert runez.short("") == ""

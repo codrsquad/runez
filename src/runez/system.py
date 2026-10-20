@@ -163,6 +163,34 @@ def abort_if(condition, message=None, code=1, exc_info=None, logger: LoggerSpec 
         abort(_R.actual_message(message or condition), code=code, exc_info=exc_info, logger=logger, stacklevel=stacklevel + 1)
 
 
+def required(value: _T | None, message: str | Callable[[], str], code=1, logger: LoggerSpec = UNSET, stacklevel=1) -> _T:
+    """Abort if `value` is `None`, return it otherwise (so type checkers know it's not `None` from then on)
+
+    >>> import re
+    >>> from runez import required
+    >>> required(re.match(r"[0-9]+", "123 go"), "No digits").group(0)
+    '123'
+    >>> required(None, "Value is required")
+    Traceback (most recent call last):
+        ...
+    runez.system.AbortException: Value is required
+
+    Args:
+        value: Value to check, only `None` is considered missing (`0`, `""`, empty lists etc. are returned as-is)
+        message: Message explaining why we're aborting (can be a callable, called only when aborting)
+        code: Exit code used when runez.system.AbortException is set to SystemExit
+        logger: Logger to use, True to print(), None to disable log chatter
+        stacklevel: Stack level for logging
+
+    Returns:
+        Given `value`
+    """
+    if value is None:
+        abort(_R.actual_message(message), code=code, logger=logger, stacklevel=stacklevel + 1)
+
+    return value
+
+
 class cached_property(functools.cached_property):
     """
     A ``cached_property`` that extends ``functools.cached_property`` with batch introspection utilities.
@@ -240,14 +268,24 @@ class cached_property(functools.cached_property):
         return result
 
 
+@overload
+def capped(
+    value: None, minimum: _T | None = None, maximum: _T | None = None, key: str | None = None, none_ok: bool = False
+) -> _T | None: ...
+
+
+@overload
+def capped(value: _T, minimum: _T | None = None, maximum: _T | None = None, key: str | None = None, none_ok: bool = False) -> _T: ...
+
+
 def capped(value, minimum=None, maximum=None, key=None, none_ok=False):
     """
     Args:
         value: Value to cap
         minimum: If specified, value should not be lower than this minimum
         maximum: If specified, value should not be higher than this maximum
-        key (str | None): Text identifying 'value' (ValueError is raised if provided and `value` is not within bounds)
-        none_ok (bool): True if `None` value is considered OK
+        key: Text identifying 'value' (ValueError is raised if provided and `value` is not within bounds)
+        none_ok: True if `None` value is considered OK
 
     Returns:
         `value` capped to `minimum` and `maximum` (if it is outside of those bounds)
@@ -362,7 +400,7 @@ def first_line(text, keep_empty=False, default=None):
     return default
 
 
-def flattened(*value, keep_empty: str | bool | None = False, split=None, shellify=False, strip=None, transform=None, unique=False):
+def flattened(*value, keep_empty: str | bool | None = False, split=None, shellify=False, strip=None, transform=None, unique=False) -> list:
     """
     Args:
         value: Possibly nested arguments (sequence of lists, nested lists, ...)
@@ -512,8 +550,7 @@ def joined(*args, delimiter=" ", keep_empty: str | bool | None = False, strip=No
     Returns:
         (str): Joined string
     """
-    args = flattened(args, keep_empty=keep_empty, strip=strip, transform=stringify, unique=unique)
-    return delimiter.join(args)
+    return delimiter.join(flattened(args, keep_empty=keep_empty, strip=strip, transform=stringify, unique=unique))
 
 
 def ltattr(self, other, *fields, t=None):
