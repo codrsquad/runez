@@ -437,6 +437,8 @@ def test_freethreading_satisfies(temp_folder, monkeypatch):
     assert mm_spec.freethreading is True
     assert not install.satisfies(PythonSpec.from_text("3.14"))
     assert install.satisfies(PythonSpec.from_text("3.14t"))
+    assert install.__lt__(5) is NotImplemented  # Comparable to other installations only
+    assert not mm_spec < mm_spec  # Equal specs
 
     # Confirm a depot won't hand a freethreaded binary to a non-freethreaded spec
     depot = PythonDepot(".pyenv/versions/**")
@@ -717,6 +719,8 @@ def test_version_comparison():
     assert v10rc5 < "1.0"
     assert v10rc5 < "1.1"
     assert v10rc5 < "1.1rc2"
+    assert not v10rc5 < "foo"  # Anything that isn't a version sorts before versions
+    assert v10rc5 > "foo"
 
     v = "2.11.1.dev2+b 2.11.0 2.11.1.dev11+a.dirty 1!1.0 2.11.1.dev1 2.11.1"
     v = runez.flattened(v, split=" ", transform=Version)
