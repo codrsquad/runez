@@ -2,6 +2,12 @@
 History
 =======
 
+5.11.2 (2026-10-26)
+-------------------
+
+* Fix ``PythonSpec`` parsing of free-threaded Python versions such as ``3.14.10t`` and ``3.14.10t+``.
+
+
 5.11.1 (2026-10-20)
 -------------------
 
