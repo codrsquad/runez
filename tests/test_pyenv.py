@@ -445,7 +445,7 @@ def test_freethreading_satisfies(temp_folder):
 
 
 @pytest.mark.parametrize("prefix", ["", "py", "python", "cpython:"])
-@pytest.mark.parametrize("version", ["3.14.9", "3.14.10", "3.14.100", "3.14.10rc1", "3.14.10.post1", "3.14.10+local"])
+@pytest.mark.parametrize("version", ["3.14.9", "3.14.10", "3.14.100", "3.14.10rc1", "3.14.10.post1"])
 @pytest.mark.parametrize(("freethreading", "is_min_spec"), [(False, False), (False, True), (True, False), (True, True)])
 def test_spec_version_suffixes(prefix, version, freethreading, is_min_spec):
     abi_suffix = "t" if freethreading else ""

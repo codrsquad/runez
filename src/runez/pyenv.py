@@ -221,8 +221,7 @@ class PythonSpec:
             Parsed spec from given text; a returned PythonSpec is guaranteed to be valid (`is_valid` is True),
             otherwise None is returned.
         """
-        # Match the version lazily so trailing ABI and minimum-version suffixes stay separate.
-        m = re.match(r"^(py|python|)(?P<version>\d.*?)?(?P<freethreading>t)?(?P<min_spec>\+?)$", text)
+        m = re.match(r"^(py|python|)(?P<version>\d+(\.\d+(\.\w+?)*)?)?(?P<freethreading>t)?(?P<min_spec>\+?)$", text)
         if m:
             version = Version.from_tox_like(m.group("version"), default="3")
             if version is not None and version.is_valid:
