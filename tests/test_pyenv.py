@@ -446,18 +446,18 @@ def test_freethreading_satisfies(temp_folder):
 
 @pytest.mark.parametrize("prefix", ["", "py", "python", "cpython:"])
 @pytest.mark.parametrize("version", ["3.14.9", "3.14.10", "3.14.100", "3.14.10rc1", "3.14.10.post1"])
-@pytest.mark.parametrize(("freethreading", "is_min_spec"), [(False, False), (False, True), (True, False), (True, True)])
-def test_spec_version_suffixes(prefix, version, freethreading, is_min_spec):
-    abi_suffix = "t" if freethreading else ""
-    versioned_text = "%s%s%s" % (version, abi_suffix, "+" if is_min_spec else "")
+@pytest.mark.parametrize(("add_freethreading_suffix", "add_min_spec_suffix"), [(False, False), (False, True), (True, False), (True, True)])
+def test_spec_version_suffixes(prefix, version, add_freethreading_suffix, add_min_spec_suffix):
+    abi_suffix = "t" if add_freethreading_suffix else ""
+    versioned_text = "%s%s%s" % (version, abi_suffix, "+" if add_min_spec_suffix else "")
     text = "%s%s" % (prefix, versioned_text)
     spec = PythonSpec.from_text(text)
     assert spec is not None
     assert spec.family == "cpython"
     assert spec.version.text == version
-    assert spec.freethreading is freethreading
+    assert spec.freethreading is add_freethreading_suffix
     assert spec.abi_suffix == abi_suffix
-    assert spec.is_min_spec is is_min_spec
+    assert spec.is_min_spec is add_min_spec_suffix
     assert spec.represented(compact=True) == versioned_text
     assert PythonSpec.from_object(text) == spec
 
