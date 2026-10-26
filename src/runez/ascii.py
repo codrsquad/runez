@@ -1,7 +1,16 @@
+from __future__ import annotations
+
 import os
 from itertools import cycle
+from typing import TYPE_CHECKING, TypeAlias
 
 from runez.system import flattened
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+# Frames, by predefined name, or callable returning frames (such as `AsciiAnimation.af_*`)
+FramesSpec: TypeAlias = "AsciiFrames | Callable | str | None"
 
 
 class AsciiAnimation:
@@ -11,25 +20,21 @@ class AsciiAnimation:
     default = "dots"  # Default spinner to use
 
     @classmethod
-    def available_names(cls, include_virtual=True):
+    def available_names(cls, include_virtual=True) -> list[str]:
         """
         Available ascii spinner animation names
 
-        Parameters
-        ----------
-        include_virtual : bool
-            If True, also include `random` and `off` (virtual names)
+        Args:
+            include_virtual: If True, also include `random` and `off` (virtual names)
 
-        Returns
-        -------
-        List[str]
+        Returns:
             Available ascii animation names from this sample collection
         """
         return sorted(k[3:] for k in dir(cls) if k.startswith("af_")) + (["random", "off"] if include_virtual else [])
 
     @classmethod
-    def predefined(cls, name):
-        """(AsciiFrames | None): Predefined animation with 'name', if any"""
+    def predefined(cls, name: str) -> AsciiFrames | None:
+        """Predefined animation with 'name', if any"""
         if name == "off":
             return AsciiFrames(None)
 
@@ -43,25 +48,23 @@ class AsciiAnimation:
             return getattr(cls, "af_%s" % name)()
 
     @classmethod
-    def from_spec(cls, spec):
+    def from_spec(cls, spec: FramesSpec) -> AsciiFrames | None:
         """
         Args:
-            spec (AsciiFrames | callable | str | None): Possible reference to some frames, by predefined name or callable returning frames
+            spec: Possible reference to some frames, by predefined name or callable returning frames
 
         Returns:
-            (AsciiFrames | None): Corresponding AsciiFrames object, if any
+            Corresponding AsciiFrames object, if any
         """
-        if callable(spec):
-            spec = spec()
+        frames = spec() if callable(spec) else spec
+        if isinstance(frames, str):
+            return cls.predefined(frames)
 
-        if isinstance(spec, str):
-            return cls.predefined(spec)
-
-        if isinstance(spec, AsciiFrames):
-            return spec
+        if isinstance(frames, AsciiFrames):
+            return frames
 
     @classmethod
-    def from_specs(cls, *specs):
+    def from_specs(cls, *specs: FramesSpec) -> AsciiFrames:
         """First usable frames from given specs"""
         for spec in specs:
             frames = cls.from_spec(spec)
@@ -71,20 +74,15 @@ class AsciiAnimation:
         return AsciiFrames(None)
 
     @classmethod
-    def get_frames(cls, spec, default=None):
+    def get_frames(cls, spec: FramesSpec, default: FramesSpec = None) -> AsciiFrames:
         """
         Get frames from given spec, or default
 
-        Parameters
-        ----------
-        spec : AsciiFrames or Callable or str or None
-            What frame animation to use
-        default : AsciiFrames or Callable or str or None
-            Default to use if `spec` is not usable
+        Args:
+            spec: What frame animation to use
+            default: Default to use if `spec` is not usable
 
-        Returns
-        -------
-        AsciiFrames
+        Returns:
             First found: from env var, then given `spec`, then `default`, finally `cls.default`
         """
         if isinstance(spec, AsciiFrames):
@@ -157,25 +155,19 @@ class AsciiFrames:
         """
         Ascii animation frames, one-line animations of arbitrary size (should be playable in a loop for good visual effect).
 
-        Parameters
-        ----------
-        frames : AsciiFrames or Callable or str, optional
-            Frames composing the ascii animation
-        fps : int
-            Desired frames per second
+        Args:
+            frames: Frames composing the ascii animation
+            fps: Desired frames per second
         """
-        self.frames = flattened(frames) or None
+        self.frames: list[str] | None = flattened(frames) or None
         self.fps = fps
         self.index = 0
 
     def __repr__(self):
         return "off" if not self.frames else "%s frames" % len(self.frames)
 
-    def next_frame(self):
-        """
-        Returns:
-            (str): Next frame (infinite cycle across self.frames)
-        """
+    def next_frame(self) -> str | None:
+        """Next frame (infinite cycle across self.frames), if any"""
         if self.frames:
             self.index += 1
             if self.index >= len(self.frames):

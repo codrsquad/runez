@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from runez.render import Align, Header, PrettyBorder, PrettyHeader, PrettyTable
+from runez.render import _PTColumn, Align, Header, PrettyBorder, PrettyHeader, PrettyTable
 from runez.system import SYS_INFO, SystemInfo, UNSET
 
 
@@ -41,6 +41,11 @@ def test_border():
 
     tc = PrettyBorder("compact")
     assert str(tc) == "c:   ,h: -  ,pad:1"
+
+    # The github border must render as valid github markdown: outer pipes on the separator row too
+    t = PrettyTable("a,b", border="github")
+    t.add_row(1, 2)
+    assert t.get_string() == "| a | b |\n|---|---|\n| 1 | 2 |"
 
     # Exercise setting from object fields, for coverage
     tc2 = PrettyBorder("c:   ", h=Namespace(first=" ", mid=" ", last=" ", h="-"))
@@ -82,8 +87,8 @@ def test_diagnostics(monkeypatch):
     assert diag1 == EXPECTED_DIAGNOSTICS.strip("\n")
 
     # Same, but with calling the generators first
-    sections = {"Some section": [data, _diag2()], "Other section": _diag2()}
-    diag1 = PrettyTable.two_column_diagnostics(_diag1(), sections, "some additional text")
+    called_sections = {"Some section": [data, _diag2()], "Other section": _diag2()}
+    diag1 = PrettyTable.two_column_diagnostics(_diag1(), called_sections, "some additional text")
     assert diag1 == EXPECTED_DIAGNOSTICS.strip("\n")
 
     diag2 = PrettyTable.two_column_diagnostics(_diag2(), SYS_INFO.diagnostics())
@@ -131,6 +136,7 @@ def test_pretty_table():
 
     t = PrettyTable("1,2,,3", border="pad:0")
     assert len(t.header.columns) == 4
+    assert str(_PTColumn(None, t.header.columns[1])) == "[c1] '2'"  # For debugging
     t.add_rows(("a", "b", "c"), ("d", "e", "foo"))
 
     t.header = 3  # Interpreted as 3 columns (but no header text)

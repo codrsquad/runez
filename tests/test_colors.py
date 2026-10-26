@@ -38,6 +38,11 @@ def test_colors():
     msg2 = runez.colored("hi", "dim")
     assert msg1 == msg2
 
+    # Always a str, like named colors (even when not coloring)
+    assert runez.colored(None, "dim") == "None"
+    assert runez.colored(3, "dim") == "3"
+    assert runez.colored("", "dim") == ""
+
     with pytest.raises(ValueError, match="Unknown color"):
         runez.color.cast_style("foo")
 
@@ -165,7 +170,7 @@ def test_show_colors(cli):
     assert "Backend: plain" in cli.logged.stdout
 
     # Exercise ad-hoc invocation
-    project = runez.to_path(runez.DEV.project_folder)
+    project = runez.to_path(cli.project_folder)
     cli.run("colors", "--no-color", main=project / "src/runez/__main__.py")
     assert cli.succeeded
     assert "Backend: plain" in cli.logged.stdout

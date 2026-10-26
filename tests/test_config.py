@@ -4,8 +4,9 @@ import pytest
 
 import runez
 import runez.config
+from runez.conftest import ClickRunner
 
-SAMPLES = runez.DEV.tests_path("sample")
+SAMPLES = ClickRunner.tests_path("sample")
 
 
 def test_missing():
@@ -28,6 +29,12 @@ def test_missing():
     assert runez.config.get_bytesize("foo", default="5K") == 5120
     assert runez.config.get_bytesize("foo", default="5", default_unit="k") == 5120
     assert runez.config.get_json("foo", default='["a"]') == ["a"]
+
+
+def test_float_default():
+    config = runez.config.Configuration([runez.config.DictProvider({"x": "2.5"})])
+    assert config.get_float("x", default=1.0) == 2.5
+    assert config.get_float("y", default=1.0) == 1.0
 
 
 def test_no_implementation():
@@ -63,6 +70,8 @@ def test_samples(temp_log):
     config.add(runez.config.PropsfsProvider(SAMPLES))
     assert str(config) == "propsfs"
     assert "Adding config provider propsfs" in temp_log.tracked.pop()
+    assert config.provider_by_name("propsfs") is config.providers[0]
+    assert config.provider_by_name("foo") is None
 
     assert config.get_str("non-existent") is None
     assert not temp_log.tracked

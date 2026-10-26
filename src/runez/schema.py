@@ -104,7 +104,7 @@ class Any:
 class _MetaSerializable(Any):
     """Wraps descendants of `runez.Serializable` as schema fields (will be retired in the future)"""
 
-    def __init__(self, meta: "ClassMetaDescription", default=None):
+    def __init__(self, meta: ClassMetaDescription, default=None):
         """
         Args:
             meta: A runez.Serializable object, or its ._meta attribute
@@ -282,7 +282,7 @@ class String(Any):
 class Struct(Any):
     """Represents a composed object, similar to `Serializable`, but not intended to be the root of any schema"""
 
-    _meta: "ClassMetaDescription"  # Class attribute set dynamically in __init__
+    _meta: ClassMetaDescription  # Class attribute set dynamically in __init__
 
     def __init__(self, default=None):
         if not hasattr(self.__class__, "_meta"):
@@ -305,14 +305,6 @@ class Struct(Any):
     @property
     def meta(self):
         return self.__class__._meta
-
-    @property
-    def default(self):
-        return self._default
-
-    @default.setter
-    def default(self, value):
-        self._default = value
 
     def to_dict(self):
         """

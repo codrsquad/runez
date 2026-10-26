@@ -1,5 +1,5 @@
+import errno
 import hashlib
-import io
 import logging
 import os
 import pathlib
@@ -10,6 +10,7 @@ from unittest.mock import patch
 import pytest
 
 import runez
+from runez.conftest import ClickRunner
 
 from .conftest import exception_raiser
 
@@ -47,7 +48,7 @@ def test_basename():
 
 
 def test_checksum():
-    sample = runez.DEV.project_path("LICENSE")
+    sample = ClickRunner.project_path("LICENSE")
     assert runez.checksum(sample) == "0f7ae07a0fc3fccaf4e7e7888df52473abcbc2b29b47b7c2cfe8c125528e1536"
     assert runez.checksum(sample, hash=hashlib.sha1) == "ea553d4e5a18aa83ba90b575ee63a37fc9a7bc07"
 
@@ -134,6 +135,8 @@ def test_edge_cases(temp_folder, monkeypatch, logged):
     assert runez.move("some-file", Path("some-file")) == 0
     assert runez.symlink("some-file", "some-file") == 0
     assert runez.delete("non-existing") == 0
+    assert list(runez.ls_dir(None)) == []
+    assert list(runez.ls_dir("non-existing")) == []
 
     assert not runez.file.is_younger("", None)
     assert not runez.file.is_younger("", 1)
@@ -182,6 +185,70 @@ def test_ensure_folder(temp_folder, logged):
     assert "Cleaned 2 files from some-dir" in logged
 
 
+def test_ensure_folder_clean_mount(temp_folder, logged, monkeypatch):
+    # A folder that can't be deleted itself, only emptied (like a docker mount)
+    runez.touch("mount/some-file", logger=None)
+    runez.touch("mount/sub/other-file", logger=None)
+    mount = os.path.abspath("mount")
+    rmtree = shutil.rmtree
+
+    def refuse_mount(path, *args, **kwargs):
+        if os.path.abspath(path) == mount:
+            raise OSError(errno.EBUSY, "Device or resource busy", path)
+
+        return rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr(shutil, "rmtree", refuse_mount)
+    assert runez.ensure_folder("mount", clean=True) == 2
+    assert "Cleaned 2 files from mount" in logged.pop()
+    assert os.path.isdir("mount")
+    assert not os.listdir("mount")
+
+
+def test_ensure_folder_clean_leaf(temp_folder, logged):
+    path = Path("some-file")
+    path.write_text("hello")
+    assert runez.ensure_folder(path, clean=True, dryrun=True) == 1
+    assert path.is_file()
+    assert "Would create some-file" in logged.pop()
+
+    assert runez.ensure_folder(path, clean=True) == 1
+    assert "Deleted some-file" in logged
+    assert "Created folder some-file" in logged.pop()
+    assert path.is_dir()
+    assert not any(path.iterdir())
+
+    file_target = Path("file-target")
+    file_target.write_text("hello")
+    file_link = Path("file-link")
+    file_link.symlink_to(file_target)
+    assert runez.ensure_folder(file_link, clean=True) == 1
+    assert file_link.is_dir()
+    assert not file_link.is_symlink()
+    assert file_target.read_text() == "hello"
+
+    dangling_link = Path("dangling-link")
+    dangling_link.symlink_to("missing-target")
+    assert runez.ensure_folder(dangling_link, clean=True) == 1
+    assert dangling_link.is_dir()
+    assert not dangling_link.is_symlink()
+
+    dir_target = Path("dir-target")
+    dir_target.mkdir()
+    (dir_target / "preserved").write_text("hello")
+    dir_link = Path("dir-link")
+    dir_link.symlink_to(dir_target, target_is_directory=True)
+    assert runez.ensure_folder(dir_link) == 0
+    assert dir_link.is_symlink()
+
+    assert runez.ensure_folder(dir_link, clean=True) == 1
+    assert "Deleted dir-link" in logged.pop()
+    assert dir_link.is_dir()
+    assert not dir_link.is_symlink()
+    assert not any(dir_link.iterdir())
+    assert (dir_target / "preserved").read_text() == "hello"
+
+
 def test_ini_to_dict(temp_folder, logged):
     assert runez.file.ini_to_dict("foo") == {}
     assert not logged
@@ -208,7 +275,7 @@ def test_ini_to_dict(temp_folder, logged):
 
 
 def test_failure(temp_folder, monkeypatch):
-    monkeypatch.setattr(io, "open", exception_raiser())
+    monkeypatch.setattr(runez.file, "open", exception_raiser(), raising=False)
     monkeypatch.setattr(os, "unlink", exception_raiser(Exception("bad unlink")))
     monkeypatch.setattr(shutil, "copy", exception_raiser())
     monkeypatch.setattr(os.path, "exists", lambda _: True)
@@ -231,6 +298,32 @@ def test_failure(temp_folder, monkeypatch):
         assert "Can't chmod some-file:" in logged.pop()
 
 
+def test_failed_folder_removal(temp_folder, logged, monkeypatch):
+    runez.write("source", "hello")
+    runez.ensure_folder("dest")
+    monkeypatch.setattr(shutil, "rmtree", exception_raiser(OSError("busy")))
+    assert runez.delete("dest", fatal=False) == -1
+    assert "Can't delete dest: busy" in logged.pop()
+
+    runez.ensure_folder("dest/sub", logger=None)
+    assert runez.ensure_folder("dest", clean=True, fatal=False) == -1
+    assert "Can't delete dest/sub: busy" in logged.pop()
+
+    # Same when overwriting an existing destination
+    assert runez.copy("source", "dest", fatal=False) == -1
+    assert "Can't copy source -> dest: busy" in logged.pop()
+    with pytest.raises(runez.system.AbortException):
+        runez.move("source", "dest")
+
+    assert os.path.isdir("dest")
+    assert os.path.exists("source")
+
+    # Same when a file that can't be deleted is in the way of ensure_folder()
+    monkeypatch.setattr(os, "unlink", exception_raiser(OSError("busy")))
+    assert runez.ensure_folder("source", clean=True, fatal=False) == -1
+    assert os.path.isfile("source")
+
+
 def test_file_inspection(temp_folder, logged):
     assert runez.touch("sample") == 1
     assert runez.delete("sample") == 1
@@ -240,7 +333,7 @@ def test_file_inspection(temp_folder, logged):
     assert runez.delete("sample") == 1
     assert "Deleted sample" in logged.pop()
 
-    sample = runez.DEV.tests_path("sample.txt")
+    sample = ClickRunner.tests_path("sample.txt")
     assert len(list(runez.readlines(sample))) == 4
     assert len(list(runez.readlines(sample, first=1))) == 1
     unstripped_lines = list(runez.readlines(sample, first=1, transform=None))
@@ -259,7 +352,7 @@ def test_file_inspection(temp_folder, logged):
     assert not runez.file.is_younger("sample", age=-1)
 
     # Verify that readlines() can ignore encoding errors
-    with io.open("not-a-text-file", "wb") as fh:
+    with open("not-a-text-file", "wb") as fh:
         fh.write(b"\x89 hello\nworld")
 
     assert list(runez.readlines("not-a-text-file", first=1)) == [" hello"]
@@ -324,6 +417,14 @@ def test_file_operations(temp_folder):
     assert os.path.islink("dangling-symlink2")
 
     runez.write("README.md", "hello")
+    runez.write("foobar/source", "prefixed sibling")
+    runez.ensure_folder("foo")
+    runez.symlink("foobar/source", "foo/link")
+    assert os.path.exists("foo/link")
+    assert list(runez.readlines("foo/link", first=1, fatal=True)) == ["prefixed sibling"]
+    assert runez.copy("foobar/source", "foo/copied") == 1
+    assert list(runez.readlines("foo/copied", first=1, fatal=True)) == ["prefixed sibling"]
+
     runez.copy("README.md", "sample1/README.md")
     runez.copy("sample1", "sample2")
     runez.move("sample1/README.md", "sample1/foo")

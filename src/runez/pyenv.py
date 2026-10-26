@@ -4,11 +4,14 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import ClassVar
+from typing import Any, ClassVar, TYPE_CHECKING
 
 from runez.file import ls_dir
 from runez.program import is_executable, run
 from runez.system import _R, cached_property, flattened, joined, ltattr, OptionalColor, resolved_path, short, UNSET
+
+if TYPE_CHECKING:
+    import datetime
 
 CPYTHON = "cpython"
 RX_PYTHON_BASENAME = re.compile(r"^python(\d(\.\d+)?)?(t?)$")
@@ -19,27 +22,27 @@ class ArtifactInfo:
 
     def __init__(
         self,
-        basename,
-        package_name,
-        version,
-        is_wheel=False,
-        source=None,
-        tags=None,
-        wheel_build_number=None,
-        last_modified=None,
-        size=None,
+        basename: str,
+        package_name: str,
+        version: Version,
+        is_wheel: bool = False,
+        source: Any = None,
+        tags: str | None = None,
+        wheel_build_number: str | None = None,
+        last_modified: datetime.datetime | None = None,
+        size: int | None = None,
     ):
         """
         Args:
-            basename (str): Basename of artifact
-            package_name (str): Package name, may not be completely standard
-            version (Version): Package version
-            is_wheel (bool): Is this artifact a wheel?
+            basename: Basename of artifact
+            package_name: Package name, may not be completely standard
+            version: Package version
+            is_wheel: Is this artifact a wheel?
             source: Optional arbitrary object to track provenance of ArtifactInfo
-            tags (str | None): Wheel tags, if any
-            wheel_build_number (str | None): Wheel build number, if any
-            last_modified (datetime.datetime | None): Timestamp when artifact was last modified, if available
-            size (int | None): Size in bytes of artifact, if available
+            tags: Wheel tags, if any
+            wheel_build_number: Wheel build number, if any
+            last_modified: Timestamp when artifact was last modified, if available
+            size: Size in bytes of artifact, if available
         """
         self.basename = basename
         self.package_name = package_name
@@ -54,13 +57,15 @@ class ArtifactInfo:
         self.size = size
 
     @classmethod
-    def from_basename(cls, basename: str, source=None, last_modified=None, size=None) -> ArtifactInfo:
+    def from_basename(
+        cls, basename: str, source: Any = None, last_modified: datetime.datetime | None = None, size: int | None = None
+    ) -> ArtifactInfo:
         """
         Args:
             basename: Basename to parse
             source: Optional arbitrary object to track provenance of ArtifactInfo
-            last_modified (datetime.datetime | None): Timestamp when artifact was last modified, if available
-            size (int | None): Size in bytes of artifact, if available
+            last_modified: Timestamp when artifact was last modified, if available
+            size: Size in bytes of artifact, if available
 
         Returns:
             Parsed artifact info. Raises ValueError if `basename` is not a recognizable sdist/wheel name.
@@ -105,7 +110,7 @@ class ArtifactInfo:
         return "wheel" if self.is_wheel else "sdist"
 
     @property
-    def is_dirty(self):
+    def is_dirty(self) -> bool:
         return self.version.is_dirty
 
 
@@ -123,7 +128,6 @@ class PypiStd:
     RX_SDIST = re.compile(r"^([a-z][\w.-]*[a-z\d])-(\d[\w.!+-]*)\.tar\.gz$", re.IGNORECASE)
     RX_WHEEL = re.compile(r"^([a-z][\w.]*[a-z\d])-(\d[\w.!+]*)(-(\d[\w.]*))?-(.*)\.whl$", re.IGNORECASE)
 
-    DEFAULT_PYPI_URL = "https://pypi.org/pypi/{name}/json"
     _pypi_client = None
 
     @classmethod
@@ -201,7 +205,7 @@ class PythonSpec:
             (str): Textual representation of this spec
         """
         text = self.canonical
-        if compact and (compact is True or self.family in compact):
+        if compact is True or (compact and self.family in compact):
             text = self.version.text
             if self.freethreading:
                 text += "t"
@@ -233,15 +237,15 @@ class PythonSpec:
         if m:
             min_spec = False
             freethreading = False
-            version = m.group("version")
-            if version.endswith("+"):
+            version_text = m.group("version")
+            if version_text.endswith("+"):
                 min_spec = True
-                version = version[:-1]
-            if version.endswith("t"):
+                version_text = version_text[:-1]
+            if version_text.endswith("t"):
                 freethreading = True
-                version = version[:-1]
+                version_text = version_text[:-1]
 
-            version = Version.from_tox_like(version)
+            version = Version.from_tox_like(version_text)
             if version is not None and version.is_valid:
                 return cls(m.group("family"), version, is_min_spec=min_spec, freethreading=freethreading)
 
@@ -296,7 +300,7 @@ class PythonSpec:
         return CPYTHON
 
     @property
-    def abi_suffix(self):
+    def abi_suffix(self) -> str:
         return "t" if self.freethreading else ""
 
     @property
@@ -447,9 +451,9 @@ class Version:
             None: loose parsing, False: strict parsing, version left as-is, True: Turn into canonical PEP-440
         """
         self.given_text = text
-        self.given_components = None  # Components as given by 'text'
+        self.given_components: tuple[int, ...] | None = None  # Components as given by 'text'
         self.text = text or ""
-        self.components = None  # tuple of components with exactly 'max_parts', autofilled with zeros
+        self.components: tuple[int, ...] | None = None  # Comparable tuple: 'max_parts' ints, post-release number, then post-release flag
         self.epoch = 0
         self.local_part = None
         self.prerelease = None
@@ -478,7 +482,7 @@ class Version:
             if pre:
                 rel = rel_num = None  # rc.post does not count as .post (but a .post.dev does)
 
-        components: list[int | str] = [int(c) for c in m.group("main").split(".")]
+        components = [int(c) for c in m.group("main").split(".")]
         if len(components) > max_parts:
             return  # Invalid version, too many parts
 
@@ -488,7 +492,7 @@ class Version:
 
         self.release_number = None if rel_num is None else int(rel_num or 0)
         components.append(int(rel_num or 0))
-        components.append(rel or "")
+        components.append(1 if rel else 0)  # 'post'/'rev'/'r' are equivalent PEP-440 spellings
         self.components = tuple(components)
         if canonical is True:
             self.text = self.pep_440 or ""
@@ -543,7 +547,7 @@ class Version:
     def __hash__(self):
         return hash(self.text)
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         if not self.is_valid:
             return isinstance(other, Version) and self.text == other.text
 
@@ -556,7 +560,7 @@ class Version:
             and self.local_part == other.local_part
         )
 
-    def __lt__(self, other):
+    def __lt__(self, other) -> bool:
         other = Version.from_object(other)
         if isinstance(other, Version):
             if self.epoch != other.epoch:
@@ -593,21 +597,30 @@ class Version:
 
             return self.components < other.components
 
-    def __le__(self, other):
+        return False  # Anything that isn't a version sorts before versions (see __gt__)
+
+    def __le__(self, other) -> bool:
         other = Version.from_object(other)
         return isinstance(other, Version) and (self < other or self == other)
 
-    def __ge__(self, other):
+    def __ge__(self, other) -> bool:
         other = Version.from_object(other)
         return other is None or other <= self
 
-    def __gt__(self, other):
+    def __gt__(self, other) -> bool:
         other = Version.from_object(other)
         return other is None or other < self
 
     @cached_property
-    def given_components_count(self):
+    def given_components_count(self) -> int:
         return len(self.given_components) if self.given_components else 0
+
+    def _given_component(self, index: int) -> int | None:
+        """Component at 'index', if it was given (ie: '1.2' has no patch component)"""
+        if self.given_components is not None and index < len(self.given_components):
+            return self.given_components[index]
+
+        return None
 
     @cached_property
     def local_parts(self) -> list[str] | None:
@@ -621,52 +634,53 @@ class Version:
             return v
 
     @cached_property
-    def is_dirty(self):
+    def is_dirty(self) -> bool:
         """Is this version marked as 'dirty'?"""
-        return self.local_part and "dirty" in self.local_part
+        return bool(self.local_part and "dirty" in self.local_part)
 
     @cached_property
-    def is_final(self):
+    def is_final(self) -> bool:
         """Is this a final version as per PEP-440?"""
         return self.is_valid and not self.prerelease
 
     @cached_property
-    def is_valid(self):
+    def is_valid(self) -> bool:
         """Is this version valid?"""
         return self.components is not None
 
     @cached_property
-    def main(self):
-        """(str): Main part of version (Major.minor.patch)"""
-        if self.given_components:
+    def main(self) -> str:
+        """Main part of version (Major.minor.patch), empty if version is invalid"""
+        if self.given_components is not None:
             return ".".join(str(x) for x in self.given_components[:3])
 
-    @cached_property
-    def major(self):
-        """(int): Major part of version"""
-        if self.given_components_count >= 1:
-            return self.components and self.components[0]
+        return ""
 
     @cached_property
-    def minor(self):
-        """(int): Minor part of version"""
-        if self.given_components_count >= 2:
-            return self.components and self.components[1]
+    def major(self) -> int | None:
+        """Major part of version"""
+        return self._given_component(0)
 
     @cached_property
-    def mm(self):
-        """(str): <major>.<minor>, often used in python paths, like config-3.13"""
+    def minor(self) -> int | None:
+        """Minor part of version"""
+        return self._given_component(1)
+
+    @cached_property
+    def mm(self) -> str:
+        """<major>.<minor>, often used in python paths, like config-3.13 (empty if version has no minor component)"""
         if self.minor is not None:
             return "%s.%s" % (self.major, self.minor)
 
+        return ""
+
     @property
-    def patch(self):
-        """(int): Patch part of version"""
-        if self.given_components_count >= 3:
-            return self.components and self.components[2]
+    def patch(self) -> int | None:
+        """Patch part of version"""
+        return self._given_component(2)
 
     @cached_property
-    def pep_440(self):
+    def pep_440(self) -> str | None:
         """PEP-440 canonical version"""
         if self.is_valid:
             result = []
@@ -728,7 +742,7 @@ class PythonInstallation:
 
         return isinstance(other, PythonInstallation) and self.real_exe == other.real_exe
 
-    def __lt__(self, other):
+    def __lt__(self, other) -> bool:
         if isinstance(other, PythonInstallation):
             if self.full_spec is None or other.full_spec is None:
                 return other.full_spec is not None or str(self.executable) < str(other.executable)
@@ -737,6 +751,8 @@ class PythonInstallation:
                 return str(self.executable) < str(other.executable)
 
             return self.full_spec < other.full_spec
+
+        return NotImplemented
 
     def representation(self, is_coloring=UNSET, preferred=None):
         """
@@ -953,7 +969,7 @@ class PythonInstallationLocationPathEnvVar(PythonInstallationLocation):
         result = []
         venv = os.environ.get("VIRTUAL_ENV")
         for folder in flattened(os.environ.get("PATH"), split=os.pathsep):
-            if venv and folder.startswith(venv):
+            if venv and os.path.commonpath([os.path.abspath(folder), os.path.abspath(venv)]) == os.path.abspath(venv):
                 continue  # Ignore python installations from virtualenv
 
             general = []  # General symlinks, eg: `python3` and `python`
@@ -1008,7 +1024,7 @@ class PythonInstallationLocationSubFolders(PythonInstallationLocation):
 class PythonSimpleInspection:
     """Simple inspection (version and arch) of a python executable, cached to avoid expensive python process invocations"""
 
-    _cached: ClassVar = {}
+    _cached: ClassVar[dict[Path, tuple[Path, PythonSimpleInspection]]] = {}
 
     def __init__(self, version=None, machine=None, problem=None, freethreading=False):
         self.version = version

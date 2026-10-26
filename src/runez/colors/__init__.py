@@ -7,9 +7,9 @@ Example usage:
     'hello'
 """
 
-from typing import Callable
+from collections.abc import Callable
 
-from runez.system import DEV, OptionalColor, short, Slotted, stringified, SYS_INFO, uncolored, UNSET
+from runez.system import DEV, OptionalColor, short, Slotted, stringified, SYS_INFO, uncolored, Undefined, UNSET
 
 
 class ActivateColors:
@@ -36,8 +36,7 @@ class ActivateColors:
         ColorManager.activate_colors(self.enable, flavor=self.flavor)
 
     def __exit__(self, *_):
-        if self.prev is not None:
-            ColorManager.backend, ColorManager.bg, ColorManager.fg, ColorManager.style = self.prev
+        ColorManager.backend, ColorManager.bg, ColorManager.fg, ColorManager.style = self.prev
 
 
 class PlainBackend:
@@ -112,26 +111,25 @@ class ColorManager:
         return cls.cast_color(name, source=cls.style, strict=strict)
 
     @classmethod
-    def colored(cls, text, color: OptionalColor, is_coloring=UNSET):
+    def colored(cls, text: object, color: OptionalColor, is_coloring: bool | Undefined = UNSET) -> str:
         """
         Args:
-            text: Text to color.
+            text: Text to color (stringified, like named colors such as `runez.blue()` do)
             color: Color to use
-            is_coloring (bool | runez.Undefined): If provided, overrides current coloring state
+            is_coloring: If provided, overrides current coloring state
 
         Returns:
-            (str): Colored text
+            Colored text
         """
-        if text:
-            if is_coloring is UNSET:
-                is_coloring = cls.is_coloring()
+        if is_coloring is UNSET:
+            is_coloring = cls.is_coloring()
 
-            if is_coloring:
-                color = cls.cast_color(color, strict=False)
-                if color is not None:
-                    text = color(text)
+        if is_coloring:
+            color = cls.cast_color(color, strict=False)
+            if color is not None:
+                return color(text)
 
-        return text
+        return stringified(text)
 
     @classmethod
     def is_coloring(cls):
@@ -176,7 +174,7 @@ class Renderable:
     def __repr__(self):
         return self.name
 
-    def __call__(self, text: str, size=None) -> str:
+    def __call__(self, text: object, size=None) -> str:
         """
         Allows for convenient call of the form:
 
@@ -216,12 +214,31 @@ class NamedColors(NamedRenderables):
     """Set of registered named colors"""
 
     __slots__ = ("black", "blue", "brown", "gray", "green", "orange", "plain", "purple", "red", "teal", "white", "yellow")
+    black: Renderable
+    blue: Renderable
+    brown: Renderable
+    gray: Renderable
+    green: Renderable
+    orange: Renderable
+    plain: Renderable
+    purple: Renderable
+    red: Renderable
+    teal: Renderable
+    white: Renderable
+    yellow: Renderable
 
 
 class NamedStyles(NamedRenderables):
     """Set of registered named styles"""
 
     __slots__ = ("blink", "bold", "dim", "invert", "italic", "strikethrough", "underline")
+    blink: Renderable
+    bold: Renderable
+    dim: Renderable
+    invert: Renderable
+    italic: Renderable
+    strikethrough: Renderable
+    underline: Renderable
 
 
 # Initialize ColorManager with plain defaults (overridden by activate_colors() at import time)

@@ -84,7 +84,7 @@ class AnsiColor(Renderable):
         r = (rgb & 0xFF0000) >> 16
         g = (rgb & 0xFF00) >> 8
         b = rgb & 0xFF
-        base_fmt = "\033[{{start}}m{{{{}}}}\033[{end}m".format(end=offset + 9)
+        base_fmt = f"\033[{{start}}m{{{{}}}}\033[{offset + 9}m"
         brighten = None if flavor == "neutral" else flavor == "light"
         self.fmt = base_fmt.format(start=fmt(offset, r, g, b, brighten))
 

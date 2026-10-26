@@ -1,8 +1,10 @@
 from runez.serialize import read_json, save_json
-from runez.system import _R, resolved_path, stringified, SYS_INFO
+from runez.system import _R, FatalSpec, LoggerSpec, resolved_path, stringified, SYS_INFO
 
 
-def ask_once(name, instructions, default=None, base="~/.config", serializer=stringified, fatal=False, logger=False):
+def ask_once(
+    name, instructions, default=None, base="~/.config", serializer=stringified, fatal: FatalSpec = False, logger: LoggerSpec = False
+):
     """
     Args:
         name (str): Name under which to store provided answer (will be stored in ~/.config/<name>.json)
@@ -10,8 +12,8 @@ def ask_once(name, instructions, default=None, base="~/.config", serializer=stri
         default: Default value to return if answer not available
         base (str | pathlib.Path): Base folder where to stored provided answer
         serializer (callable): Function that will turn provided value into object to be stored
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
 
     Returns:
         Value given by user (or 'default' if given), optionally wrapped via `serializer`

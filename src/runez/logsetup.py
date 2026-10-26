@@ -12,7 +12,7 @@ import sys
 import threading
 import time
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
-from typing import Callable, Protocol
+from typing import Any, Literal, overload, Protocol, TextIO, TYPE_CHECKING
 
 from runez.ascii import AsciiAnimation
 from runez.convert import to_bytesize, to_int
@@ -23,8 +23,10 @@ from runez.system import (
     abort_if,
     cached_property,
     DEV,
+    DryrunSpec,
     find_caller,
     flattened,
+    LoggerSpec,
     OptionalColor,
     quoted,
     short,
@@ -35,6 +37,11 @@ from runez.system import (
     uncolored,
     UNSET,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from runez.ascii import AsciiFrames, FramesSpec
 
 
 def formatted(message, *args, **named_values):
@@ -141,7 +148,7 @@ class ProgressBar:
 
         return "%s%s%s%%" % (bar, self.blank_char * blanks, percent)
 
-    def _remove_parent(self, parent):
+    def _remove_parent(self, parent: ProgressBar):
         if parent is self.parent:
             self.parent = parent.parent
 
@@ -191,7 +198,7 @@ class _SpinnerState:
     def __init__(
         self,
         parent,
-        frames,
+        frames: AsciiFrames,
         max_columns,
         message_color: OptionalColor,
         progress_color: OptionalColor,
@@ -200,7 +207,7 @@ class _SpinnerState:
         """
         Args:
             parent (ProgressSpinner): Parent object
-            frames (AsciiFrames): Frames to use for spinner
+            frames: Frames to use for spinner
             max_columns (int | None): Optional max number of columns to use
             message_color: Optional color to use for the message
             progress_color: Optional color to use for the progress bar
@@ -243,7 +250,7 @@ class ProgressSpinner:
         self.is_running = False
         self._current_line = None
         self._fps = 60.0  # Higher fps for _run(), to reduce flickering as much as possible
-        self._has_progress_line = False
+        self._has_progress_line: bool | None = False  # None: last output ended with a newline, progress line can be shown right away
         self._msg_show: str | None = None  # Message coming from show() calls
         self._msg_debug: str | None = None  # Message coming from trace() or debug() calls
         self._progress_bar: ProgressBar | None = None
@@ -262,7 +269,7 @@ class ProgressSpinner:
 
     def start(
         self,
-        frames=UNSET,
+        frames: FramesSpec = None,
         max_columns=140,
         message_color: OptionalColor = "dim",
         progress_color: OptionalColor = "teal",
@@ -271,7 +278,7 @@ class ProgressSpinner:
         """Start a background thread to handle spinner, if stderr is a tty
 
         Args:
-            frames (AsciiFrames | callable | str | None): Frames to use for spinner animation
+            frames: Frames to use for spinner animation
             max_columns (int | None): Maximum number of terminal columns to use for progress line
             message_color: Optional color to use for the message part
             progress_color: Optional color to use for the progress bar
@@ -283,10 +290,10 @@ class ProgressSpinner:
                 if self._stderr_write is not None:
                     frames = AsciiAnimation.get_frames(frames)
                     self._state = _SpinnerState(self, frames, max_columns, message_color, progress_color, spinner_color)
-                    sys.stderr.write = self._on_stderr
+                    _R.monkeypatch(sys.stderr, write=self._on_stderr)
                     self._stdout_write = self._original_write(sys.stdout)
                     if self._stdout_write is not None:
-                        sys.stdout.write = self._on_stdout
+                        _R.monkeypatch(sys.stdout, write=self._on_stdout)
 
                     self._thread = threading.Thread(target=self._run, name="Progress")
                     self._thread.daemon = True
@@ -320,10 +327,10 @@ class ProgressSpinner:
                 self._has_progress_line = False
 
             if self._stdout_write is not None and sys.stdout.write == self._on_stdout:
-                sys.stdout.write = self._stdout_write
+                _R.monkeypatch(sys.stdout, write=self._stdout_write)
 
             if self._stderr_write is not None and sys.stderr.write == self._on_stderr:
-                sys.stderr.write = self._stderr_write
+                _R.monkeypatch(sys.stderr, write=self._stderr_write)
 
             self._stderr_write = None
             self._stdout_write = None
@@ -353,7 +360,7 @@ class ProgressSpinner:
                 bar.parent = self._progress_bar
                 self._progress_bar = bar
 
-    def _remove_progress_bar(self, bar):
+    def _remove_progress_bar(self, bar: ProgressBar):
         """Called in main thread"""
         with self._lock:
             if bar is self._progress_bar:
@@ -459,6 +466,14 @@ class LoggingSnapshot(Slotted):
     """
 
     __slots__ = ("_srcfile", "critical", "debug", "error", "exception", "fatal", "info", "warning")
+    _srcfile: str | None
+    critical: Callable
+    debug: Callable
+    error: Callable
+    exception: Callable
+    fatal: Callable
+    info: Callable
+    warning: Callable
 
     def _seed(self):
         """Seed initial fields"""
@@ -502,6 +517,23 @@ class LogSpec(Slotted):
         "timezone",
         "tmp",
     )
+    appname: str | None
+    basename: str | None
+    console_format: str | None
+    console_level: int | None
+    console_stream: TextIO | None
+    context_format: str | None
+    default_logger: LoggerSpec
+    dev: str | None
+    file_format: str | None
+    file_level: int | None
+    file_location: str | None
+    locations: list[str] | tuple[str, ...] | None
+    project: str | None
+    rotate: str | None
+    rotate_count: int
+    timezone: str | None
+    tmp: str | None
 
     @property
     def argv(self):
@@ -622,7 +654,7 @@ class Timeit:
 
     function_name: str | None = None
 
-    def __init__(self, function=None, color: OptionalColor = "bold", logger=UNSET, fmt="{function} took {elapsed}"):
+    def __init__(self, function=None, color: OptionalColor = "bold", logger: LoggerSpec = UNSET, fmt="{function} took {elapsed}"):
         self.__func__ = None
         self.start_time: float = 0
         self.color = color
@@ -639,13 +671,13 @@ class Timeit:
     def __get__(self, instance, owner):
         return _WrappedInstanceFunction(self, instance)
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs) -> Any:
         """
         Args:
             func (callable): We're used as a decorator of a function
 
         Returns:
-            (callable): Decorated function
+            Result of decorated function, or decorated function itself (when used as decorator with arguments)
         """
         if self.__func__:
             with self:
@@ -754,7 +786,7 @@ class LogManager:
         return cls.debug
 
     @classmethod
-    def set_dryrun(cls, dryrun):
+    def set_dryrun(cls, dryrun: DryrunSpec):
         """Useful only as simple callback function, use runez.log.setup() for regular usage"""
         _R.set_dryrun(dryrun)
         return _R.is_dryrun()
@@ -769,7 +801,7 @@ class LogManager:
     def setup(
         cls,
         debug=UNSET,
-        dryrun=UNSET,
+        dryrun: DryrunSpec = UNSET,
         level=UNSET,
         clean_handlers=UNSET,
         greetings=UNSET,
@@ -779,7 +811,7 @@ class LogManager:
         console_level=UNSET,
         console_stream=UNSET,
         context_format=UNSET,
-        default_logger=UNSET,
+        default_logger: LoggerSpec = UNSET,
         dev=UNSET,
         file_format=UNSET,
         file_level=UNSET,
@@ -795,7 +827,7 @@ class LogManager:
         """
         Args:
             debug (bool): Enable debug level logging (overrides other specified levels)
-            dryrun (bool): Enable dryrun
+            dryrun: Enable dryrun
             level (int | None): Shortcut to set both `console_level` and `file_level` at once
             clean_handlers (bool): Remove any existing logging.root.handlers
             greetings (str | None): Optional greetings message(s) to log
@@ -805,7 +837,7 @@ class LogManager:
             console_level (int | None): Level to use for console logging
             console_stream (io.TextIOBase | TextIO | None): Stream to use for console log (eg: sys.stderr), use None to deactivate
             context_format (str | None): Format to use for contextual log, use None to deactivate
-            default_logger (callable | None): Default logger to use to trace operations such as runez.run() etc
+            default_logger (LoggerSpec): Default logger to use to trace operations such as runez.run() etc
             dev (str | None): Custom folder to use when running from a development venv (auto-determined if None)
             file_format (str | None): Format to use for file log, use None to deactivate
             file_level (int | None): Level to use for file logging
@@ -927,7 +959,7 @@ class LogManager:
         cls._logging_snapshot.restore()
         cls.context.reset()
         cls.spec = LogSpec(cls._default_spec)
-        cls.debug = None
+        cls.debug = False
         cls.console_handler = None
         cls.file_handler = None
         cls.progress.stop()
@@ -999,10 +1031,10 @@ class LogManager:
         return prior
 
     @classmethod
-    def resolved_dryrun(cls, dryrun):
+    def resolved_dryrun(cls, dryrun: DryrunSpec):
         """
         Args:
-            dryrun (bool | runez.Undefined | None): Optionally overridden current dryrun setting
+            dryrun: Optionally overridden current dryrun setting
 
         Returns:
             (bool): Resolved value for dryrun
@@ -1022,7 +1054,7 @@ class LogManager:
                 cls.tracer.trace(message)
 
     @classmethod
-    def hdry(cls, message, dryrun=UNSET, logger=UNSET):
+    def hdry(cls, message, dryrun: DryrunSpec = UNSET, logger: LoggerSpec = UNSET):
         """Handle dryrun, allows to handle dryrun=UNSET with a code pattern of the form:
 
             if runez.log.hdry("it was a dryrun"):
@@ -1030,8 +1062,8 @@ class LogManager:
 
         Args:
             message (str | callable | None): Message to log
-            dryrun (bool | UNSET | None): Optionally override current dryrun setting
-            logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
+            dryrun: Optionally override current dryrun setting
+            logger: Logger to use, True to print(), False to trace(), None to disable log chatter
 
         Returns:
             (bool): True if we were indeed in dryrun mode, and we logged the message
@@ -1191,20 +1223,26 @@ class LogManager:
 
         getframe = getattr(sys, "_getframe", None)
         if not isinstance(logging.info, _LogWrap) and getframe is not None:
-            logging.critical = _LogWrap(logging.CRITICAL)
-            logging.fatal = logging.critical
-            logging.error = _LogWrap(logging.ERROR)
-            logging.exception = _LogWrap(logging.ERROR, exc_info=True)
-            logging.warning = _LogWrap(logging.WARNING)
-            logging.info = _LogWrap(logging.INFO)
-            logging.debug = _LogWrap(logging.DEBUG)
-            logging.log = _LogWrap.log
+            # Convenience only: some code doesn't bother with `LOG = logging.getLogger(__name__)`, and calls `logging.info()` etc
+            # directly instead. Patching these makes such calls work properly anyway (logged via the caller's module logger).
+            critical = _LogWrap(logging.CRITICAL)
+            _R.monkeypatch(
+                logging,
+                critical=critical,
+                fatal=critical,
+                error=_LogWrap(logging.ERROR),
+                exception=_LogWrap(logging.ERROR, exc_info=True),
+                warning=_LogWrap(logging.WARNING),
+                info=_LogWrap(logging.INFO),
+                debug=_LogWrap(logging.DEBUG),
+                log=_LogWrap.log,
+            )
 
 
 class _LogWrap:
     """Allows to correctly report caller file/function/line from convenience calls such as logging.info()"""
 
-    def __init__(self, level, exc_info=None):
+    def __init__(self, level: int, exc_info=None):
         self.level = level
         self.exc_info = exc_info
         original = getattr(logging, logging.getLevelName(level).lower())
@@ -1277,6 +1315,10 @@ def _format_recursive(key, value, definitions, max_depth):
     return value
 
 
+@overload
+def _formatted_text(text: str, props, strict: Literal[False] = False, max_depth=3) -> str: ...
+@overload
+def _formatted_text(text: str | None, props, strict: bool, max_depth=3) -> str | None: ...
 def _formatted_text(text, props, strict=False, max_depth=3):
     """
     Args:
@@ -1374,5 +1416,5 @@ class _WrappedInstanceFunction:
         self.__func__ = function
         self.instance = instance
 
-    def __call__(self, *args, **kwargs):
-        self.__func__(self.instance, *args, **kwargs)
+    def __call__(self, *args, **kwargs) -> Any:
+        return self.__func__(self.instance, *args, **kwargs)

@@ -1,6 +1,7 @@
 import math
 
 import runez
+from runez.convert import _TabularHeader
 
 
 def test_boolean():
@@ -124,6 +125,7 @@ def tabulated_samples():
 
 
 def test_tabulated_parsing():
+    assert str(_TabularHeader("NAME   STATUS  PORTS")) == "NAME [:4] STATUS [7:13] PORTS [15:20]"  # For debugging
     assert runez.parsed_tabular("  \nfoo") == []  # First line must have a header...
 
     for expected, output in tabulated_samples():
@@ -162,6 +164,13 @@ def test_tabulated_docker_ps():
     ]
 
 
+def valid_float(text) -> float:
+    """Float parsed from 'text', which must be valid"""
+    value = runez.to_float(text)
+    assert value is not None, "'%s' should be a valid float" % text
+    return value
+
+
 def test_to_float():
     assert runez.to_float(None) is None
     assert runez.to_float("foo") is None
@@ -174,13 +183,19 @@ def test_to_float():
     assert runez.to_float("+135.057E+4") == 1350570.0
     assert runez.to_float("-135000.5e-3") == -135.0005
 
-    assert math.isnan(runez.to_float("nan"))
-    assert math.isinf(runez.to_float("inf"))
-    assert math.isinf(runez.to_float(".inf"))
-    assert math.isinf(runez.to_float("-.inf"))
+    assert math.isnan(valid_float("nan"))
+    assert math.isinf(valid_float("inf"))
+    assert math.isinf(valid_float(".inf"))
+    assert math.isinf(valid_float("-.inf"))
 
     assert isinstance(runez.to_float("15"), float)
     assert isinstance(runez.to_float("15", lenient=True), int)
+
+    # `default` applies only when conversion is not possible
+    assert runez.to_float("1.5", default=0) == 1.5
+    assert runez.to_float("0x10", default=0) == 16.0
+    assert runez.to_float("foo", default=7) == 7
+    assert isinstance(runez.to_float("foo", default=7), int)
 
 
 def test_to_int():

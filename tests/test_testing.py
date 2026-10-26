@@ -225,6 +225,10 @@ def test_success(cli):
 
     cli.run([""])
     assert cli.succeeded
-    assert cli.logged.stdout.contents().strip() == os.path.basename(sys.argv[0])
+    expected = os.path.basename(sys.argv[0])
+    if expected == "__main__.py":
+        expected = runez.SYS_INFO.program_name
+
+    assert cli.logged.stdout.contents().strip() == expected
     assert not cli.logged.stderr
     assert not cli.match("hello")

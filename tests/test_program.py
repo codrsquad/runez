@@ -1,4 +1,5 @@
 import errno
+import io
 import logging
 import os
 import subprocess
@@ -8,11 +9,12 @@ from unittest.mock import patch
 import pytest
 
 import runez
-from runez.program import PsInfo, RunAudit, RunResult
+from runez.conftest import ClickRunner
+from runez.program import _is_terminal, PsInfo, RunAudit, RunResult
 
 from .conftest import exception_raiser
 
-CHATTER = runez.DEV.tests_path("chatter")
+CHATTER = ClickRunner.tests_path("chatter")
 
 
 def simulate_os_error(code):
@@ -34,8 +36,8 @@ def test_background_run(logged):
         r = runez.run(CHATTER, "hello", background=True, dryrun=False)
         assert r.succeeded
         assert r.pid
-        assert r.output is None
-        assert r.error is None
+        assert r.output == ""
+        assert r.error == ""
         assert "chatter hello &" in logged.pop()
 
 
@@ -65,8 +67,8 @@ def test_capture(monkeypatch):
 
         r = runez.run(CHATTER, "silent-fail", stdout=None, stderr=None, fatal=True)
         assert r.succeeded
-        assert r.output is None
-        assert r.error is None
+        assert r.output == ""
+        assert r.error == ""
         assert "Would run:" in logged.pop()
 
     with runez.CaptureOutput(seed_logging=True) as logged:
@@ -139,7 +141,7 @@ def test_capture(monkeypatch):
             with patch("runez.program._read_data", side_effect=simulate_os_error(errno.EINTR)):
                 r = runez.run(CHATTER, "fail", fatal=False, passthrough=True)
                 assert r.failed
-                assert r.output is None
+                assert r.output == ""
                 assert "failed: OSError(" in r.error
 
         # Verify "exited with code ..." is mention in passthrough
@@ -181,7 +183,7 @@ def test_capture(monkeypatch):
             assert not r
             assert r.failed
             assert "python failed: OSError(" in r.error
-            assert r.output is None
+            assert r.output == ""
 
             with pytest.raises(OSError, match="testing"):
                 runez.run("python", "--version")
@@ -237,6 +239,23 @@ def test_executable(temp_folder):
         assert "does not exist, can't make it executable" in logged.pop()
 
 
+def test_passthrough(monkeypatch):
+    # Child process gets a pty only when the stream its output passes through to is a terminal
+    script = "[ -t 1 ] && echo tty || echo pipe"
+    assert runez.run("/bin/sh", "-c", script, passthrough=True, logger=None).output == "pipe"
+    monkeypatch.setattr(runez.program, "_is_terminal", lambda _: True)
+    assert runez.run("/bin/sh", "-c", script, passthrough=True, logger=None).output == "tty"
+
+    # Multi-byte characters split across reads are decoded correctly
+    monkeypatch.setattr(runez.program, "_read_data", lambda fd: os.read(fd, 1))
+    assert runez.run("/bin/echo", "héllo ░", passthrough=True, logger=None).output == "héllo ░"
+
+    closed = io.StringIO()
+    closed.close()
+    assert not _is_terminal(closed)
+    assert not _is_terminal(object())
+
+
 def test_pids():
     assert not runez.check_pid(None)
     assert not runez.check_pid(0)
@@ -253,6 +272,12 @@ def check_process_tree(pinfo, max_depth=10):
         check_process_tree(pinfo.parent, max_depth=max_depth - 1)
 
 
+def ps_info(p: PsInfo) -> dict:
+    """'ps' info of 'p', which must have been found"""
+    assert p.info is not None, "No 'ps' info for pid %s" % p.pid
+    return p.info
+
+
 def test_ps():
     assert PsInfo.from_pid(None) is None
     assert PsInfo.from_pid(0) is None
@@ -264,7 +289,7 @@ def test_ps():
     assert p == PsInfo(os.getpid())
     assert p == PsInfo("%s" % os.getpid())
 
-    info = p.info
+    info = ps_info(p)
     assert info["PID"] in str(p)
     assert p.cmd
     assert p.cmd_basename
@@ -272,6 +297,7 @@ def test_ps():
     assert p.userid != p.uid
 
     parent = p.parent
+    assert parent is not None
     assert parent.pid == p.ppid
 
     # Verify that both variants (username or uid number) for UID work
@@ -279,10 +305,10 @@ def test_ps():
     userid = p.userid
     p = PsInfo()
     if runez.to_int(info["UID"]) is None:
-        p.info["UID"] = uid
+        ps_info(p)["UID"] = uid
 
     else:
-        p.info["UID"] = userid
+        ps_info(p)["UID"] = userid
 
     assert p.uid == uid
     assert p.userid == userid
@@ -322,7 +348,7 @@ def simulated_tmux(program, *args, **_):
 
 
 def test_ps_follow():
-    with patch("runez.program.run", side_effect=simulated_tmux):
+    with patch("runez.program.os.getpid", return_value=12345), patch("runez.program.run", side_effect=simulated_tmux):
         assert PsInfo.from_pid(-1) is None
         bad_pid = PsInfo(-1)
         assert str(bad_pid) == "-1 None None"
@@ -338,7 +364,12 @@ def test_ps_follow():
         assert bad_pid.parent_list(follow=True) == []
         assert bad_pid.parent_list(follow=False) == []
 
+        good_pid = PsInfo.from_pid(12345)
+        assert good_pid is not None
+        assert good_pid.pid == 12345
+
         p = PsInfo()
+        assert p == good_pid
         assert p.cmd == "/dev/null/some-test foo bar"
         assert p.cmd_basename == "/dev/null/some-test"  # Falls back to using 1st sequence with space as basename
         assert p.uid == 0
@@ -348,8 +379,12 @@ def test_ps_follow():
 
         # Verify that parent_list(follow=True) follows parent processes properly
         assert parents != followed_parents
-        assert parents == [p.parent, p.parent.parent]
-        assert followed_parents == [p.followed_parent, p.followed_parent.parent]
+        parent = p.parent
+        followed_parent = p.followed_parent
+        assert parent is not None
+        assert followed_parent is not None
+        assert parents == [parent, parent.parent]
+        assert followed_parents == [followed_parent, followed_parent.parent]
 
         with patch("runez.program.is_executable", side_effect=lambda x: x == "/dev/null/some-test foo"):
             # Edge case: verify that `ps` lack of quoting is properly detected
@@ -418,7 +453,9 @@ def test_run_description():
     assert audit.run_description(short_exe=True) == "foo/bar -mpip --help"
     assert audit.run_description(short_exe="foo") == "foo -mpip --help"
 
-    cmd = runez.to_path(runez.SYS_INFO.venv_bin_path("foo"))
+    venv_bin = runez.SYS_INFO.venv_bin_path("foo")
+    assert venv_bin
+    cmd = runez.to_path(venv_bin)
     audit = RunAudit(cmd, ["--help"], {})
     assert str(audit) == "foo --help"
     assert audit.run_description() == "foo --help"

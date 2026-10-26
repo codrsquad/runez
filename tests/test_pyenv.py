@@ -46,6 +46,7 @@ def test_artifact_info():
 def mk_python(basename, executable=True, content=None, machine=None):
     if basename[0].isdigit():
         version = Version.extracted_from_text(basename)
+        assert version is not None
         folder = runez.to_path(".pyenv/versions") / basename / "bin"
 
     else:
@@ -183,11 +184,18 @@ def test_depot_folder(temp_folder):
     assert str(depot.find_python("8.5.7")) == "8.5.7 [not available]"
 
 
-def test_depot_path():
+def test_depot_path(temp_folder, monkeypatch):
     depot = PythonDepot("PATH")
     assert depot.available_pythons
     assert depot.preferred_python is None
     assert depot.find_python(None) is depot.invoker
+
+    mk_python("./venv/bin/3.15.1")
+    mk_python("./venv-other/bin/3.15.2")
+    monkeypatch.setenv("VIRTUAL_ENV", os.path.join(temp_folder, "venv"))
+    monkeypatch.setenv("PATH", os.pathsep.join([os.path.join(temp_folder, "venv", "bin"), os.path.join(temp_folder, "venv-other", "bin")]))
+    depot = PythonDepot("PATH")
+    assert {str(p.full_version) for p in depot.available_pythons} == {"3.15.2"}
 
 
 def test_edge_cases():
@@ -212,14 +220,16 @@ def test_empty_depot():
     assert depot.find_python(invoker.executable).is_invoker
     assert depot.find_python(str(invoker.executable)).is_invoker
     assert depot.find_python(invoker.real_exe).is_invoker
-    assert depot.find_python(PythonSpec("cpython", invoker.mm)) is invoker
+    mm = invoker.mm
+    assert mm is not None
+    assert depot.find_python(PythonSpec("cpython", mm)) is invoker
     assert depot.find_python("python") is invoker
-    assert depot.find_python("py%s" % invoker.mm) is invoker  # eg: py3.10
-    assert depot.find_python("py%s" % invoker.mm.text.replace(".", "")) is invoker  # tox style: py310
-    assert depot.find_python(invoker.mm) is invoker
-    assert depot.find_python(invoker.mm.text) is invoker
+    assert depot.find_python("py%s" % mm) is invoker  # eg: py3.10
+    assert depot.find_python("py%s" % mm.text.replace(".", "")) is invoker  # tox style: py310
+    assert depot.find_python(mm) is invoker
+    assert depot.find_python(mm.text) is invoker
     assert depot.find_python("python") is invoker
-    assert depot.find_python("python%s" % invoker.mm.major) is invoker
+    assert depot.find_python("python%s" % mm.major) is invoker
 
     p = depot.find_python("foo")
     assert str(p) == "foo [not available]"
@@ -298,10 +308,17 @@ def test_pypi_standardized_naming():
     assert PypiStd.std_wheel_basename("a.b_-___1.5--c") == "a.b_1.5_c"
 
 
+def valid_spec(text: str) -> PythonSpec:
+    """Spec parsed from 'text', which must be valid"""
+    spec = PythonSpec.from_text(text)
+    assert spec is not None, "'%s' should be a valid spec" % text
+    return spec
+
+
 def test_spec():
-    p3 = PythonSpec.from_text("3")
+    p3 = valid_spec("3")
     assert not p3.abi_suffix
-    p3plus = PythonSpec.from_text("3+")
+    p3plus = valid_spec("3+")
     assert str(p3) == "cpython:3"
     assert str(p3plus) == "cpython:3+"
     assert not p3.is_min_spec
@@ -316,26 +333,26 @@ def test_spec():
     assert p3_rep == "3"
     assert p3plus_rep == "3+"
 
-    p38 = PythonSpec.from_text("3.8")
+    p38 = valid_spec("3.8")
     assert p38.satisfies(p3)
     assert p38.satisfies(p3plus)
 
-    p38plus = PythonSpec.from_text("3.8+")
-    c38 = PythonSpec.from_text("conda:3.8")
+    p38plus = valid_spec("3.8+")
+    c38 = valid_spec("conda:3.8")
     assert c38 != p38
     assert c38.version == p38.version
-    assert p38 == PythonSpec.from_text("py38")
+    assert p38 == valid_spec("py38")
     assert not c38.satisfies(p38)
     assert not p38.satisfies(c38)
 
-    p310 = PythonSpec.from_text("3.10")
-    assert p310 == PythonSpec.from_text("py310")
+    p310 = valid_spec("3.10")
+    assert p310 == valid_spec("py310")
     assert not p38.satisfies(p310)
     assert not p310.satisfies(p38)
     assert p310.satisfies(p38plus)
     assert p310.satisfies(p310)
-    assert PythonSpec.from_text("3.10.1").satisfies(p310)
-    assert PythonSpec.from_text("3.10.0rc1").satisfies(p310)
+    assert valid_spec("3.10.1").satisfies(p310)
+    assert valid_spec("3.10.0rc1").satisfies(p310)
 
     assert p38.represented() == "3.8"
     assert p38.represented(compact=None) == "cpython:3.8"
@@ -351,15 +368,15 @@ def test_spec():
     assert c38.represented(compact=["cpython", "conda"]) == "3.8"
     assert c38.represented(color=str, compact=None) == "conda:3.8"
 
-    rc3 = PythonSpec.from_text("cpython:3.12.0rc3")
+    rc3 = valid_spec("cpython:3.12.0rc3")
     assert rc3.represented(compact=None) == "cpython:3.12.0rc3"
     assert not rc3.is_min_spec
 
-    rc3plus = PythonSpec.from_text("cpython:3.12.0rc3+")
+    rc3plus = valid_spec("cpython:3.12.0rc3+")
     assert rc3plus.represented(compact=True) == "3.12.0rc3+"
     assert rc3plus.is_min_spec
 
-    freeth = PythonSpec.from_text("cpython:3.14t")
+    freeth = valid_spec("cpython:3.14t")
     assert freeth.abi_suffix == "t"
     assert freeth.represented(compact=True) == "3.14t"
     assert freeth.freethreading is True
@@ -381,7 +398,9 @@ def test_freethreading_inspection_normalization(temp_folder):
         # Regardless of how freethreading is reported (None, missing, 0), a regular install
         # must be considered non-freethreaded and must satisfy a non-freethreaded spec
         assert install.inspection.freethreading is False, "%s should be non-freethreaded" % v
-        assert install.mm_spec.freethreading is False, "%s mm_spec should be non-freethreaded" % v
+        mm_spec = install.mm_spec
+        assert mm_spec is not None
+        assert mm_spec.freethreading is False, "%s mm_spec should be non-freethreaded" % v
         assert install.satisfies(PythonSpec.from_text("8.14")), "%s should satisfy '8.14'" % v
         assert not install.satisfies(PythonSpec.from_text("8.14t")), "%s should not satisfy '8.14t'" % v
 
@@ -404,7 +423,7 @@ def test_freethreading_inspection_normalization(temp_folder):
     assert threaded_814.inspection.freethreading is True
 
 
-def test_freethreading_satisfies(temp_folder):
+def test_freethreading_satisfies(temp_folder, monkeypatch):
     # A freethreaded installation must not satisfy a non-freethreaded spec (and vice versa)
     arch = runez.SYS_INFO.platform_id.arch
     mk_python("3.14.0t", content={"version": "3.14.0", "machine": arch, "freethreading": True})
@@ -413,13 +432,17 @@ def test_freethreading_satisfies(temp_folder):
     path = runez.to_path(".pyenv/versions/3.14.0t/bin/python3.14")
     install = PythonInstallation(path)
     assert install.inspection.freethreading is True
-    assert install.mm_spec.freethreading is True
+    mm_spec = install.mm_spec
+    assert mm_spec is not None
+    assert mm_spec.freethreading is True
     assert not install.satisfies(PythonSpec.from_text("3.14"))
     assert install.satisfies(PythonSpec.from_text("3.14t"))
+    assert install.__lt__(5) is NotImplemented  # Comparable to other installations only
+    assert not mm_spec < mm_spec  # Equal specs
 
     # Confirm a depot won't hand a freethreaded binary to a non-freethreaded spec
     depot = PythonDepot(".pyenv/versions/**")
-    depot.invoker = None  # Don't let the running interpreter satisfy specs from outside the depot
+    monkeypatch.setattr(depot, "invoker", None)  # Don't let the running interpreter satisfy specs from outside the depot
     regular_314 = depot.find_python("3.14")
     assert regular_314.problem == "not available"
     assert regular_314.inspection.freethreading is False
@@ -512,18 +535,18 @@ def test_spec_list():
 @pytest.mark.parametrize(
     ("given_version", "expected"),
     [
-        ("1.2", (1, 2, 0, 0, 0, 0, "")),
-        ("1.2rev5", (1, 2, 0, 0, 0, 5, "rev")),
-        ("1.2r5.dev3", (1, 2, 0, 0, 0, 5, "r", "", 0, "r", 5, "dev", 3)),
-        ("1.dev0", (1, 0, 0, 0, 0, 0, "", "", 0, "", 0, "dev", 0)),
-        ("1.0.dev456", (1, 0, 0, 0, 0, 0, "", "", 0, "", 0, "dev", 456)),
-        ("1.0a12", (1, 0, 0, 0, 0, 0, "", "a", 12, "", 0, "z", 0)),
-        ("1.2.3rc12", (1, 2, 3, 0, 0, 0, "", "rc", 12, "", 0, "z", 0)),
-        ("1.0a2.dev456", (1, 0, 0, 0, 0, 0, "", "a", 2, "", 0, "dev", 456)),
-        ("1.0b2.post345", (1, 0, 0, 0, 0, 0, "", "b", 2, "post", 345, "z", 0)),
-        ("1.0b2.post345.dev456", (1, 0, 0, 0, 0, 0, "", "b", 2, "post", 345, "dev", 456)),
-        ("1.0rc1.dev456", (1, 0, 0, 0, 0, 0, "", "rc", 1, "", 0, "dev", 456)),
-        ("1.0.post456.dev34", (1, 0, 0, 0, 0, 456, "post", "", 0, "post", 456, "dev", 34)),
+        ("1.2", (1, 2, 0, 0, 0, 0, 0)),
+        ("1.2rev5", (1, 2, 0, 0, 0, 5, 1)),
+        ("1.2r5.dev3", (1, 2, 0, 0, 0, 5, 1, "", 0, "r", 5, "dev", 3)),
+        ("1.dev0", (1, 0, 0, 0, 0, 0, 0, "", 0, "", 0, "dev", 0)),
+        ("1.0.dev456", (1, 0, 0, 0, 0, 0, 0, "", 0, "", 0, "dev", 456)),
+        ("1.0a12", (1, 0, 0, 0, 0, 0, 0, "a", 12, "", 0, "z", 0)),
+        ("1.2.3rc12", (1, 2, 3, 0, 0, 0, 0, "rc", 12, "", 0, "z", 0)),
+        ("1.0a2.dev456", (1, 0, 0, 0, 0, 0, 0, "a", 2, "", 0, "dev", 456)),
+        ("1.0b2.post345", (1, 0, 0, 0, 0, 0, 0, "b", 2, "post", 345, "z", 0)),
+        ("1.0b2.post345.dev456", (1, 0, 0, 0, 0, 0, 0, "b", 2, "post", 345, "dev", 456)),
+        ("1.0rc1.dev456", (1, 0, 0, 0, 0, 0, 0, "rc", 1, "", 0, "dev", 456)),
+        ("1.0.post456.dev34", (1, 0, 0, 0, 0, 456, 1, "", 0, "post", 456, "dev", 34)),
     ],
 )
 def test_pep_sample(given_version, expected):
@@ -531,7 +554,7 @@ def test_pep_sample(given_version, expected):
     assert version.is_valid
     assert version.ignored is None
     assert str(version) == given_version
-    actual = version.components
+    actual = version.components or ()
     if version.prerelease:
         actual += version.prerelease
 
@@ -568,7 +591,7 @@ def test_version():
     assert not none.is_valid
     assert not none.is_final
     assert none.major is None
-    assert none.mm is None
+    assert none.mm == ""
 
     empty = Version("")
     assert str(empty) == ""
@@ -598,16 +621,17 @@ def test_version():
     assert not bogus.is_valid
     assert not bogus.components
     assert not bogus.prerelease
-    assert bogus.mm is None
+    assert bogus.main == ""
+    assert bogus.mm == ""
 
     v1 = Version("1")
-    assert v1.components == (1, 0, 0, 0, 0, 0, "")
+    assert v1.components == (1, 0, 0, 0, 0, 0, 0)
     assert str(v1) == "1"
     assert v1.main == "1"
     assert v1.major == 1
     assert v1.minor is None
     assert v1.patch is None
-    assert v1.mm is None
+    assert v1.mm == ""
     assert empty < v1
     assert v1 > empty
     assert v1 != empty
@@ -669,6 +693,7 @@ def test_version_extraction():
     assert not p38.is_valid
 
     p38 = Version.extracted_from_text("Python 3.8.6")
+    assert p38 is not None
     assert str(p38) == "3.8.6"
     assert p38.is_valid
 
@@ -712,6 +737,8 @@ def test_version_comparison():
     assert v10rc5 < "1.0"
     assert v10rc5 < "1.1"
     assert v10rc5 < "1.1rc2"
+    assert not v10rc5 < "foo"  # Anything that isn't a version sorts before versions
+    assert v10rc5 > "foo"
 
     v = "2.11.1.dev2+b 2.11.0 2.11.1.dev11+a.dirty 1!1.0 2.11.1.dev1 2.11.1"
     v = runez.flattened(v, split=" ", transform=Version)

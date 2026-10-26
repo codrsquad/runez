@@ -15,7 +15,7 @@ from runez.render import NAMED_BORDERS, PrettyTable
 
 def cmd_colors():
     """Show a coloring sample"""
-    parser = runez.cli.parser()
+    parser = runez.click.Cli.parser()
     parser.add_argument("--border", choices=NAMED_BORDERS, help="Use custom border.")
     parser.add_argument("--color", action="store_true", help="Use colors (on by default on ttys).")
     parser.add_argument("--no-color", action="store_true", help="Do not use colors (even if on tty).")
@@ -45,7 +45,7 @@ def cmd_colors():
 
 def cmd_diagnostics():
     """Show system diagnostics sample"""
-    parser = runez.cli.parser()
+    parser = runez.click.Cli.parser()
     parser.add_argument("--border", default="colon", choices=NAMED_BORDERS, help="Use custom border.")
     parser.add_argument("--pyenv", default="PATH", help="Colon separated locations to examine for python installations")
     args = parser.parse_args()
@@ -63,7 +63,7 @@ def cmd_passthrough():
     Capture pass-through test
     Run a program, capture its output as well as let it pass-through to stdout/stderr
     """
-    parser = runez.cli.parser()
+    parser = runez.click.Cli.parser()
     _, unknown = parser.parse_known_args()
 
     unknown = runez.flattened(unknown, split=" ")
@@ -80,7 +80,7 @@ def cmd_passthrough():
 def cmd_progress_bar():
     """Show a progress bar sample"""
     names = AsciiAnimation.available_names()
-    parser = runez.cli.parser()
+    parser = runez.click.Cli.parser()
     parser.add_argument("--delay", "-d", type=float, default=100.0, help="Time in milliseconds to sleep between iterations.")
     parser.add_argument("--iterations", "-i", type=int, default=100, help="Number of iterations to run.")
     parser.add_argument("--log-every", "-l", type=int, default=5, help="Log a message every N iterations.")
@@ -134,7 +134,7 @@ def cmd_progress_bar():
 
 
 def main():
-    runez.cli.run_cmds()
+    runez.click.Cli.run_cmds()
 
 
 def _show_fgcolors(bg=runez.plain, border=None):

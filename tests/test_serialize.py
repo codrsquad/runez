@@ -1,5 +1,4 @@
 import datetime
-import io
 import logging
 from copy import copy
 
@@ -8,19 +7,19 @@ import pytest
 import runez
 import runez.conftest
 from runez.schema import Integer, List, String, Struct, UniqueIdentifier, ValidationException
-from runez.serialize import add_meta, ClassMetaDescription, same_type, SerializableDescendants, type_name, with_behavior
+from runez.serialize import ClassMetaDescription, MetaInjector, same_type, SerializableDescendants, type_name, with_behavior
 
 from .conftest import exception_raiser
 
 
-@add_meta(ClassMetaDescription)
-class MetaSlotted:
+class MetaSlotted(metaclass=MetaInjector):
     __slots__ = "name"
 
 
-@add_meta(ClassMetaDescription)
-class MetaSlotted2:
+class MetaSlotted2(metaclass=MetaInjector):
     __slots__ = ["name", "surname"]
+    name: str
+    surname: str
 
     @property
     def full_name(self):
@@ -145,7 +144,7 @@ def test_json(temp_folder, monkeypatch):
         assert "Saved " in logged.pop()
 
         with monkeypatch.context() as m:
-            m.setattr(io, "open", exception_raiser())
+            m.setattr(runez.serialize, "open", exception_raiser(), raising=False)
             with pytest.raises(runez.system.AbortException) as exc:
                 runez.read_json("sample.json", fatal=True, logger=None)
             assert "Can't read sample.json" in str(exc)
@@ -203,7 +202,7 @@ def test_meta(logged):
     assert obj2.sub is not obj.sub
     assert obj2 == obj
 
-    obj2.sub.identifier = "foo"
+    obj2.sub.set_from_dict({"identifier": "foo"})
     assert obj2 != obj
 
     obj2 = SomeSerializable()
@@ -335,10 +334,12 @@ def test_to_dict(temp_folder):
     with runez.CaptureOutput() as logged:
         # Try with an object that isn't directly serializable, but has a to_dict() function
         data = {"a": "b"}
-        obj = SomeRecord()
-        obj.to_dict = lambda *_: data
 
-        assert runez.save_json(obj, "sample2.json", logger=logging.debug) == 1
+        class Record:
+            def to_dict(self, *_):
+                return data
+
+        assert runez.save_json(Record(), "sample2.json", logger=logging.debug) == 1
         assert "Saved " in logged.pop()
         assert runez.read_json("sample2.json") == data
         assert not logged

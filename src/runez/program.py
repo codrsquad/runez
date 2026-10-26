@@ -4,6 +4,8 @@ Convenience methods for executing programs
 
 from __future__ import annotations
 
+import codecs
+import contextlib
 import errno
 import fcntl
 import os
@@ -17,9 +19,30 @@ import tempfile
 import termios
 from io import StringIO
 from select import select
+from typing import Any, IO, TYPE_CHECKING
 
 from runez.convert import parsed_tabular, to_int
-from runez.system import _R, abort, cached_property, decode, flattened, quoted, resolved_path, short, SYS_INFO, uncolored, UNSET
+from runez.system import (
+    _R,
+    abort,
+    cached_property,
+    decode,
+    DryrunSpec,
+    FatalSpec,
+    flattened,
+    LoggerSpec,
+    quoted,
+    resolved_path,
+    short,
+    SYS_INFO,
+    uncolored,
+    UNSET,
+)
+
+if TYPE_CHECKING:
+    import logging
+
+    from _typeshed import SupportsWrite
 
 
 class PsInfo:
@@ -67,7 +90,7 @@ class PsInfo:
             return self.info.get("CMD")
 
     @cached_property
-    def cmd_basename(self):
+    def cmd_basename(self) -> str | None:
         """str: Basename of CMD, if available"""
         cmd = self.cmd
         if cmd:
@@ -97,7 +120,8 @@ class PsInfo:
             (PsInfo | None): Parent process info (if any), special processes like tmux are followed through
         """
         if self.parent and self.parent.ppid == 1:
-            follow_command = self.ps_follow.get(self.parent.cmd_basename)
+            basename = self.parent.cmd_basename
+            follow_command = basename and self.ps_follow.get(basename)
             if follow_command:
                 r = run(*follow_command, dryrun=False, fatal=False, logger=None)
                 if r.succeeded:
@@ -230,13 +254,13 @@ def is_executable(path):
     return path and os.path.isfile(path) and os.access(path, os.X_OK)
 
 
-def make_executable(path, fatal=True, logger=UNSET, dryrun=UNSET):
+def make_executable(path, fatal: FatalSpec = True, logger: LoggerSpec = UNSET, dryrun: DryrunSpec = UNSET):
     """
     Args:
         path (str | pathlib.Path): chmod file with 'path' as executable
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool | UNSET | None): Optionally override current dryrun setting
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+        dryrun: Optionally override current dryrun setting
 
     Returns:
         (int): In non-fatal mode, 1: successfully done, 0: was no-op, -1: failed
@@ -266,43 +290,43 @@ def run(
     program,
     *args,
     background=False,
-    fatal=True,
-    logger=UNSET,
-    dryrun=UNSET,
+    fatal: FatalSpec = True,
+    logger: LoggerSpec = UNSET,
+    dryrun: DryrunSpec = UNSET,
     short_exe=UNSET,
-    passthrough=False,
+    passthrough: bool | SupportsWrite[str] | logging.StreamHandler | None = False,
     path_env=None,
     strip="\r\n",
-    stdout=subprocess.PIPE,
-    stderr=subprocess.PIPE,
+    stdout: int | IO[Any] | None = subprocess.PIPE,
+    stderr: int | IO[Any] | None = subprocess.PIPE,
     **popen_args,
-):
+) -> RunResult:
     """Run 'program' with 'args'
     Args:
         program (str | pathlib.Path): Program to run (full path, or basename)
         *args: Command line args to call 'program' with
         background (bool): When True, background the spawned process (detach from console and current process)
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool | UNSET | None): Optionally override current dryrun setting
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+        dryrun: Optionally override current dryrun setting
         short_exe (str | bool | None): Try to log a compact representation of executable
-        passthrough (bool | file | None): If True-ish, pass-through stderr/stdout in addition to capturing it
-                                          as well as 'passthrough' itself if it has a write() function
+        passthrough: If True-ish, pass-through stderr/stdout in addition to capturing it,
+                     as well as to 'passthrough' itself if it has a write() function (or a 'stream', like logging handlers)
         path_env (dict | None): Allows to inject PATH-like env vars, see `_added_env_paths()`
         strip (str | bool | None): If provided, `strip()` the captured output [default: strip "\n" newlines]
-        stdout (int | IO[Any] | None): Passed-through to subprocess.Popen, [default: subprocess.PIPE]
-        stderr (int | IO[Any] | None): Passed-through to subprocess.Popen, [default: subprocess.PIPE]
+        stdout: Passed-through to subprocess.Popen, [default: subprocess.PIPE]
+        stderr: Passed-through to subprocess.Popen, [default: subprocess.PIPE]
         **popen_args: Passed through to `subprocess.Popen`
 
     Returns:
-        (RunResult): Run outcome, use .failed, .succeeded, .output, .error etc to inspect the outcome
+        Run outcome, use .failed, .succeeded, .output, .error etc to inspect the outcome
     """
     if path_env:
         popen_args["env"] = _added_env_paths(path_env, env=popen_args.get("env"))
 
-    args = flattened(args, shellify=True)
+    flat_args = flattened(args, shellify=True)
     full_path = which(program)
-    audit = RunAudit(full_path or program, args, popen_args)
+    audit = RunAudit(full_path or program, flat_args, popen_args)
     result = RunResult(audit=audit)
     description = audit.run_description(short_exe=short_exe)
     if background:
@@ -318,9 +342,6 @@ def run(
         result.exit_code = 0
         if stdout is not None:
             result.output = "[dryrun] %s" % description  # Properly simulate a successful run
-
-        if stdout is not None:
-            result.error = ""
 
         return result
 
@@ -343,7 +364,7 @@ def run(
 
         fatal = False  # pragma: no cover, non-fatal mode in background process (there is no more console etc to report anything)
 
-    with _WrappedArgs([full_path, *args]) as wrapped_args:
+    with _WrappedArgs([full_path, *flat_args]) as wrapped_args:
         try:
             p, out, err = _run_popen(wrapped_args, popen_args, passthrough, fatal, stdout, stderr)
             result.output = decode(out or "", strip=strip)
@@ -384,14 +405,14 @@ def run(
         return result
 
 
-def shell(*args, fatal=False, logger=False, dryrun=False):
+def shell(*args, fatal: FatalSpec = False, logger: LoggerSpec = False, dryrun: DryrunSpec = False):
     """Output of a quick shell command, same as run(), but doesn't log and returns output only (when available)
 
     Args:
         *args: Program and arguments to run
-        fatal (type | bool | None): True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
-        logger (callable | bool | None): Logger to use, True to print(), False to trace(), None to disable log chatter
-        dryrun (bool): Override current dryrun setting
+        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        logger: Logger to use, True to print(), False to trace(), None to disable log chatter
+        dryrun: Override current dryrun setting
 
     Returns:
         (str | None): Output (stdout) of command, if successful
@@ -468,11 +489,11 @@ class RunAudit:
 class RunResult:
     """Holds result of a runez.run()"""
 
-    def __init__(self, output=None, error=None, code=1, audit: "RunAudit | None" = None):
+    def __init__(self, output: str = "", error: str = "", code=1, audit: RunAudit | None = None):
         """
         Args:
-            output (str | None): Captured output (on stdout), if any
-            error (str | None): Captured error output (on stderr), if any
+            output: Captured output (on stdout), if any
+            error: Captured error output (on stderr), if any
             code (int): Exit code
             audit (RunAudit | None): Optional audit object recording what run this was related to
         """
@@ -497,7 +518,7 @@ class RunResult:
     @property
     def full_output(self) -> str:
         """Full output, error first"""
-        output = f"{self.error or ''}\n{self.output or ''}"
+        output = f"{self.error}\n{self.output}"
         return output.strip()
 
     @property
@@ -509,7 +530,7 @@ class RunResult:
         return self.exit_code == 0
 
 
-def which(program, ignore_own_venv=False):
+def which(program, ignore_own_venv=False) -> str | None:
     """
     Args:
         program (str | pathlib.Path | None): Program name to find via env var PATH
@@ -622,7 +643,31 @@ def _read_data(fd, length=1024):
     return os.read(fd, length)
 
 
-def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
+def _is_terminal(stream) -> bool:
+    """Isolated as a function for test mocking"""
+    with contextlib.suppress(AttributeError, ValueError):  # Not a file, or a closed one
+        return stream.isatty()
+
+    return False
+
+
+def _passthrough_fds(stream) -> tuple[int, int]:
+    """
+    Read and write file descriptors for a child process' output that also passes through to 'stream':
+    a pty if 'stream' is a terminal (child then behaves as such: colors, progress bars...), a plain pipe otherwise (CI, redirected)
+    """
+    if not _is_terminal(stream):
+        return os.pipe()
+
+    r, w = pty.openpty()
+    term_size = struct.pack("HHHH", SYS_INFO.terminal.lines, SYS_INFO.terminal.columns, 0, 0)
+    for fd in (r, w):
+        fcntl.ioctl(fd, termios.TIOCSWINSZ, term_size)
+
+    return r, w
+
+
+def _run_popen(args, popen_args, passthrough, fatal: FatalSpec, stdout, stderr):
     """Run subprocess.Popen(), capturing output accordingly"""
     if not passthrough:
         p = subprocess.Popen(args, stdout=stdout, stderr=stderr, text=True, **popen_args)  # noqa: S603
@@ -633,12 +678,8 @@ def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
         return p, out, err
 
     # Capture output, but also let it pass through as-is to the terminal
-    stdout_r, stdout_w = pty.openpty()
-    stderr_r, stderr_w = pty.openpty()
-    term_size = struct.pack("HHHH", SYS_INFO.terminal.lines, SYS_INFO.terminal.columns, 0, 0)
-    for fd in (stdout_r, stdout_w, stderr_r, stderr_w):
-        fcntl.ioctl(fd, termios.TIOCSWINSZ, term_size)
-
+    stdout_r, stdout_w = _passthrough_fds(sys.stdout)
+    stderr_r, stderr_w = _passthrough_fds(sys.stderr)
     passthrough = getattr(passthrough, "stream", passthrough)  # Convenience support for things like logging handlers
     if hasattr(passthrough, "write"):
         # Don't accumulate out to RAM if we're passing it through to a file
@@ -652,42 +693,43 @@ def _run_popen(args, popen_args, passthrough, fatal, stdout, stderr):
     with subprocess.Popen(args, stdout=stdout_w, stderr=stderr_w, text=True, **popen_args) as p:  # noqa: S603
         os.close(stdout_w)
         os.close(stderr_w)
+        # Incremental decoding: a multi-byte character may be split across reads
+        targets = {
+            stdout_r: (sys.stdout, stdout_buffer, codecs.getincrementaldecoder("utf-8")(errors="replace")),
+            stderr_r: (sys.stderr, stderr_buffer, codecs.getincrementaldecoder("utf-8")(errors="replace")),
+        }
         readable = [stdout_r, stderr_r]
         while readable:
             for fd in select(readable, [], [])[0]:
                 try:
                     data = _read_data(fd)
-                    if not data:
-                        readable.remove(fd)
-                        continue
-
-                    text = decode(data)
-                    _R.safe_write(passthrough, text)
-                    if fd == stdout_r:
-                        _R.safe_write(sys.stdout, text, flush=True)
-                        _R.safe_write(stdout_buffer, text)
-
-                    else:
-                        _R.safe_write(sys.stderr, text, flush=True)
-                        _R.safe_write(stderr_buffer, text)
 
                 except OSError as e:
-                    if e.errno != errno.EIO:  # On some OS-es, EIO means EOF
+                    if e.errno != errno.EIO:  # On some OS-es, EIO means EOF (when reading from a pty)
                         raise
 
+                    data = b""
+
+                stream, buffer, decoder = targets[fd]
+                text = decoder.decode(data, final=not data)
+                _R.safe_write(passthrough, text)
+                _R.safe_write(stream, text, flush=True)
+                _R.safe_write(buffer, text)
+                if not data:
                     readable.remove(fd)
 
     _R.safe_write(sys.stdout, None, flush=True)
     _R.safe_write(sys.stderr, None, flush=True)
     os.close(stdout_r)
     os.close(stderr_r)
-    if stdout_buffer:
-        stdout_buffer = uncolored(decode(stdout_buffer.getvalue()))
+    out = err = None
+    if stdout_buffer is not None:
+        out = uncolored(stdout_buffer.getvalue())
 
-    if stderr_buffer:
-        stderr_buffer = uncolored(decode(stderr_buffer.getvalue()))
+    if stderr_buffer is not None:
+        err = uncolored(stderr_buffer.getvalue())
 
-    return p, stdout_buffer, stderr_buffer
+    return p, out, err
 
 
 class _WrappedArgs:
@@ -703,7 +745,7 @@ class _WrappedArgs:
         if needs_wrap and "python" in args[0] and args[1][:2] in ("-m", "-X", "-c"):
             self.tmp_folder = os.path.realpath(tempfile.mkdtemp())
             wrapper = os.path.join(self.tmp_folder, "pydev-wrapper.sh")
-            with open(wrapper, "wt") as fh:
+            with open(wrapper, "w") as fh:
                 fh.write('exec "$@"\n')
 
             args = ["/bin/sh", wrapper, *args]
