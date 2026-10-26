@@ -2,6 +2,160 @@
 History
 =======
 
+5.11.2 (2026-10-26)
+-------------------
+
+* Fix ``PythonSpec`` parsing of free-threaded Python versions such as ``3.14.10t`` and ``3.14.10t+``.
+
+
+5.11.1 (2026-10-20)
+-------------------
+
+* ``Version`` comparisons are annotated as returning ``bool``: ``v1 < v2`` was inferred as ``bool | None``,
+  as ``Version.__lt__()`` returned ``None`` (instead of ``False``) when ``other`` could not be parsed as a version
+
+* ``PythonSpec`` and ``ArtifactInfo`` comparisons (via ``runez.system.ltattr()``) and ``PythonInstallation`` comparisons
+  now return ``False`` (or ``NotImplemented``) instead of ``None`` in their fall-through cases
+
+
+5.11.0 (2026-10-20)
+-------------------
+
+* Added ``runez.required(value, message)``: aborts if ``value`` is ``None``, returns it otherwise.
+  Unlike ``abort_if(not value, ...)``, type checkers know the returned value is not ``None``
+
+* Annotated parameters of ``ArtifactInfo()`` and ``ArtifactInfo.from_basename()``
+
+* ``runez.cached_property`` is now generic: type checkers see the return type of decorated methods
+  (they were all ``Unknown`` before, even when annotated).
+  Projects using ``@runez.cached_property`` will likely see new type checker errors: code flowing through
+  their own cached properties is now actually checked (typically: properties that can return ``None``)
+
+* Annotated return types of ``Version`` properties (``given_components_count``, ``is_valid``, ``is_final``, ``is_dirty``, ``pep_440``),
+  ``PythonSpec.abi_suffix``, ``SYS_INFO.invoker_python``, ``SYS_INFO.platform_id``, ``PsInfo.cmd_basename``,
+  ``runez.which()``, ``runez.touch()`` and ``runez.write()``
+
+* ``runez.ls_dir()`` accepts ``None`` (it already yielded nothing for ``None`` at runtime), and is annotated as yielding ``Path``
+
+* ``Version.is_dirty`` now always returns a ``bool`` (could return ``None`` or ``""`` before)
+
+* ``DEV.project_path()``, ``DEV.tests_path()`` and ``DEV.venv_path()`` are now annotated as returning ``str | None``:
+  they always returned ``None`` when not running from a dev project. Use ``runez.required(...)`` where a path is expected
+
+* ``ClickRunner.project_path()`` and ``ClickRunner.tests_path()`` (``cli`` test fixture) now assert that the path could be determined,
+  and are annotated as returning ``str``
+
+* ``ClickRunner`` (``cli`` test fixture) now captures stderr separately with click>=8.2:
+  ``cli.logged.stdout`` no longer contains what was written to stderr (log chatter, ``abort()`` messages).
+  Use ``... in cli.logged`` (checks both) or ``cli.logged.stderr`` in tests that relied on the old behavior
+
+* ``runez.run(..., passthrough=True)``:
+
+  * Runs the child process in a pty only when the output it passes through to is a terminal.
+    When redirected (CI, piped to a file...), the child sees a plain pipe: no progress bars, colors or ``\r\n`` line ends
+  * Multi-byte characters split across reads are not mangled anymore (were shown as ``�``)
+
+
+5.10.2 (2026-10-12)
+-------------------
+
+* Methods decorated with ``@runez.log.timeit`` now return their result (they used to always return ``None``)
+
+* Better type annotations: ``with TempFolder() as tmp:`` gives a ``str``, ``RestClient.get(..., fatal=True)``
+  never returns ``None``
+
+* Annotated globals that can be changed by users:
+
+  * ``RestClient.handler``
+  * ``runez.system.ABORT_LOGGER``
+  * ``runez.date.DEFAULT_DURATION_SPAN``
+  * ``runez.heartbeat.DEFAULT_FREQUENCY``
+  * ``runez.click.Cli`` attributes
+  * ``PlatformId.default_subsystem``
+
+* Removed unused ``PypiStd.DEFAULT_PYPI_URL``
+
+* Removed ``runez.cli`` (unused shortcut), use ``runez.click.Cli`` instead
+
+* ``runez.colored()`` now always returns a ``str``, like named colors (``runez.blue()`` etc.) do:
+  ``text`` was returned as-is when not coloring (or when falsy), now ``colored(None, ...)`` is ``"None"``, ``colored(3, ...)`` is ``"3"``
+
+* Removed ``# pragma: no cover`` where tests can reach the code instead
+
+* Enabled ruff's ``UP`` (pyupgrade) rules: ``collections.abc.Callable``, ``open()`` instead of ``io.open()``,
+  ``OSError`` instead of ``IOError``, f-strings instead of ``.format()``, unquoted annotations
+
+
+5.10.1 (2026-10-09)
+-------------------
+
+* Better type annotations for ``to_int()``, ``to_float()``, ``to_path()``, ``json_sanitized()`` and ``ClickRunner.context_wrapper``
+
+* ``to_float()`` (and ``Configuration.get_float()``) no longer return ``default`` for non-integer strings
+  (``to_float("1.5", default=0)`` used to yield ``0.0``)
+
+* ``Version.mm`` and ``Version.main`` are now empty strings (instead of ``None``) when not applicable
+
+
+5.10.0 (2026-10-08)
+-------------------
+
+* Type-checking cleanup (driven by ``ty``), with fixes found along the way:
+
+  * ``Version`` comparisons no longer raise ``TypeError`` for versions parsed with different ``max_parts``,
+    and ``post``/``rev``/``r`` releases now compare equal (they are equivalent PEP-440 spellings)
+
+  * ``abort()`` overloads simplified, its return type now follows ``fatal`` and ``return_value``
+
+  * ``runez.system.AbortException = SystemExit`` and setting ``runez.date.DEFAULT_TIMEZONE`` no longer upset type checkers
+
+  * ``runez.click`` imports ``click`` only where needed (clear ``ModuleNotFoundError`` when it's not installed)
+
+  * ``Configuration.provider_by_name()`` no longer raises ``AttributeError`` when a non-dict provider (like ``propsfs``) is present
+
+  * ``runez.timezone()`` accepts ``name=`` as a keyword argument (used to raise ``TypeError``)
+
+  * ``RestClient.mock()`` (decorator or context manager) and ``to_epoch()`` now have precise signatures
+
+  * New public type aliases ``FatalSpec``, ``LoggerSpec`` and ``DryrunSpec``, used by every ``fatal=``, ``logger=``
+    and ``dryrun=`` parameter (pyright used to reject e.g. ``logger=None`` where the default was ``False``)
+
+* Edge-case fixes:
+
+  * ``delete()``, and ``copy()``/``move()`` when overwriting, report failures in non-fatal mode
+    (instead of leaving the folder behind, or raising)
+
+  * ``ensure_folder(clean=True)`` replaces a file or symlink in the way with an actual folder (an existing folder is
+    still only emptied, it may be a mount)
+
+  * Path containment checks (``copy()``, ``move()``, ``symlink()``, venv detection) no longer match on a string prefix
+    (``foo`` vs ``foobar``)
+
+  * ``SYS_INFO.program_name`` is the package name when running via ``python -m`` (it was ``__main__``)
+
+  * ``runez.timezone().dst()`` returns zero (it returned the UTC offset)
+
+* Fixed the ``github`` table border (separator row was missing its outer pipes)
+
+* ``RunResult.output`` and ``.error`` are now always a ``str`` (they were ``None`` when nothing was captured)
+
+* Removed (unused) ``RestClient`` caching: ``CacheWrapper``, ``RestClient.std_diskcache()`` and ``RestClient(cache=...)``
+
+* Removed py2-era ``runez.serialize.add_metaclass()`` and ``add_meta()``, use ``metaclass=MetaInjector`` instead
+
+
+5.9.1 (2026-05-05)
+------------------
+
+* ``freethreading`` is now always a ``bool`` (in ``PythonSpec``, and in python installation inspection)
+
+
+5.9.0 (2026-04-29)
+------------------
+
+* ``PythonInstallation.mm_spec`` now retains freethreading (e.g. ``cpython:3.14t``)
+
+
 5.8.0 (2026-04-21)
 ------------------
 
