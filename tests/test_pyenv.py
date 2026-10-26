@@ -444,6 +444,24 @@ def test_freethreading_satisfies(temp_folder):
     assert nft_depot.find_python("3.14t").problem  # invoker does NOT satisfy 3.14t
 
 
+@pytest.mark.parametrize("prefix", ["", "py", "python", "cpython:"])
+@pytest.mark.parametrize("version", ["3.14.9", "3.14.10", "3.14.100", "3.14.10rc1", "3.14.10.post1", "3.14.10+local"])
+@pytest.mark.parametrize(("freethreading", "is_min_spec"), [(False, False), (False, True), (True, False), (True, True)])
+def test_spec_version_suffixes(prefix, version, freethreading, is_min_spec):
+    abi_suffix = "t" if freethreading else ""
+    versioned_text = "%s%s%s" % (version, abi_suffix, "+" if is_min_spec else "")
+    text = "%s%s" % (prefix, versioned_text)
+    spec = PythonSpec.from_text(text)
+    assert spec is not None
+    assert spec.family == "cpython"
+    assert spec.version.text == version
+    assert spec.freethreading is freethreading
+    assert spec.abi_suffix == abi_suffix
+    assert spec.is_min_spec is is_min_spec
+    assert spec.represented(compact=True) == versioned_text
+    assert PythonSpec.from_object(text) == spec
+
+
 def test_spec_equivalent():
     def check_equivalent_specs(*text):
         specs = [PythonSpec.from_text(x) for x in text]
