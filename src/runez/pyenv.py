@@ -900,7 +900,7 @@ class PythonInstallationLocation:
     def _auto_determined_preferred(self):
         """By default, look for a `python3` symlink and consider it to be the preferred python"""
         for basename in ("python3", "python"):
-            path = Path(self.location) / basename
+            path = Path(self.location).expanduser() / basename
             if path.is_symlink():
                 symlink = os.readlink(path)
                 m = RX_PYTHON_BASENAME.match(symlink)

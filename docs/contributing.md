@@ -51,6 +51,11 @@ produces confusing failures.
 
 Run `tox`, then open `.tox/test-reports/htmlcov/index.html`.
 
+## Changelog
+
+Record pending changes under `## <version> - Unreleased` in [CHANGELOG.md](../CHANGELOG.md).
+When releasing, remove ` - Unreleased` without adding a date. Preserve dates on older entries.
+
 ## Before you open a PR
 
 `tox -e style` must pass, and so must the type checkers that CI runs (`tox -e <typechecker(s)>`) — see

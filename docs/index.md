@@ -23,4 +23,4 @@ first and `.github/workflows/` second.
   found and fixed.
 - [Async cached_property](./async-cached-property.md) — a parked design: an async-capable
   `@runez.cached_property` that was written and tested but deliberately not shipped.
-- [History](./history.rst) — the changelog.
+- [Changelog](../CHANGELOG.md) — the changelog.

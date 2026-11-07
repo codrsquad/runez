@@ -184,6 +184,19 @@ def test_depot_folder(temp_folder):
     assert str(depot.find_python("8.5.7")) == "8.5.7 [not available]"
 
 
+def test_depot_home_folder(temp_folder, monkeypatch):
+    monkeypatch.setenv("HOME", str(temp_folder))
+    mk_python("8.5.6")
+    runez.symlink(".pyenv/versions/8.5.6/bin/python", "python8.5", logger=None)
+    runez.symlink("python8.5", "python3", logger=None)
+    depot = PythonDepot("~/")
+    assert len(depot.available_pythons) == 1
+    preferred = depot.preferred_python
+    assert preferred is not None
+    assert preferred.executable == runez.to_path(temp_folder) / "python8.5"
+    assert depot.find_python(None) is preferred
+
+
 def test_depot_path(temp_folder, monkeypatch):
     depot = PythonDepot("PATH")
     assert depot.available_pythons
