@@ -1,6 +1,6 @@
 # Changelog
 
-## 5.11.3 - Unreleased
+## 5.11.3
 
 * Expand `~` when detecting the preferred Python symlink in configured installation locations.
 
