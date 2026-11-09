@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 
 import pytest
@@ -16,6 +17,23 @@ def importable_test_py_files(folder):
 
         elif fname.endswith(".py"):
             yield fpath
+
+
+@pytest.mark.parametrize("module_globals", [{}, {"__name__": None}, {"__name__": ""}])
+def test_find_caller_without_module_name(module_globals):
+    # Deploy runners can exec files with __file__ but no module identity.
+    namespace = {"__file__": "deploy.py", "find_caller": runez.system.find_caller, **module_globals}
+    exec("caller = find_caller(depth=1, maximum=1)", namespace)
+    caller = namespace["caller"]
+    assert isinstance(caller, runez.system._CallerInfo)
+    assert caller.filepath == "deploy.py"
+    assert caller.module_name == ""
+    assert not caller.is_main
+
+    # Name-based filtering must skip the unnamed frame without crashing, too.
+    namespace["regex"] = re.compile(".+")
+    exec("caller = find_caller(depth=1, maximum=1, regex=regex)", namespace)
+    assert namespace["caller"] is None
 
 
 def test_auto_import_siblings():

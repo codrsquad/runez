@@ -2,6 +2,8 @@
 
 ## 5.11.3
 
+* Fix caller inspection for executed code with a missing or null `__name__`.
+
 * Expand `~` when detecting the preferred Python symlink in configured installation locations.
 
 ## 5.11.2 - 2026-10-26

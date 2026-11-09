@@ -358,7 +358,7 @@ def find_caller(depth=2, maximum=1000, need_file=True, need_package=False, regex
                 f = getframe(depth)
                 package = f.f_globals.get("__package__")
                 if package or not need_package:
-                    name = f.f_globals.get("__name__")
+                    name = f.f_globals.get("__name__") or ""
                     if name != "functools":
                         top_level = package and package.partition(".")[0]
                         if name.endswith("__main__") or not top_level or (not top_level.startswith("_") and top_level not in ignored):
