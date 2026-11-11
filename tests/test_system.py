@@ -565,6 +565,12 @@ def test_shortening():
     with runez.TempFolder() as tmp:
         assert runez.short(os.path.join(tmp, "some-file")) == "some-file"
 
+        # An anchor itself shows as ".", as a whole path only (not as a prefix of a sibling folder)
+        assert runez.short(tmp) == "."
+        assert runez.short(f"Checking foo ({tmp})") == "Checking foo (.)"
+        assert runez.short(f"'{tmp}', {tmp}: {tmp}") == "'.', .: ."
+        assert runez.short(f"{tmp}-sibling") == f"{tmp}-sibling"
+
         user_path = runez.resolved_path("~/some-folder/bar")
         current_path = runez.resolved_path("./some-folder/bar")
         assert user_path != "~/some-folder/bar"

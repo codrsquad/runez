@@ -21,6 +21,11 @@ IO_API_DOCSTRINGS = dict(
     logger="logger: Logger to use, True to print(), False to trace(), None to disable log chatter",
     dryrun="dryrun: Optionally override current dryrun setting",
 )
+# Accepted alternatives, for functions where the canonical wording above would be inaccurate
+IO_API_DOCSTRING_VARIANTS = dict(
+    # run() and shell(): a non-zero exit code is not logged in non-fatal mode, only failing to start the program is
+    fatal=["fatal: True: abort execution on failure, False: don't abort (only logs if program can't be started), None: don't abort, don't log"],
+)
 # Shared IO parameters are typed with these aliases (from runez.system), wherever they appear
 IO_API_ANNOTATIONS = dict(fatal="FatalSpec", logger="LoggerSpec", dryrun="DryrunSpec")
 IO_API_CATEGORIZED = collections.defaultdict(list)
@@ -146,7 +151,7 @@ def io_api_problem(sig: dict, expected: dict, docstring: str):
 
     for k in expected:
         v = IO_API_DOCSTRINGS[k]
-        if v not in docstring:
+        if v not in docstring and not any(x in docstring for x in IO_API_DOCSTRING_VARIANTS.get(k, ())):
             if len(expected) == 1:
                 general_dryrun = "dryrun: Enable dryrun"
                 if general_dryrun in docstring:

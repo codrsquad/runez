@@ -306,7 +306,7 @@ def run(
         program (str | pathlib.Path): Program to run (full path, or basename)
         *args: Command line args to call 'program' with
         background (bool): When True, background the spawned process (detach from console and current process)
-        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        fatal: True: abort execution on failure, False: don't abort (only logs if program can't be started), None: don't abort, don't log
         logger: Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun: Optionally override current dryrun setting
         short_exe (str | bool | None): Try to log a compact representation of executable
@@ -410,7 +410,7 @@ def shell(*args, fatal: FatalSpec = False, logger: LoggerSpec = False, dryrun: D
 
     Args:
         *args: Program and arguments to run
-        fatal: True: abort execution on failure, False: don't abort but log, None: don't abort, don't log
+        fatal: True: abort execution on failure, False: don't abort (only logs if program can't be started), None: don't abort, don't log
         logger: Logger to use, True to print(), False to trace(), None to disable log chatter
         dryrun: Override current dryrun setting
 
