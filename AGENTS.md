@@ -12,7 +12,7 @@ runez is a zero-dependency convenience library for Python 3.10+. The repo docs l
 - **How CI is wired, and the tooling policies** → [`docs/ci/index.md`](./docs/ci/index.md).
   Notably: ruff uses `select` (never `extend-select`), and actions are pinned to tags, not SHAs —
   both have a written rationale, so don't "fix" them without reading it.
-- **What changed** → [`docs/history.rst`](./docs/history.rst).
+- **What changed** → [`CHANGELOG.md`](./CHANGELOG.md).
 
 ## Working notes
 
