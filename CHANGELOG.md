@@ -2,381 +2,391 @@
 
 ## 5.11.3
 
-* Fix caller inspection for executed code with a missing or null `__name__`.
+- Test with py3.15
 
-* Expand `~` when detecting the preferred Python symlink in configured installation locations.
+- Fix caller inspection for executed code with a missing or null `__name__`.
+
+- Expand `~` when detecting the preferred Python symlink in configured installation locations.
+
+- `runez.short()` now shows an anchored folder itself as `.` (e.g. `Checking foo (.)`), not only paths
+  under it; a sibling sharing the same prefix (e.g. `<anchor>-sibling`) is left untouched
+
+- Clarified docstring of `fatal` for `runez.run()` and `runez.shell()`: with `fatal=False`, only
+  failing to start the program is logged (a non-zero exit code is not)
+
+- Release notes moved from `docs/history.rst` to `CHANGELOG.md`
 
 ## 5.11.2 - 2026-10-26
 
-* Fix `PythonSpec` parsing of free-threaded Python versions such as `3.14.10t` and `3.14.10t+`.
+- Fix `PythonSpec` parsing of free-threaded Python versions such as `3.14.10t` and `3.14.10t+`.
 
 ## 5.11.1 - 2026-10-20
 
-* `Version` comparisons are annotated as returning `bool`: `v1 < v2` was inferred as `bool | None`,
+- `Version` comparisons are annotated as returning `bool`: `v1 < v2` was inferred as `bool | None`,
   as `Version.__lt__()` returned `None` (instead of `False`) when `other` could not be parsed as a version
 
-* `PythonSpec` and `ArtifactInfo` comparisons (via `runez.system.ltattr()`) and `PythonInstallation` comparisons
+- `PythonSpec` and `ArtifactInfo` comparisons (via `runez.system.ltattr()`) and `PythonInstallation` comparisons
   now return `False` (or `NotImplemented`) instead of `None` in their fall-through cases
 
 ## 5.11.0 - 2026-10-20
 
-* Added `runez.required(value, message)`: aborts if `value` is `None`, returns it otherwise.
+- Added `runez.required(value, message)`: aborts if `value` is `None`, returns it otherwise.
   Unlike `abort_if(not value, ...)`, type checkers know the returned value is not `None`
 
-* Annotated parameters of `ArtifactInfo()` and `ArtifactInfo.from_basename()`
+- Annotated parameters of `ArtifactInfo()` and `ArtifactInfo.from_basename()`
 
-* `runez.cached_property` is now generic: type checkers see the return type of decorated methods
+- `runez.cached_property` is now generic: type checkers see the return type of decorated methods
   (they were all `Unknown` before, even when annotated).
   Projects using `@runez.cached_property` will likely see new type checker errors: code flowing through
   their own cached properties is now actually checked (typically: properties that can return `None`)
 
-* Annotated return types of `Version` properties (`given_components_count`, `is_valid`, `is_final`, `is_dirty`, `pep_440`),
+- Annotated return types of `Version` properties (`given_components_count`, `is_valid`, `is_final`, `is_dirty`, `pep_440`),
   `PythonSpec.abi_suffix`, `SYS_INFO.invoker_python`, `SYS_INFO.platform_id`, `PsInfo.cmd_basename`,
   `runez.which()`, `runez.touch()` and `runez.write()`
 
-* `runez.ls_dir()` accepts `None` (it already yielded nothing for `None` at runtime), and is annotated as yielding `Path`
+- `runez.ls_dir()` accepts `None` (it already yielded nothing for `None` at runtime), and is annotated as yielding `Path`
 
-* `Version.is_dirty` now always returns a `bool` (could return `None` or `""` before)
+- `Version.is_dirty` now always returns a `bool` (could return `None` or `""` before)
 
-* `DEV.project_path()`, `DEV.tests_path()` and `DEV.venv_path()` are now annotated as returning `str | None`:
+- `DEV.project_path()`, `DEV.tests_path()` and `DEV.venv_path()` are now annotated as returning `str | None`:
   they always returned `None` when not running from a dev project. Use `runez.required(...)` where a path is expected
 
-* `ClickRunner.project_path()` and `ClickRunner.tests_path()` (`cli` test fixture) now assert that the path could be determined,
+- `ClickRunner.project_path()` and `ClickRunner.tests_path()` (`cli` test fixture) now assert that the path could be determined,
   and are annotated as returning `str`
 
-* `ClickRunner` (`cli` test fixture) now captures stderr separately with click>=8.2:
+- `ClickRunner` (`cli` test fixture) now captures stderr separately with click>=8.2:
   `cli.logged.stdout` no longer contains what was written to stderr (log chatter, `abort()` messages).
   Use `... in cli.logged` (checks both) or `cli.logged.stderr` in tests that relied on the old behavior
 
-* `runez.run(..., passthrough=True)`:
+- `runez.run(..., passthrough=True)`:
 
-  * Runs the child process in a pty only when the output it passes through to is a terminal.
-    When redirected (CI, piped to a file...), the child sees a plain pipe: no progress bars, colors or `\r\n` line ends
-  * Multi-byte characters split across reads are not mangled anymore (were shown as `�`)
+    - Runs the child process in a pty only when the output it passes through to is a terminal.
+      When redirected (CI, piped to a file...), the child sees a plain pipe: no progress bars, colors or `\r\n` line ends
+    - Multi-byte characters split across reads are not mangled anymore (were shown as `�`)
 
 ## 5.10.2 - 2026-10-12
 
-* Methods decorated with `@runez.log.timeit` now return their result (they used to always return `None`)
+- Methods decorated with `@runez.log.timeit` now return their result (they used to always return `None`)
 
-* Better type annotations: `with TempFolder() as tmp:` gives a `str`, `RestClient.get(..., fatal=True)`
+- Better type annotations: `with TempFolder() as tmp:` gives a `str`, `RestClient.get(..., fatal=True)`
   never returns `None`
 
-* Annotated globals that can be changed by users:
+- Annotated globals that can be changed by users:
 
-  * `RestClient.handler`
-  * `runez.system.ABORT_LOGGER`
-  * `runez.date.DEFAULT_DURATION_SPAN`
-  * `runez.heartbeat.DEFAULT_FREQUENCY`
-  * `runez.click.Cli` attributes
-  * `PlatformId.default_subsystem`
+    - `RestClient.handler`
+    - `runez.system.ABORT_LOGGER`
+    - `runez.date.DEFAULT_DURATION_SPAN`
+    - `runez.heartbeat.DEFAULT_FREQUENCY`
+    - `runez.click.Cli` attributes
+    - `PlatformId.default_subsystem`
 
-* Removed unused `PypiStd.DEFAULT_PYPI_URL`
+- Removed unused `PypiStd.DEFAULT_PYPI_URL`
 
-* Removed `runez.cli` (unused shortcut), use `runez.click.Cli` instead
+- Removed `runez.cli` (unused shortcut), use `runez.click.Cli` instead
 
-* `runez.colored()` now always returns a `str`, like named colors (`runez.blue()` etc.) do:
+- `runez.colored()` now always returns a `str`, like named colors (`runez.blue()` etc.) do:
   `text` was returned as-is when not coloring (or when falsy), now `colored(None, ...)` is `"None"`, `colored(3, ...)` is `"3"`
 
-* Removed `# pragma: no cover` where tests can reach the code instead
+- Removed `# pragma: no cover` where tests can reach the code instead
 
-* Enabled ruff's `UP` (pyupgrade) rules: `collections.abc.Callable`, `open()` instead of `io.open()`,
+- Enabled ruff's `UP` (pyupgrade) rules: `collections.abc.Callable`, `open()` instead of `io.open()`,
   `OSError` instead of `IOError`, f-strings instead of `.format()`, unquoted annotations
 
 ## 5.10.1 - 2026-10-09
 
-* Better type annotations for `to_int()`, `to_float()`, `to_path()`, `json_sanitized()` and `ClickRunner.context_wrapper`
+- Better type annotations for `to_int()`, `to_float()`, `to_path()`, `json_sanitized()` and `ClickRunner.context_wrapper`
 
-* `to_float()` (and `Configuration.get_float()`) no longer return `default` for non-integer strings
+- `to_float()` (and `Configuration.get_float()`) no longer return `default` for non-integer strings
   (`to_float("1.5", default=0)` used to yield `0.0`)
 
-* `Version.mm` and `Version.main` are now empty strings (instead of `None`) when not applicable
+- `Version.mm` and `Version.main` are now empty strings (instead of `None`) when not applicable
 
 ## 5.10.0 - 2026-10-08
 
-* Type-checking cleanup (driven by `ty`), with fixes found along the way:
+- Type-checking cleanup (driven by `ty`), with fixes found along the way:
 
-  * `Version` comparisons no longer raise `TypeError` for versions parsed with different `max_parts`,
-    and `post`/`rev`/`r` releases now compare equal (they are equivalent PEP-440 spellings)
+    - `Version` comparisons no longer raise `TypeError` for versions parsed with different `max_parts`,
+      and `post`/`rev`/`r` releases now compare equal (they are equivalent PEP-440 spellings)
 
-  * `abort()` overloads simplified, its return type now follows `fatal` and `return_value`
+    - `abort()` overloads simplified, its return type now follows `fatal` and `return_value`
 
-  * `runez.system.AbortException = SystemExit` and setting `runez.date.DEFAULT_TIMEZONE` no longer upset type checkers
+    - `runez.system.AbortException = SystemExit` and setting `runez.date.DEFAULT_TIMEZONE` no longer upset type checkers
 
-  * `runez.click` imports `click` only where needed (clear `ModuleNotFoundError` when it's not installed)
+    - `runez.click` imports `click` only where needed (clear `ModuleNotFoundError` when it's not installed)
 
-  * `Configuration.provider_by_name()` no longer raises `AttributeError` when a non-dict provider (like `propsfs`) is present
+    - `Configuration.provider_by_name()` no longer raises `AttributeError` when a non-dict provider (like `propsfs`) is present
 
-  * `runez.timezone()` accepts `name=` as a keyword argument (used to raise `TypeError`)
+    - `runez.timezone()` accepts `name=` as a keyword argument (used to raise `TypeError`)
 
-  * `RestClient.mock()` (decorator or context manager) and `to_epoch()` now have precise signatures
+    - `RestClient.mock()` (decorator or context manager) and `to_epoch()` now have precise signatures
 
-  * New public type aliases `FatalSpec`, `LoggerSpec` and `DryrunSpec`, used by every `fatal=`, `logger=`
-    and `dryrun=` parameter (pyright used to reject e.g. `logger=None` where the default was `False`)
+    - New public type aliases `FatalSpec`, `LoggerSpec` and `DryrunSpec`, used by every `fatal=`, `logger=`
+      and `dryrun=` parameter (pyright used to reject e.g. `logger=None` where the default was `False`)
 
-* Edge-case fixes:
+- Edge-case fixes:
 
-  * `delete()`, and `copy()`/`move()` when overwriting, report failures in non-fatal mode
-    (instead of leaving the folder behind, or raising)
+    - `delete()`, and `copy()`/`move()` when overwriting, report failures in non-fatal mode
+      (instead of leaving the folder behind, or raising)
 
-  * `ensure_folder(clean=True)` replaces a file or symlink in the way with an actual folder (an existing folder is
-    still only emptied, it may be a mount)
+    - `ensure_folder(clean=True)` replaces a file or symlink in the way with an actual folder (an existing folder is
+      still only emptied, it may be a mount)
 
-  * Path containment checks (`copy()`, `move()`, `symlink()`, venv detection) no longer match on a string prefix
-    (`foo` vs `foobar`)
+    - Path containment checks (`copy()`, `move()`, `symlink()`, venv detection) no longer match on a string prefix
+      (`foo` vs `foobar`)
 
-  * `SYS_INFO.program_name` is the package name when running via `python -m` (it was `__main__`)
+    - `SYS_INFO.program_name` is the package name when running via `python -m` (it was `__main__`)
 
-  * `runez.timezone().dst()` returns zero (it returned the UTC offset)
+    - `runez.timezone().dst()` returns zero (it returned the UTC offset)
 
-* Fixed the `github` table border (separator row was missing its outer pipes)
+- Fixed the `github` table border (separator row was missing its outer pipes)
 
-* `RunResult.output` and `.error` are now always a `str` (they were `None` when nothing was captured)
+- `RunResult.output` and `.error` are now always a `str` (they were `None` when nothing was captured)
 
-* Removed (unused) `RestClient` caching: `CacheWrapper`, `RestClient.std_diskcache()` and `RestClient(cache=...)`
+- Removed (unused) `RestClient` caching: `CacheWrapper`, `RestClient.std_diskcache()` and `RestClient(cache=...)`
 
-* Removed py2-era `runez.serialize.add_metaclass()` and `add_meta()`, use `metaclass=MetaInjector` instead
+- Removed py2-era `runez.serialize.add_metaclass()` and `add_meta()`, use `metaclass=MetaInjector` instead
 
 ## 5.9.1 - 2026-05-05
 
-* `freethreading` is now always a `bool` (in `PythonSpec`, and in python installation inspection)
+- `freethreading` is now always a `bool` (in `PythonSpec`, and in python installation inspection)
 
 ## 5.9.0 - 2026-04-29
 
-* `PythonInstallation.mm_spec` now retains freethreading (e.g. `cpython:3.14t`)
+- `PythonInstallation.mm_spec` now retains freethreading (e.g. `cpython:3.14t`)
 
 ## 5.8.0 - 2026-04-21
 
 Breaking changes worth highlighting:
 
-* `ArtifactInfo.from_basename()` raises `ValueError` on unparseable input (was `None`).
+- `ArtifactInfo.from_basename()` raises `ValueError` on unparseable input (was `None`).
   Callers that depended on the `None` branch need to catch `ValueError` instead.
 
-* `PythonSpec.version` is never `None` anymore. Code checking `spec.version is None` should switch to
+- `PythonSpec.version` is never `None` anymore. Code checking `spec.version is None` should switch to
   `not spec.is_valid` (or `not spec.version.is_valid`).
 
-* `cached_property.to_dict(cls)` no longer returns `None` for a class — the method now requires an
+- `cached_property.to_dict(cls)` no longer returns `None` for a class — the method now requires an
   instance. If any caller passed the class as a "no cached values" sentinel, they need to adjust.
 
-* `PythonSpec.from_object(Version("foo"))` used to return a spec with an invalid version; now returns
+- `PythonSpec.from_object(Version("foo"))` used to return a spec with an invalid version; now returns
   `None`.
 
 Non-breaking additions:
 
-* `runez.OptionalColor`, `Traceable`, `Version.required_from_object()`, `PythonSpec.is_valid`
+- `runez.OptionalColor`, `Traceable`, `Version.required_from_object()`, `PythonSpec.is_valid`
 
-* `abort()` overloads — purely a typing improvement, runtime behavior unchanged
+- `abort()` overloads — purely a typing improvement, runtime behavior unchanged
 
 More details:
 
-* Stronger and more consistent type annotations across the library (`pyenv`, `system`, `logsetup`,
+- Stronger and more consistent type annotations across the library (`pyenv`, `system`, `logsetup`,
   `colors`, `render`, `serialize`); modernized to `X | None` / `list[X]` style throughout
 
-* Added `runez.OptionalColor` type alias (`Callable | str | None`) for parameters accepting a color name,
+- Added `runez.OptionalColor` type alias (`Callable | str | None`) for parameters accepting a color name,
   color callable, or `None`
 
-* Added `Traceable` protocol in `runez.logsetup` for objects exposing a `.trace(message)` method
+- Added `Traceable` protocol in `runez.logsetup` for objects exposing a `.trace(message)` method
 
-* `abort()` now has proper `@overload`-ed signatures: `NoReturn` when fatal, otherwise returns
+- `abort()` now has proper `@overload`-ed signatures: `NoReturn` when fatal, otherwise returns
   `return_value` with a preserved generic type
 
-* `Version.required_from_object()`: new classmethod that raises `ValueError` when a version can't be
+- `Version.required_from_object()`: new classmethod that raises `ValueError` when a version can't be
   determined (companion to `Version.from_object()` which returns `None`)
 
-* `Version.from_object()`, `PythonSpec.from_object()` and `PythonSpec.from_text()` now share a
+- `Version.from_object()`, `PythonSpec.from_object()` and `PythonSpec.from_text()` now share a
   consistent contract: a returned object is guaranteed to be valid, otherwise `None` is returned
 
-* `PythonSpec.is_valid` property added as a shortcut for `spec.version.is_valid`
+- `PythonSpec.is_valid` property added as a shortcut for `spec.version.is_valid`
 
-* `PythonSpec.__init__` now accepts `Version | str` (tighter input typing)
+- `PythonSpec.__init__` now accepts `Version | str` (tighter input typing)
 
-* `ArtifactInfo.from_basename()` return type narrowed to `ArtifactInfo` (no longer `| None`)
+- `ArtifactInfo.from_basename()` return type narrowed to `ArtifactInfo` (no longer `| None`)
 
-* `cached_property.to_dict()`: `target` must now be an instance (not a class, not `None`); always
+- `cached_property.to_dict()`: `target` must now be an instance (not a class, not `None`); always
   returns a `dict`
 
-* `cached_property.properties()` and `cached_property._walk_properties()`: annotated as
+- `cached_property.properties()` and `cached_property._walk_properties()`: annotated as
   `Iterator[...]` generators
 
 ## 5.7.1 - 2026-04-03
 
-* Support py3.10+ only
+- Support py3.10+ only
 
-* Simplified `TempFolder()`
+- Simplified `TempFolder()`
 
-* Avoid crashing when trying to flush log buffers at the end of test runs
+- Avoid crashing when trying to flush log buffers at the end of test runs
 
-* Stronger typing for all methods in `runez.file`
+- Stronger typing for all methods in `runez.file`
 
-* `parent_folder()` now returns a `Path`
+- `parent_folder()` now returns a `Path`
 
-* `to_path()` no longer accepts/returns `None`
+- `to_path()` no longer accepts/returns `None`
 
 ## 5.6.5 - 2026-03-30
 
-* Don't try to model source any longer in (seldom used) `ArtifactInfo`
+- Don't try to model source any longer in (seldom used) `ArtifactInfo`
 
 ## 5.6.4 - 2026-03-30
 
-* Accept basic types in schemas again
+- Accept basic types in schemas again
 
 ## 5.6.3 - 2026-03-23
 
-* Corrected log wrapping, accept level as default logger
+- Corrected log wrapping, accept level as default logger
 
 ## 5.6.2 - 2026-03-19
 
-* Support py3.8+ for a while longer
+- Support py3.8+ for a while longer
 
 ## 5.6.1 - 2026-03-18
 
-* Correctly handle `main()` functions that return a `str`
+- Correctly handle `main()` functions that return a `str`
 
 ## 5.6.0 - 2026-03-18
 
-* `which()` looks at current venv `bin/` folder first
+- `which()` looks at current venv `bin/` folder first
 
-* `ClickRunner.default_main` and `ClickRunner.context_wrapper` replace deprecated `cli.default_main` and `cli.context`
+- `ClickRunner.default_main` and `ClickRunner.context_wrapper` replace deprecated `cli.default_main` and `cli.context`
 
-* Removed:
+- Removed:
 
-    * `assert_printed()` from `CapturedStream`, `TrackedOutput`, and `ClickRunner`
+    - `assert_printed()` from `CapturedStream`, `TrackedOutput`, and `ClickRunner`
 
-    * `runez.SYS_INFO.platform_id.is_windows`
+    - `runez.SYS_INFO.platform_id.is_windows`
 
-    * `runez.inspector.AutoInstall`
+    - `runez.inspector.AutoInstall`
 
-    * `runez.inspector.ImportTime`
+    - `runez.inspector.ImportTime`
 
-* Not exposing in top-level `runez` import (use `from runez.<submodule> import ...` if needed):
+- Not exposing in top-level `runez` import (use `from runez.<submodule> import ...` if needed):
 
-    * `AdaptedProperty`, `ascii`, `config` , `is_subfolder`, `PsInfo`, `Slotted`
+    - `AdaptedProperty`, `ascii`, `config` , `is_subfolder`, `PsInfo`, `Slotted`
 
-* Simplified `runez.schema` internals
+- Simplified `runez.schema` internals
 
-* Turned on flake8-simplify and tryceratops, fixed corresponding issues
+- Turned on flake8-simplify and tryceratops, fixed corresponding issues
 
-* Added tests
+- Added tests
 
-* Modernized GH actions and project metadata
+- Modernized GH actions and project metadata
 
-* `ClickRunner.run()` now accepts `pathlib.Path` objects for `main`/script args
+- `ClickRunner.run()` now accepts `pathlib.Path` objects for `main`/script args
 
-* Fixed operator precedence bug in `Version.__le__()`
+- Fixed operator precedence bug in `Version.__le__()`
 
-* Fixed `WrappedHandler.clean_accumulated_logs()` crash when called before any test runs
+- Fixed `WrappedHandler.clean_accumulated_logs()` crash when called before any test runs
 
-* `stringified()` uses `errors="replace"` when decoding bytes
+- `stringified()` uses `errors="replace"` when decoding bytes
 
-* `make_executable()` now preserves existing permission bits instead of hardcoding `0o755`
+- `make_executable()` now preserves existing permission bits instead of hardcoding `0o755`
 
-* Using `extractall(filter="data")` from stdlib for path traversal protection
+- Using `extractall(filter="data")` from stdlib for path traversal protection
 
-* Adapted type declarations, pyright now reports 0 errors
+- Adapted type declarations, pyright now reports 0 errors
 
 ## 5.5.0 - 2026-03-12
 
-* Added freethreading support to `PythonSpec`: new `freethreading` parameter, `abi_suffix` property,
+- Added freethreading support to `PythonSpec`: new `freethreading` parameter, `abi_suffix` property,
   and "t" suffix parsing in spec strings
 
 ## 5.4.0 - 2025-12-12
 
-* Modernized repo setup, use pyproject.toml, test with py3.14
+- Modernized repo setup, use pyproject.toml, test with py3.14
 
 ## 5.3.1 - 2025-08-06
 
-* Dropped support for EOL-ed python versions < 3.10
+- Dropped support for EOL-ed python versions < 3.10
 
 ## 5.3.0 - 2025-01-17
 
 Removed legacy pypi listing functions from `runez.pyenv`:
 
-* `default_pypi_client()`
+- `default_pypi_client()`
 
-* `latest_pypi_version()`
+- `latest_pypi_version()`
 
-* `ls_pypi()`
+- `ls_pypi()`
 
-* `pypi_response()`
+- `pypi_response()`
 
 ## 5.2.1 - 2024-10-11
 
-* Restore env vars in `IsolatedLogSetup` context manager
+- Restore env vars in `IsolatedLogSetup` context manager
 
 ## 5.2.0 - 2024-09-18
 
-* Added `OverrideDryrun` context manager
+- Added `OverrideDryrun` context manager
 
 ## 5.1.1 - 2024-08-12
 
-* Find already scanned python installations by path
+- Find already scanned python installations by path
 
 ## 5.1.0 - 2024-02-28
 
-* Added `py.typed` to package
+- Added `py.typed` to package
 
 ## 5.0.7 - 2023-02-07
 
-* Detect `buildkit` as docker as well
+- Detect `buildkit` as docker as well
 
 ## 5.0.6 - 2023-12-13
 
-* Don't capture passthrough runs when file handler given
+- Don't capture passthrough runs when file handler given
 
 ## 5.0.5 - 2023-12-12
 
-* Don't fake existence of `PythonInstallation` in dryrun mode
+- Don't fake existence of `PythonInstallation` in dryrun mode
 
 ## 5.0.4 - 2023-12-10
 
-* State when a run failed in `runez.log.timeit()`
+- State when a run failed in `runez.log.timeit()`
 
-* Show exit code for failed `runez.run()` even with pass-through
+- Show exit code for failed `runez.run()` even with pass-through
 
 ## 5.0.3 - 2023-12-04
 
-* Don't highlight `invoker` python anymore
+- Don't highlight `invoker` python anymore
 
-* Consider "preferred" python only for explicit `python3`
+- Consider "preferred" python only for explicit `python3`
   symlinks in locations that otherwise have `pythonM.m` symlinks
 
 ## 5.0.2 - 2023-11-29
 
-* Corrected side-effect determining `preferred_python` in `PythonDepot`
+- Corrected side-effect determining `preferred_python` in `PythonDepot`
 
 ## 5.0.1 - 2023-11-28
 
-* No preferred python from PATH env var (only from explicitly configured locations)
+- No preferred python from PATH env var (only from explicitly configured locations)
 
 ## 5.0.0 - 2023-11-27
 
-* Automatically determine a `preferred_python` in `PythonDepot`
+- Automatically determine a `preferred_python` in `PythonDepot`
 
-* More flexible `PythonDepot` scan for python binaries
+- More flexible `PythonDepot` scan for python binaries
 
-* Avoid using `pkg_resources`
+- Avoid using `pkg_resources`
 
 ## 4.0.4 - 2023-09-23
 
-* Test against python 3.12
+- Test against python 3.12
 
 ## 4.0.3 - 2023-09-23
 
-* Accept `rc` versions for in `PythonSpec`
+- Accept `rc` versions for in `PythonSpec`
 
 ## 4.0.2 - 2023-09-13
 
-* Corrected `resolved_path()`
+- Corrected `resolved_path()`
 
 ## 4.0.1 - 2023-06-16
 
-* Corrected bugs in `PythonDepot` and `PythonSpec`
+- Corrected bugs in `PythonDepot` and `PythonSpec`
 
 ## 4.0.0 - 2023-05-31
 
 - Generalized `PythonDepot` specification
   (API change, `PythonDepot` now takes a `locations` specification instead of a scanner object)
 
-- Added property `Version.pep_440` (canonical [PEP-440] version representation)
+- Added property `Version.pep_440` (canonical [PEP-440](https://peps.python.org/pep-0440/) version representation)
 
 - Removed `Version.from_text`, `Version` is parsed strictly by default
 
@@ -392,546 +402,546 @@ Removed legacy pypi listing functions from `runez.pyenv`:
 
 ## 3.6.7 - 2023-03-21
 
-* Fully implemented [PEP-440] for `Version` ordering
+- Fully implemented [PEP-440](https://peps.python.org/pep-0440/) for `Version` ordering
 
 ## 3.6.6 - 2023-03-18
 
-* Corrected a serialization bug, where nested `Serialized` objects weren't properly serialized
+- Corrected a serialization bug, where nested `Serialized` objects weren't properly serialized
 
-* Report `last_modified` date and `size` in `ArtifactInfo` when available
+- Report `last_modified` date and `size` in `ArtifactInfo` when available
 
 ## 3.6.5 - 2023-03-18
 
-* Accept up to 5 version components (was up to 4 before)
+- Accept up to 5 version components (was up to 4 before)
 
-* Report on ignored part of a loosely parsed `Version`
+- Report on ignored part of a loosely parsed `Version`
 
 ## 3.6.4 - 2023-03-17
 
-* Corrected comparison of `Version`-s (was not properly sorting `.dev` versions before)
+- Corrected comparison of `Version`-s (was not properly sorting `.dev` versions before)
 
 ## 3.6.3 - 2023-03-15
 
-* Corrected `cli` test fixture, avoid crashing when test deleted current working directory
+- Corrected `cli` test fixture, avoid crashing when test deleted current working directory
 
 ## 3.6.2 - 2023-03-02
 
-* Support a simple optional cache for RestClient-s
+- Support a simple optional cache for RestClient-s
 
-* CVE-2007-4559
+- CVE-2007-4559
 
 ## 3.6.1 - 2022-06-01
 
-* Avoid creating anything at import time (removed most globals)
+- Avoid creating anything at import time (removed most globals)
 
 ## 3.6.0 - 2022-05-26
 
-* Allow to configure a `preferred_python` in `PythonDepot`
+- Allow to configure a `preferred_python` in `PythonDepot`
 
 ## 3.5.6 - 2021-05-12
 
-* Added `__repr__` to `RunAudit`
+- Added `__repr__` to `RunAudit`
 
-* Corrected docstrings
+- Corrected docstrings
 
 ## 3.5.4 - 2021-10-06
 
-* More generic parsing of `PythonSpec`
+- More generic parsing of `PythonSpec`
 
-* Respect optional checksum in url, in `decompress()`
+- Respect optional checksum in url, in `decompress()`
 
 ## 3.4.9 - 2021-09-21
 
-* Restore `cwd` after a `cli` test command run
+- Restore `cwd` after a `cli` test command run
 
 ## 3.0.3 - 2021-07-15
 
-* Moved release notes to wiki: https://github.com/codrsquad/runez/wiki/Release-notes
+- Moved release notes to wiki: https://github.com/codrsquad/runez/wiki/Release-notes
 
-* Corrected `@thread_local_property` decorator
+- Corrected `@thread_local_property` decorator
 
-* Dropped support for python2
+- Dropped support for python2
 
-* Added `runez.http`
+- Added `runez.http`
 
 ## 2.7.17 - 2021-07-02
 
-* Added `Version.given_components`
+- Added `Version.given_components`
 
 ## 2.7.16 - 2021-06-30
 
-* Extract optional epoch, local part and suffix from PEP-440 `Version()`
+- Extract optional epoch, local part and suffix from PEP-440 `Version()`
 
 ## 2.7.15 - 2021-06-29
 
-* Allow to customize globally what logger to use for `abort()`
+- Allow to customize globally what logger to use for `abort()`
 
-* Added `runez.log.resolved_dryrun()`
+- Added `runez.log.resolved_dryrun()`
 
 ## 2.7.14 - 2021-06-28
 
-* Added `SYS_INFO.program_version` and `SYS_INFO.user_agent`
+- Added `SYS_INFO.program_version` and `SYS_INFO.user_agent`
 
 ## 2.7.13 - 2021-06-26
 
-* Edge case for `hdry(message=None)`
+- Edge case for `hdry(message=None)`
 
 ## 2.7.12 - 2021-06-24
 
-* Enforce bounds for `@retry` parameters
+- Enforce bounds for `@retry` parameters
 
 ## 2.7.11 - 2021-06-24
 
-* Added `@retry` decorator, as well a `python -mrunez retry` command
+- Added `@retry` decorator, as well a `python -mrunez retry` command
 
-* `hdry()` available via `runez.log` (allows to conveniently resolve `dryrun=UNSET`)
+- `hdry()` available via `runez.log` (allows to conveniently resolve `dryrun=UNSET`)
 
 ## 2.7.10 - 2021-06-18
 
-* Fixed bug in `PythonSpec.speccified()`
+- Fixed bug in `PythonSpec.speccified()`
 
 ## 2.7.9 - 2021-06-15
 
-* Don't crash on `plural(None)`
+- Don't crash on `plural(None)`
 
 ## 2.7.8 - 2021-06-07
 
-* Unfortunately, click's `mix_stderr` seems to mean "ignore stderr please"
+- Unfortunately, click's `mix_stderr` seems to mean "ignore stderr please"
 
 ## 2.7.7 - 2021-06-07
 
-* Added `cli.exercise_main()` and a typical `runez.click.protected_main()`
+- Added `cli.exercise_main()` and a typical `runez.click.protected_main()`
 
 ## 2.7.6 - 2021-06-07
 
-* Generalized `diagnostics()`, simplified internals for `cli` fixture
+- Generalized `diagnostics()`, simplified internals for `cli` fixture
 
-* Allow for script invocations as well via `cli.run(..., main="src/my-script.py")`
+- Allow for script invocations as well via `cli.run(..., main="src/my-script.py")`
 
-* Added `wcswidth()`, corrected `PrettyTable` rendering with unicode characters
+- Added `wcswidth()`, corrected `PrettyTable` rendering with unicode characters
 
 ## 2.7.5 - 2021-06-04
 
-* Moved development related functions to `runez.DEV`
+- Moved development related functions to `runez.DEV`
 
 ## 2.7.4 - 2021-06-04
 
-* Added `{project}` placeholder for `runez.log.setup()`
+- Added `{project}` placeholder for `runez.log.setup()`
 
-* Updated code to use `SYS_INFO` instead of deprecated `runez.log` calss
+- Updated code to use `SYS_INFO` instead of deprecated `runez.log` calss
 
 ## 2.7.3 - 2021-06-03
 
-* Allow `dict` source for `two_column_diagnostics()` render
+- Allow `dict` source for `two_column_diagnostics()` render
 
 ## 2.7.2 - 2021-06-03
 
-* Added `cached_property.to_dict()`
+- Added `cached_property.to_dict()`
 
 ## 2.7.1 - 2021-06-02
 
-* Resilient `CurrentFolder()` in dryrun mode
+- Resilient `CurrentFolder()` in dryrun mode
 
 ## 2.7.0 - 2021-05-28
 
-* Added ability to `run()` a command in background
+- Added ability to `run()` a command in background
 
-* Added `SYS_INFO.program_name`
+- Added `SYS_INFO.program_name`
 
 ## 2.6.17 - 2021-05-26
 
-* `find_python()` accepts `PythonInstallation` objects
+- `find_python()` accepts `PythonInstallation` objects
 
 ## 2.6.16 - 2021-05-25
 
-* Allow to represent `PythonSpec` in custom/colored ways
+- Allow to represent `PythonSpec` in custom/colored ways
 
 ## 2.6.15 - 2021-05-24
 
-* Don't crash if python version could not be determined
+- Don't crash if python version could not be determined
 
 ## 2.6.14 - 2021-05-22
 
-* Better error report in `runez.run()` when program is not installed
+- Better error report in `runez.run()` when program is not installed
 
 ## 2.6.13 - 2021-05-22
 
-* `Version.from_text()` can extract version from chatty text
+- `Version.from_text()` can extract version from chatty text
 
 ## 2.6.12 - 2021-05-21
 
-* Don't rely on `VIRTUAL_ENV` env var to determine `dev_folder()`
+- Don't rely on `VIRTUAL_ENV` env var to determine `dev_folder()`
 
 ## 2.6.11 - 2021-05-12
 
-* Try harder with `get_version()`: use importlib.metadata when available
+- Try harder with `get_version()`: use importlib.metadata when available
 
 ## 2.6.9 - 2021-05-08
 
-* `runez.run(passthrough=True)` now properly lets terminal colors through
+- `runez.run(passthrough=True)` now properly lets terminal colors through
 
-* Added `runez.inspector.auto_install()`
+- Added `runez.inspector.auto_install()`
 
 ## 2.6.8 - 2021-05-02
 
-* Added `PythonDepot.scanned_prefixes`
+- Added `PythonDepot.scanned_prefixes`
 
 ## 2.6.7 - 2021-05-01
 
-* Allow to split CamelCase words as well via `runez.words(decamel=True)`
+- Allow to split CamelCase words as well via `runez.words(decamel=True)`
 
 ## 2.6.6 - 2021-04-26
 
-* Corrected diagnostics, added `transform=` argument to `flattened()`
+- Corrected diagnostics, added `transform=` argument to `flattened()`
 
 ## 2.6.5 - 2021-04-26
 
-* Corrected `joined()`
+- Corrected `joined()`
 
 ## 2.6.4 - 2021-04-25
 
-* Corrected bug in `cached_property`
+- Corrected bug in `cached_property`
 
 ## 2.6.3 - 2021-04-23
 
-* `PythonSpec` is now hashable
+- `PythonSpec` is now hashable
 
 ## 2.6.2 - 2021-04-22
 
-* Removed `python_version()` (`runez.pyenv` is better suited for this)
+- Removed `python_version()` (`runez.pyenv` is better suited for this)
 
-* Accept `invoker` as python spec
+- Accept `invoker` as python spec
 
 ## 2.6.0 - 2021-04-21
 
-* Removed `@chill_property`, not general/useful enough
+- Removed `@chill_property`, not general/useful enough
 
 ## 2.5.9 - 2021-04-09
 
-* Properly handle multiple lines in `flattened(split=...)`
+- Properly handle multiple lines in `flattened(split=...)`
 
 ## 2.5.8 - 2021-04-08
 
-* Removed `origin` and `family` from `PythonDepot`, allow to provide custom scanners
+- Removed `origin` and `family` from `PythonDepot`, allow to provide custom scanners
 
 ## 2.5.7 - 2021-04-06
 
-* Added a reusable way of showing diagnostics
+- Added a reusable way of showing diagnostics
 
-* Moved
+- Moved
 
-  * `runez.TERMINAL_INFO` -> `runez.SYS_INFO.terminal`
+    - `runez.TERMINAL_INFO` -> `runez.SYS_INFO.terminal`
 
-  * `runez.log.current_test()` -> `runez.SYS_INFO.current_test()`
+    - `runez.log.current_test()` -> `runez.SYS_INFO.current_test()`
 
-  * `runez.log.dev_folder()` -> `runez.SYS_INFO.dev_folder()`
+    - `runez.log.dev_folder()` -> `runez.SYS_INFO.dev_folder()`
 
-  * `runez.log.program_path()` -> `runez.SYS_INFO.program_path`
+    - `runez.log.program_path()` -> `runez.SYS_INFO.program_path`
 
-* Added `runez.shell()` for quick shell command output grab
+- Added `runez.shell()` for quick shell command output grab
 
-* Allow to specify package in `auto_import_siblings()`
+- Allow to specify package in `auto_import_siblings()`
 
-* Complain if running as root (by default) in `runez.log.setup()`
+- Complain if running as root (by default) in `runez.log.setup()`
 
 ## 2.5.6 - 2021-03-31
 
-* Added `passthrough` option for `runez.run()` (capture output, and let it pass-through)
+- Added `passthrough` option for `runez.run()` (capture output, and let it pass-through)
 
-* Added `TerminalProgram`, detection of parent terminal (if any)
+- Added `TerminalProgram`, detection of parent terminal (if any)
 
 ## 2.5.5 - 2021-03-31
 
-* Export class `PsInfo` instead of function `ps_info`
+- Export class `PsInfo` instead of function `ps_info`
 
 ## 2.5.4 - 2021-03-30
 
-* Allow to reorder python installation origins and families
+- Allow to reorder python installation origins and families
 
-* Use same `PythonInstallation` class for all origins
+- Use same `PythonInstallation` class for all origins
 
 ## 2.5.1 - 2021-03-18
 
-* Don't use globals in `PythonDepot`
+- Don't use globals in `PythonDepot`
 
-* Better formalized what is logged by `read_json()` and `readlines()`
+- Better formalized what is logged by `read_json()` and `readlines()`
 
-* Respect `logger=None` (no log chatter at all), vs `logger=False` (fall back to trace)
+- Respect `logger=None` (no log chatter at all), vs `logger=False` (fall back to trace)
 
 ## 2.5.0 - 2021-03-11
 
-* Added `runez.pyenv` module
+- Added `runez.pyenv` module
 
 ## 2.4.11 - 2021-03-10
 
-* Corrected bug with progress stdout/err re-capture
+- Corrected bug with progress stdout/err re-capture
 
-* Show sorted import times in `import-speed` command
+- Show sorted import times in `import-speed` command
 
 ## 2.4.9 - 2021-02-15
 
-* Don't hide cursor in progress spinner, so we can't ever miss not showing it back
+- Don't hide cursor in progress spinner, so we can't ever miss not showing it back
 
-* Simplified how logsetup references are resolved
+- Simplified how logsetup references are resolved
 
 ## 2.4.5 - 2021-01-20
 
-* Added `ProgressBar`, corrected flickering in spinner
+- Added `ProgressBar`, corrected flickering in spinner
 
 ## 2.3.9 - 2021-01-12
 
-* Added progress spinner, can be activated with `runez.log.progress.start()`
+- Added progress spinner, can be activated with `runez.log.progress.start()`
 
-* Corrected bug in `{argv}` expansion
+- Corrected bug in `{argv}` expansion
 
 ## 2.3.4 - 2021-01-11
 
-* Renamed `terminal_info()` -> `TERMINAL_INFO`, moved `is_tty()` to it
+- Renamed `terminal_info()` -> `TERMINAL_INFO`, moved `is_tty()` to it
 
-* Using `monkeypatch` instead of `mock`
+- Using `monkeypatch` instead of `mock`
 
-* Added `runez.log.trace()`
+- Added `runez.log.trace()`
 
 ## 2.3.3 - 2020-12-27
 
-* Moved to https://github.com/codrsquad/runez
+- Moved to https://github.com/codrsquad/runez
 
-* Better signature for `terminal_width()`
+- Better signature for `terminal_width()`
 
-* Added `@cached_property`, `@chill_property`, `is_basetype()`, `is_iterable()`, `joined()`, `parsed_tabular()`, `ps_info()`
+- Added `@cached_property`, `@chill_property`, `is_basetype()`, `is_iterable()`, `joined()`, `parsed_tabular()`, `ps_info()`
 
-* Added `runez.click.prettify_epilogs()`
+- Added `runez.click.prettify_epilogs()`
 
-* Added `attributes_by_type()` to schema meta, `Struct` schema type (for non-root serializable objects)
+- Added `attributes_by_type()` to schema meta, `Struct` schema type (for non-root serializable objects)
 
-* Consistent signature for `first_line()`, `flattened()`, `joined()`, `json_sanitized()`, `ini_to_dict()`, `quoted()`
+- Consistent signature for `first_line()`, `flattened()`, `joined()`, `json_sanitized()`, `ini_to_dict()`, `quoted()`
 
-* `runez.run()` strips newlines only on captured content
+- `runez.run()` strips newlines only on captured content
 
 ## 2.2.3 - 2020-12-06
 
-* Allow for workaround around py3 unable to sort None-keys in json.dumps(sort_keys=True)
+- Allow for workaround around py3 unable to sort None-keys in json.dumps(sort_keys=True)
 
-* `short()` defaults now to terminal width
+- `short()` defaults now to terminal width
 
-* `represented_json()` and `save_json()` have now a signature consistent with `json_sanitized()`
+- `represented_json()` and `save_json()` have now a signature consistent with `json_sanitized()`
 
-* Accept optionally multiple paths at once in `Anchored()` context manager
+- Accept optionally multiple paths at once in `Anchored()` context manager
 
 ## 2.1.8 - 2020-11-04
 
-* Correctly expand ~ in path, if provided
+- Correctly expand ~ in path, if provided
 
-* Allow to override the internal default logger, used in `runez.run()` etc
+- Allow to override the internal default logger, used in `runez.run()` etc
 
-* Restored default `click.version()` message, to minimize differences with click
+- Restored default `click.version()` message, to minimize differences with click
 
-* Simplified default `click.version()` message, now simply outputs version (without fluff)
+- Simplified default `click.version()` message, now simply outputs version (without fluff)
 
-* Use module's `__version__` when available
+- Use module's `__version__` when available
 
-* Moved to github actions
+- Moved to github actions
 
-* Corrected edge case with `cli.run(..., exe=)`
+- Corrected edge case with `cli.run(..., exe=)`
 
-* Ignore errors when deleting temp folders in context managers
+- Ignore errors when deleting temp folders in context managers
 
-* `runez.log.dev_folder()` now accepts relative path
+- `runez.log.dev_folder()` now accepts relative path
 
-* Renamed `runez.conftest.resource_path()` to `runez.log.tests_path()`
+- Renamed `runez.conftest.resource_path()` to `runez.log.tests_path()`
 
-* Added `runez.log.project_path()`
+- Added `runez.log.project_path()`
 
-* Allow to override `sys.executable` in click test runs
+- Allow to override `sys.executable` in click test runs
 
 ## 2.0.19 - 2020-10-01
 
-* Adapted to latest pytest log wrapping
+- Adapted to latest pytest log wrapping
 
-* Corrected date conversion for empty string
+- Corrected date conversion for empty string
 
-* Allow to not wait for spawned process with `runez.run(fatal=None, stdout=None, stderr=None)`
+- Allow to not wait for spawned process with `runez.run(fatal=None, stdout=None, stderr=None)`
 
-* More consistent debug logging on file operations
+- More consistent debug logging on file operations
 
-* Corrected edge case in py2 with coloring of `μ` character in `represented_duration()`
+- Corrected edge case in py2 with coloring of `μ` character in `represented_duration()`
 
-* Added `clean=True` option to `ensure_folder()`
+- Added `clean=True` option to `ensure_folder()`
 
-* Added `click.border()` option
+- Added `click.border()` option
 
-* Bug fixes
+- Bug fixes
 
-* Reviewed all IO related functions and made them respect the same signature, explained in doc:
+- Reviewed all IO related functions and made them respect the same signature, explained in doc:
 
-  * Functions not returning content (`run()`, `delete()`, ...) all have this signature:
-    `fatal=True, logger=UNSET, dryrun=UNSET`
+    - Functions not returning content (`run()`, `delete()`, ...) all have this signature:
+      `fatal=True, logger=UNSET, dryrun=UNSET`
 
-  * Functions returning content (`read_json()`, `readlines()`, ...) are simplified to just a:
-    `default=UNSET` (aborts on failure when no `default` is specified,
-    `default` returned otherwise).
+    - Functions returning content (`read_json()`, `readlines()`, ...) are simplified to just a:
+      `default=UNSET` (aborts on failure when no `default` is specified,
+      `default` returned otherwise).
 
-* Simplified signatures of: `ensure_folder`, `read_json`, `readlines`
+- Simplified signatures of: `ensure_folder`, `read_json`, `readlines`
 
-* Made `readlines` consistent with all other IO related functions
+- Made `readlines` consistent with all other IO related functions
 
-* Defined signature of `abort()`, not going via `**kwargs` anymore
+- Defined signature of `abort()`, not going via `**kwargs` anymore
 
-* Added adhoc "linter" to ensure IO related functions have a consistent signature
+- Added adhoc "linter" to ensure IO related functions have a consistent signature
 
-* Bug fixes, renamed `test_resource` to `resource_path` (in `runez.conftest`),
+- Bug fixes, renamed `test_resource` to `resource_path` (in `runez.conftest`),
   to avoid pytest thinking it is a test function when imported.
 
-* Fixed docstrings, `RunResult` properly evaluates to true-ish on success
+- Fixed docstrings, `RunResult` properly evaluates to true-ish on success
 
-* `runez.run()` now always returns a `RunResult`
+- `runez.run()` now always returns a `RunResult`
 
-* `runez.run()` now returns a `RunResult` object when called with `fatal=None`,
+- `runez.run()` now returns a `RunResult` object when called with `fatal=None`,
   with fields: `.output`, `.error` and `.exit_code`
 
-* Removed `include_error` kwarg from `runez.run()`, `RunResult.full_output` can now be used instead
+- Removed `include_error` kwarg from `runez.run()`, `RunResult.full_output` can now be used instead
 
-* Internal refactor to minimize import time (import time now tested, must be less than 3x slower than `import sys`)
+- Internal refactor to minimize import time (import time now tested, must be less than 3x slower than `import sys`)
 
-* Renamed:
+- Renamed:
 
-    * `first_meaningful_line()` -> `first_line()` applies to strings or list (not file anymore)
-    * `shortened()` -> `short()`
-    * `represented_args()` -> `quoted()` (can quote a single string, or a list of strings)
+    - `first_meaningful_line()` -> `first_line()` applies to strings or list (not file anymore)
+    - `shortened()` -> `short()`
+    - `represented_args()` -> `quoted()` (can quote a single string, or a list of strings)
 
-* Replaced named arg `separator` to be more indicative as to what it used for
+- Replaced named arg `separator` to be more indicative as to what it used for
 
-    * `delimiter` when the string is used to `.join()` a list of things back to a string
+    - `delimiter` when the string is used to `.join()` a list of things back to a string
       (eg: `represented_bytesize(.., delimiter=" ")`)
-    * `split` when the character is used to split strings (eg: `flattened(.., split=",")`
-    * `flattened()` now has boolean optional parameters (instead of previously `split` enum)
+    - `split` when the character is used to split strings (eg: `flattened(.., split=",")`
+    - `flattened()` now has boolean optional parameters (instead of previously `split` enum)
 
-* Reduced number of things exported at top-level, removed:
+- Reduced number of things exported at top-level, removed:
 
-    * `heartbeat`, use `from runez.heartbeat import ...`
-    * `prompt`, use `from runez.prompt import ...`
-    * `represent`, use `from runez.render import ...`
-    * `schema`, use `from runez.schema import ...`
-    * `thread`, use `from runez.thread import ...`
-    * `set_dryrun` (better applied via `runez.log.setup()`)
-    * `SANITIZED, SHELL, UNIQUE`, function `flattened()` now accepts more explicit boolean flags
-    * `class_descendants()`: not so useful after all, using decorators is better
+    - `heartbeat`, use `from runez.heartbeat import ...`
+    - `prompt`, use `from runez.prompt import ...`
+    - `represent`, use `from runez.render import ...`
+    - `schema`, use `from runez.schema import ...`
+    - `thread`, use `from runez.thread import ...`
+    - `set_dryrun` (better applied via `runez.log.setup()`)
+    - `SANITIZED, SHELL, UNIQUE`, function `flattened()` now accepts more explicit boolean flags
+    - `class_descendants()`: not so useful after all, using decorators is better
 
-    * `auto_import_siblings`, use `from runez.inspector import auto_import_siblings`
+    - `auto_import_siblings`, use `from runez.inspector import auto_import_siblings`
 
-    * `ActivateColors`, use `runez.colors.ActivateColors`
-    * `is_coloring`, use `runez.color.is_coloring`
-    * `SECONDS_IN_ONE_*`, use `runez.date.SECONDS_IN_ONE_*`
-    * `ini_to_dict`, use `runez.file.ini_to_dict`
-    * `is_younger`, use `runez.file.is_younger`
-    * `current_test`, use `runez.log.current_test`
-    * `dev_folder`, use `runez.log.dev_folder`
-    * `find_parent_folder`, use `runez.log.find_parent_folder`
-    * `program_path`, use `runez.log.program_path`
-    * `require_installed`, use `runez.program.require_installed`
-    * `align`, use `from runez.render import Align`
-    * `header`, use `from runez.render import Header`
-    * `PrettyTable`, use `from runez.render import PrettyTable`
-    * `json_sanitized`, use `runez.serialize.json_sanitized`
+    - `ActivateColors`, use `runez.colors.ActivateColors`
+    - `is_coloring`, use `runez.color.is_coloring`
+    - `SECONDS_IN_ONE_*`, use `runez.date.SECONDS_IN_ONE_*`
+    - `ini_to_dict`, use `runez.file.ini_to_dict`
+    - `is_younger`, use `runez.file.is_younger`
+    - `current_test`, use `runez.log.current_test`
+    - `dev_folder`, use `runez.log.dev_folder`
+    - `find_parent_folder`, use `runez.log.find_parent_folder`
+    - `program_path`, use `runez.log.program_path`
+    - `require_installed`, use `runez.program.require_installed`
+    - `align`, use `from runez.render import Align`
+    - `header`, use `from runez.render import Header`
+    - `PrettyTable`, use `from runez.render import PrettyTable`
+    - `json_sanitized`, use `runez.serialize.json_sanitized`
 
-* Enhanced:
+- Enhanced:
 
-    * `quoted()` can quote a single string, or a list of strings
-    * `readlines()` can now ignore empty lines, and return up to N first lines
+    - `quoted()` can quote a single string, or a list of strings
+    - `readlines()` can now ignore empty lines, and return up to N first lines
 
-    * Relevant click decorators are not exposed anymore by default, and auto-apply themselves:
+    - Relevant click decorators are not exposed anymore by default, and auto-apply themselves:
 
-        * `@runez.click.color()`
-        * `@runez.click.config()`
-        * `@runez.click.dryrun()`
+        - `@runez.click.color()`
+        - `@runez.click.config()`
+        - `@runez.click.dryrun()`
 
-* Added:
+- Added:
 
-    * `PrettyTable`, more flexible than the now abandoned and similar https://pypi.org/project/PrettyTable
-    * `runez.inspector` module, which mostly acts on context (auto-detects caller), and provide a few relevant features:
+    - `PrettyTable`, more flexible than the now abandoned and similar https://pypi.org/project/PrettyTable
+    - `runez.inspector` module, which mostly acts on context (auto-detects caller), and provide a few relevant features:
 
-        * `auto_import_siblings()`: automatically finds all siblings of calling module, and ensure
+        - `auto_import_siblings()`: automatically finds all siblings of calling module, and ensure
           every single one is `import`-ed, this is useful to avoid having to manually register `click`
           sub-commands of a large group
-        * `run_cmds()`: poor man's `click`-replacement, finds all `cmd_` functions in caller module
+        - `run_cmds()`: poor man's `click`-replacement, finds all `cmd_` functions in caller module
           and makes a multi-command out of them, with `--help` etc
 
 ## 1.8.8 - 2019-05-23
 
-* `get_version()` can now be silent
+- `get_version()` can now be silent
 
-* Removed `get_caller_name()`
+- Removed `get_caller_name()`
 
-* `runez.log.setup()` can now be called multiple times, to setup logs iteratively
+- `runez.log.setup()` can now be called multiple times, to setup logs iteratively
 
 ## 1.7.7 - 2019-04-23
 
-* Hint type of `runez.conftest.cli` for PyCharm's auto-complete
+- Hint type of `runez.conftest.cli` for PyCharm's auto-complete
 
-* Added support for `ignore=[...]` in `copy()`
+- Added support for `ignore=[...]` in `copy()`
 
-* Strip trailing spaces by default when saving pretty-printed json
+- Strip trailing spaces by default when saving pretty-printed json
 
-* Added `runez.log.spec.clean_handlers` (`True` by default), to automatically cleanup any pre-existing `logging.root.handlers`
+- Added `runez.log.spec.clean_handlers` (`True` by default), to automatically cleanup any pre-existing `logging.root.handlers`
 
-* Renamed `to_json` -> `from_json` (to avoid confusion)
+- Renamed `to_json` -> `from_json` (to avoid confusion)
 
-* Augmented all docstrings to accept `str` or `unicode`, to avoid type-check warnings in python 2.7
+- Augmented all docstrings to accept `str` or `unicode`, to avoid type-check warnings in python 2.7
 
-* Allow stacked `CaptureOutput`
+- Allow stacked `CaptureOutput`
 
 ## 1.6.12 - 2019-03-07
 
-* Better heartbeat
+- Better heartbeat
 
-* `runez.log.setup(rotate=)` raises more descriptive `ValueError` if bogus value passed
+- `runez.log.setup(rotate=)` raises more descriptive `ValueError` if bogus value passed
 
-* Added `runez.config` and `runez.click.config`
+- Added `runez.config` and `runez.click.config`
 
-* Added `runez.header()`
+- Added `runez.header()`
 
-* Auto-simplify `sys.argv` when running tests in pycharm
+- Auto-simplify `sys.argv` when running tests in pycharm
 
-* Removed `prop` (wasn't useful after all)
+- Removed `prop` (wasn't useful after all)
 
-* Modified `runez.log.setup()`:
+- Modified `runez.log.setup()`:
 
-    * Renamed `custom_location` to `file_location`
+    - Renamed `custom_location` to `file_location`
 
-    * Introducing `console_level`, and `file_level`
+    - Introducing `console_level`, and `file_level`
 
 ## 1.5.5 - 2019-02-22
 
-* Correctly handle `custom_location`
+- Correctly handle `custom_location`
 
-* Preparing for log file rotation support
+- Preparing for log file rotation support
 
-* Introduced `runez.UNSET` to distinguish between values not provided vs `None` (to avoid confusion)
+- Introduced `runez.UNSET` to distinguish between values not provided vs `None` (to avoid confusion)
 
-* `custom_location=` instead of `location=` in `runez.log.setup()`
+- `custom_location=` instead of `location=` in `runez.log.setup()`
 
-* `custom_location` is now part of `runez.log.spec`
+- `custom_location` is now part of `runez.log.spec`
   (meaning it can be set via `log.setup()`, or via `log.spec.set()`, just like all other settings)
 
 ## 1.4.4 - 2019-02-18
 
-* Removed `runez.State`, dryrun is now in `runez.DRYRUN`
+- Removed `runez.State`, dryrun is now in `runez.DRYRUN`
 
-* Removed `runez.debug()`, `runez.info()` etc, use `runez.log.setup()` then simply calls to `logging.debug()` etc
+- Removed `runez.debug()`, `runez.info()` etc, use `runez.log.setup()` then simply calls to `logging.debug()` etc
 
-* Added `runez.log.setup()`, a convenient way of performing typical logging setup in one line
+- Added `runez.log.setup()`, a convenient way of performing typical logging setup in one line
 
 ## 1.3.6 - 2019-01-24
 
-* Added `basename` and `prop`
+- Added `basename` and `prop`
 
-* Added `Heartbeat`, `shortened`, `testing`
+- Added `Heartbeat`, `shortened`, `testing`
 
-* Refactored code to allow for better
+- Refactored code to allow for better
 
-* Simplified names:
+- Simplified names:
 
-  ```text
+  ```
   JsonSerializable -> Serializable
   run_program()    -> run()
   write_contents() -> write()
@@ -939,6 +949,4 @@ Removed legacy pypi listing functions from `runez.pyenv`:
 
 ## 1.2.8 - 2018-10-01
 
-* Initial operational version
-
-[PEP-440]: https://peps.python.org/pep-0440/
+- Initial operational version

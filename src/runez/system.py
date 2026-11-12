@@ -808,9 +808,12 @@ class Anchored:
 
         text = stringified(text)
         if cls._paths:
-            for p in cls._paths:
-                if p:
-                    text = text.replace(p + os.path.sep, "")
+            anchors = [p for p in cls._paths if p]
+            for p in anchors:
+                text = text.replace(p + os.path.sep, "")
+
+            for p in anchors:  # An anchor itself (as a whole path, not a prefix of another one) shows as "."
+                text = re.sub(re.escape(p) + r"(?=$|[\s'\"),:;\]])", ".", text)
 
         if cls._home:
             text = text.replace(cls._home, "~")
