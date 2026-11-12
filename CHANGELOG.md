@@ -1,8 +1,12 @@
 # Changelog
 
-## 5.11.3 - 2026-11-11
+## 5.11.3
 
 - Test with py3.15
+
+- Fix caller inspection for executed code with a missing or null `__name__`.
+
+- Expand `~` when detecting the preferred Python symlink in configured installation locations.
 
 - `runez.short()` now shows an anchored folder itself as `.` (e.g. `Checking foo (.)`), not only paths
   under it; a sibling sharing the same prefix (e.g. `<anchor>-sibling`) is left untouched
